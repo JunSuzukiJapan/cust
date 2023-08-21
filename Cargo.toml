@@ -1,0 +1,7 @@
+[workspace]
+
+members = [
+    "cust",
+    "lexer",
+    "parser",
+]
