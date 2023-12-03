@@ -1,6 +1,7 @@
 use std::fmt;
 use super::Location;
 
+#[derive(Debug, Clone)]
 pub enum TokenizerError {
     IllegalEndOfInput(Option<Location>),
     SyntaxError(Option<Location>, &'static str, u32, u32),
