@@ -842,11 +842,11 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::IntLiteral(123));
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
 
                 let (tok, pos) = &v[1];
                 assert_eq!(*tok, Token::IntLiteral(0));
-                assert_eq!(*pos, Location {line: 1, column: 4});
+                assert_eq!(*pos, Location {line: 1, column: 5});
             },
             Err(_err)  => panic!("can't tokenize digit"),
         }
@@ -863,15 +863,15 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::CharLiteral('a' as i8));
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
 
                 let (tok, pos) = &v[1];
                 assert_eq!(*tok, Token::CharLiteral('錆' as i8));
-                assert_eq!(*pos, Location {line: 1, column: 4});
+                assert_eq!(*pos, Location {line: 1, column: 5});
 
                 let (tok, pos) = &v[2];
                 assert_eq!(*tok, Token::CharLiteral('\\' as i8));
-                assert_eq!(*pos, Location {line: 1, column: 8});
+                assert_eq!(*pos, Location {line: 1, column: 9});
             },
             Err(_err)  => panic!("can't tokenize {}", src),
         }
@@ -887,16 +887,16 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::DoubleLiteral(3.14));
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
 
                 let (tok, pos) = &v[1];
                 assert_eq!(*tok, Token::DoubleLiteral(1234500_f64));
-                assert_eq!(*pos, Location {line: 1, column: 5});
+                assert_eq!(*pos, Location {line: 1, column: 6});
 
                 let (tok, pos) = &v[2];
                 if let Token::DoubleLiteral(num) = tok {
                     assert!(12.3449 < *num && *num < 12.3451);
-                    assert_eq!(*pos, Location {line: 1, column: 13});
+                    assert_eq!(*pos, Location {line: 1, column: 14});
                 }else{
                     panic!("tokenize failed")
                 }
@@ -904,7 +904,7 @@ mod tests {
                 let (tok, pos) = &v[3];
                 if let Token::DoubleLiteral(num) = tok {
                     assert!(123449_f64 < *num && *num < 123451_f64);
-                    assert_eq!(*pos, Location {line: 1, column: 22});
+                    assert_eq!(*pos, Location {line: 1, column: 23});
                 }else{
                     panic!("tokenize failed")
                 }
@@ -912,7 +912,7 @@ mod tests {
                 let (tok, pos) = &v[4];
                 if let Token::DoubleLiteral(num) = tok {
                     assert!(12.3449 < *num && *num < 12.3451);
-                    assert_eq!(*pos, Location {line: 1, column: 31});
+                    assert_eq!(*pos, Location {line: 1, column: 32});
                 }else{
                     panic!("tokenize failed")
                 }
@@ -932,15 +932,15 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::StringLiteral("Hello, world!".to_string()));
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
 
                 let (tok, pos) = &v[1];
                 assert_eq!(*tok, Token::StringLiteral("こんにちは、世界。".to_string()));
-                assert_eq!(*pos, Location {line: 1, column: 16});
+                assert_eq!(*pos, Location {line: 1, column: 17});
 
                 let (tok, pos) = &v[2];
                 assert_eq!(*tok, Token::StringLiteral("\"文字列\"".to_string()));
-                assert_eq!(*pos, Location {line: 1, column: 28});
+                assert_eq!(*pos, Location {line: 1, column: 29});
             },
             Err(_err) => panic!("can't tokenize {}", src),
         }
@@ -957,15 +957,15 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Add);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
 
                 let (tok, pos) = &v[1];
                 assert_eq!(*tok, Token::AddAssign);
-                assert_eq!(*pos, Location {line: 1, column: 2});
+                assert_eq!(*pos, Location {line: 1, column: 3});
  
                 let (tok, pos) = &v[2];
                 assert_eq!(*tok, Token::Inc);
-                assert_eq!(*pos, Location {line: 1, column: 5});
+                assert_eq!(*pos, Location {line: 1, column: 6});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -982,15 +982,15 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Sub);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
 
                 let (tok, pos) = &v[1];
                 assert_eq!(*tok, Token::SubAssign);
-                assert_eq!(*pos, Location {line: 1, column: 2});
+                assert_eq!(*pos, Location {line: 1, column: 3});
 
                 let (tok, pos) = &v[2];
                 assert_eq!(*tok, Token::Dec);
-                assert_eq!(*pos, Location {line: 1, column: 5});
+                assert_eq!(*pos, Location {line: 1, column: 6});
              },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1007,11 +1007,11 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Mul);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
 
                 let (tok, pos) = &v[1];
                 assert_eq!(*tok, Token::MulAssign);
-                assert_eq!(*pos, Location {line: 1, column: 2});
+                assert_eq!(*pos, Location {line: 1, column: 3});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1028,11 +1028,11 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Div);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
 
                 let (tok, pos) = &v[1];
                 assert_eq!(*tok, Token::DivAssign);
-                assert_eq!(*pos, Location {line: 1, column: 2});
+                assert_eq!(*pos, Location {line: 1, column: 3});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1049,11 +1049,11 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Mod);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
 
                 let (tok, pos) = &v[1];
                 assert_eq!(*tok, Token::ModAssign);
-                assert_eq!(*pos, Location {line: 1, column: 2});
+                assert_eq!(*pos, Location {line: 1, column: 3});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1070,15 +1070,15 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Less);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
 
                 let (tok, pos) = &v[1];
                 assert_eq!(*tok, Token::LessEqual);
-                assert_eq!(*pos, Location {line: 1, column: 2});
+                assert_eq!(*pos, Location {line: 1, column: 3});
 
                 let (tok, pos) = &v[2];
                 assert_eq!(*tok, Token::ShiftLeft);
-                assert_eq!(*pos, Location {line: 1, column: 5});
+                assert_eq!(*pos, Location {line: 1, column: 6});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1095,15 +1095,15 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Greater);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
 
                 let (tok, pos) = &v[1];
                 assert_eq!(*tok, Token::GreaterEqual);
-                assert_eq!(*pos, Location {line: 1, column: 2});
+                assert_eq!(*pos, Location {line: 1, column: 3});
 
                 let (tok, pos) = &v[2];
                 assert_eq!(*tok, Token::ShiftRight);
-                assert_eq!(*pos, Location {line: 1, column: 5});
+                assert_eq!(*pos, Location {line: 1, column: 6});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1120,11 +1120,11 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Assign);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
 
                 let (tok, pos) = &v[1];
                 assert_eq!(*tok, Token::Equal);
-                assert_eq!(*pos, Location {line: 1, column: 2});
+                assert_eq!(*pos, Location {line: 1, column: 3});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1141,11 +1141,11 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Not);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
 
                 let (tok, pos) = &v[1];
                 assert_eq!(*tok, Token::NotEqual);
-                assert_eq!(*pos, Location {line: 1, column: 2});
+                assert_eq!(*pos, Location {line: 1, column: 3});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1162,15 +1162,15 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::BitAnd);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
 
                 let (tok, pos) = &v[1];
                 assert_eq!(*tok, Token::BitAndAssign);
-                assert_eq!(*pos, Location {line: 1, column: 2});
+                assert_eq!(*pos, Location {line: 1, column: 3});
 
                 let (tok, pos) = &v[2];
                 assert_eq!(*tok, Token::And);
-                assert_eq!(*pos, Location {line: 1, column: 5});
+                assert_eq!(*pos, Location {line: 1, column: 6});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1187,15 +1187,15 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::BitOr);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
 
                 let (tok, pos) = &v[1];
                 assert_eq!(*tok, Token::BitOrAssign);
-                assert_eq!(*pos, Location {line: 1, column: 2});
+                assert_eq!(*pos, Location {line: 1, column: 3});
 
                 let (tok, pos) = &v[2];
                 assert_eq!(*tok, Token::Or);
-                assert_eq!(*pos, Location {line: 1, column: 5});
+                assert_eq!(*pos, Location {line: 1, column: 6});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1212,11 +1212,11 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::BitXor);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
 
                 let (tok, pos) = &v[1];
                 assert_eq!(*tok, Token::BitXorAssign);
-                assert_eq!(*pos, Location {line: 1, column: 2});
+                assert_eq!(*pos, Location {line: 1, column: 3});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1233,7 +1233,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Tilda);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1250,7 +1250,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Question);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1267,43 +1267,43 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Colon);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
 
                 let (tok, pos) = &v[1];
                 assert_eq!(*tok, Token::SemiColon);
-                assert_eq!(*pos, Location {line: 1, column: 2});
+                assert_eq!(*pos, Location {line: 1, column: 3});
 
                 let (tok, pos) = &v[2];
                 assert_eq!(*tok, Token::Dot);
-                assert_eq!(*pos, Location {line: 1, column: 4});
+                assert_eq!(*pos, Location {line: 1, column: 5});
 
                 let (tok, pos) = &v[3];
                 assert_eq!(*tok, Token::MemberSelection);
-                assert_eq!(*pos, Location {line: 1, column: 6});
+                assert_eq!(*pos, Location {line: 1, column: 7});
 
                 let (tok, pos) = &v[4];
                 assert_eq!(*tok, Token::ParenLeft);
-                assert_eq!(*pos, Location {line: 1, column: 9});
+                assert_eq!(*pos, Location {line: 1, column: 10});
 
                 let (tok, pos) = &v[5];
                 assert_eq!(*tok, Token::ParenRight);
-                assert_eq!(*pos, Location {line: 1, column: 10});
+                assert_eq!(*pos, Location {line: 1, column: 11});
 
                 let (tok, pos) = &v[6];
                 assert_eq!(*tok, Token::BraceLeft);
-                assert_eq!(*pos, Location {line: 1, column: 12});
+                assert_eq!(*pos, Location {line: 1, column: 13});
 
                 let (tok, pos) = &v[7];
                 assert_eq!(*tok, Token::BraceRight);
-                assert_eq!(*pos, Location {line: 1, column: 13});
+                assert_eq!(*pos, Location {line: 1, column: 14});
 
                 let (tok, pos) = &v[8];
                 assert_eq!(*tok, Token::BracketLeft);
-                assert_eq!(*pos, Location {line: 1, column: 15});
+                assert_eq!(*pos, Location {line: 1, column: 16});
 
                 let (tok, pos) = &v[9];
                 assert_eq!(*tok, Token::BracketRight);
-                assert_eq!(*pos, Location {line: 1, column: 16});
+                assert_eq!(*pos, Location {line: 1, column: 17});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1320,23 +1320,23 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Int);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
 
                 let (tok, pos) = &v[1];
                 assert_eq!(*tok, Token::Symbol(String::from("x")));
-                assert_eq!(*pos, Location {line: 1, column: 4});
+                assert_eq!(*pos, Location {line: 1, column: 5});
 
                 let (tok, pos) = &v[2];
                 assert_eq!(*tok, Token::Assign);
-                assert_eq!(*pos, Location {line: 1, column: 6});
+                assert_eq!(*pos, Location {line: 1, column: 7});
 
                 let (tok, pos) = &v[3];
                 assert_eq!(*tok, Token::IntLiteral(0));
-                assert_eq!(*pos, Location {line: 1, column: 8});
+                assert_eq!(*pos, Location {line: 1, column: 9});
 
                 let (tok, pos) = &v[4];
                 assert_eq!(*tok, Token::SemiColon);
-                assert_eq!(*pos, Location {line: 1, column: 9});
+                assert_eq!(*pos, Location {line: 1, column: 10});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1349,7 +1349,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Auto);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1362,7 +1362,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Break);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1375,7 +1375,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Case);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1388,7 +1388,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Char);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1401,7 +1401,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Const);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1414,7 +1414,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Continue);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1427,7 +1427,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Default);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1440,7 +1440,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Do);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1453,7 +1453,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Double);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1466,7 +1466,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Else);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1479,7 +1479,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Enum);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1492,7 +1492,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Extern);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1505,7 +1505,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Float);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1518,7 +1518,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::For);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1531,7 +1531,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Goto);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1544,7 +1544,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::If);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1557,7 +1557,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Inline);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1570,7 +1570,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Int);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1583,7 +1583,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Long);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1596,7 +1596,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Register);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1609,7 +1609,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Restrict);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1622,7 +1622,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Return);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1635,7 +1635,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Short);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1648,7 +1648,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Signed);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1661,7 +1661,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Sizeof);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1674,7 +1674,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Static);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1687,7 +1687,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Struct);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1700,7 +1700,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Switch);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1713,7 +1713,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Typedef);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1726,7 +1726,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Union);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1739,7 +1739,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Unsigned);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1752,7 +1752,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Void);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1765,7 +1765,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Volatile);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1778,7 +1778,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::While);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1791,7 +1791,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::_Alignas);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1804,7 +1804,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::_Alignof);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1817,7 +1817,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::_Atomic);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1830,7 +1830,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::_Bool);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1843,7 +1843,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::_Complex);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1856,7 +1856,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::_Generic);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1869,7 +1869,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::_Imaginary);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1882,7 +1882,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::_Noreturn);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1895,7 +1895,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::_Static_assert);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1908,7 +1908,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::_Thread_local);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1921,7 +1921,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Trait);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1934,7 +1934,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Impl);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1947,7 +1947,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::_self);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1960,7 +1960,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Dyn);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1973,7 +1973,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Let);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1986,7 +1986,7 @@ mod tests {
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Match);
-                assert_eq!(*pos, Location {line: 1, column: 0});
+                assert_eq!(*pos, Location {line: 1, column: 1});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
