@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use std::fmt;
 
 #[allow(non_camel_case_types)]
