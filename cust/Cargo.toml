@@ -7,5 +7,5 @@ edition = "2021"
 
 [dependencies]
 
-lexer = { path = "../lexer" }
+tokenizer = { path = "../tokenizer" }
 parser = { path = "../parser" }

@@ -1,4 +1,4 @@
-extern crate lexer;
+extern crate tokenizer;
 extern crate parser;
 
 fn main() {
