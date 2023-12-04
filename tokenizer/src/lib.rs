@@ -5,6 +5,7 @@ mod tokenizer_error;
 mod location;
 
 use token::Token;
-use tokenizer_error::TokenizerError;
-use location::Location;
+pub use tokenizer_error::TokenizerError;
+pub use location::Location;
+pub use crate::tokenizer::Tokenizer;
 
