@@ -3,7 +3,7 @@
 pub struct Parser;
 
 impl Parser {
-    fn parse(token_list: Vec<(Token, Location)>) -> Result<Option<AST>, CompileError> {
+    fn parse(token_list: Vec<Token>) -> Result<Option<AST>, CompileError> {
         let mut iter = token_list.iter().peekable();
         let mut defs = Defines::new();
 
