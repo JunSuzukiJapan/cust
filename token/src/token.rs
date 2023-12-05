@@ -4,7 +4,7 @@ use std::fmt;
 
 #[allow(non_camel_case_types)]
 #[derive(Debug, PartialEq, Clone)]
-pub enum Token {
+pub enum TokenType {
     //
     // Literal
     //
@@ -143,28 +143,28 @@ pub enum Token {
     Match,
 }
 
-impl Token {
+impl TokenType {
     pub fn is_type(&self) -> bool {
         match self {
-            Token::Char | Token::Double | Token::Float | Token::Int | Token::Long | Token::Short | Token::Void => true,
+            TokenType::Char | TokenType::Double | TokenType::Float | TokenType::Int | TokenType::Long | TokenType::Short | TokenType::Void => true,
             // Token::Symbol(_name) => true,
             _ => false,
         }
     }
 }
 
-impl fmt::Display for Token {
+impl fmt::Display for TokenType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Token::_Bool  => write!(f, "_Bool"),
-            Token::Char   => write!(f, "char"),
-            Token::Double => write!(f, "double"),
-            Token::Float  => write!(f, "float"),
-            Token::Int    => write!(f, "int"),
-            Token::Long   => write!(f, "long"),
-            Token::Short  => write!(f, "short"),
-            Token::Void   => write!(f, "void"),
-            Token::Symbol(name) => write!(f, "{}", name),
+            TokenType::_Bool  => write!(f, "_Bool"),
+            TokenType::Char   => write!(f, "char"),
+            TokenType::Double => write!(f, "double"),
+            TokenType::Float  => write!(f, "float"),
+            TokenType::Int    => write!(f, "int"),
+            TokenType::Long   => write!(f, "long"),
+            TokenType::Short  => write!(f, "short"),
+            TokenType::Void   => write!(f, "void"),
+            TokenType::Symbol(name) => write!(f, "{}", name),
             _ => Err(fmt::Error),
         }
     }

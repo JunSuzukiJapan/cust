@@ -1,3 +1,3 @@
 mod token;
 
-pub use crate::token::Token;
+pub use crate::token::TokenType;
