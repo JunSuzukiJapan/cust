@@ -1,8 +1,8 @@
 extern crate token;
+extern crate location;
 
 mod tokenizer;
 mod tokenizer_error;
-mod location;
 
 use token::TokenType;
 pub use tokenizer_error::TokenizerError;

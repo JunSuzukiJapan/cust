@@ -2,6 +2,7 @@
 
 members = [
     "cust",
+    "location",
     "token",
     "tokenizer",
     "parser",
