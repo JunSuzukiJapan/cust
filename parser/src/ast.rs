@@ -1,4 +1,4 @@
-// #![allow(dead_code)]
+#![allow(dead_code)]
 
 // use super::tokenizer::*;
 // // use super::compile_error::CompileError;
@@ -959,8 +959,8 @@
 //     }
 // }
 
-// #[derive(Debug, Clone, PartialEq)]
-// pub enum AST {
+#[derive(Debug, Clone, PartialEq)]
+pub enum AST {
 //     TypeDef(String, Type),
 //     DefineStruct {
 //         name: Option<String>,
@@ -1014,7 +1014,7 @@
 
 
 
-// }
+}
 
 // impl AST {
 //     pub fn new_impl(impl_name: &str, impl_type: Type, for_something: Option<String>, functions: Vec<FunOrProto>) -> AST {
