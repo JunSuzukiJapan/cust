@@ -608,13 +608,13 @@
 //     }
 // }
 
-// #[derive(Debug, Clone, PartialEq)]
-// pub enum ExprAST {
+#[derive(Debug, Clone, PartialEq)]
+pub enum ExprAST {
 //     Assign(Box<ExprAST>, Box<ExprAST>),
 //     // Inc(Box<ExprAST>),
 //     // Dec(Box<ExprAST>),
-//     Char(i8),
-//     Int(u128),
+    Char(i8),
+    Int(u128),
 //     Short(i16),
 //     Long(i64),
 //     UChar(u8),
@@ -624,8 +624,8 @@
 //     LongLong(i128),
 //     ULongLong(u128),
 //     Float(f32),
-//     Double(f64),
-//     StringLiteral(String),
+    Double(f64),
+    StringLiteral(String),
 //     Symbol(String),
 //     BinExpr(BinOp, Box<ExprAST>, Box<ExprAST>),
 //     Not(Box<ExprAST>),
@@ -649,9 +649,9 @@
 //     },
 //     _Self,
 //     _self,
-// }
+}
 
-// impl ExprAST {
+impl ExprAST {
 //     pub fn is_signed(&self) -> Result<bool, CompileError> {
 //         match self {
 //             ExprAST::Char(_) | ExprAST::Int(_) | ExprAST::Short(_) | ExprAST::Long(_) => Ok(true),
@@ -957,7 +957,7 @@
 //             _ => false,
 //         }
 //     }
-// }
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum AST {
