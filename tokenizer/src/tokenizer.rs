@@ -759,7 +759,7 @@ impl Tokenizer {
                     if let Some(result) = self.next_char(ctx) {
                         if let Some(c) = self.next_char(ctx) {
                             if c == '\'' {
-                                Ok(Some((TokenType::CharLiteral(result as i8), start_pos)))
+                                Ok(Some((TokenType::CharLiteral(result as u32), start_pos)))
                             }else{
                                 Err(TokenizerError::IllegalCharWhileParsingCharAfter(Some(ctx.pos.clone()), c))
                             }
@@ -774,7 +774,7 @@ impl Tokenizer {
                 }else{
                     if let Some(c) = self.next_char(ctx) {
                         if c == '\'' {
-                            Ok(Some((TokenType::CharLiteral(result_ch as i8), start_pos)))
+                            Ok(Some((TokenType::CharLiteral(result_ch as u32), start_pos)))
                         }else{
                             Err(TokenizerError::IllegalEndOfInputWhileParsingCharAfter(Some(ctx.pos.clone()), c))
                         }
@@ -867,15 +867,15 @@ mod tests {
                 assert_eq!(v.len(), 3);
 
                 let tok = &v[0];
-                assert_eq!(*tok.get_type(), TokenType::CharLiteral('a' as i8));
+                assert_eq!(*tok.get_type(), TokenType::CharLiteral('a' as u32));
                 assert_eq!(*tok.get_location(), Location {line: 1, column: 1});
 
                 let tok = &v[1];
-                assert_eq!(*tok.get_type(), TokenType::CharLiteral('錆' as i8));
+                assert_eq!(*tok.get_type(), TokenType::CharLiteral('錆' as u32));
                 assert_eq!(*tok.get_location(), Location {line: 1, column: 5});
 
                 let tok = &v[2];
-                assert_eq!(*tok.get_type(), TokenType::CharLiteral('\\' as i8));
+                assert_eq!(*tok.get_type(), TokenType::CharLiteral('\\' as u32));
                 assert_eq!(*tok.get_location(), Location {line: 1, column: 9});
             },
             Err(_err)  => panic!("can't tokenize {}", src),

@@ -613,7 +613,7 @@ pub enum ExprAST {
 //     Assign(Box<ExprAST>, Box<ExprAST>),
 //     // Inc(Box<ExprAST>),
 //     // Dec(Box<ExprAST>),
-    Char(i8),
+    Char(u32),
     Int(u128),
 //     Short(i16),
 //     Long(i64),

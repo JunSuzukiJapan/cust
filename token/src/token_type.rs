@@ -8,7 +8,7 @@ pub enum TokenType {
     //
     // Literal
     //
-    CharLiteral(i8),
+    CharLiteral(u32),
     // UCharLiteral(u8),
     // ShortLiteral(i16),
     // UShortLiteral(u16),

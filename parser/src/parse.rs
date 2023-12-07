@@ -123,13 +123,37 @@ mod tests {
     }
 
     #[test]
-    fn parse_constant_int() {
+    fn parse_constant() {
+        let src = "'a'";
+        let ast = parse_constant_from_str(src).unwrap().unwrap();
+
+        assert_eq!(
+            ast,
+            ExprAST::Char('a' as u32)
+        );
+
         let src = "123";
         let ast = parse_constant_from_str(src).unwrap().unwrap();
 
         assert_eq!(
             ast,
             ExprAST::Int(123)
+        );
+
+        let src = "1.2";
+        let ast = parse_constant_from_str(src).unwrap().unwrap();
+
+        assert_eq!(
+            ast,
+            ExprAST::Double(1.2)
+        );
+
+        let src = "\"Hello world!\"";
+        let ast = parse_constant_from_str(src).unwrap().unwrap();
+
+        assert_eq!(
+            ast,
+            ExprAST::StringLiteral("Hello world!".into())
         );
     }
 }
