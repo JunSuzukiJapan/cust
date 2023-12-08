@@ -1,9 +1,10 @@
 #![allow(dead_code)]
 
 use super::{Token, TokenType};
-use super::{AST, ExprAST};
+use super::{AST, ExprAST, BinOp};
 use super::Defines;
 use super::ParserError;
+use crate::Location;
 use std::iter::Peekable;
 use std::slice::Iter;
 
@@ -41,6 +42,110 @@ impl Parser {
         Ok(declarations)
     }
 
+
+
+
+
+
+
+
+
+
+    pub fn parse_expression(&self, iter: &mut Peekable<Iter<Token>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ExprAST>, ParserError> {
+        if let Some(mut ast) = self.parse_assignment_expression(iter, defs, labels)? {
+            if let Some(tok) = iter.peek() {
+                let token_type = tok.get_type();
+                match token_type {
+                    TokenType::Comma => {
+                        if let Some(code) = self.parse_expression_sub(iter, ast.clone(), defs, labels)? {
+                            ast = code;
+                        }
+                    },
+                    _ => (),  // do nothing
+                }
+            }
+
+            Ok(Some(ast))
+        }else{  // None
+            Ok(None)
+        }
+    }
+
+    fn parse_expression_sub<'a>(&'a self, iter: &mut Peekable<Iter<Token>>, ast: ExprAST, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ExprAST>, ParserError> {
+        let mut result = None;
+
+        loop {
+            if let Some(tok) = iter.peek() {
+                let typ = tok.get_type();
+                match typ {
+                    TokenType::Comma => {
+                        iter.next(); // skip ','
+
+                        if let Some(right) = self.parse_expression(iter, defs, labels)? {
+                            if let Some(left) = result {
+                                result = Some(ExprAST::BinExpr(BinOp::Comma, Box::new(left), Box::new(right)));
+                            }else{
+                                result = Some(ExprAST::BinExpr(BinOp::Comma, Box::new(ast.clone()), Box::new(right)));
+                            }
+                        }else{
+                            return Err(ParserError::syntax_error(Some(tok.get_location().clone()), file!(), line!(), column!()));
+                        }
+                    },
+                    _ => break,
+                }
+            }else{
+                break;
+            }
+        }
+
+        Ok(result)
+    }
+
+    fn parse_primary_expression(&self, iter: &mut Peekable<Iter<Token>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ExprAST>, ParserError> {
+
+        if let Some(tok) = iter.peek() {
+            match &*tok.get_type() {
+                TokenType::Symbol(name) => {
+                    iter.next();  // skip symbol
+                    Ok(Some(ExprAST::Symbol(name.clone())))
+                },
+                TokenType::_Self => {
+                    iter.next();  // skip 'Self'
+                    Ok(Some(ExprAST::_Self))
+                },
+                TokenType::_self => {
+                    iter.next();  // skip 'self'
+                    Ok(Some(ExprAST::_self))
+                },
+                TokenType::ParenLeft => {
+                    iter.next(); // skip '('
+                    let result = self.parse_expression(iter, defs, labels)?;
+                    self.parse_expected_token(iter, TokenType::ParenRight)?;
+
+                    Ok(result)
+                },
+                _ => {
+                    self.parse_constant(iter, defs)
+                },
+            }
+        }else{
+            Ok(None)
+        }
+    }
+
+    fn parse_expected_token(&self, iter: &mut Peekable<Iter<Token>>, expected: TokenType) -> Result<Location, ParserError> {
+        if let Some(tok) = iter.next() {
+            let typ = tok.get_type();
+            if *typ == expected {
+                Ok(tok.get_location().clone())
+            }else{
+                Err(ParserError::without_expected_token(Some(tok.get_location().clone()), expected, typ.clone()))
+            }
+        }else{
+            Err(ParserError::illegal_end_of_input(None))
+        }
+    }
+
     fn parse_constant(&self, iter: &mut Peekable<Iter<Token>>, _defs: &mut Defines) -> Result<Option<ExprAST>, ParserError> {
         if let Some(tok) = iter.peek() {
 
@@ -49,46 +154,10 @@ impl Parser {
                     iter.next();
                     Ok(Some(ExprAST::Char(*ch)))
                 },
-                // TokenType::ShortLiteral(num) => {
-                //     iter.next();
-                //     Ok(Some(AST::Short(*num)))
-                // },
                 TokenType::IntLiteral(num) => {
                     iter.next();
                     Ok(Some(ExprAST::Int(*num)))
                 },
-                // TokenType::LongLiteral(num) => {
-                //     iter.next();
-                //     Ok(Some(ExprAST::Long(*num)))
-                // },
-                // TokenType::LongLongLiteral(num) => {
-                //     iter.next();
-                //     Ok(Some(ExprAST::LongLong(*num)))
-                // },
-                // TokenType::UCharLiteral(ch) => {
-                //     iter.next();
-                //     Ok(Some(ExprAST::UChar(*ch)))
-                // },
-                // TokenType::UShortLiteral(num) => {
-                //     iter.next();
-                //     Ok(Some(ExprAST::UShort(*num)))
-                // },
-                // TokenType::UIntLiteral(num) => {
-                //     iter.next();
-                //     Ok(Some(ExprAST::UInt(*num)))
-                // },
-                // TokenType::ULongLiteral(num) => {
-                //     iter.next();
-                //     Ok(Some(ExprAST::ULong(*num)))
-                // },
-                // TokenType::ULongLongLiteral(num) => {
-                //     iter.next();
-                //     Ok(Some(ExprAST::ULongLong(*num)))
-                // },
-                // TokenType::FloatLiteral(num) => {
-                //     iter.next();
-                //     Ok(Some(ExprAST::Float(*num)))
-                // },
                 TokenType::DoubleLiteral(num) => {
                     iter.next();
                     Ok(Some(ExprAST::Double(*num)))

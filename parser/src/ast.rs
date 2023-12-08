@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+use crate::ParserError;
+
 // use super::tokenizer::*;
 // // use super::compile_error::CompileError;
 // // use super::types::*;
@@ -55,54 +57,56 @@
 //     }
 // }
 
-// #[derive(Debug, Clone, PartialEq)]
-// pub enum BinOp {
-//     Add,
-//     Sub,
-//     Mul,
-//     Div,
-//     Mod,
-//     Equal,
-//     NotEqual,
-//     Less,
-//     LessEqual,
-//     Greater,
-//     GreaterEqual,
-//     And,
-//     Or,
-//     Comma,
-//     ShiftLeft,
-//     ShiftRight,
-//     BitAnd,
-//     BitOr,
-//     BitXor,
-// }
+use tokenizer::TokenType;
 
-// impl BinOp {
-//     pub fn from_token(tok: &Token) -> Result<BinOp, CompileError> {
-//         match tok {
-//             Token::Add => Ok(BinOp::Add),
-//             Token::Sub => Ok(BinOp::Sub),
-//             Token::Mul => Ok(BinOp::Mul),
-//             Token::Div => Ok(BinOp::Div),
-//             Token::Mod => Ok(BinOp::Mod),
-//             Token::Equal => Ok(BinOp::Equal),
-//             Token::NotEqual => Ok(BinOp::NotEqual),
-//             Token::Less => Ok(BinOp::Less),
-//             Token::LessEqual => Ok(BinOp::LessEqual),
-//             Token::Greater => Ok(BinOp::Greater),
-//             Token::GreaterEqual => Ok(BinOp::GreaterEqual),
-//             Token::And => Ok(BinOp::And),
-//             Token::Or => Ok(BinOp::Or),
-//             Token::ShiftLeft => Ok(BinOp::ShiftLeft),
-//             Token::ShiftRight => Ok(BinOp::ShiftRight),
-//             Token::BitAnd => Ok(BinOp::BitAnd),
-//             Token::BitOr => Ok(BinOp::BitOr),
-//             Token::BitXor => Ok(BinOp::BitXor),
-//             _ => Err(CompileError::no_such_a_operator(None, tok)),
-//         }
-//     }
-// }
+#[derive(Debug, Clone, PartialEq)]
+pub enum BinOp {
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Mod,
+    Equal,
+    NotEqual,
+    Less,
+    LessEqual,
+    Greater,
+    GreaterEqual,
+    And,
+    Or,
+    Comma,
+    ShiftLeft,
+    ShiftRight,
+    BitAnd,
+    BitOr,
+    BitXor,
+}
+
+impl BinOp {
+    pub fn from_token_type(token_type: &TokenType) -> Result<BinOp, ParserError> {
+        match token_type {
+            TokenType::Add => Ok(BinOp::Add),
+            TokenType::Sub => Ok(BinOp::Sub),
+            TokenType::Mul => Ok(BinOp::Mul),
+            TokenType::Div => Ok(BinOp::Div),
+            TokenType::Mod => Ok(BinOp::Mod),
+            TokenType::Equal => Ok(BinOp::Equal),
+            TokenType::NotEqual => Ok(BinOp::NotEqual),
+            TokenType::Less => Ok(BinOp::Less),
+            TokenType::LessEqual => Ok(BinOp::LessEqual),
+            TokenType::Greater => Ok(BinOp::Greater),
+            TokenType::GreaterEqual => Ok(BinOp::GreaterEqual),
+            TokenType::And => Ok(BinOp::And),
+            TokenType::Or => Ok(BinOp::Or),
+            TokenType::ShiftLeft => Ok(BinOp::ShiftLeft),
+            TokenType::ShiftRight => Ok(BinOp::ShiftRight),
+            TokenType::BitAnd => Ok(BinOp::BitAnd),
+            TokenType::BitOr => Ok(BinOp::BitOr),
+            TokenType::BitXor => Ok(BinOp::BitXor),
+            _ => Err(ParserError::no_such_a_operator(None, token_type.clone())),
+        }
+    }
+}
 
 // #[derive(Debug, Clone, PartialEq)]
 // pub struct StorageClassSpecifier {
@@ -626,8 +630,8 @@ pub enum ExprAST {
 //     Float(f32),
     Double(f64),
     StringLiteral(String),
-//     Symbol(String),
-//     BinExpr(BinOp, Box<ExprAST>, Box<ExprAST>),
+    Symbol(String),
+    BinExpr(BinOp, Box<ExprAST>, Box<ExprAST>),
 //     Not(Box<ExprAST>),
 //     UnaryMinus(Box<ExprAST>),
 //     UnaryTilda(Box<ExprAST>),
@@ -647,8 +651,8 @@ pub enum ExprAST {
 //         specifiers: DeclarationSpecifier,
 //         declarations: Vec<Declaration>,
 //     },
-//     _Self,
-//     _self,
+    _Self,
+    _self,
 }
 
 impl ExprAST {
