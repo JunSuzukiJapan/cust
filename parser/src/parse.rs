@@ -101,6 +101,131 @@ impl Parser {
         Ok(result)
     }
 
+    fn parse_conditional_expression(&self, iter: &mut Peekable<Iter<Token>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ExprAST>, ParserError> {
+        if let Some(expr) = self.parse_logical_or_expression(iter, defs, labels)? {
+            if let Some(tok) = iter.peek() {
+                if *tok.get_type() == TokenType::Question {
+                    iter.next();  // skip '?'
+                    let then_expr = self.parse_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(None, file!(), line!(), column!()))?;
+
+                    self.parse_expected_token(iter, TokenType::Colon)?;
+                    let else_expr = self.parse_conditional_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(None, file!(), line!(), column!()))?;
+
+                    Ok(Some(ExprAST::TernaryOperator(Box::new(expr), Box::new(then_expr), Box::new(else_expr))))
+
+                }else{
+                    Ok(Some(expr))
+                }
+            }else{
+                Ok(Some(expr))
+            }
+
+        }else{
+            Ok(None)
+        }
+    }
+
+    fn parse_logical_or_expression(&self, iter: &mut Peekable<Iter<Token>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ExprAST>, ParserError> {
+        if let Some(mut ast) = self.parse_logical_and_expression(iter, defs, labels)? {
+            if let Some(tok) = iter.peek() {
+                match tok.get_type() {
+                    TokenType::Or => {
+                        if let Some(code) = self.parse_logical_or_expression2(iter, ast.clone(), defs, labels)? {
+                            ast = code;
+                        }
+                    },
+                    _ => (),  // do nothing
+                }
+            }
+            Ok(Some(ast))
+
+        }else{  // None
+            Ok(None)
+        }
+    }
+
+    fn parse_logical_or_expression2(&self, iter: &mut Peekable<Iter<Token>>, ast: ExprAST, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ExprAST>, ParserError> {
+        let mut result = None;
+
+        loop {
+            if let Some(tok) = iter.peek() {
+                let typ = tok.get_type();
+                match typ {
+                    TokenType::Or => {
+                        let op = typ;
+                        iter.next(); // skip '||'
+
+                        if let Some(right) = self.parse_logical_and_expression(iter, defs, labels)? {
+                            if let Some(left) = result {
+                                result = Some(ExprAST::BinExpr(BinOp::from_token_type(op)?, Box::new(left), Box::new(right)));
+                            }else{
+                                result = Some(ExprAST::BinExpr(BinOp::from_token_type(op)?, Box::new(ast.clone()), Box::new(right)));
+                            }
+                        }else{
+                            return Err(ParserError::syntax_error(Some(tok.get_location().clone()), file!(), line!(), column!()));
+                        }
+                    },
+                    _ => break,
+                }
+            }else{
+                break;
+            }
+        }
+
+        Ok(result)
+    }
+
+
+    fn parse_logical_and_expression(&self, iter: &mut Peekable<Iter<Token>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ExprAST>, ParserError> {
+        if let Some(mut ast) = self.parse_inclusive_or_expression(iter, defs, labels)? {
+            if let Some(tok) = iter.peek() {
+                match tok.get_type() {
+                    TokenType::And => {
+                        if let Some(code) = self.parse_logical_and_expression2(iter, ast.clone(), defs, labels)? {
+                            ast = code;
+                        }
+                    },
+                    _ => (),  // do nothing
+                }
+            }
+            Ok(Some(ast))
+
+        }else{  // None
+            Ok(None)
+        }
+    }
+
+    fn parse_logical_and_expression2(&self, iter: &mut Peekable<Iter<Token>>, ast: ExprAST, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ExprAST>, ParserError> {
+        let mut result = None;
+
+        loop {
+            if let Some(tok) = iter.peek() {
+                let typ = tok.get_type();
+                match typ {
+                    TokenType::And => {
+                        let op = typ;
+                        iter.next(); // skip '&&'
+
+                        if let Some(right) = self.parse_inclusive_or_expression(iter, defs, labels)? {
+                            if let Some(left) = result {
+                                result = Some(ExprAST::BinExpr(BinOp::from_token_type(op)?, Box::new(left), Box::new(right)));
+                            }else{
+                                result = Some(ExprAST::BinExpr(BinOp::from_token_type(op)?, Box::new(ast.clone()), Box::new(right)));
+                            }
+                        }else{
+                            return Err(ParserError::syntax_error(Some(tok.get_location().clone()), file!(), line!(), column!()));
+                        }
+                    },
+                    _ => break,
+                }
+            }else{
+                break;
+            }
+        }
+
+        Ok(result)
+    }
+
     fn parse_assignment_expression(&self, iter: &mut Peekable<Iter<Token>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ExprAST>, ParserError> {
         if let Some(mut ast) = self.parse_logical_or_expression(iter, defs, labels)? {
             if let Some(tok) = iter.peek() {
