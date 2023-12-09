@@ -9,6 +9,7 @@ pub enum ParserError {
     IllegalEndOfInput(Option<Location>),
     WithoutExpectedToken{opt_loc: Option<Location>, expected: TokenType, real: TokenType},
     NoSuchAOperator{opt_loc: Option<Location>, token_type: TokenType},
+    NeedExpr(Option<Location>),
 }
 
 impl ParserError {
@@ -30,5 +31,9 @@ impl ParserError {
 
     pub fn no_such_a_operator(opt_loc: Option<Location>, token_type: TokenType) -> ParserError {
         ParserError::NoSuchAOperator { opt_loc, token_type }
+    }
+
+    pub fn need_expr(opt_loc: Option<Location>) -> ParserError {
+        ParserError::NeedExpr(opt_loc)
     }
 }

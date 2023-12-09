@@ -101,6 +101,133 @@ impl Parser {
         Ok(result)
     }
 
+    fn parse_assignment_expression(&self, iter: &mut Peekable<Iter<Token>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ExprAST>, ParserError> {
+        if let Some(mut ast) = self.parse_logical_or_expression(iter, defs, labels)? {
+            if let Some(tok) = iter.peek() {
+                match tok.get_type() {
+                    TokenType::Question => {
+                        iter.next();  // skip '?'
+                        let then_expr = self.parse_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(None, file!(), line!(), column!()))?;
+
+                        self.parse_expected_token(iter, TokenType::Colon)?;
+                        let else_expr = self.parse_conditional_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(None, file!(), line!(), column!()))?;
+    
+                        return Ok(Some(ExprAST::TernaryOperator(Box::new(ast), Box::new(then_expr), Box::new(else_expr))));
+                    },
+                    TokenType::Assign | TokenType::AddAssign | TokenType::SubAssign | TokenType::MulAssign | TokenType::DivAssign | TokenType::ModAssign 
+                     | TokenType:: ShiftLeftAssign | TokenType::ShiftRightAssign | TokenType::BitAndAssign | TokenType::BitOrAssign | TokenType::BitXorAssign =>
+                    {
+                        // if let Some(code) = self.parse_assignment_expression2(iter, ast.clone())? {
+                        //     ast = code;
+                        // }
+                        ast = self.parse_assignment_expression2(iter, ast, defs, labels)?;
+ 
+                    },
+                    _ => (),  // do nothing
+                }
+
+                Ok(Some(ast))
+
+            }else{
+                Ok(Some(ast))
+            }
+
+        }else{  // None
+            Ok(None)
+        }
+    }
+        
+    fn parse_assignment_expression2(&self, iter: &mut Peekable<Iter<Token>>, l_value: ExprAST, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<ExprAST, ParserError> {
+        let mut result = l_value;
+        loop {
+            if let Some(tok) = iter.peek() {
+                match tok.get_type() {
+                    TokenType::Assign => {
+                        iter.next();  // skip '='
+                        let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::need_expr(Some(tok.get_location().clone())))?;
+
+                        result = ExprAST::Assign(Box::new(result), Box::new(r_value));
+                    },
+                    TokenType::AddAssign => {
+                        iter.next(); // skip '+='
+                        let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(Some(tok.get_location().clone()), file!(), line!(), column!()))?;
+
+                        let add = ExprAST::BinExpr(BinOp::Add, Box::new(result.clone()), Box::new(r_value));
+                        result = ExprAST::Assign(Box::new(result), Box::new(add));
+                    },
+                    TokenType::SubAssign => {
+                        iter.next(); // skip '-='
+                        let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(Some(tok.get_location().clone()), file!(), line!(), column!()))?;
+
+                        let sub = ExprAST::BinExpr(BinOp::Sub, Box::new(result.clone()), Box::new(r_value));
+                        result = ExprAST::Assign(Box::new(result), Box::new(sub));
+                    },
+                    TokenType::MulAssign => {
+                        iter.next(); // skip '*='
+                        let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(Some(tok.get_location().clone()), file!(), line!(), column!()))?;
+
+                        let mul = ExprAST::BinExpr(BinOp::Mul, Box::new(result.clone()), Box::new(r_value));
+                        result = ExprAST::Assign(Box::new(result), Box::new(mul));
+                    },
+                    TokenType::DivAssign => {
+                        iter.next(); // skip '/='
+                        let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(Some(tok.get_location().clone()), file!(), line!(), column!()))?;
+
+                        let div = ExprAST::BinExpr(BinOp::Div, Box::new(result.clone()), Box::new(r_value));
+                        result = ExprAST::Assign(Box::new(result), Box::new(div));
+                    },
+                    TokenType::ModAssign => {
+                        iter.next(); // skip '%='
+                        let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(Some(tok.get_location().clone()), file!(), line!(), column!()))?;
+
+                        let res = ExprAST::BinExpr(BinOp::Mod, Box::new(result.clone()), Box::new(r_value));
+                        result = ExprAST::Assign(Box::new(result), Box::new(res));
+                    },
+                    TokenType::ShiftLeftAssign => {
+                        iter.next(); // skip '%='
+                        let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(Some(tok.get_location().clone()), file!(), line!(), column!()))?;
+
+                        let res = ExprAST::BinExpr(BinOp::ShiftLeft, Box::new(result.clone()), Box::new(r_value));
+                        result = ExprAST::Assign(Box::new(result), Box::new(res));
+                    },
+                    TokenType::ShiftRightAssign => {
+                        iter.next(); // skip '%='
+                        let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(Some(tok.get_location().clone()), file!(), line!(), column!()))?;
+
+                        let res = ExprAST::BinExpr(BinOp::ShiftRight, Box::new(result.clone()), Box::new(r_value));
+                        result = ExprAST::Assign(Box::new(result), Box::new(res));
+                    },
+                    TokenType::BitAndAssign => {
+                        iter.next(); // skip '%='
+                        let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(Some(tok.get_location().clone()), file!(), line!(), column!()))?;
+
+                        let res = ExprAST::BinExpr(BinOp::BitAnd, Box::new(result.clone()), Box::new(r_value));
+                        result = ExprAST::Assign(Box::new(result), Box::new(res));
+                    },
+                    TokenType::BitOrAssign => {
+                        iter.next(); // skip '%='
+                        let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(Some(tok.get_location().clone()), file!(), line!(), column!()))?;
+
+                        let res = ExprAST::BinExpr(BinOp::BitOr, Box::new(result.clone()), Box::new(r_value));
+                        result = ExprAST::Assign(Box::new(result), Box::new(res));
+                    },
+                    TokenType::BitXorAssign => {
+                        iter.next(); // skip '%='
+                        let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(Some(tok.get_location().clone()), file!(), line!(), column!()))?;
+
+                        let res = ExprAST::BinExpr(BinOp::BitXor, Box::new(result.clone()), Box::new(r_value));
+                        result = ExprAST::Assign(Box::new(result), Box::new(res));
+                    },
+
+                    _ => break,
+                }
+            }else{
+                break;
+            }
+        }
+        Ok(result)
+    }
+
     fn parse_primary_expression(&self, iter: &mut Peekable<Iter<Token>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ExprAST>, ParserError> {
 
         if let Some(tok) = iter.peek() {
