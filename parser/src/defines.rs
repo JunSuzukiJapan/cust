@@ -1,148 +1,149 @@
 // #![allow(dead_code)]
 
 // use super::{Type, ParserError, DeclarationSpecifier, Declarator, Params, ExprAST, ConstExpr, StructDefinition, EnumDefinition};
+use super::{ParserError, ExprAST};
 
-// use std::collections::HashMap;
+use std::collections::HashMap;
 
-// #[derive(Debug, PartialEq, Clone)]
-// enum DefineVar {
-//     Variable {
-//         name: String,
-//         typ: Type,
-//         init_expr: Option<ExprAST>,
-//     },
-//     Const {
-//         name: String,
-//         typ: Type,
-//         init_expr: ConstExpr,
-//     },
-//     Function {
-//         name: String,
-//         specifiers: DeclarationSpecifier,
-//         declarator: Declarator,
-//         params: Params,
-//     },
-// }
+#[derive(Debug, PartialEq, Clone)]
+enum DefineVar {
+    Variable {
+        name: String,
+        typ: Type,
+        init_expr: Option<ExprAST>,
+    },
+    Const {
+        name: String,
+        typ: Type,
+        init_expr: ConstExpr,
+    },
+    Function {
+        name: String,
+        specifiers: DeclarationSpecifier,
+        declarator: Declarator,
+        params: Params,
+    },
+}
 
-// impl DefineVar {
-//     pub fn new_var(name: &str, typ: &Type, init_expr: Option<ExprAST>) -> DefineVar {
-//         DefineVar::Variable {
-//             name: name.to_string(),
-//             typ: typ.clone(),
-//             init_expr: init_expr,
-//         }
-//     }
+impl DefineVar {
+    pub fn new_var(name: &str, typ: &Type, init_expr: Option<ExprAST>) -> DefineVar {
+        DefineVar::Variable {
+            name: name.to_string(),
+            typ: typ.clone(),
+            init_expr: init_expr,
+        }
+    }
 
-//     pub fn new_const(name: &str, typ: &Type, init_expr: ConstExpr) -> DefineVar {
-//         DefineVar::Const {
-//             name: name.to_string(),
-//             typ: typ.clone(),
-//             init_expr: init_expr,
-//         }
-//     }
+    pub fn new_const(name: &str, typ: &Type, init_expr: ConstExpr) -> DefineVar {
+        DefineVar::Const {
+            name: name.to_string(),
+            typ: typ.clone(),
+            init_expr: init_expr,
+        }
+    }
 
-//     pub fn new_function(name: &str, specifiers: DeclarationSpecifier, declarator: Declarator, params: Params) -> DefineVar {
-//         DefineVar::Function {
-//             name: name.to_string(),
-//             specifiers: specifiers,
-//             declarator: declarator,
-//             params: params,
-//         }
-//     }
-// }
+    pub fn new_function(name: &str, specifiers: DeclarationSpecifier, declarator: Declarator, params: Params) -> DefineVar {
+        DefineVar::Function {
+            name: name.to_string(),
+            specifiers: specifiers,
+            declarator: declarator,
+            params: params,
+        }
+    }
+}
 
-// /*
-//  * DefineType
-//  */
-// #[derive(Debug, PartialEq, Clone)]
-// enum DefineType {
-//     Struct {
-//         struct_type: Type,
-//     },
-//     Union {
-//         union_type: Type,
-//     },
-//     Enum {
-//         enum_type: Type,
-//     },
-//     TypeDef {
-//         name: String,
-//         source: Type,
-//     },
-//     _Self {
-//         self_type: Type,
-//     }
-// }
+/*
+ * DefineType
+ */
+#[derive(Debug, PartialEq, Clone)]
+enum DefineType {
+    Struct {
+        struct_type: Type,
+    },
+    Union {
+        union_type: Type,
+    },
+    Enum {
+        enum_type: Type,
+    },
+    TypeDef {
+        name: String,
+        source: Type,
+    },
+    _Self {
+        self_type: Type,
+    }
+}
 
-// impl DefineType {
-//     pub fn new_struct(name: &str, fields: StructDefinition) -> DefineType {
-//         let struct_type = Type::Struct { name: Some(name.to_string()), fields };
-//         DefineType::Struct {
-//             struct_type
-//         }
-//     }
+impl DefineType {
+    pub fn new_struct(name: &str, fields: StructDefinition) -> DefineType {
+        let struct_type = Type::Struct { name: Some(name.to_string()), fields };
+        DefineType::Struct {
+            struct_type
+        }
+    }
 
-//     pub fn new_union(name: &str, fields: StructDefinition) -> DefineType {
-//         let union_type = Type::Union { name: Some(name.to_string()), fields };
-//         DefineType::Union {
-//             union_type
-//         }
-//     }
+    pub fn new_union(name: &str, fields: StructDefinition) -> DefineType {
+        let union_type = Type::Union { name: Some(name.to_string()), fields };
+        DefineType::Union {
+            union_type
+        }
+    }
 
-//     pub fn new_enum(name: &str, enum_def: EnumDefinition) -> DefineType {
-//         let enum_type = Type::Enum { name: Some(name.to_string()), enum_def: enum_def };
-//         DefineType::Enum {
-//             enum_type
-//         }
-//     }
+    pub fn new_enum(name: &str, enum_def: EnumDefinition) -> DefineType {
+        let enum_type = Type::Enum { name: Some(name.to_string()), enum_def: enum_def };
+        DefineType::Enum {
+            enum_type
+        }
+    }
 
-//     pub fn new_typedef(name: &str, typ: &Type) -> DefineType {
-//         DefineType::TypeDef {
-//             name: name.to_string(),
-//             source: typ.clone(),
-//         }
-//     }
+    pub fn new_typedef(name: &str, typ: &Type) -> DefineType {
+        DefineType::TypeDef {
+            name: name.to_string(),
+            source: typ.clone(),
+        }
+    }
 
-//     pub fn new_self_type(typ: &Type) -> DefineType {
-//         DefineType::_Self {
-//             self_type: typ.clone(),
-//         }
-//     }
-// }
+    pub fn new_self_type(typ: &Type) -> DefineType {
+        DefineType::_Self {
+            self_type: typ.clone(),
+        }
+    }
+}
 
-// #[derive(Debug, PartialEq, Clone)]
-// struct Maps {
-//     pub def_map: HashMap<String, DefineVar>,
-//     pub type_map: HashMap<String, DefineType>,
-//     pub struct_map: HashMap<String, DefineType>,
-// }
+#[derive(Debug, PartialEq, Clone)]
+struct Maps {
+    pub def_map: HashMap<String, DefineVar>,
+    pub type_map: HashMap<String, DefineType>,
+    pub struct_map: HashMap<String, DefineType>,
+}
 
-// impl Maps {
-//     pub fn new() -> Maps {
-//         Maps {
-//             def_map: HashMap::new(),
-//             type_map: HashMap::new(),
-//             struct_map: HashMap::new(),
-//         }
-//     }
-// }
+impl Maps {
+    pub fn new() -> Maps {
+        Maps {
+            def_map: HashMap::new(),
+            type_map: HashMap::new(),
+            struct_map: HashMap::new(),
+        }
+    }
+}
 
 /*
  * Defines
  */
 #[derive(Debug, PartialEq, Clone)]
 pub struct Defines {
-//     // locals
-//     local_maps: Vec<Vec<Maps>>,
-//     // globals
-//     global_maps: Maps,
+    // locals
+    local_maps: Vec<Vec<Maps>>,
+    // globals
+    global_maps: Maps,
 }
 
 impl Defines {
     pub fn new() -> Defines {
         Defines {
-            // local_maps: vec![(Vec::new())],
-            // global_maps: Maps::new(),
+            local_maps: vec![(Vec::new())],
+            global_maps: Maps::new(),
         }
     }
 

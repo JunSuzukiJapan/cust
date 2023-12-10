@@ -1,20 +1,49 @@
 use tokenizer::TokenType;
-
+use crate::ConstExpr;
+use crate::Type;
 use crate::Location;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ParserError {
-    NotPointer,
+    NotPointer(Option<Location>, Type),
+    NotArray(Option<Location>, Type),
+    NotFunction(Option<Location>, Type),
+    NotNumberType(Option<Location>, Type),
+    NotNumberTypeToBeUnsigned(Option<Location>, Type),
     SyntaxError{opt_loc: Option<Location>, filename: &'static str, line: u32, column: u32},
     IllegalEndOfInput(Option<Location>),
     WithoutExpectedToken{opt_loc: Option<Location>, expected: TokenType, real: TokenType},
     NoSuchAOperator{opt_loc: Option<Location>, token_type: TokenType},
     NeedExpr(Option<Location>),
+    NoTypeDefined(Option<Location>),
+    NoExprWhileAccessArray(Option<Location>),
+    NoIdAfterDot(Option<Location>),
+    NoIdAfterArrow(Option<Location>),
+    NeedBraceRightOrCommaWhenParsingInitializerList(Option<Location>),
+    CannotConvertToUsize(Option<Location>, ConstExpr),
+    CannotApplyOperatorToFloat(Option<Location>, String),
+    CannotNotOfFloat(Option<Location>),
 }
 
 impl ParserError {
-    pub fn not_pointer() -> ParserError {
-        ParserError::NotPointer
+    pub fn not_pointer(opt_loc: Option<Location>, typ: &Type) -> ParserError {
+        ParserError::NotPointer(opt_loc, typ.clone())
+    }
+
+    pub fn not_array(opt_loc: Option<Location>, typ: &Type) -> ParserError {
+        ParserError::NotArray(opt_loc, typ.clone())
+    }
+
+    pub fn not_function(opt_loc: Option<Location>, typ: &Type) -> ParserError {
+        ParserError::NotFunction(opt_loc, typ.clone())
+    }
+
+    pub fn not_number_type(opt_loc: Option<Location>, typ: &Type) -> ParserError {
+        ParserError::NotNumberType(opt_loc, typ.clone())
+    }
+
+    pub fn not_number_type_to_be_unsigned(opt_loc: Option<Location>, typ: &Type) -> ParserError {
+        ParserError::NotNumberTypeToBeUnsigned(opt_loc, typ.clone())
     }
 
     pub fn syntax_error(opt_loc: Option<Location>, filename: &'static str, line: u32, column: u32) -> ParserError {
@@ -35,5 +64,37 @@ impl ParserError {
 
     pub fn need_expr(opt_loc: Option<Location>) -> ParserError {
         ParserError::NeedExpr(opt_loc)
+    }
+
+    pub fn no_type_defined(opt_loc: Option<Location>) -> ParserError {
+        ParserError::NoTypeDefined(opt_loc)
+    }
+
+    pub fn no_expr_while_access_array(opt_loc: Option<Location>) -> ParserError {
+        ParserError::NoExprWhileAccessArray(opt_loc)
+    }
+
+    pub fn no_id_after_dot(opt_loc: Option<Location>) -> ParserError {
+        ParserError::NoIdAfterDot(opt_loc)
+    }
+
+    pub fn no_id_after_arrow(opt_loc: Option<Location>) -> ParserError {
+        ParserError::NoIdAfterArrow(opt_loc)
+    }
+
+    pub fn need_brace_right_or_comma_when_parsing_initializer_list(opt_loc: Option<Location>) -> ParserError {
+        ParserError::NeedBraceRightOrCommaWhenParsingInitializerList(opt_loc)
+    }
+
+    pub fn cannot_convert_to_usize(opt_loc: Option<Location>, const_expr: &ConstExpr) -> ParserError {
+        ParserError::CannotConvertToUsize(opt_loc, const_expr.clone())
+    }
+
+    pub fn cannot_apply_operator_to_float(opt_loc: Option<Location>, msg: &str) -> ParserError {
+        ParserError::CannotApplyOperatorToFloat(opt_loc, msg.to_string())
+    }
+
+    pub fn cannot_not_of_float(opt_loc: Option<Location>) -> ParserError {
+        ParserError::CannotNotOfFloat(opt_loc)
     }
 }
