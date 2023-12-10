@@ -1,10 +1,11 @@
 use tokenizer::TokenType;
-use crate::ConstExpr;
+use crate::{ConstExpr, ExprAST};
 use crate::Type;
 use crate::Location;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ParserError {
+    NotNumber(Option<Location>, ExprAST),
     NotPointer(Option<Location>, Type),
     NotArray(Option<Location>, Type),
     NotFunction(Option<Location>, Type),
@@ -23,9 +24,17 @@ pub enum ParserError {
     CannotConvertToUsize(Option<Location>, ConstExpr),
     CannotApplyOperatorToFloat(Option<Location>, String),
     CannotNotOfFloat(Option<Location>),
+    AlreadyVarDefined(Option<Location>, String),
+    AlreadyTypeDefinedInEnv(Option<Location>, String),
+    AccessSelfTypeWithoutImpl(Option<Location>),
+    NoSuchAStruct(Option<Location>, String),
+    NoSuchAConstant(Option<Location>, String),
 }
 
 impl ParserError {
+    pub fn not_number(opt_loc: Option<Location>, exp: &ExprAST) -> ParserError {
+        ParserError::NotNumber(opt_loc, exp.clone())
+    }
     pub fn not_pointer(opt_loc: Option<Location>, typ: &Type) -> ParserError {
         ParserError::NotPointer(opt_loc, typ.clone())
     }
@@ -96,5 +105,25 @@ impl ParserError {
 
     pub fn cannot_not_of_float(opt_loc: Option<Location>) -> ParserError {
         ParserError::CannotNotOfFloat(opt_loc)
+    }
+
+    pub fn already_var_defined(opt_loc: Option<Location>, name: &str) -> ParserError {
+        ParserError::AlreadyVarDefined(opt_loc, name.to_string())
+    }
+
+    pub fn already_type_defined_in_env(opt_loc: Option<Location>, name: &str) -> ParserError {
+        ParserError::AlreadyTypeDefinedInEnv(opt_loc, name.to_string())
+    }
+
+    pub fn access_self_type_without_impl(opt_loc: Option<Location>) -> ParserError {
+        ParserError::AccessSelfTypeWithoutImpl(opt_loc)
+    }
+
+    pub fn no_such_a_struct(opt_loc: Option<Location>, name: &str) -> ParserError {
+        ParserError::NoSuchAStruct(opt_loc, name.to_string())
+    }
+
+    pub fn no_such_a_constant(opt_loc: Option<Location>, name: &str) -> ParserError {
+        ParserError::NoSuchAConstant(opt_loc, name.to_string())
     }
 }

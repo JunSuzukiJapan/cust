@@ -1,9 +1,10 @@
 #![allow(dead_code)]
 
 use super::{Token, TokenType};
-use super::{AST, ExprAST, BinOp};
+use super::{AST, ExprAST, BinOp, DeclarationSpecifier, DeclarationSpecifierOrVariadic, SpecifierQualifier, SpecifierQualifierOrVariadic};
 use super::Defines;
 use super::ParserError;
+use super::{Type, TypeOrVariadic};
 use crate::Location;
 use std::iter::Peekable;
 use std::slice::Iter;
@@ -43,6 +44,398 @@ impl Parser {
     }
 
 
+    fn parse_declaration_specifier(&self, iter: &mut Peekable<Iter<Token>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<DeclarationSpecifierOrVariadic, ParserError> {
+        let (sq, type_or_variadic) = self.parse_type_specifier_qualifier(iter, defs, labels)?;
+
+        match type_or_variadic {
+            TypeOrVariadic::Type(typ) => {
+                let ds = DeclarationSpecifier::new(typ, sq);
+                Ok(DeclarationSpecifierOrVariadic::DS(ds))
+            },
+            TypeOrVariadic::Variadic => Ok(DeclarationSpecifierOrVariadic::Variadic),
+        }
+    }
+
+    fn parse_type_specifier_qualifier(&self, iter: &mut Peekable<Iter<Token>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<(SpecifierQualifier, TypeOrVariadic), ParserError> {
+        let mut sq = SpecifierQualifier::new();
+        let mut opt_signed: Option<(bool, Location)> = None;
+        let mut opt_unsigned: Option<(bool, Location)> = None;
+        let mut opt_type: Option<(Type, Location)> = None;
+
+        loop {
+            if let Some(tok) = iter.peek() {
+                match tok.get_type() {
+                    TokenType::Equal | TokenType::SemiColon | TokenType::ParenLeft | TokenType::BracketLeft | TokenType::Comma | TokenType::ParenRight => {
+                        break;
+                    },
+
+                    //
+                    // storage class specifiers
+                    //
+                    TokenType::Auto => {
+                        iter.next();
+                        sq.set_auto()?;
+                    },
+                    TokenType::Register => {
+                        iter.next();
+                        sq.set_register()?;
+                    }
+                    TokenType::Static => {
+                        iter.next();
+                        sq.set_static()?;
+                    },
+                    TokenType::Extern => {
+                        iter.next();
+                        sq.set_extern()?;
+                    },
+                    TokenType::Typedef => {
+                        iter.next();
+                        sq.set_typedef()?;
+                    },
+
+                    //
+                    // type qualifiers
+                    //
+                    TokenType::Const => {
+                        iter.next();
+                        sq.set_const()?;
+                    },
+                    TokenType::Volatile => {
+                        iter.next();
+                        sq.set_volatile()?;
+                    },
+                    TokenType::TripleDot => {
+                        iter.next();  // skip '...'
+                        return Ok((sq, TypeOrVariadic::Variadic));
+                    },
+
+                    //
+                    // Type
+                    //
+                    TokenType::Symbol(name) => {
+                        if opt_type.is_some() {
+                            break;
+                        }
+
+                        if let Some(t) = defs.get_type(name) {
+                            iter.next();  // skip Symbol
+                            opt_type = Some((t.clone(), pos.clone()));
+                        }else{
+                            break;
+                        }
+                    },
+                    TokenType::_Self => {
+                        if opt_type.is_some() {
+                            break;
+                        }
+
+                        if let Some(t) = defs.get_type("Self") {
+                            iter.next();  // skip 'Self'
+                            opt_type = Some((t.clone(), pos.clone()));
+                        }else{
+                            break;
+                        }
+                    },
+                    TokenType::Struct => {
+                        iter.next();  // skip 'struct'
+
+                        let (tok2, pos2) = iter.peek().ok_or(ParserError::illegal_end_of_input(Some(pos.clone())))?;
+                        match tok2 {
+                            TokenType::Symbol(name) => {
+                                iter.next();  // skip Symbol
+
+                                let (tok3, _pos3) = iter.peek().ok_or(ParserError::illegal_end_of_input(Some(pos.clone())))?;
+                                match tok3 {
+                                    TokenType::BraceLeft => {
+                                        iter.next();  // skip '{'
+
+                                        let declaration = self.parse_struct_declaration_list(iter, defs, labels)?;
+                                        let definition = StructDefinition::try_new(Some(name.clone()), Some(declaration))?;
+                                        let type_struct = Type::struct_from_struct_definition(Some(name.clone()), definition.clone());
+                                        defs.set_struct(name, definition)?;
+
+                                        opt_type = Some((
+                                            type_struct,
+                                            pos.clone()
+                                        ));
+
+                                        self.parse_expected_token(iter, TokenType::BraceRight)?;
+                                    },
+                                    _ => {
+                                        let type_struct = if let Some(t) = defs.get_type(&name) {
+                                            t.clone()
+                                        }else{
+                                            let definition = StructDefinition::try_new(Some(name.clone()), None)?;
+                                            Type::struct_from_struct_definition(Some(name.clone()), definition)
+                                        };
+
+                                        opt_type = Some((
+                                            type_struct,
+                                            pos.clone()
+                                        ));
+                                    },
+                                }
+                            },
+                            TokenType::BraceLeft => {
+                                iter.next();  // skip '{'
+                                let declaration = self.parse_struct_declaration_list(iter, defs, labels)?;
+                                let definition = StructDefinition::try_new(None, Some(declaration))?;
+                                let type_struct = Type::struct_from_struct_definition(None, definition);
+                                opt_type = Some((
+                                    type_struct,
+                                    pos.clone()
+                                ));
+
+                                self.parse_expected_token(iter, TokenType::BraceRight)?;
+                            },
+                            _ => {
+                                return Err(ParserError::syntax_error(Some(pos2.clone()), file!(), line!(), column!()));
+                            }
+                        }
+                    },
+                    TokenType::Union => {
+                        iter.next();  // skip 'union'
+
+                        let (tok2, pos2) = iter.peek().ok_or(ParserError::illegal_end_of_input(Some(pos.clone())))?;
+                        match tok2 {
+                            TokenType::Symbol(name) => {
+                                iter.next();  // skip Symbol
+
+                                let (tok3, _pos3) = iter.peek().ok_or(ParserError::illegal_end_of_input(Some(pos.clone())))?;
+                                match tok3 {
+                                    TokenType::BraceLeft => {
+                                        iter.next();  // skip '{'
+
+                                        let declaration = self.parse_struct_declaration_list(iter, defs, labels)?;
+                                        let definition = StructDefinition::try_new(Some(name.clone()), Some(declaration))?;
+                                        let type_union = Type::union_from_struct_definition(Some(name.clone()), definition.clone());
+                                        defs.set_union(name, definition)?;
+
+                                        opt_type = Some((
+                                            type_union,
+                                            pos.clone()
+                                        ));
+
+                                        self.parse_expected_token(iter, TokenType::BraceRight)?;
+                                    },
+                                    _ => {
+                                        let type_union = if let Some(t) = defs.get_type(&name) {
+                                            t.clone()
+                                        }else{
+                                            let definition = StructDefinition::try_new(Some(name.clone()), None)?;
+                                            Type::union_from_struct_definition(Some(name.clone()), definition)
+                                        };
+
+                                        // let definition = StructDefinition::try_new(Some(name.clone()), None)?;
+                                        // let type_union = Type::union_from_struct_definition(Some(name.clone()), definition);
+
+                                        opt_type = Some((
+                                            type_union,
+                                            pos.clone()
+                                        ));
+                                    },
+                                }
+                            },
+                            TokenType::BraceLeft => {
+                                iter.next();  // skip '{'
+                                let declaration = self.parse_struct_declaration_list(iter, defs, labels)?;
+                                let definition = StructDefinition::try_new(None, Some(declaration))?;
+                                let type_struct = Type::union_from_struct_definition(None, definition);
+                                opt_type = Some((
+                                    type_struct,
+                                    pos.clone()
+                                ));
+
+                                self.parse_expected_token(iter, TokenType::BraceRight)?;
+                            },
+                            _ => {
+                                return Err(ParserError::syntax_error(Some(pos2.clone()), file!(), line!(), column!()));
+                            }
+                        }
+                    },
+                    TokenType::Enum => {
+                        iter.next();  // skip 'enum'
+
+                        let (tok2, pos2) = iter.peek().ok_or(ParserError::illegal_end_of_input(Some(pos.clone())))?;
+                        match tok2 {
+                            TokenType::Symbol(name) => {
+                                iter.next();  // skip Symbol
+                
+                                let (tok3, _pos3) = iter.peek().ok_or(ParserError::illegal_end_of_input(Some(pos.clone())))?;
+                                match tok3 {
+                                    TokenType::BraceLeft => {
+                                        iter.next();  // skip '{'
+                
+                                        let enum_list = self.parse_enumerator_list(iter, defs, labels)?;
+                                        let definition = EnumDefinition::new(Some(name.clone()), Some(enum_list));
+                                        let type_struct = Type::enum_from_enum_definition(Some(name.clone()), definition.clone());
+                                        defs.set_enum(name, definition)?;
+                
+                                        opt_type = Some((
+                                            type_struct,
+                                            pos.clone()
+                                        ));
+                
+                                        self.parse_expected_token(iter, TokenType::BraceRight)?;
+                                    },
+                                    _ => {
+                                        let type_struct = if let Some(t) = defs.get_type(&name) {
+                                            t.clone()
+                                        }else{
+                                            let definition = EnumDefinition::new(Some(name.clone()), None);
+                                            Type::enum_from_enum_definition(Some(name.clone()), definition)
+                                        };
+                
+                                        opt_type = Some((
+                                            type_struct,
+                                            pos.clone()
+                                        ));
+                                    },
+                                }
+                            },
+                            TokenType::BraceLeft => {
+                                iter.next();  // skip '{'
+                                let enum_list = self.parse_enumerator_list(iter, defs, labels)?;
+                                let definition = EnumDefinition::new(None, Some(enum_list));
+                                let type_struct = Type::enum_from_enum_definition(None, definition);
+                                opt_type = Some((
+                                    type_struct,
+                                    pos.clone()
+                                ));
+                
+                                self.parse_expected_token(iter, TokenType::BraceRight)?;
+                            },
+                            _ => {
+                                return Err(ParserError::syntax_error(Some(pos2.clone()), file!(), line!(), column!()));
+                            }
+                        }
+                    },
+                    TokenType::Signed => {
+                        iter.next();
+                        if let Some((true, pre_pos)) = opt_unsigned {
+                            return Err(ParserError::cannot_combine_with_previous_unsigned_declaration_specifier(Some(pos.clone()), pre_pos.clone()));
+                        }
+                        if let Some((typ, _pos)) = &opt_type {
+                            if ! typ.can_sign() {
+                                return Err(ParserError::not_number_signed(Some(pos.clone()), &typ));
+                            }
+                        }
+                        opt_signed = Some((true, pos.clone()));
+                    },
+                    TokenType::Unsigned => {
+                        iter.next();
+                        if let Some((true, pre_pos)) = opt_signed {
+                            return Err(ParserError::cannot_combine_with_previous_signed_declaration_specifier(Some(pos.clone()), pre_pos.clone()));
+                        }
+                        if let Some((typ, _pos)) = &opt_type {
+                            if ! typ.can_sign() {
+                                return Err(ParserError::not_number_unsigned(Some(pos.clone()), &typ));
+                            }
+                        }
+                        opt_unsigned = Some((true, pos.clone()));
+                    },
+                    TokenType::Void => {
+                        iter.next();
+                        if let Some((pre_type, pre_pos)) = &opt_type {
+                            return Err(ParserError::already_type_defined(Some(pos.clone()), &Type::Void, &pre_type, &pre_pos));
+                        }
+                        opt_type = Some((Type::Void, pos.clone()));
+                    },
+                    TokenType::_Bool => {
+                        iter.next();
+                        if let Some((pre_type, pre_pos)) = &opt_type {
+                            return Err(ParserError::already_type_defined(Some(pos.clone()), &Type::Number(NumberType::_Bool), &pre_type, &pre_pos));
+                        }
+                        opt_type = Some((Type::Number(NumberType::_Bool), pos.clone()));
+                    }
+                    TokenType::Char => {
+                        iter.next();
+                        if let Some((pre_type, pre_pos)) = &opt_type {
+                            return Err(ParserError::already_type_defined(Some(pos.clone()), &Type::Number(NumberType::Char), &pre_type, &pre_pos));
+                        }
+                        opt_type = Some((Type::Number(NumberType::Char), pos.clone()));
+                    },
+                    TokenType::Short => {
+                        iter.next();
+                        if let Some((pre_type, pre_pos)) = &opt_type {
+                            match pre_type {
+                                Type::Number(NumberType::Int) => {
+                                    opt_type = Some((Type::Number(NumberType::Short), pre_pos.clone()));
+                                    continue;
+                                },
+                                _ => {
+                                    return Err(ParserError::already_type_defined(Some(pos.clone()), &Type::Number(NumberType::Short), &pre_type, &pre_pos));
+                                },
+                            }
+                        }
+                        opt_type = Some((Type::Number(NumberType::Short), pos.clone()));
+                    },
+                    TokenType::Int => {
+                        iter.next();
+                        if let Some((pre_type, pre_pos)) = &opt_type {
+                            match pre_type {
+                                Type::Number(NumberType::Short) | Type::Number(NumberType::Long) | Type::Number(NumberType::LongLong) => {
+                                    continue;
+                                },
+                                _ => {
+                                    return Err(ParserError::already_type_defined(Some(pos.clone()), &Type::Number(NumberType::Int), &pre_type, &pre_pos));
+                                },
+                            }
+                        }
+                        opt_type = Some((Type::Number(NumberType::Int), pos.clone()));
+                    },
+                    TokenType::Long => {
+                        iter.next();
+                        if let Some((pre_type, pre_pos)) = &opt_type {
+                            match pre_type {
+                                Type::Number(NumberType::Int) => {
+                                    opt_type = Some((Type::Number(NumberType::Long), pre_pos.clone()));
+                                    continue;
+                                },
+                                Type::Number(NumberType::Long) => {
+                                    opt_type = Some((Type::Number(NumberType::LongLong), pre_pos.clone()));
+                                    continue;
+                                },
+                                _ => {
+                                    return Err(ParserError::already_type_defined(Some(pos.clone()), &Type::Number(NumberType::Long), &pre_type, &pre_pos));
+                                },
+                            }
+                        }
+                        opt_type = Some((Type::Number(NumberType::Long), pos.clone()));
+                    },
+                    TokenType::Float => {
+                        iter.next();
+                        if let Some((pre_type, pre_pos)) = &opt_type {
+                            return Err(ParserError::already_type_defined(Some(pos.clone()), &Type::Number(NumberType::Float), &pre_type, &pre_pos));
+                        }
+                        opt_type = Some((Type::Number(NumberType::Float), pos.clone()));
+                    },
+                    TokenType::Double => {
+                        iter.next();
+                        if let Some((pre_type, pre_pos)) = &opt_type {
+                            return Err(ParserError::already_type_defined(Some(pos.clone()), &Type::Number(NumberType::Double), &pre_type, &pre_pos));
+                        }
+                        opt_type = Some((Type::Number(NumberType::Double), pos.clone()));
+                    },
+                    _ => {
+                        break;
+                    },
+                }
+
+            }else{
+                break;
+            }
+        }
+
+        let (typ, _pos) = opt_type.ok_or(ParserError::no_type_defined(None))?;
+        let typ = if let Some((true, _)) = opt_unsigned {
+            typ.to_unsigned()?
+        }else{
+            typ
+        };
+
+        Ok((sq, TypeOrVariadic::Type(typ)))
+    }
 
 
 
@@ -110,7 +503,7 @@ impl Parser {
     // fn parse_typedef_name(&self, _iter: &mut Peekable<Iter<(Token, Position)>>, _defs: &mut Defines) -> Result<Option<TypeSpecifier>, ParserError> {
     // }
 
-    fn parse_declaration(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<AST>, ParserError> {
+    fn parse_declaration(&self, iter: &mut Peekable<Iter<Token>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<AST>, ParserError> {
         let ds = self.parse_declaration_specifier(iter, defs, labels)?;
         let ds = ds.get_declaration_specifier().unwrap();
 
