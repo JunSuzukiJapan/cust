@@ -29,6 +29,9 @@ pub enum ParserError {
     AccessSelfTypeWithoutImpl(Option<Location>),
     NoSuchAStruct(Option<Location>, String),
     NoSuchAConstant(Option<Location>, String),
+    IsNotConstant(Option<Location>, ExprAST),
+    CannotGetBlock(Option<Location>),
+    NotDefvarWhenGet(Option<Location>),
 }
 
 impl ParserError {
@@ -125,5 +128,17 @@ impl ParserError {
 
     pub fn no_such_a_constant(opt_loc: Option<Location>, name: &str) -> ParserError {
         ParserError::NoSuchAConstant(opt_loc, name.to_string())
+    }
+
+    pub fn is_not_constant(opt_loc: Option<Location>, expr: &ExprAST) -> ParserError {
+        ParserError::IsNotConstant(opt_loc, expr.clone())
+    }
+
+    pub fn cannot_get_block(opt_loc: Option<Location>) -> ParserError {
+        ParserError::CannotGetBlock(opt_loc)
+    }
+
+    pub fn not_defvar_when_get(opt_loc: Option<Location>) -> ParserError {
+        ParserError::NotDefvarWhenGet(opt_loc)
     }
 }

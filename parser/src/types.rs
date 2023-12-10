@@ -3,7 +3,7 @@
 // use crate::compiler::CodeGen;
 
 // use super::{ParserError, StructDeclaration, SpecifierQualifier, Defines, ConstExpr};
-use super::{ParserError, Defines};
+use super::{ParserError, Defines, StructDeclaration};
 
 // use inkwell::AddressSpace;
 // use inkwell::context::Context;

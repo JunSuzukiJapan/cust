@@ -1,6 +1,3 @@
-// #![allow(dead_code)]
-
-// use super::{Type, ParserError, DeclarationSpecifier, Declarator, Params, ExprAST, ConstExpr, StructDefinition, EnumDefinition};
 use super::{ParserError, ExprAST, Type, ConstExpr, DeclarationSpecifier, Declarator, Params};
 use super::{StructDefinition, EnumDefinition};
 

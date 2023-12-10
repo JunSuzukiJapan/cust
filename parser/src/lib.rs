@@ -11,6 +11,7 @@ pub use crate::tokenizer::{Location, Tokenizer, Token, TokenType};
 pub use parser_error::ParserError;
 pub use ast::{AST, ExprAST, BinOp, Declaration, Declarator, Params};
 pub use ast::{DeclarationSpecifier, DeclarationSpecifierOrVariadic, SpecifierQualifier, SpecifierQualifierOrVariadic};
+pub use ast::{StructDeclaration};
 pub use defines::Defines;
-pub use types::{Type, TypeOrVariadic, Pointer, StructDefinition, EnumDefinition};
+pub use types::{Type, NumberType, TypeOrVariadic, Pointer, StructDefinition, EnumDefinition};
 pub use const_expr::ConstExpr;
