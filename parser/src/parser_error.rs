@@ -1,5 +1,5 @@
 use tokenizer::TokenType;
-use crate::{ConstExpr, ExprAST};
+use crate::{ConstExpr, ExprAST, SpecifierQualifier, TypeOrVariadic};
 use crate::Type;
 use crate::Location;
 
@@ -26,12 +26,24 @@ pub enum ParserError {
     CannotNotOfFloat(Option<Location>),
     AlreadyVarDefined(Option<Location>, String),
     AlreadyTypeDefinedInEnv(Option<Location>, String),
+    AlreadyTypeDefined {
+        opt_loc: Option<Location>,
+        typ: Type,
+        pre_type: Type,
+        pre_loc: Location,
+    },
     AccessSelfTypeWithoutImpl(Option<Location>),
     NoSuchAStruct(Option<Location>, String),
     NoSuchAConstant(Option<Location>, String),
     IsNotConstant(Option<Location>, ExprAST),
     CannotGetBlock(Option<Location>),
     NotDefvarWhenGet(Option<Location>),
+    CannotCombineWithPreviousSignedDeclarationSpecifier(Option<Location>, Location),
+    CannotCombineWithPreviousUnsignedDeclarationSpecifier(Option<Location>, Location),
+    NotNumberSigned(Option<Location>, Type),
+    NotNumberUnsigned(Option<Location>, Type),
+    SyntaxErrorWhileParsingStruct(Option<Location>, SpecifierQualifier, TypeOrVariadic),
+    NotSelfAfterRef(Option<Location>),
 }
 
 impl ParserError {
@@ -140,5 +152,33 @@ impl ParserError {
 
     pub fn not_defvar_when_get(opt_loc: Option<Location>) -> ParserError {
         ParserError::NotDefvarWhenGet(opt_loc)
+    }
+
+    pub fn cannot_combine_with_previous_signed_declaration_specifier(opt_loc: Option<Location>, pre_loc: Location) -> ParserError {
+        ParserError::CannotCombineWithPreviousUnsignedDeclarationSpecifier(opt_loc, pre_loc)
+    }
+
+    pub fn cannot_combine_with_previous_unsigned_declaration_specifier(opt_loc: Option<Location>, pre_loc: Location) -> ParserError {
+        ParserError::CannotCombineWithPreviousUnsignedDeclarationSpecifier(opt_loc, pre_loc)
+    }
+
+    pub fn not_number_signed(opt_loc: Option<Location>, typ: &Type) -> ParserError {
+        ParserError::NotNumberSigned(opt_loc, typ.clone())
+    }
+
+    pub fn not_number_unsigned(opt_loc: Option<Location>, typ: &Type) -> ParserError {
+        ParserError::NotNumberUnsigned(opt_loc, typ.clone())
+    }
+
+    pub fn already_type_defined(opt_loc: Option<Location>, typ: &Type, pre_type: &Type, pre_loc: Location) -> ParserError {
+        ParserError::AlreadyTypeDefined { opt_loc, typ: typ.clone(), pre_type: pre_type.clone(), pre_loc }
+    }
+
+    pub fn syntax_error_while_parsing_struct(opt_loc: Option<Location>, sp: &SpecifierQualifier, type_or_variadic: &TypeOrVariadic) -> ParserError {
+        ParserError::SyntaxErrorWhileParsingStruct(opt_loc, sp.clone(), type_or_variadic.clone())
+    }
+
+    pub fn not_self_after_ref(opt_loc: Option<Location>) -> ParserError {
+        ParserError::NotSelfAfterRef(opt_loc)
     }
 }
