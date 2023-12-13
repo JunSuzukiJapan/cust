@@ -862,15 +862,15 @@ mod tests {
                 assert_eq!(v.len(), 3);
 
                 let (tok, pos) = &v[0];
-                assert_eq!(*tok, Token::CharLiteral('a' as i8));
+                assert_eq!(*tok, Token::CharLiteral('a' as u32));
                 assert_eq!(*pos, Position {line: 1, column: 0});
 
                 let (tok, pos) = &v[1];
-                assert_eq!(*tok, Token::CharLiteral('錆' as i8));
+                assert_eq!(*tok, Token::CharLiteral('錆' as u32));
                 assert_eq!(*pos, Position {line: 1, column: 4});
 
                 let (tok, pos) = &v[2];
-                assert_eq!(*tok, Token::CharLiteral('\\' as i8));
+                assert_eq!(*tok, Token::CharLiteral('\\' as u32));
                 assert_eq!(*pos, Position {line: 1, column: 8});
             },
             Err(_err)  => panic!("can't tokenize {}", src),

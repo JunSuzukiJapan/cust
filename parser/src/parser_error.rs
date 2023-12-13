@@ -3,6 +3,7 @@ use crate::{ConstExpr, ExprAST, SpecifierQualifier, TypeOrVariadic, NumberType};
 use crate::Type;
 use crate::Position;
 use super::TokenizerError;
+use std::fmt;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ParserError {
@@ -14,9 +15,9 @@ pub enum ParserError {
     NotNumberType(Option<Position>, Type),
     NotNumberTypeToBeUnsigned(Option<Position>, Type),
     CannotToBeUnsigned(Option<Position>, NumberType),
-    SyntaxError{opt_pos: Option<Position>, filename: &'static str, line: u32, column: u32},
+    SyntaxError(Option<Position>),
     IllegalEndOfInput(Option<Position>),
-    WithoutExpectedToken{opt_pos: Option<Position>, expected: Token, real: Token},
+    WithoutExpectedToken{opt_pos: Option<Position>, expected_token: Token, real_token: Token},
     NoSuchAOperator{opt_pos: Option<Position>, token_type: Token},
     NeedExpr(Option<Position>),
     NoTypeDefined(Option<Position>),
@@ -56,7 +57,7 @@ pub enum ParserError {
     LabeledStatementWithoutFunction(Option<Position>),
     NoIdForGotoStatement(Option<Position>),
     NotFunctionDefineInImpl(Option<Position>),
-    NotBraceLeftOrForWhilePparsingImpl(Option<Position>, Token),
+    NotBraceLeftOrForWhileParsingImpl(Option<Position>, Token),
     NoIdAfterForWhileParsingImpl(Option<Position>, Token),
     NotSymbolWhileParsingImpl(Option<Position>),
     NoSuchAType{opt_pos: Option<Position>, name: String},
@@ -86,8 +87,8 @@ impl ParserError {
         ParserError::NotNumberTypeToBeUnsigned(opt_pos, typ.clone())
     }
 
-    pub fn syntax_error(opt_pos: Option<Position>, filename: &'static str, line: u32, column: u32) -> ParserError {
-        ParserError::SyntaxError { opt_pos, filename, line, column }
+    pub fn syntax_error(opt_pos: Option<Position>) -> ParserError {
+        ParserError::SyntaxError(opt_pos)
     }
 
     pub fn illegal_end_of_input(opt_pos: Option<Position>) -> ParserError {
@@ -95,7 +96,7 @@ impl ParserError {
     }
 
     pub fn without_expected_token(opt_pos: Option<Position>, expected: Token, real: Token) -> ParserError {
-        ParserError::WithoutExpectedToken{opt_pos, expected, real}
+        ParserError::WithoutExpectedToken{opt_pos, expected_token: expected, real_token: real}
     }
 
     pub fn no_such_a_operator(opt_pos: Option<Position>, token_type: Token) -> ParserError {
@@ -239,7 +240,7 @@ impl ParserError {
     }
 
     pub fn not_brace_left_or_for_while_parsing_impl(opt_pos: Option<Position>, tok: &Token) -> ParserError {
-        ParserError::NotBraceLeftOrForWhilePparsingImpl(opt_pos, tok.clone())
+        ParserError::NotBraceLeftOrForWhileParsingImpl(opt_pos, tok.clone())
     }
 
     pub fn no_id_after_for_while_parsing_impl(opt_pos: Option<Position>, tok: &Token) -> ParserError {
@@ -258,5 +259,61 @@ impl ParserError {
 impl From<TokenizerError> for ParserError {
     fn from(item: TokenizerError) -> Self {
         ParserError::TokenizerError(item)
+    }
+}
+
+impl fmt::Display for ParserError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::TokenizerError(tok_err) => write!(f, "{}", tok_err.to_string()),
+            Self::NotNumber(opt_pos, _expr) => write!(f, "not a number"),
+            Self::NotPointer(opt_pos, _typ) => write!(f, "not pointer"),
+            Self::NotArray(opt_pos, _typ) => write!(f, "not array"),
+            Self::NotFunction(opt_pos, _typ) => write!(f, "not function"),
+            Self::NotNumberType(opt_pos, _typ) => write!(f, "not number type"),
+            Self::NotNumberTypeToBeUnsigned(opt_pos, _typ) => write!(f, "not number type to be unsigned"),
+            Self::CannotToBeUnsigned(opt_pos, _number_type) => write!(f, "cannot to be unsigned"),
+            Self::SyntaxError(opt_pos) => write!(f, "syntax error"),
+            Self::IllegalEndOfInput(opt_pos) => write!(f, "illegal end of input"),
+            Self::WithoutExpectedToken{opt_pos, expected_token, real_token} => write!(f, "without expected token"),
+            Self::NoSuchAOperator{opt_pos, token_type} => write!(f, "no such a operator"),
+            Self::NeedExpr(opt_pos) => write!(f, "need expr"),
+            Self::NoTypeDefined(opt_pos) => write!(f, "no type defined"),
+            Self::NoExprWhileAccessArray(opt_pos) => write!(f, "no expr while access array"),
+            Self::NoIdAfterDot(opt_pos) => write!(f, "no id after dot"),
+            Self::NoIdAfterArrow(opt_pos) => write!(f, "no id after arrow"),
+            Self::NeedBraceRightOrCommaWhenParsingInitializerList(opt_pos) => write!(f, "need brace right or comma when parsing initializer list"),
+            Self::CannotConvertToUsize(opt_pos, _const_expr) => write!(f, "cannot convert to usize"),
+            Self::CannotApplyOperatorToFloat(opt_pos, name) => write!(f, "cannot apply operator to float"),
+            Self::CannotNotOfFloat(opt_pos) => write!(f, "cannot not of float"),
+            Self::AlreadyVarDefined(opt_pos, name) => write!(f, "already var '{}' defined", name),
+            Self::AlreadyTypeDefinedInEnv(opt_pos, name) => write!(f, "already type '{}' defined", name),
+            Self::AlreadyTypeDefined { opt_pos, typ, pre_type: _, pre_pos: _ } => write!(f, "already type defined"),
+            Self::AccessSelfTypeWithoutImpl(opt_pos) => write!(f, "access self type without impl"),
+            Self::NoSuchAStruct(opt_pos, name) => write!(f, "no such a struct '{}'", name),
+            Self::NoSuchAConstant(opt_pos, name) => write!(f, "no such a constant '{}'", name),
+            Self::IsNotConstant(opt_pos, _expr) => write!(f, "is not constant"),
+            Self::CannotGetBlock(opt_pos) => write!(f, "cannot get block"),
+            Self::NotDefvarWhenGet(opt_pos) => write!(f, "not defvar when get"),
+            Self::CannotCombineWithPreviousSignedDeclarationSpecifier(opt_pos, _pos) => write!(f, "cannot combine with previous signed declaration specifier"),
+            Self::CannotCombineWithPreviousUnsignedDeclarationSpecifier(opt_pos, _pos) => write!(f, "cannot combine with previous unsigned declaration specifier"),
+            Self::NotNumberSigned(opt_pos, typ) => write!(f, "not number signed"),
+            Self::NotNumberUnsigned(opt_pos, typ) => write!(f, "not number unsigned"),
+            Self::SyntaxErrorWhileParsingStruct(opt_pos, specifier_qualifier, type_or_variadic) => write!(f, "syntax error while parsing struct"),
+            Self::NotSelfAfterRef(opt_pos) => write!(f, "not self after ref"),
+            Self::NoConstantExprParsingStructAfterColon(opt_pos) => write!(f, "no constant expr parsing struct after colon"),
+            Self::NotSymbolParsingEnum(opt_pos) => write!(f, "not symbol parsing enum"),
+            Self::EnumShouldBeInt(opt_pos) => write!(f, "enum should be int"),
+            Self::ShouldBe(opt_pos, token_list, tok) => write!(f, "should be"),
+            Self::NoTypeForStructField(opt_pos) => write!(f, "no type for struct field"),
+            Self::NoConstantExprAfterCase(opt_pos) => write!(f, "no constant expr after case"),
+            Self::LabeledStatementWithoutFunction(opt_pos) => write!(f, "labeled statement without function"),
+            Self::NoIdForGotoStatement(opt_pos) => write!(f, "no id for goto statement"),
+            Self::NotFunctionDefineInImpl(opt_pos) => write!(f, "not function define in impl"),
+            Self::NotBraceLeftOrForWhileParsingImpl(opt_pos, _tok) => write!(f, "not brace left or for while parsing impl"),
+            Self::NoIdAfterForWhileParsingImpl(opt_pos, _tok) => write!(f, "no id after for while parsing impl"),
+            Self::NotSymbolWhileParsingImpl(opt_pos) => write!(f, "not symbol while parsing impl"),
+            Self::NoSuchAType{opt_pos, name} => write!(f, "no such a type '{}'", name),
+        }
     }
 }
