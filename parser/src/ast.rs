@@ -76,7 +76,7 @@ pub enum BinOp {
 }
 
 impl BinOp {
-    pub fn from_token_type(token_type: &Token) -> Result<BinOp, ParserError> {
+    pub fn from_token(token_type: &Token) -> Result<BinOp, ParserError> {
         match token_type {
             Token::Add => Ok(BinOp::Add),
             Token::Sub => Ok(BinOp::Sub),

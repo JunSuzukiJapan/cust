@@ -5,14 +5,15 @@ mod types;
 mod const_expr;
 mod ast;
 mod defines;
-// mod parse;
+mod parse;
 
-pub use crate::tokenizer::{Position, Tokenizer, Token};
+pub use crate::tokenizer::{Position, Tokenizer, Token, TokenizerError};
 pub use parser_error::ParserError;
 pub use ast::{AST, ExprAST, BinOp, Declaration, Declarator, Param, Params};
 pub use ast::{DeclarationSpecifier, DeclarationSpecifierOrVariadic, SpecifierQualifier, SpecifierQualifierOrVariadic};
 pub use ast::{StructDeclaration, AbstractDeclarator, DirectAbstractDeclarator, StructDeclarator};
 pub use ast::{DirectDeclarator, CustSelf};
+pub use ast::{Function, FunProto, FunOrProto, Switch, Case};
 pub use defines::Defines;
 pub use types::{Type, NumberType, TypeOrVariadic, Pointer, StructDefinition, EnumDefinition, Enumerator};
 pub use const_expr::ConstExpr;

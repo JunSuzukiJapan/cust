@@ -3,7 +3,7 @@
 use std::fmt;
 use super::Position;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum TokenizerError {
     IllegalEndOfInput(Option<Position>),
     SyntaxError(Option<Position>),
