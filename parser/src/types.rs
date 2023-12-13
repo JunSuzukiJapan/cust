@@ -2,8 +2,7 @@
 
 // use crate::compiler::CodeGen;
 
-// use super::{ParserError, StructDeclaration, SpecifierQualifier, Defines, ConstExpr};
-use super::{ParserError, Defines, StructDeclaration};
+use super::{ParserError, StructDeclaration, SpecifierQualifier, ConstExpr};
 
 // use inkwell::AddressSpace;
 // use inkwell::context::Context;
@@ -66,7 +65,7 @@ impl NumberType {
                 Ok(NumberType::UnsignedLongLong)
             },
             NumberType::Float | NumberType::Double | NumberType::_Bool => {
-                Err(ParserError::cannot_to_be_unsigned(None, &Type::Number(self.clone())))
+                Err(ParserError::cannot_to_be_unsigned(None, self))
             },
             _ => Ok(self.clone())
         }
@@ -386,12 +385,12 @@ impl StructDefinition {
         }
     }
 
-    pub fn try_size_of(&self, ctx: &Context, _defs: &Defines) -> Result<u64, ParserError> {
-        let (struct_type, _map) = CodeGen::struct_from_struct_definition(&None, self, ctx)?;
-        let int_value = struct_type.size_of().ok_or(ParserError::cannot_size_of_struct(None))?;
-        let size = int_value.get_zero_extended_constant().ok_or(ParserError::cannot_size_of_struct(None))?;
-        Ok(size)
-    }
+    // pub fn try_size_of(&self, ctx: &Context, _defs: &Defines) -> Result<u64, ParserError> {
+    //     let (struct_type, _map) = CodeGen::struct_from_struct_definition(&None, self, ctx)?;
+    //     let int_value = struct_type.size_of().ok_or(ParserError::cannot_size_of_struct(None))?;
+    //     let size = int_value.get_zero_extended_constant().ok_or(ParserError::cannot_size_of_struct(None))?;
+    //     Ok(size)
+    // }
 
 }
 

@@ -1,5 +1,5 @@
 use tokenizer::TokenType;
-use crate::{ConstExpr, ExprAST, SpecifierQualifier, TypeOrVariadic};
+use crate::{ConstExpr, ExprAST, SpecifierQualifier, TypeOrVariadic, NumberType};
 use crate::Type;
 use crate::Location;
 
@@ -11,6 +11,7 @@ pub enum ParserError {
     NotFunction(Option<Location>, Type),
     NotNumberType(Option<Location>, Type),
     NotNumberTypeToBeUnsigned(Option<Location>, Type),
+    CannotToBeUnsigned(Option<Location>, NumberType),
     SyntaxError{opt_loc: Option<Location>, filename: &'static str, line: u32, column: u32},
     IllegalEndOfInput(Option<Location>),
     WithoutExpectedToken{opt_loc: Option<Location>, expected: TokenType, real: TokenType},
@@ -44,6 +45,11 @@ pub enum ParserError {
     NotNumberUnsigned(Option<Location>, Type),
     SyntaxErrorWhileParsingStruct(Option<Location>, SpecifierQualifier, TypeOrVariadic),
     NotSelfAfterRef(Option<Location>),
+    NoConstantExprParsingStructAfterColon(Option<Location>),
+    NotSymbolParsingEnum(Option<Location>),
+    EnumShouldBeInt(Option<Location>),
+    ShouldBe(Option<Location>, Vec<TokenType>, TokenType),
+    NoTypeForStructField(Option<Location>),
 }
 
 impl ParserError {
@@ -180,5 +186,29 @@ impl ParserError {
 
     pub fn not_self_after_ref(opt_loc: Option<Location>) -> ParserError {
         ParserError::NotSelfAfterRef(opt_loc)
+    }
+
+    pub fn no_constant_expr_parsing_struct_after_colon(opt_loc: Option<Location>) -> ParserError {
+        ParserError::NoConstantExprParsingStructAfterColon(opt_loc)
+    }
+
+    pub fn not_symbol_parsing_enum(opt_loc: Option<Location>) -> ParserError {
+        ParserError::NotSymbolParsingEnum(opt_loc)
+    }
+
+    pub fn enum_should_be_int(opt_loc: Option<Location>) -> ParserError {
+        ParserError::EnumShouldBeInt(opt_loc)
+    }
+
+    pub fn should_be(opt_loc: Option<Location>, token_type_vec: Vec<TokenType>, typ: &TokenType) -> ParserError {
+        ParserError::ShouldBe(opt_loc, token_type_vec, typ.clone())
+    }
+
+    pub fn cannot_to_be_unsigned(opt_loc: Option<Location>, num_type: &NumberType) -> ParserError {
+        ParserError::CannotToBeUnsigned(opt_loc, num_type.clone())
+    }
+
+    pub fn no_type_for_struct_field(opt_loc: Option<Location>) -> ParserError {
+        ParserError::NoTypeForStructField(opt_loc)
     }
 }

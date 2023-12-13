@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use crate::ParserError;
-use super::{Type, NumberType, Pointer, ConstExpr, Defines, StructDefinition, EnumDefinition};
+use super::{Type, Pointer, ConstExpr, Defines, StructDefinition, EnumDefinition};
 use tokenizer::TokenType;
 
 #[derive(Debug, Clone)]
@@ -957,6 +957,7 @@ impl ExprAST {
     }
 }
 
+#[allow(non_camel_case_types)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum AST {
     TypeDef(String, Type),
@@ -1008,10 +1009,6 @@ pub enum AST {
     Goto(String),
     _Self,
     _self,
-
-
-
-
 }
 
 impl AST {

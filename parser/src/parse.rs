@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use super::{Token, TokenType};
-use super::{AST, ExprAST, BinOp, DeclarationSpecifier, DeclarationSpecifierOrVariadic, SpecifierQualifier, SpecifierQualifierOrVariadic};
+use super::{AST, ExprAST, BinOp, DeclarationSpecifier, DeclarationSpecifierOrVariadic, SpecifierQualifier};
 use super::{AbstractDeclarator, DirectAbstractDeclarator, Declaration, ConstExpr, StructDeclaration, StructDeclarator, Declarator};
 use super::Defines;
 use super::ParserError;
@@ -371,8 +371,8 @@ impl Parser {
                     },
                     TokenType::Signed => {
                         iter.next();
-                        if let Some((true, pre_pos)) = opt_unsigned {
-                            return Err(ParserError::cannot_combine_with_previous_unsigned_declaration_specifier(Some(tok.get_location().clone()), pre_pos.clone()));
+                        if let Some((true, pre_loc)) = opt_unsigned {
+                            return Err(ParserError::cannot_combine_with_previous_unsigned_declaration_specifier(Some(tok.get_location().clone()), pre_loc.clone()));
                         }
                         if let Some((typ, _pos)) = &opt_type {
                             if ! typ.can_sign() {
@@ -383,8 +383,8 @@ impl Parser {
                     },
                     TokenType::Unsigned => {
                         iter.next();
-                        if let Some((true, pre_pos)) = opt_signed {
-                            return Err(ParserError::cannot_combine_with_previous_signed_declaration_specifier(Some(tok.get_location().clone()), pre_pos.clone()));
+                        if let Some((true, pre_loc)) = opt_signed {
+                            return Err(ParserError::cannot_combine_with_previous_signed_declaration_specifier(Some(tok.get_location().clone()), pre_loc.clone()));
                         }
                         if let Some((typ, _pos)) = &opt_type {
                             if ! typ.can_sign() {
@@ -395,35 +395,35 @@ impl Parser {
                     },
                     TokenType::Void => {
                         iter.next();
-                        if let Some((pre_type, pre_pos)) = &opt_type {
-                            return Err(ParserError::already_type_defined(Some(tok.get_location().clone()), &Type::Void, &pre_type, pre_pos.clone()));
+                        if let Some((pre_type, pre_loc)) = &opt_type {
+                            return Err(ParserError::already_type_defined(Some(tok.get_location().clone()), &Type::Void, &pre_type, pre_loc.clone()));
                         }
                         opt_type = Some((Type::Void, tok.get_location().clone()));
                     },
                     TokenType::_Bool => {
                         iter.next();
-                        if let Some((pre_type, pre_pos)) = &opt_type {
-                            return Err(ParserError::already_type_defined(Some(tok.get_location().clone()), &Type::Number(NumberType::_Bool), &pre_type, pre_pos.clone()));
+                        if let Some((pre_type, pre_loc)) = &opt_type {
+                            return Err(ParserError::already_type_defined(Some(tok.get_location().clone()), &Type::Number(NumberType::_Bool), &pre_type, pre_loc.clone()));
                         }
                         opt_type = Some((Type::Number(NumberType::_Bool), tok.get_location().clone()));
                     }
                     TokenType::Char => {
                         iter.next();
-                        if let Some((pre_type, pre_pos)) = &opt_type {
-                            return Err(ParserError::already_type_defined(Some(tok.get_location().clone()), &Type::Number(NumberType::Char), &pre_type, pre_pos.clone()));
+                        if let Some((pre_type, pre_loc)) = &opt_type {
+                            return Err(ParserError::already_type_defined(Some(tok.get_location().clone()), &Type::Number(NumberType::Char), &pre_type, pre_loc.clone()));
                         }
                         opt_type = Some((Type::Number(NumberType::Char), tok.get_location().clone()));
                     },
                     TokenType::Short => {
                         iter.next();
-                        if let Some((pre_type, pre_pos)) = &opt_type {
+                        if let Some((pre_type, pre_loc)) = &opt_type {
                             match pre_type {
                                 Type::Number(NumberType::Int) => {
-                                    opt_type = Some((Type::Number(NumberType::Short), pre_pos.clone()));
+                                    opt_type = Some((Type::Number(NumberType::Short), pre_loc.clone()));
                                     continue;
                                 },
                                 _ => {
-                                    return Err(ParserError::already_type_defined(Some(tok.get_location().clone()), &Type::Number(NumberType::Short), &pre_type, pre_pos.clone()));
+                                    return Err(ParserError::already_type_defined(Some(tok.get_location().clone()), &Type::Number(NumberType::Short), &pre_type, pre_loc.clone()));
                                 },
                             }
                         }
@@ -431,13 +431,13 @@ impl Parser {
                     },
                     TokenType::Int => {
                         iter.next();
-                        if let Some((pre_type, pre_pos)) = &opt_type {
+                        if let Some((pre_type, pre_loc)) = &opt_type {
                             match pre_type {
                                 Type::Number(NumberType::Short) | Type::Number(NumberType::Long) | Type::Number(NumberType::LongLong) => {
                                     continue;
                                 },
                                 _ => {
-                                    return Err(ParserError::already_type_defined(Some(tok.get_location().clone()), &Type::Number(NumberType::Int), &pre_type, pre_pos.clone()));
+                                    return Err(ParserError::already_type_defined(Some(tok.get_location().clone()), &Type::Number(NumberType::Int), &pre_type, pre_loc.clone()));
                                 },
                             }
                         }
@@ -445,18 +445,18 @@ impl Parser {
                     },
                     TokenType::Long => {
                         iter.next();
-                        if let Some((pre_type, pre_pos)) = &opt_type {
+                        if let Some((pre_type, pre_loc)) = &opt_type {
                             match pre_type {
                                 Type::Number(NumberType::Int) => {
-                                    opt_type = Some((Type::Number(NumberType::Long), pre_pos.clone()));
+                                    opt_type = Some((Type::Number(NumberType::Long), pre_loc.clone()));
                                     continue;
                                 },
                                 Type::Number(NumberType::Long) => {
-                                    opt_type = Some((Type::Number(NumberType::LongLong), pre_pos.clone()));
+                                    opt_type = Some((Type::Number(NumberType::LongLong), pre_loc.clone()));
                                     continue;
                                 },
                                 _ => {
-                                    return Err(ParserError::already_type_defined(Some(tok.get_location().clone()), &Type::Number(NumberType::Long), &pre_type, pre_pos.clone()));
+                                    return Err(ParserError::already_type_defined(Some(tok.get_location().clone()), &Type::Number(NumberType::Long), &pre_type, pre_loc.clone()));
                                 },
                             }
                         }
@@ -464,15 +464,15 @@ impl Parser {
                     },
                     TokenType::Float => {
                         iter.next();
-                        if let Some((pre_type, pre_pos)) = &opt_type {
-                            return Err(ParserError::already_type_defined(Some(tok.get_location().clone()), &Type::Number(NumberType::Float), &pre_type, pre_pos.clone()));
+                        if let Some((pre_type, pre_loc)) = &opt_type {
+                            return Err(ParserError::already_type_defined(Some(tok.get_location().clone()), &Type::Number(NumberType::Float), &pre_type, pre_loc.clone()));
                         }
                         opt_type = Some((Type::Number(NumberType::Float), tok.get_location().clone()));
                     },
                     TokenType::Double => {
                         iter.next();
-                        if let Some((pre_type, pre_pos)) = &opt_type {
-                            return Err(ParserError::already_type_defined(Some(tok.get_location().clone()), &Type::Number(NumberType::Double), &pre_type, pre_pos.clone()));
+                        if let Some((pre_type, pre_loc)) = &opt_type {
+                            return Err(ParserError::already_type_defined(Some(tok.get_location().clone()), &Type::Number(NumberType::Double), &pre_type, pre_loc.clone()));
                         }
                         opt_type = Some((Type::Number(NumberType::Double), tok.get_location().clone()));
                     },
@@ -729,7 +729,7 @@ impl Parser {
         if *tok.get_type() == TokenType::Colon {
             iter.next();  // skip ':'
 
-            let const_expr = self.parse_constant_expression(iter, defs, labels)?.ok_or(ParserError::no_constant_expr_parsing_struct_after_colon(Some(pos.clone())))?;
+            let const_expr = self.parse_constant_expression(iter, defs, labels)?.ok_or(ParserError::no_constant_expr_parsing_struct_after_colon(Some(tok.get_location().clone())))?;
             Ok(StructDeclarator::new(None, Some(const_expr)))
 
         }else{
@@ -739,7 +739,7 @@ impl Parser {
             if *tok.get_type() == TokenType::Colon {
                 iter.next();  // skip ':'
 
-                let const_expr = self.parse_constant_expression(iter, defs, labels)?.ok_or(ParserError::no_constant_expr_parsing_struct_after_colon(Some(pos.clone())))?;
+                let const_expr = self.parse_constant_expression(iter, defs, labels)?.ok_or(ParserError::no_constant_expr_parsing_struct_after_colon(Some(tok.get_location().clone())))?;
                 Ok(StructDeclarator::new(Some(decl), Some(const_expr)))
 
             }else{
@@ -789,7 +789,7 @@ impl Parser {
                     enumerator = Enumerator::new(name, value);
                 },
                 _ => {
-                    return Err(ParserError::should_be(Some(tok2.get_location().clone()), vec![TokenType::BraceRight, TokenType::Assign], tok2));
+                    return Err(ParserError::should_be(Some(tok2.get_location().clone()), vec![TokenType::BraceRight, TokenType::Assign], tok2.get_type()));
                 }
             }
 
