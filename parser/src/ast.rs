@@ -2,7 +2,7 @@
 
 use crate::ParserError;
 use super::{Type, Pointer, ConstExpr, Defines, StructDefinition, EnumDefinition};
-use tokenizer::TokenType;
+use tokenizer::Token;
 
 #[derive(Debug, Clone)]
 pub struct DefVar {
@@ -76,26 +76,26 @@ pub enum BinOp {
 }
 
 impl BinOp {
-    pub fn from_token_type(token_type: &TokenType) -> Result<BinOp, ParserError> {
+    pub fn from_token_type(token_type: &Token) -> Result<BinOp, ParserError> {
         match token_type {
-            TokenType::Add => Ok(BinOp::Add),
-            TokenType::Sub => Ok(BinOp::Sub),
-            TokenType::Mul => Ok(BinOp::Mul),
-            TokenType::Div => Ok(BinOp::Div),
-            TokenType::Mod => Ok(BinOp::Mod),
-            TokenType::Equal => Ok(BinOp::Equal),
-            TokenType::NotEqual => Ok(BinOp::NotEqual),
-            TokenType::Less => Ok(BinOp::Less),
-            TokenType::LessEqual => Ok(BinOp::LessEqual),
-            TokenType::Greater => Ok(BinOp::Greater),
-            TokenType::GreaterEqual => Ok(BinOp::GreaterEqual),
-            TokenType::And => Ok(BinOp::And),
-            TokenType::Or => Ok(BinOp::Or),
-            TokenType::ShiftLeft => Ok(BinOp::ShiftLeft),
-            TokenType::ShiftRight => Ok(BinOp::ShiftRight),
-            TokenType::BitAnd => Ok(BinOp::BitAnd),
-            TokenType::BitOr => Ok(BinOp::BitOr),
-            TokenType::BitXor => Ok(BinOp::BitXor),
+            Token::Add => Ok(BinOp::Add),
+            Token::Sub => Ok(BinOp::Sub),
+            Token::Mul => Ok(BinOp::Mul),
+            Token::Div => Ok(BinOp::Div),
+            Token::Mod => Ok(BinOp::Mod),
+            Token::Equal => Ok(BinOp::Equal),
+            Token::NotEqual => Ok(BinOp::NotEqual),
+            Token::Less => Ok(BinOp::Less),
+            Token::LessEqual => Ok(BinOp::LessEqual),
+            Token::Greater => Ok(BinOp::Greater),
+            Token::GreaterEqual => Ok(BinOp::GreaterEqual),
+            Token::And => Ok(BinOp::And),
+            Token::Or => Ok(BinOp::Or),
+            Token::ShiftLeft => Ok(BinOp::ShiftLeft),
+            Token::ShiftRight => Ok(BinOp::ShiftRight),
+            Token::BitAnd => Ok(BinOp::BitAnd),
+            Token::BitOr => Ok(BinOp::BitOr),
+            Token::BitXor => Ok(BinOp::BitXor),
             _ => Err(ParserError::no_such_a_operator(None, token_type.clone())),
         }
     }

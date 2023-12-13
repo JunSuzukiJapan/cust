@@ -1,4 +1,4 @@
-use tokenizer::TokenType;
+use tokenizer::Token;
 use crate::{ConstExpr, ExprAST, SpecifierQualifier, TypeOrVariadic, NumberType};
 use crate::Type;
 use crate::Position;
@@ -14,8 +14,8 @@ pub enum ParserError {
     CannotToBeUnsigned(Option<Position>, NumberType),
     SyntaxError{opt_loc: Option<Position>, filename: &'static str, line: u32, column: u32},
     IllegalEndOfInput(Option<Position>),
-    WithoutExpectedToken{opt_loc: Option<Position>, expected: TokenType, real: TokenType},
-    NoSuchAOperator{opt_loc: Option<Position>, token_type: TokenType},
+    WithoutExpectedToken{opt_loc: Option<Position>, expected: Token, real: Token},
+    NoSuchAOperator{opt_loc: Option<Position>, token_type: Token},
     NeedExpr(Option<Position>),
     NoTypeDefined(Option<Position>),
     NoExprWhileAccessArray(Option<Position>),
@@ -48,7 +48,7 @@ pub enum ParserError {
     NoConstantExprParsingStructAfterColon(Option<Position>),
     NotSymbolParsingEnum(Option<Position>),
     EnumShouldBeInt(Option<Position>),
-    ShouldBe(Option<Position>, Vec<TokenType>, TokenType),
+    ShouldBe(Option<Position>, Vec<Token>, Token),
     NoTypeForStructField(Option<Position>),
 }
 
@@ -84,11 +84,11 @@ impl ParserError {
         ParserError::IllegalEndOfInput(opt_loc)
     }
 
-    pub fn without_expected_token(opt_loc: Option<Position>, expected: TokenType, real: TokenType) -> ParserError {
+    pub fn without_expected_token(opt_loc: Option<Position>, expected: Token, real: Token) -> ParserError {
         ParserError::WithoutExpectedToken{opt_loc, expected, real}
     }
 
-    pub fn no_such_a_operator(opt_loc: Option<Position>, token_type: TokenType) -> ParserError {
+    pub fn no_such_a_operator(opt_loc: Option<Position>, token_type: Token) -> ParserError {
         ParserError::NoSuchAOperator { opt_loc, token_type }
     }
 
@@ -200,7 +200,7 @@ impl ParserError {
         ParserError::EnumShouldBeInt(opt_loc)
     }
 
-    pub fn should_be(opt_loc: Option<Position>, token_type_vec: Vec<TokenType>, typ: &TokenType) -> ParserError {
+    pub fn should_be(opt_loc: Option<Position>, token_type_vec: Vec<Token>, typ: &Token) -> ParserError {
         ParserError::ShouldBe(opt_loc, token_type_vec, typ.clone())
     }
 
