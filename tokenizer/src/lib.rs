@@ -1,11 +1,11 @@
 extern crate token;
-extern crate location;
+extern crate position;
 
 mod tokenizer;
 mod tokenizer_error;
 
 pub use token::{Token, TokenType};
 pub use tokenizer_error::TokenizerError;
-pub use location::Location;
+pub use position::Position;
 pub use crate::tokenizer::Tokenizer;
 

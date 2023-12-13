@@ -5,9 +5,9 @@ mod types;
 mod const_expr;
 mod ast;
 mod defines;
-mod parse;
+// mod parse;
 
-pub use crate::tokenizer::{Location, Tokenizer, Token, TokenType};
+pub use crate::tokenizer::{Position, Tokenizer, Token, TokenType};
 pub use parser_error::ParserError;
 pub use ast::{AST, ExprAST, BinOp, Declaration, Declarator, Param, Params};
 pub use ast::{DeclarationSpecifier, DeclarationSpecifierOrVariadic, SpecifierQualifier, SpecifierQualifierOrVariadic};

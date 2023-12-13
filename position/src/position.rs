@@ -3,14 +3,14 @@
 use std::fmt;
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct Location {
+pub struct Position {
     pub line: u64,
     pub column: u64,
 }
 
-impl Location {
+impl Position {
     pub fn new() -> Self {
-        Location {
+        Position {
             line: 1,
             column: 1,
         }
@@ -33,7 +33,7 @@ impl Location {
     }
 }
 
-impl fmt::Display for Location {
+impl fmt::Display for Position {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "(line: {}, column: {})", self.line, self.column)
     }

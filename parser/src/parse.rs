@@ -7,7 +7,7 @@ use super::Defines;
 use super::ParserError;
 use super::{Type, NumberType, TypeOrVariadic, StructDefinition, EnumDefinition, Pointer, Enumerator};
 use super::{DirectDeclarator, Param, Params, CustSelf};
-use crate::Location;
+use crate::Position;
 use std::iter::Peekable;
 use std::slice::Iter;
 

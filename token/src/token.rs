@@ -1,15 +1,15 @@
 #![allow(dead_code)]
 
 use super::token_type::TokenType;
-use crate::Location;
+use crate::Position;
 
 pub struct Token {
     token_type: TokenType,
-    location: Location,
+    location: Position,
 }
 
 impl Token {
-    pub fn new(token_type: TokenType, location: Location) -> Token {
+    pub fn new(token_type: TokenType, location: Position) -> Token {
         Token { token_type, location }
     }
 
@@ -19,7 +19,7 @@ impl Token {
     }
 
     #[inline]
-    pub fn get_location(&self) -> &Location {
+    pub fn get_location(&self) -> &Position {
         &self.location
     }
 }
