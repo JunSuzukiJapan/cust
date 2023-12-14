@@ -3,7 +3,8 @@
 members = [
     "cust",
     "position",
-    # "token",
-    # "tokenizer",
-    # "parser",
+    "token",
+    "tokenizer",
+    "parser",
+    "code_gen",
 ]
