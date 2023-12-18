@@ -4,6 +4,7 @@ use crate::Type;
 use crate::Position;
 use super::TokenizerError;
 use std::fmt;
+use std::error::Error;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ParserError {
@@ -315,5 +316,11 @@ impl fmt::Display for ParserError {
             Self::NotSymbolWhileParsingImpl(_opt_pos) => write!(f, "not symbol while parsing impl"),
             Self::NoSuchAType{opt_pos: _, name} => write!(f, "no such a type '{}'", name),
         }
+    }
+}
+
+impl Error for ParserError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        None
     }
 }

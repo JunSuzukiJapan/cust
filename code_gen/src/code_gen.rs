@@ -1,11 +1,12 @@
 #![allow(dead_code)]
 
 use crate::parser::{AST, ExprAST, BinOp, Type, Pointer, Block, Params, StructDefinition, StructField, NumberType, Function, FunProto, FunOrProto, EnumDefinition, Enumerator};
-use crate::parser::{CompileError, Declaration, DeclarationSpecifier};
-use crate::compiler::CompiledValue;
+use crate::parser::{Declaration, DeclarationSpecifier};
+use super::{CompiledValue, CodeGenError};
 use super::Env;
 use super::env::{BreakCatcher, ContinueCatcher, TypeOrUnion};
 use super::caster::Caster;
+use super::type_util::TypeUtil;
 #[cfg(test)]
 use crate::parser::{SpecifierQualifier, DirectDeclarator, Declarator, Defines, Param};
 use crate::parser::{Switch, Case};
@@ -90,7 +91,7 @@ impl<'ctx> CodeGen<'ctx> {
                     let declarator = decl.get_declarator();
                     let typ = declarator.make_type(base_type);
                     let name = declarator.get_name();
-                    let basic_type = typ.to_basic_type_enum(self.context)?;
+                    let basic_type = TypeUtil::to_basic_type_enum(&typ, self.context)?;
                     let ptr = self.module.add_global(basic_type, Some(AddressSpace::Const), name);
     
                     match decl.get_init_expr() {
@@ -106,7 +107,7 @@ impl<'ctx> CodeGen<'ctx> {
 
                                 unimplemented!()
                             }else{
-                                let init = self.gen_expr(ast, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?;
+                                let init = self.gen_expr(ast, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                                 let basic_value = self.try_as_basic_value(&init.get_value())?;
         
                                 // self.builder.build_store(ptr, basic_value);
@@ -127,22 +128,22 @@ impl<'ctx> CodeGen<'ctx> {
             },
             AST::Block(block) => self.gen_block(block, env, break_catcher, continue_catcher),
             AST::Return(opt_expr) => {
-                let function = env.get_current_function().ok_or(CompileError::return_without_function(None))?;
+                let function = env.get_current_function().ok_or(CodeGenError::return_without_function(None))?;
                 let opt_required_ret_type = function.get_type().get_return_type();
 
                 let result: InstructionValue;
                 if let Some(expr) = opt_expr {
-                    let expr_type = expr.get_type(env)?;
+                    let expr_type = TypeUtil::get_type(expr, env)?;
 
 
 
 
-                    let mut real_ret = self.gen_expr(expr, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?;
+                    let mut real_ret = self.gen_expr(expr, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                     let real_ret_type = self.try_as_basic_type(&real_ret.get_value().get_type())?;
 
 
                     if opt_required_ret_type.is_none() {
-                        return Err(Box::new(CompileError::return_type_mismatch(None, Some(&real_ret_type), None)));
+                        return Err(Box::new(CodeGenError::return_type_mismatch(None, Some(&real_ret_type), None)));
                     }
 
                     let required_ret_type = opt_required_ret_type.unwrap();
@@ -156,7 +157,7 @@ impl<'ctx> CodeGen<'ctx> {
                     result = self.builder.build_return(Some(&ret));
                 }else{
                     if let Some(ret_type) = opt_required_ret_type {
-                        return Err(Box::new(CompileError::return_type_mismatch(None, None, Some(&ret_type))));
+                        return Err(Box::new(CodeGenError::return_type_mismatch(None, None, Some(&ret_type))));
                     }
 
                     result = self.builder.build_return(None);
@@ -184,7 +185,7 @@ impl<'ctx> CodeGen<'ctx> {
                 Ok(Some(AnyValueEnum::FunctionValue(fun_proto)))
             },
             AST::If(condition, then, _else) => {
-                let func: FunctionValue<'ctx> = env.get_current_function().ok_or(CompileError::no_current_function(None))?;
+                let func: FunctionValue<'ctx> = env.get_current_function().ok_or(CodeGenError::no_current_function(None))?;
                 let cond_block = self.context.append_basic_block(func, "if.cond");
                 let then_block = self.context.append_basic_block(func, "if.then");
                 let else_block = self.context.append_basic_block(func, "if.else");
@@ -194,7 +195,7 @@ impl<'ctx> CodeGen<'ctx> {
                 self.builder.position_at_end(cond_block);
 
                 // check condition
-                let cond = self.gen_expr(condition, env, break_catcher, continue_catcher)?.ok_or(CompileError::condition_is_not_number(None, condition))?;
+                let cond = self.gen_expr(condition, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::condition_is_not_number(None, condition))?;
                 let mut comparison = cond.get_value().into_int_value();
                 let i1_type = self.context.bool_type();
                 comparison = self.builder.build_int_cast(comparison, i1_type, "cast to i1");  // cast to i1
@@ -239,25 +240,25 @@ impl<'ctx> CodeGen<'ctx> {
                 self.gen_loop(init_expr, pre_condition, body, update_expr, post_condition, env, break_catcher, continue_catcher)
             },
             AST::Break => {
-                let break_block = break_catcher.ok_or(CompileError::break_not_in_loop_or_switch(None))?.get_block();
+                let break_block = break_catcher.ok_or(CodeGenError::break_not_in_loop_or_switch(None))?.get_block();
                 self.builder.build_unconditional_branch(*break_block);
 
                 Ok(None)
             },
             AST::Continue => {
-                let continue_block = continue_catcher.ok_or(CompileError::continue_not_in_loop(None))?.get_block();
+                let continue_block = continue_catcher.ok_or(CodeGenError::continue_not_in_loop(None))?.get_block();
                 self.builder.build_unconditional_branch(*continue_block);
 
                 Ok(None)
             },
             AST::Goto(id) => {
-                let block = env.get_block(id).ok_or(CompileError::no_such_a_label(None, id))?;
+                let block = env.get_block(id).ok_or(CodeGenError::no_such_a_label(None, id))?;
                 self.builder.build_unconditional_branch(*block);
 
                 Ok(None)
             },
             AST::Labeled(id, opt_stmt) => {
-                let block = env.get_block(id).ok_or(CompileError::no_such_a_label(None, id))?;
+                let block = env.get_block(id).ok_or(CodeGenError::no_such_a_label(None, id))?;
 
                 // if let Some(blk) = env.get_current_function().unwrap().get_last_basic_block() {
                 //     if ! self.last_is_jump_statement(blk) {
@@ -307,7 +308,7 @@ impl<'ctx> CodeGen<'ctx> {
 
                     Ok(Some(any_val))
                 }else{
-                    Err(Box::new(CompileError::no_such_a_variable(None, "self")))
+                    Err(Box::new(CodeGenError::no_such_a_variable(None, "self")))
                 }
             },
             AST::Expr(expr_ast) => {
@@ -374,30 +375,30 @@ impl<'ctx> CodeGen<'ctx> {
             },
             ExprAST::StringLiteral(s) => {
                 // let result = self.context.const_string(s.as_bytes(), false);
-                let result = self.builder.build_global_string_ptr(s, &format!("global_str_{}", s));
+                let result = self.builder.build_global_string_ptr(s, &format!("global_str_{}", s))?;
                 let pointer = Pointer::new(false, false);
                 Ok(Some(CompiledValue::new(Type::Pointer(pointer, Box::new(Type::Number(NumberType::Char))), result.as_any_value_enum())))
             },
             ExprAST::UnaryMinus(boxed_ast) => {
-                let code = self.gen_expr(&*boxed_ast, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?;
+                let code = self.gen_expr(&*boxed_ast, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
 
-                let result = self.builder.build_int_neg(code.get_value().into_int_value(), "neg");
+                let result = self.builder.build_int_neg(code.get_value().into_int_value(), "neg")?;
                 Ok(Some(CompiledValue::new(code.get_type().clone(), result.as_any_value_enum())))
             },
             ExprAST::Not(boxed_ast) => {
-                let value = self.gen_expr(&*boxed_ast, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?;
+                let value = self.gen_expr(&*boxed_ast, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let code = value.get_value().into_int_value();
                 let zero = self.context.i32_type().const_int(0, false);
 
-                let result = self.builder.build_int_compare(IntPredicate::EQ, code, zero, "Not");
+                let result = self.builder.build_int_compare(IntPredicate::EQ, code, zero, "Not")?;
                 Ok(Some(CompiledValue::new(value.get_type().clone(), result.as_any_value_enum())))
             },
             ExprAST::UnaryTilda(boxed_ast) => {
-                let value = self.gen_expr(&*boxed_ast, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?;
+                let value = self.gen_expr(&*boxed_ast, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let code = value.get_value().into_int_value();
                 let all_ones = self.context.i32_type().const_all_ones();
 
-                let result = self.builder.build_xor(code, all_ones, "bit_reversal");
+                let result = self.builder.build_xor(code, all_ones, "bit_reversal")?;
                 Ok(Some(CompiledValue::new(value.get_type().clone(), result.as_any_value_enum())))
             },
             ExprAST::BinExpr(op, left, right) => self.gen_bin_expr(op, &**left, &**right, env, break_catcher, continue_catcher),
@@ -409,8 +410,8 @@ impl<'ctx> CodeGen<'ctx> {
                 let ast = &**boxed_ast;
                 match ast {
                     ExprAST::Symbol(name) => {
-                        let (typ, ptr) = env.get_ptr(name).ok_or(CompileError::no_such_a_variable(None, name))?;
-                        let ptr = PointerValue::try_from(ptr).ok().ok_or(CompileError::cannot_get_pointer(None))?;
+                        let (typ, ptr) = env.get_ptr(name).ok_or(CodeGenError::no_such_a_variable(None, name))?;
+                        let ptr = PointerValue::try_from(ptr).ok().ok_or(CodeGenError::cannot_get_pointer(None))?;
 
                         Ok(Some(CompiledValue::new(typ.clone(), ptr.into())))
                     },
@@ -427,9 +428,9 @@ impl<'ctx> CodeGen<'ctx> {
                 let ast = &**boxed_ast;
                 match ast {
                     ExprAST::Symbol(name) => {
-                        let (typ, ptr_to_ptr) = env.get_ptr(name).ok_or(CompileError::no_such_a_variable(None, name))?;
-                        let ptr = self.builder.build_load(ptr_to_ptr, &format!("get_ptr_from_{}", name));
-                        let basic_val = self.builder.build_load(ptr.into_pointer_value(), &format!("get_value_from_{}", name));
+                        let (typ, ptr_to_ptr) = env.get_ptr(name).ok_or(CodeGenError::no_such_a_variable(None, name))?;
+                        let ptr = self.builder.build_load(ptr_to_ptr, &format!("get_ptr_from_{}", name))?;
+                        let basic_val = self.builder.build_load(ptr.into_pointer_value(), &format!("get_value_from_{}", name))?;
                         let any_val = basic_val.as_any_value_enum();
                         Ok(Some(CompiledValue::new(typ.clone(), any_val)))
                     },
@@ -442,7 +443,7 @@ impl<'ctx> CodeGen<'ctx> {
             },
             ExprAST::Symbol(name) => {
                 if let Some((typ, ptr)) = env.get_ptr(name) {
-                    let basic_val = self.builder.build_load(ptr, name);
+                    let basic_val = self.builder.build_load(ptr, name)?;
                     let any_val = basic_val.as_any_value_enum();
 
                     Ok(Some(CompiledValue::new(typ.clone(), any_val)))
@@ -451,14 +452,14 @@ impl<'ctx> CodeGen<'ctx> {
                     Ok(Some(CompiledValue::new(typ.clone(), val.as_any_value_enum())))
     
                 }else{
-                    Err(Box::new(CompileError::no_such_a_variable(None, name)))
+                    Err(Box::new(CodeGenError::no_such_a_variable(None, name)))
                 }
             },
             ExprAST::Assign(l_value, r_value) => self.gen_assign(&**l_value, &**r_value, env, break_catcher, continue_catcher),
             ExprAST::CallFunction(fun, args) => {
                 let mut v: Vec<BasicMetadataValueEnum> = Vec::new();
                 for expr in args {
-                    let result = self.gen_expr(expr, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?;
+                    let result = self.gen_expr(expr, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                     v.push(self.try_as_basic_metadata_value(&result.get_value())?);
                 }
 
@@ -467,7 +468,7 @@ impl<'ctx> CodeGen<'ctx> {
                         self.gen_call_function(name, v, env, break_catcher, continue_catcher)
                     },
                     ExprAST::MemberAccess(ast, fun_name) => {
-                        let typ = ast.get_type(env)?;
+                        let typ = TypeUtil::get_type(ast, env)?;
                         let (_t, obj) = self.get_l_value(&**ast, env, break_catcher, continue_catcher)?;
                         let class_name = typ.get_type_name();
                         let method_name = self.make_function_name_in_impl(&class_name, fun_name);
@@ -484,30 +485,30 @@ impl<'ctx> CodeGen<'ctx> {
             },
             ExprAST::MemberAccess(_boxed_ast, field_name) => {
                 let (typ, ptr) = self.get_l_value(expr_ast, env, break_catcher, continue_catcher)?;
-                let basic_val = self.builder.build_load(ptr, &format!("access_to_field_{}", field_name));
+                let basic_val = self.builder.build_load(ptr, &format!("access_to_field_{}", field_name))?;
                 let any_val = basic_val.as_any_value_enum();
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
             ExprAST::PointerAccess(_boxed_ast, field_name) => {
                 let (typ, ptr) = self.get_l_value(expr_ast, env, break_catcher, continue_catcher)?;
-                let basic_val = self.builder.build_load(ptr, &format!("pointer_access_to_field_{}", field_name));
+                let basic_val = self.builder.build_load(ptr, &format!("pointer_access_to_field_{}", field_name))?;
                 let any_val = basic_val.as_any_value_enum();
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
             ExprAST::ArrayAccess(_boxed_ast, _index) => {
                 let (typ, ptr) = self.get_l_value(expr_ast, env, break_catcher, continue_catcher)?;
-                let basic_val = self.builder.build_load(ptr, "get_value_from_array");
+                let basic_val = self.builder.build_load(ptr, "get_value_from_array")?;
                 let any_val = basic_val.as_any_value_enum();
                 Ok(Some(CompiledValue::new(typ.get_element_type()?.clone(), any_val)))
             },
             ExprAST::_self => {
                 if let Some((typ, ptr)) = env.get_self_ptr() {
-                    let basic_val = self.builder.build_load(ptr, "get_self");
+                    let basic_val = self.builder.build_load(ptr, "get_self")?;
                     let any_val = basic_val.as_any_value_enum();
 
                     Ok(Some(CompiledValue::new(typ.clone(), any_val)))
                 }else{
-                    Err(Box::new(CompileError::no_such_a_variable(None, "self")))
+                    Err(Box::new(CodeGenError::no_such_a_variable(None, "self")))
                 }
             },
             ExprAST::InitializerList(_ast_list) => {
@@ -536,7 +537,7 @@ impl<'ctx> CodeGen<'ctx> {
             let typ = declarator.make_type(base_type);
             let name = declarator.get_name();
             let basic_type = env.basic_type_enum_from_type(&typ, self.context)?;
-            let ptr = self.builder.build_alloca(basic_type, name);
+            let ptr = self.builder.build_alloca(basic_type, name)?;
 
 println!("def var '{:?}'. type: {:?}", name, typ);
 
@@ -550,7 +551,7 @@ println!("def var '{:?}'. type: {:?}", name, typ);
 
                         unimplemented!()
                     }else{
-                        let compiled_value = self.gen_expr(&**ast, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?;
+                        let compiled_value = self.gen_expr(&**ast, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                         let mut init_value = compiled_value.get_value();
                         let init_type = compiled_value.get_type();
 println!("VarType: {:?}, InitType: {:?}", typ, init_type);
@@ -585,13 +586,13 @@ println!("typ != *init_type");
         let init_value_list = if let ExprAST::InitializerList(list) = init {
             list
         }else{
-            return Err(Box::new(CompileError::mismatch_initializer_type(None)));
+            return Err(Box::new(CodeGenError::mismatch_initializer_type(None)));
         };
 
         let target_len = target_fields.len();
         let init_len = init_value_list.len();
         if target_len < init_len {
-            return  Err(Box::new(CompileError::initial_list_is_too_long(None)));
+            return  Err(Box::new(CodeGenError::initial_list_is_too_long(None)));
         }
 
         if target_len == 0 {
@@ -609,12 +610,12 @@ println!("typ != *init_type");
 
                 if init_len > i {
                     let init_value = &init_value_list[i];
-                    let init_type = init_value.get_type(env)?;
+                    let init_type = TypeUtil::get_type(init_value, env)?;
                     if *field_type != init_type {
-                        return Err(Box::new(CompileError::mismatch_initializer_type(None)));
+                        return Err(Box::new(CodeGenError::mismatch_initializer_type(None)));
                     }
 
-                    let compiled_val = self.gen_expr(init_value, env, break_catcher, continue_catcher)?.ok_or(CompileError::mismatch_initializer_type(None))?;
+                    let compiled_val = self.gen_expr(init_value, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::mismatch_initializer_type(None))?;
                     let value = self.try_as_basic_value(&compiled_val.get_value())?;
                     let _result = self.builder.build_store(ptr, value);
 
@@ -624,7 +625,7 @@ println!("typ != *init_type");
                 }
 
             }else{
-                return Err(Box::new(CompileError::cannot_init_struct_member(None)));
+                return Err(Box::new(CodeGenError::cannot_init_struct_member(None)));
             }
         }
 
@@ -632,7 +633,7 @@ println!("typ != *init_type");
     }
 
     fn const_zero(&self, typ: &Type) -> Result<BasicValueEnum, Box<dyn Error>> {
-        let t = typ.to_llvm_type(self.context)?;
+        let t = TypeUtil::to_llvm_type(typ, self.context)?;
         match t {
             BasicMetadataTypeEnum::ArrayType(_) => {
                 unimplemented!()
@@ -653,7 +654,7 @@ println!("typ != *init_type");
                 unimplemented!()
             },
             _ => {
-                Err(Box::new(CompileError::cannot_get_zero_value(None)))
+                Err(Box::new(CodeGenError::cannot_get_zero_value(None)))
             },
         }
     }
@@ -666,7 +667,7 @@ println!("typ != *init_type");
         _continue_catcher: Option<&'c ContinueCatcher>
    ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
         if let Some((fn_typ, function)) = env.get_function(name) {
-            let call_site_value = self.builder.build_call(*function, &args, &format!("call_function_{}", name));
+            let call_site_value = self.builder.build_call(*function, &args, &format!("call_function_{}", name))?;
 
             let tried = call_site_value.try_as_basic_value();
             if tried.is_left() {  // BasicValueEnum
@@ -678,12 +679,12 @@ println!("typ != *init_type");
             }
 
         }else{
-            return Err(Box::new(CompileError::no_such_a_function(None, &name)));
+            return Err(Box::new(CodeGenError::no_such_a_function(None, &name)));
         }
     }
 
-    fn str_to_basic_metadata_value_enum(&self, s: &str) -> Result<BasicMetadataValueEnum<'ctx>, CompileError> {
-        let global_str = self.builder.build_global_string_ptr(s, &format!("global_str_{}", s)).as_any_value_enum();
+    fn str_to_basic_metadata_value_enum(&self, s: &str) -> Result<BasicMetadataValueEnum<'ctx>, Box<dyn Error>> {
+        let global_str = self.builder.build_global_string_ptr(s, &format!("global_str_{}", s))?.as_any_value_enum();
         Ok(self.try_as_basic_metadata_value(&global_str)?)
     }
 
@@ -694,7 +695,7 @@ println!("typ != *init_type");
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
 
-        let func: FunctionValue<'ctx> = env.get_current_function().ok_or(CompileError::no_current_function(None))?;
+        let func: FunctionValue<'ctx> = env.get_current_function().ok_or(CodeGenError::no_current_function(None))?;
         let cond_block  = self.context.append_basic_block(func, "switch.cond");
         let end_block  = self.context.append_basic_block(func, "switch.end");
         let break_catcher = BreakCatcher::new(&end_block);
@@ -771,7 +772,7 @@ println!("typ != *init_type");
 
             if case.is_case() {  // case
                 if opt_default.is_some() {
-                    return Err(Box::new(CompileError::case_after_default(None)));
+                    return Err(Box::new(CodeGenError::case_after_default(None)));
                 }
 
                 let case_cond = case.get_cond().unwrap();
@@ -779,7 +780,7 @@ println!("typ != *init_type");
                 let i32_type = self.context.i32_type();
                 let case_value = i32_type.const_int(value as u64, true);
                 let real_value = self.try_as_basic_value(&cond_expr.get_value())?.into_int_value();
-                let comparison = self.builder.build_int_compare(IntPredicate::EQ, real_value, case_value, "compare_switch_case");
+                let comparison = self.builder.build_int_compare(IntPredicate::EQ, real_value, case_value, "compare_switch_case")?;
 
 
 
@@ -792,7 +793,7 @@ println!("typ != *init_type");
 
             }else{               // default
                 if opt_default.is_some() {
-                    return Err(Box::new(CompileError::already_default_defined(None)));
+                    return Err(Box::new(CodeGenError::already_default_defined(None)));
                 }
                 opt_default = Some(case);
 
@@ -823,7 +824,7 @@ println!("typ != *init_type");
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
 
-        let func: FunctionValue<'ctx> = env.get_current_function().ok_or(CompileError::no_current_function(None))?;
+        let func: FunctionValue<'ctx> = env.get_current_function().ok_or(CodeGenError::no_current_function(None))?;
         let case_block  = self.context.append_basic_block(func, "switch.case");
 
         self.builder.position_at_end(case_block);
@@ -845,7 +846,7 @@ println!("typ != *init_type");
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
 
-        let func: FunctionValue<'ctx> = env.get_current_function().ok_or(CompileError::no_current_function(None))?;
+        let func: FunctionValue<'ctx> = env.get_current_function().ok_or(CodeGenError::no_current_function(None))?;
         let default_block  = self.context.append_basic_block(func, "switch.default");
 
         self.builder.position_at_end(default_block);
@@ -869,14 +870,14 @@ println!("typ != *init_type");
     {
         let mut v = Vec::new();
 
-        let fmt_string = self.builder.build_global_string_ptr(fmt, &format!("global_str_{}", fmt)).as_any_value_enum();
+        let fmt_string = self.builder.build_global_string_ptr(fmt, &format!("global_str_{}", fmt))?.as_any_value_enum();
         v.push(self.try_as_basic_metadata_value(&fmt_string)?);
         for item in args {
             v.push(*item);
         }
 
         let call_site_value = if let Some((_typ, function)) = env.get_function("printf") {
-            self.builder.build_call(*function, &v, &format!("call_function_printf_in_debug_print"))
+            self.builder.build_call(*function, &v, &format!("call_function_printf_in_debug_print"))?
         }else{
             let name = "printf";
             let ret_type = Type::Number(NumberType::Int);
@@ -899,7 +900,7 @@ println!("typ != *init_type");
             env.insert_function(&name, fun_type, fun_proto);
 
             let (_typ, function) = env.get_function("printf").unwrap();
-            self.builder.build_call(*function, &v, &format!("call_function_printf_in_debug_print"))
+            self.builder.build_call(*function, &v, &format!("call_function_printf_in_debug_print"))?
         };
 
         let tried = call_site_value.try_as_basic_value();
@@ -938,7 +939,7 @@ println!("typ != *init_type");
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<(), Box<dyn Error>> {
 
-        let _class = env.get_type(class_name).ok_or(Box::new(CompileError::no_such_a_struct(None, class_name)))?;
+        let _class = env.get_type(class_name).ok_or(Box::new(CodeGenError::no_such_a_struct(None, class_name)))?;
 
         for function in functions {
             self.gen_impl_function(class_name, typ, function, env, break_catcher, continue_catcher)?;
@@ -1021,7 +1022,7 @@ println!("typ != *init_type");
         Ok(Some(struct_type.as_any_type_enum()))
     }
 
-    pub fn struct_from_struct_definition(name: &Option<String>, struct_def: &StructDefinition, ctx: &'ctx Context) -> Result<(StructType<'ctx>, HashMap<String, usize>), CompileError> {
+    pub fn struct_from_struct_definition(name: &Option<String>, struct_def: &StructDefinition, ctx: &'ctx Context) -> Result<(StructType<'ctx>, HashMap<String, usize>), CodeGenError> {
         let mut list: Vec<BasicTypeEnum<'ctx>> = Vec::new();
         let mut packed = false;
         let mut index_map: HashMap<String, usize> = HashMap::new();
@@ -1031,7 +1032,7 @@ println!("typ != *init_type");
             for field in fields {
                 match field {
                     StructField::NormalField { name: _, sq: _, typ } => {
-                        let t = typ.to_basic_type_enum(ctx)?;
+                        let t = TypeUtil::to_basic_type_enum(typ, ctx)?;
                         list.push(t);
 
                         if let Some(id) = name {
@@ -1080,7 +1081,7 @@ println!("typ != *init_type");
     }
 
     pub fn union_from_struct_definition(_name: &Option<String>, struct_def: &StructDefinition, ctx: &'ctx Context)
-      -> Result<(Vec<(Type, BasicTypeEnum<'ctx>)>, HashMap<String, usize>, u64, Option<BasicTypeEnum<'ctx>>), CompileError>
+      -> Result<(Vec<(Type, BasicTypeEnum<'ctx>)>, HashMap<String, usize>, u64, Option<BasicTypeEnum<'ctx>>), CodeGenError>
     {
         let mut list: Vec<(Type, BasicTypeEnum<'ctx>)> = Vec::new();
         let mut index_map: HashMap<String, usize> = HashMap::new();
@@ -1092,7 +1093,7 @@ println!("typ != *init_type");
             for field in fields {
                 match field {
                     StructField::NormalField { name: field_name, sq: _, typ } => {
-                        let t = typ.to_basic_type_enum(ctx)?;
+                        let t = TypeUtil::to_basic_type_enum(typ, ctx)?;
                         list.push((typ.clone(), t.clone()));
 
                         let size = Self::size_of(&t)?;
@@ -1161,7 +1162,7 @@ println!("typ != *init_type");
         Ok(())
     }
 
-    pub fn enum_from_enum_definition(&self, enum_def: &EnumDefinition, _env: &mut Env<'ctx>) -> Result<(Vec<(String, IntValue<'ctx>)>, HashMap<String, usize>), CompileError> {
+    pub fn enum_from_enum_definition(&self, enum_def: &EnumDefinition, _env: &mut Env<'ctx>) -> Result<(Vec<(String, IntValue<'ctx>)>, HashMap<String, usize>), CodeGenError> {
         let mut enumerator_list: Vec<(String, IntValue<'ctx>)> = Vec::new();
         let mut index_map: HashMap<String, usize> = HashMap::new();
         let mut index: usize = 0;
@@ -1185,18 +1186,18 @@ println!("typ != *init_type");
         Ok((enumerator_list, index_map))
     }
 
-    fn size_of(basic_type: &BasicTypeEnum) -> Result<u64, CompileError> {
+    fn size_of(basic_type: &BasicTypeEnum) -> Result<u64, Box<dyn Error>> {
         if let Some(size) = basic_type.size_of() {
             if let Some(s) = size.get_zero_extended_constant() {
                 return Ok(s);
             }
         }
 
-        let size = Self::calc_type_size(basic_type);
+        let size = Self::calc_type_size(basic_type)?;
         Ok(size)
      }
 
-    fn calc_type_size(basic_type: &dyn BasicType) -> u64 {
+    fn calc_type_size(basic_type: &dyn BasicType) -> Result<u64, Box<dyn Error>> {
         use inkwell::execution_engine::JitFunction;
         type Func_void_u64 = unsafe extern "C" fn() -> u64;
 
@@ -1213,84 +1214,84 @@ println!("typ != *init_type");
         builder.position_at_end(basic_block);
     
         let array_type = basic_type.array_type(2);
-        let array_ptr = builder.build_alloca(array_type, "array");
+        let array_ptr = builder.build_alloca(array_type, "array")?;
         // let zero = i32_type.const_int(0, false);
         // let array_ptr = zero.const_to_pointer(array_ptr_type);
         let const_one = i32_type.const_int(1, false);
-        let ptr = unsafe { builder.build_in_bounds_gep(array_ptr, &[const_one], "gep for array") };
+        let ptr = unsafe { builder.build_in_bounds_gep(array_ptr, &[const_one], "gep for array")? };
     
         let base = array_ptr.const_to_int(i32_type);
         let index1 = ptr.const_to_int(i32_type);
-        let size = builder.build_int_sub(index1, base, "sub");
+        let size = builder.build_int_sub(index1, base, "sub")?;
         let _tmp = builder.build_return(Some(&size));
 
         let f = unsafe { engine.get_function(fn_name) };
         let f: JitFunction<Func_void_u64> = f.ok().unwrap();
         let result: u64 = unsafe { f.call() };
 
-        result
+        Ok(result)
     }
 
-    fn bit_size_check(opt_type: &Option<Type>, size: u64) -> Result<(), CompileError> {
+    fn bit_size_check(opt_type: &Option<Type>, size: u64) -> Result<(), CodeGenError> {
         if let Some(Type::Number(typ)) = opt_type {
             match typ {
                 NumberType::_Bool => {
                     if size > 1 {
-                        return Err(CompileError::illegal_bit_size(None, typ, size));
+                        return Err(CodeGenError::illegal_bit_size(None, typ, size));
                     }
                 },
                 NumberType::Char => {
                     if size > 8 {
-                        return Err(CompileError::illegal_bit_size(None, typ, size));
+                        return Err(CodeGenError::illegal_bit_size(None, typ, size));
                     }
                 },
                 NumberType::Short => {
                     if size > 16 {
-                        return Err(CompileError::illegal_bit_size(None, typ, size));
+                        return Err(CodeGenError::illegal_bit_size(None, typ, size));
                     }
                 },
                 NumberType::Int => {
                     if size > 32 {
-                        return Err(CompileError::illegal_bit_size(None, typ, size));
+                        return Err(CodeGenError::illegal_bit_size(None, typ, size));
                     }
                 },
                 NumberType::Long => {
                     if size > 64 {
-                        return Err(CompileError::illegal_bit_size(None, typ, size));
+                        return Err(CodeGenError::illegal_bit_size(None, typ, size));
                     }
                 },
                 NumberType::LongLong => {
                     if size > 128 {
-                        return Err(CompileError::illegal_bit_size(None, typ, size));
+                        return Err(CodeGenError::illegal_bit_size(None, typ, size));
                     }
                 },
                 NumberType::UnsignedChar => {
                     if size > 8 {
-                        return Err(CompileError::illegal_bit_size(None, typ, size));
+                        return Err(CodeGenError::illegal_bit_size(None, typ, size));
                     }
                 },
                 NumberType::UnsignedShort => {
                     if size > 16 {
-                        return Err(CompileError::illegal_bit_size(None, typ, size));
+                        return Err(CodeGenError::illegal_bit_size(None, typ, size));
                     }
                 },
                 NumberType::UnsignedInt => {
                     if size > 32 {
-                        return Err(CompileError::illegal_bit_size(None, typ, size));
+                        return Err(CodeGenError::illegal_bit_size(None, typ, size));
                     }
                 },
                 NumberType::UnsignedLong => {
                     if size > 64 {
-                        return Err(CompileError::illegal_bit_size(None, typ, size));
+                        return Err(CodeGenError::illegal_bit_size(None, typ, size));
                     }
                 },
                 NumberType::UnsignedLongLong => {
                     if size > 128 {
-                        return Err(CompileError::illegal_bit_size(None, typ, size));
+                        return Err(CodeGenError::illegal_bit_size(None, typ, size));
                     }
                 },
                 NumberType::Float | NumberType::Double => {
-                    return Err(CompileError::cannot_use_float_for_bitsize(None));
+                    return Err(CodeGenError::cannot_use_float_for_bitsize(None));
                 }
             }
         }
@@ -1321,7 +1322,7 @@ println!("typ != *init_type");
         _continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
 
-        let func: FunctionValue<'ctx> = env.get_current_function().ok_or(CompileError::no_current_function(None))?;
+        let func: FunctionValue<'ctx> = env.get_current_function().ok_or(CodeGenError::no_current_function(None))?;
         let pre_condition_block = self.context.append_basic_block(func, "loop.pre_condition");
         let start_block = self.context.append_basic_block(func, "loop.start");
         // let post_condition_block = self.context.append_basic_block(func, "loop.post_condition");
@@ -1347,7 +1348,7 @@ println!("typ != *init_type");
         self.builder.position_at_end(pre_condition_block);
 
         if let Some(cond) = pre_condition {
-            let cond = self.gen_expr(cond, env, break_catcher, continue_catcher)?.ok_or(CompileError::condition_is_not_number(None, cond))?;
+            let cond = self.gen_expr(cond, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::condition_is_not_number(None, cond))?;
             let comparison = cond.get_value().into_int_value();
             self.builder.build_conditional_branch(comparison, start_block, end_block);
         }else{
@@ -1377,7 +1378,7 @@ println!("typ != *init_type");
         // check post condtition
         //
         if let Some(cond) = post_condition {
-            let cond = self.gen_expr(cond, env, break_catcher, continue_catcher)?.ok_or(CompileError::condition_is_not_number(None, cond))?;
+            let cond = self.gen_expr(cond, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::condition_is_not_number(None, cond))?;
             let comparison = cond.get_value().into_int_value();
             self.builder.build_conditional_branch(comparison, pre_condition_block, end_block);
         }else{
@@ -1421,21 +1422,21 @@ println!("no cast");
     ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
         match op {
             BinOp::Add => {
-                let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?;
-                let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?;
+                let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
+                let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let (left, right) = self.bin_expr_implicit_cast(left, right)?;
                 let left_type = left.get_type();
                 let left_value = left.get_value();
                 let right_value = right.get_value();
 
                 if left_value.is_int_value() {
-                    let result = self.builder.build_int_add(left_value.into_int_value(), right_value.into_int_value(), "add_int");
+                    let result = self.builder.build_int_add(left_value.into_int_value(), right_value.into_int_value(), "add_int")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else if left_value.is_float_value() {
-                    let result = self.builder.build_float_add(left_value.into_float_value(), right_value.into_float_value(), "add_float");
+                    let result = self.builder.build_float_add(left_value.into_float_value(), right_value.into_float_value(), "add_float")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CompileError::cannot_add_value(None, left_type)))
+                    Err(Box::new(CodeGenError::cannot_add_value(None, left_type)))
                 }
             },
             BinOp::Sub => {
@@ -1444,21 +1445,21 @@ println!("no cast");
 
                 // let result = self.builder.build_int_sub(left, right, "sub");
                 // Ok(Some(result.as_any_value_enum()))
-                let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?;
-                let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?;
+                let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
+                let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let (left, right) = self.bin_expr_implicit_cast(left, right)?;
                 let left_type = left.get_type();
                 let left_value = left.get_value();
                 let right_value = right.get_value();
 
                 if left_value.is_int_value() {
-                    let result = self.builder.build_int_sub(left_value.into_int_value(), right_value.into_int_value(), "sub_int");
+                    let result = self.builder.build_int_sub(left_value.into_int_value(), right_value.into_int_value(), "sub_int")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else if left_value.is_float_value() {
-                    let result = self.builder.build_float_sub(left_value.into_float_value(), right_value.into_float_value(), "sub_float");
+                    let result = self.builder.build_float_sub(left_value.into_float_value(), right_value.into_float_value(), "sub_float")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CompileError::cannot_sub_value(None, left_type)))
+                    Err(Box::new(CodeGenError::cannot_sub_value(None, left_type)))
                 }
             },
             BinOp::Mul => {
@@ -1467,21 +1468,21 @@ println!("no cast");
 
                 // let result = self.builder.build_int_mul(left, right, "mul");
                 // Ok(Some(result.as_any_value_enum()))
-                let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?;
-                let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?;
+                let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
+                let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let (left, right) = self.bin_expr_implicit_cast(left, right)?;
                 let left_type = left.get_type();
                 let left_value = left.get_value();
                 let right_value = right.get_value();
 
                 if left_value.is_int_value() {
-                    let result = self.builder.build_int_mul(left_value.into_int_value(), right_value.into_int_value(), "mul_int");
+                    let result = self.builder.build_int_mul(left_value.into_int_value(), right_value.into_int_value(), "mul_int")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else if left_value.is_float_value() {
-                    let result = self.builder.build_float_mul(left_value.into_float_value(), right_value.into_float_value(), "mul_float");
+                    let result = self.builder.build_float_mul(left_value.into_float_value(), right_value.into_float_value(), "mul_float")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CompileError::cannot_mul_value(None, left_type)))
+                    Err(Box::new(CodeGenError::cannot_mul_value(None, left_type)))
                 }
             },
             BinOp::Div => {
@@ -1490,8 +1491,8 @@ println!("no cast");
 
                 // let result = self.builder.build_int_signed_div(left, right, "div");
                 // Ok(Some(result.as_any_value_enum()))
-                let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?;
-                let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?;
+                let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
+                let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let (left, right) = self.bin_expr_implicit_cast(left, right)?;
                 let left_type = left.get_type();
                 let left_value = left.get_value();
@@ -1499,17 +1500,17 @@ println!("no cast");
 
                 if left_value.is_int_value() {
                     if left_type.is_signed()? {
-                        let result = self.builder.build_int_signed_div(left_value.into_int_value(), right_value.into_int_value(), "div_int");
+                        let result = self.builder.build_int_signed_div(left_value.into_int_value(), right_value.into_int_value(), "div_int")?;
                         Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                     }else{
-                        let result = self.builder.build_int_unsigned_div(left_value.into_int_value(), right_value.into_int_value(), "div_int");
+                        let result = self.builder.build_int_unsigned_div(left_value.into_int_value(), right_value.into_int_value(), "div_int")?;
                         Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                     }
                 }else if left_value.is_float_value() {
-                    let result = self.builder.build_float_div(left_value.into_float_value(), right_value.into_float_value(), "div_float");
+                    let result = self.builder.build_float_div(left_value.into_float_value(), right_value.into_float_value(), "div_float")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CompileError::cannot_div_value(None, left_type)))
+                    Err(Box::new(CodeGenError::cannot_div_value(None, left_type)))
                 }
             },
             BinOp::Mod => {
@@ -1518,8 +1519,8 @@ println!("no cast");
 
                 // let result = self.builder.build_int_signed_rem(left, right, "mod");
                 // Ok(Some(result.as_any_value_enum()))
-                let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?;
-                let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?;
+                let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
+                let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let (left, right) = self.bin_expr_implicit_cast(left, right)?;
                 let left_type = left.get_type();
                 let left_value = left.get_value();
@@ -1527,17 +1528,17 @@ println!("no cast");
 
                 if left_value.is_int_value() {
                     if left_type.is_signed()? {
-                        let result = self.builder.build_int_signed_rem(left_value.into_int_value(), right_value.into_int_value(), "mod_int");
+                        let result = self.builder.build_int_signed_rem(left_value.into_int_value(), right_value.into_int_value(), "mod_int")?;
                         Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                     }else{
-                        let result = self.builder.build_int_unsigned_rem(left_value.into_int_value(), right_value.into_int_value(), "mod_int");
+                        let result = self.builder.build_int_unsigned_rem(left_value.into_int_value(), right_value.into_int_value(), "mod_int")?;
                         Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                     }
                 }else if left_value.is_float_value() {
-                    let result = self.builder.build_float_rem(left_value.into_float_value(), right_value.into_float_value(), "mod_float");
+                    let result = self.builder.build_float_rem(left_value.into_float_value(), right_value.into_float_value(), "mod_float")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CompileError::cannot_mod_value(None, left_type)))
+                    Err(Box::new(CodeGenError::cannot_mod_value(None, left_type)))
                 }
             },
             BinOp::Equal => {
@@ -1546,21 +1547,21 @@ println!("no cast");
 
                 // let result = self.builder.build_int_compare(IntPredicate::EQ, left, right, "Equal");
                 // Ok(Some(result.as_any_value_enum()))
-                let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?;
-                let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?;
+                let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
+                let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let (left, right) = self.bin_expr_implicit_cast(left, right)?;
                 let left_type = left.get_type();
                 let left_value = left.get_value();
                 let right_value = right.get_value();
 
                 if left_value.is_int_value() {
-                    let result = self.builder.build_int_compare(IntPredicate::EQ, left_value.into_int_value(), right_value.into_int_value(), "eq_int");
+                    let result = self.builder.build_int_compare(IntPredicate::EQ, left_value.into_int_value(), right_value.into_int_value(), "eq_int")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else if left_value.is_float_value() {
-                    let result = self.builder.build_float_compare(FloatPredicate::OEQ, left_value.into_float_value(), right_value.into_float_value(), "eq_float");
+                    let result = self.builder.build_float_compare(FloatPredicate::OEQ, left_value.into_float_value(), right_value.into_float_value(), "eq_float")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CompileError::cannot_compare_value(None, left_type)))
+                    Err(Box::new(CodeGenError::cannot_compare_value(None, left_type)))
                 }
             },
             BinOp::NotEqual => {
@@ -1569,21 +1570,21 @@ println!("no cast");
 
                 // let result = self.builder.build_int_compare(IntPredicate::NE, left, right, "NotEqual");
                 // Ok(Some(result.as_any_value_enum()))
-                let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?;
-                let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?;
+                let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
+                let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let (left, right) = self.bin_expr_implicit_cast(left, right)?;
                 let left_type = left.get_type();
                 let left_value = left.get_value();
                 let right_value = right.get_value();
 
                 if left_value.is_int_value() {
-                    let result = self.builder.build_int_compare(IntPredicate::NE, left_value.into_int_value(), right_value.into_int_value(), "not_eq_int");
+                    let result = self.builder.build_int_compare(IntPredicate::NE, left_value.into_int_value(), right_value.into_int_value(), "not_eq_int")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else if left_value.is_float_value() {
-                    let result = self.builder.build_float_compare(FloatPredicate::ONE, left_value.into_float_value(), right_value.into_float_value(), "not_eq_float");
+                    let result = self.builder.build_float_compare(FloatPredicate::ONE, left_value.into_float_value(), right_value.into_float_value(), "not_eq_float")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CompileError::cannot_compare_value(None, left_type)))
+                    Err(Box::new(CodeGenError::cannot_compare_value(None, left_type)))
                 }
             },
             BinOp::Less => {
@@ -1597,8 +1598,8 @@ println!("no cast");
                 // };
                 // let result = self.builder.build_int_compare(predicate, lhs, rhs, "Less");
                 // Ok(Some(result.as_any_value_enum()))
-                let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?;
-                let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?;
+                let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
+                let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let (left, right) = self.bin_expr_implicit_cast(left, right)?;
                 let left_type = left.get_type();
                 let left_value = left.get_value();
@@ -1606,17 +1607,17 @@ println!("no cast");
 
                 if left_value.is_int_value() {
                     if left_type.is_signed()? {
-                         let result = self.builder.build_int_compare(IntPredicate::SLT, left_value.into_int_value(), right_value.into_int_value(), "less_int");
+                         let result = self.builder.build_int_compare(IntPredicate::SLT, left_value.into_int_value(), right_value.into_int_value(), "less_int")?;
                         Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                     }else{
-                        let result = self.builder.build_int_compare(IntPredicate::ULT, left_value.into_int_value(), right_value.into_int_value(), "less_int");
+                        let result = self.builder.build_int_compare(IntPredicate::ULT, left_value.into_int_value(), right_value.into_int_value(), "less_int")?;
                          Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                     }
                 }else if left_value.is_float_value() {
-                    let result = self.builder.build_float_compare(FloatPredicate::OLT, left_value.into_float_value(), right_value.into_float_value(), "less_float");
+                    let result = self.builder.build_float_compare(FloatPredicate::OLT, left_value.into_float_value(), right_value.into_float_value(), "less_float")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CompileError::cannot_compare_value(None, left_type)))
+                    Err(Box::new(CodeGenError::cannot_compare_value(None, left_type)))
                 }
             },
             BinOp::LessEqual => {
@@ -1630,8 +1631,8 @@ println!("no cast");
                 // };
                 // let result = self.builder.build_int_compare(predicate, lhs, rhs, "LessEqual");
                 // Ok(Some(result.as_any_value_enum()))
-                let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?;
-                let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?;
+                let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
+                let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let (left, right) = self.bin_expr_implicit_cast(left, right)?;
                 let left_type = left.get_type();
                 let left_value = left.get_value();
@@ -1639,17 +1640,17 @@ println!("no cast");
 
                 if left_value.is_int_value() {
                     if left_type.is_signed()? {
-                         let result = self.builder.build_int_compare(IntPredicate::SLE, left_value.into_int_value(), right_value.into_int_value(), "less_eq_int");
+                         let result = self.builder.build_int_compare(IntPredicate::SLE, left_value.into_int_value(), right_value.into_int_value(), "less_eq_int")?;
                         Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                     }else{
-                        let result = self.builder.build_int_compare(IntPredicate::ULE, left_value.into_int_value(), right_value.into_int_value(), "less_eq_int");
+                        let result = self.builder.build_int_compare(IntPredicate::ULE, left_value.into_int_value(), right_value.into_int_value(), "less_eq_int")?;
                          Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                     }
                 }else if left_value.is_float_value() {
-                    let result = self.builder.build_float_compare(FloatPredicate::OLE, left_value.into_float_value(), right_value.into_float_value(), "less_eq_float");
+                    let result = self.builder.build_float_compare(FloatPredicate::OLE, left_value.into_float_value(), right_value.into_float_value(), "less_eq_float")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CompileError::cannot_compare_value(None, left_type)))
+                    Err(Box::new(CodeGenError::cannot_compare_value(None, left_type)))
                 }
             },
             BinOp::Greater => {
@@ -1663,8 +1664,8 @@ println!("no cast");
                 // };
                 // let result = self.builder.build_int_compare(predicate, lhs, rhs, "Greater");
                 // Ok(Some(result.as_any_value_enum()))
-                let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?;
-                let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?;
+                let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
+                let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let (left, right) = self.bin_expr_implicit_cast(left, right)?;
                 let left_type = left.get_type();
                 let left_value = left.get_value();
@@ -1672,17 +1673,17 @@ println!("no cast");
 
                 if left_value.is_int_value() {
                     if left_type.is_signed()? {
-                         let result = self.builder.build_int_compare(IntPredicate::SGT, left_value.into_int_value(), right_value.into_int_value(), "greater_int");
+                         let result = self.builder.build_int_compare(IntPredicate::SGT, left_value.into_int_value(), right_value.into_int_value(), "greater_int")?;
                         Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                     }else{
-                        let result = self.builder.build_int_compare(IntPredicate::UGT, left_value.into_int_value(), right_value.into_int_value(), "greater_int");
+                        let result = self.builder.build_int_compare(IntPredicate::UGT, left_value.into_int_value(), right_value.into_int_value(), "greater_int")?;
                          Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                     }
                 }else if left_value.is_float_value() {
-                    let result = self.builder.build_float_compare(FloatPredicate::OGT, left_value.into_float_value(), right_value.into_float_value(), "greater_float");
+                    let result = self.builder.build_float_compare(FloatPredicate::OGT, left_value.into_float_value(), right_value.into_float_value(), "greater_float")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CompileError::cannot_compare_value(None, left_type)))
+                    Err(Box::new(CodeGenError::cannot_compare_value(None, left_type)))
                 }
             },
             BinOp::GreaterEqual => {
@@ -1696,8 +1697,8 @@ println!("no cast");
                 // };
                 // let result = self.builder.build_int_compare(predicate, lhs, rhs, "GreaterEqual");
                 // Ok(Some(result.as_any_value_enum()))
-                let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?;
-                let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?;
+                let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
+                let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let (left, right) = self.bin_expr_implicit_cast(left, right)?;
                 let left_type = left.get_type();
                 let left_value = left.get_value();
@@ -1705,17 +1706,17 @@ println!("no cast");
 
                 if left_value.is_int_value() {
                     if left_type.is_signed()? {
-                         let result = self.builder.build_int_compare(IntPredicate::SGE, left_value.into_int_value(), right_value.into_int_value(), "greater_eq_int");
+                         let result = self.builder.build_int_compare(IntPredicate::SGE, left_value.into_int_value(), right_value.into_int_value(), "greater_eq_int")?;
                         Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                     }else{
-                        let result = self.builder.build_int_compare(IntPredicate::UGE, left_value.into_int_value(), right_value.into_int_value(), "greater_eq_int");
+                        let result = self.builder.build_int_compare(IntPredicate::UGE, left_value.into_int_value(), right_value.into_int_value(), "greater_eq_int")?;
                          Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                     }
                 }else if left_value.is_float_value() {
-                    let result = self.builder.build_float_compare(FloatPredicate::OGE, left_value.into_float_value(), right_value.into_float_value(), "greater_eq_float");
+                    let result = self.builder.build_float_compare(FloatPredicate::OGE, left_value.into_float_value(), right_value.into_float_value(), "greater_eq_float")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CompileError::cannot_compare_value(None, left_type)))
+                    Err(Box::new(CodeGenError::cannot_compare_value(None, left_type)))
                 }
             },
             BinOp::And => {
@@ -1724,18 +1725,18 @@ println!("no cast");
 
                 // let result = self.builder.build_and(left, right, "And");
                 // Ok(Some(result.as_any_value_enum()))
-                let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?;
-                let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?;
+                let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
+                let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let (left, right) = self.bin_expr_implicit_cast(left, right)?;
                 let left_type = left.get_type();
                 let left_value = left.get_value();
                 let right_value = right.get_value();
 
                 if left_value.is_int_value() {
-                    let result = self.builder.build_and(left_value.into_int_value(), right_value.into_int_value(), "and_int");
+                    let result = self.builder.build_and(left_value.into_int_value(), right_value.into_int_value(), "and_int")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CompileError::cannot_apply_logical_op_value(None, left_type)))
+                    Err(Box::new(CodeGenError::cannot_apply_logical_op_value(None, left_type)))
                 }
             },
             BinOp::Or => {
@@ -1744,42 +1745,42 @@ println!("no cast");
 
                 // let result = self.builder.build_or(left, right, "Or");
                 // Ok(Some(result.as_any_value_enum()))
-                let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?;
-                let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?;
+                let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
+                let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let (left, right) = self.bin_expr_implicit_cast(left, right)?;
                 let left_type = left.get_type();
                 let left_value = left.get_value();
                 let right_value = right.get_value();
 
                 if left_value.is_int_value() {
-                    let result = self.builder.build_or(left_value.into_int_value(), right_value.into_int_value(), "or_int");
+                    let result = self.builder.build_or(left_value.into_int_value(), right_value.into_int_value(), "or_int")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CompileError::cannot_apply_logical_op_value(None, left_type)))
+                    Err(Box::new(CodeGenError::cannot_apply_logical_op_value(None, left_type)))
                 }
             },
             BinOp::Comma => {
-                let _left = self.gen_expr(&*left, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?;
-                let right = self.gen_expr(&*right, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?;
+                let _left = self.gen_expr(&*left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
+                let right = self.gen_expr(&*right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
 
                 Ok(Some(right))
             },
             BinOp::ShiftLeft => {
-                let left = self.gen_expr(&*left, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?;
-                let right = self.gen_expr(&*right, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?;
+                let left = self.gen_expr(&*left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
+                let right = self.gen_expr(&*right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let left_type = left.get_type();
                 let right_type = right.get_type();
                 let left_value = left.get_value();
                 let right_value = right.get_value();
 
                 if ! left_value.is_int_value() {
-                    return Err(Box::new(CompileError::not_int_in_shift(None, &left_type)));
+                    return Err(Box::new(CodeGenError::not_int_in_shift(None, &left_type)));
                 }
                 if ! right_value.is_int_value() {
-                    return Err(Box::new(CompileError::not_int_in_shift(None, &right_type)));
+                    return Err(Box::new(CodeGenError::not_int_in_shift(None, &right_type)));
                 }
 
-                let result = self.builder.build_left_shift(left_value.into_int_value(), right_value.into_int_value(), "ShiftLeft");
+                let result = self.builder.build_left_shift(left_value.into_int_value(), right_value.into_int_value(), "ShiftLeft")?;
                 Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
             },
             BinOp::ShiftRight => {
@@ -1789,21 +1790,21 @@ println!("no cast");
                 // let sign_extend = env.is_signed(left)?;
                 // let result = self.builder.build_right_shift(value, count, sign_extend, "ShiftRight");
                 // Ok(Some(result.as_any_value_enum()))
-                let left = self.gen_expr(&*left, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?;
-                let right = self.gen_expr(&*right, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?;
+                let left = self.gen_expr(&*left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
+                let right = self.gen_expr(&*right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let left_type = left.get_type();
                 let right_type = right.get_type();
                 let left_value = left.get_value();
                 let right_value = right.get_value();
 
                 if ! left_value.is_int_value() {
-                    return Err(Box::new(CompileError::not_int_in_shift(None, &left_type)));
+                    return Err(Box::new(CodeGenError::not_int_in_shift(None, &left_type)));
                 }
                 if ! right_value.is_int_value() {
-                    return Err(Box::new(CompileError::not_int_in_shift(None, &right_type)));
+                    return Err(Box::new(CodeGenError::not_int_in_shift(None, &right_type)));
                 }
 
-                let result = self.builder.build_right_shift(left_value.into_int_value(), right_value.into_int_value(), left_type.is_signed()?, "ShiftRight");
+                let result = self.builder.build_right_shift(left_value.into_int_value(), right_value.into_int_value(), left_type.is_signed()?, "ShiftRight")?;
                 Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
             },
             BinOp::BitAnd => {
@@ -1812,21 +1813,21 @@ println!("no cast");
 
                 // let result = self.builder.build_and(left, right, "BitAnd");
                 // Ok(Some(result.as_any_value_enum()))
-                let left = self.gen_expr(&*left, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?;
-                let right = self.gen_expr(&*right, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?;
+                let left = self.gen_expr(&*left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
+                let right = self.gen_expr(&*right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let left_type = left.get_type();
                 let right_type = right.get_type();
                 let left_value = left.get_value();
                 let right_value = right.get_value();
 
                 if ! left_value.is_int_value() {
-                    return Err(Box::new(CompileError::not_int_bit_and(None, &left_type)));
+                    return Err(Box::new(CodeGenError::not_int_bit_and(None, &left_type)));
                 }
                 if ! right_value.is_int_value() {
-                    return Err(Box::new(CompileError::not_int_bit_and(None, &right_type)));
+                    return Err(Box::new(CodeGenError::not_int_bit_and(None, &right_type)));
                 }
 
-                let result = self.builder.build_and(left_value.into_int_value(), right_value.into_int_value(), "BitAnd");
+                let result = self.builder.build_and(left_value.into_int_value(), right_value.into_int_value(), "BitAnd")?;
                 Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
             },
             BinOp::BitOr => {
@@ -1835,21 +1836,21 @@ println!("no cast");
 
                 // let result = self.builder.build_or(left, right, "BitOr");
                 // Ok(Some(result.as_any_value_enum()))
-                let left = self.gen_expr(&*left, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?;
-                let right = self.gen_expr(&*right, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?;
+                let left = self.gen_expr(&*left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
+                let right = self.gen_expr(&*right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let left_type = left.get_type();
                 let right_type = right.get_type();
                 let left_value = left.get_value();
                 let right_value = right.get_value();
 
                 if ! left_value.is_int_value() {
-                    return Err(Box::new(CompileError::not_int_bit_or(None, &left_type)));
+                    return Err(Box::new(CodeGenError::not_int_bit_or(None, &left_type)));
                 }
                 if ! right_value.is_int_value() {
-                    return Err(Box::new(CompileError::not_int_bit_or(None, &right_type)));
+                    return Err(Box::new(CodeGenError::not_int_bit_or(None, &right_type)));
                 }
 
-                let result = self.builder.build_and(left_value.into_int_value(), right_value.into_int_value(), "BitOr");
+                let result = self.builder.build_and(left_value.into_int_value(), right_value.into_int_value(), "BitOr")?;
                 Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
             },
             BinOp::BitXor => {
@@ -1858,21 +1859,21 @@ println!("no cast");
 
                 // let result = self.builder.build_xor(left, right, "BitXor");
                 // Ok(Some(result.as_any_value_enum()))
-                let left = self.gen_expr(&*left, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?;
-                let right = self.gen_expr(&*right, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?;
+                let left = self.gen_expr(&*left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
+                let right = self.gen_expr(&*right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let left_type = left.get_type();
                 let right_type = right.get_type();
                 let left_value = left.get_value();
                 let right_value = right.get_value();
 
                 if ! left_value.is_int_value() {
-                    return Err(Box::new(CompileError::not_int_bit_xor(None, &left_type)));
+                    return Err(Box::new(CodeGenError::not_int_bit_xor(None, &left_type)));
                 }
                 if ! right_value.is_int_value() {
-                    return Err(Box::new(CompileError::not_int_bit_xor(None, &right_type)));
+                    return Err(Box::new(CodeGenError::not_int_bit_xor(None, &right_type)));
                 }
 
-                let result = self.builder.build_xor(left_value.into_int_value(), right_value.into_int_value(), "BitXor");
+                let result = self.builder.build_xor(left_value.into_int_value(), right_value.into_int_value(), "BitXor")?;
                 Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
             },
             // _ => unimplemented!("BinExpr op: {:?}", op),
@@ -1886,7 +1887,7 @@ println!("no cast");
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
-        let compiled_value = self.gen_expr(r_value, env, break_catcher, continue_catcher)?.ok_or(Box::new(CompileError::assign_illegal_value(None, r_value)))?;
+        let compiled_value = self.gen_expr(r_value, env, break_catcher, continue_catcher)?.ok_or(Box::new(CodeGenError::assign_illegal_value(None, r_value)))?;
         let value = self.try_as_basic_value(&compiled_value.get_value())?;
         let from_type = compiled_value.get_type();
 println!("gen_assign. compiled_value: {:?}", compiled_value);
@@ -1905,24 +1906,24 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
     ) -> Result<(Type, PointerValue<'ctx>), Box<dyn Error>> {
         match ast {
             ExprAST::Symbol(name) => {
-                let (typ, ptr) = env.get_ptr(&name).ok_or(Box::new(CompileError::no_such_a_variable(None, &name)))?;
+                let (typ, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(None, &name)))?;
                 Ok((typ.clone(), ptr))
             },
             ExprAST::UnaryPointerAccess(boxed_ast) => {
                 let ast = &**boxed_ast;
                 let (typ, ptr_to_ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
-                let ptr = self.builder.build_load(ptr_to_ptr, &String::from("get ptr from ptr"));
+                let ptr = self.builder.build_load(ptr_to_ptr, &String::from("get ptr from ptr"))?;
 
                 Ok((Type::new_pointer_type(typ.clone(), false, false), ptr.into_pointer_value()))
             },
             ExprAST::MemberAccess(expr, member_name) => {
                 let ast = &**expr;
                 let (_typ, ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
-                let typ = ast.get_type(env)?;
+                let typ = TypeUtil::get_type(ast, env)?;
 
                 match typ {
                     Type::Struct {name, fields} => {
-                        let index = fields.get_index(member_name).ok_or(CompileError::no_such_a_member(None, member_name))?;
+                        let index = fields.get_index(member_name).ok_or(CodeGenError::no_such_a_member(None, member_name))?;
                         let elem_type = fields.get_type(member_name).unwrap();
                         let msg = if let Some(id) = name {
                             format!("struct_{}.{}", id, member_name)
@@ -1933,12 +1934,12 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
                         if let Ok(p) = elem_ptr {
                             Ok((elem_type.clone(), p))
                         }else{
-                            return Err(Box::new(CompileError::cannot_access_struct_member(None, &member_name)));
+                            return Err(Box::new(CodeGenError::cannot_access_struct_member(None, &member_name)));
                         }
                     },
                     Type::Union { name, fields } => {
                         if let Some(id) = name {
-                            let type_or_union = env.get_type(&id).ok_or(CompileError::no_such_a_member(None, member_name))?;
+                            let type_or_union = env.get_type(&id).ok_or(CodeGenError::no_such_a_member(None, member_name))?;
                             match type_or_union {
                                 TypeOrUnion::Union { type_list, index_map, max_size: _, max_size_type: _ } => {
                                     let idx = index_map[member_name];
@@ -1954,11 +1955,11 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
                                     let p = ptr.const_cast(ptr_type);
                                     Ok((typ.clone(), p))
                                 },
-                                _ => return Err(Box::new(CompileError::not_union(None, &id))),
+                                _ => return Err(Box::new(CodeGenError::not_union(None, &id))),
                             }
                         }else{
-                            let typ = fields.get_type(member_name).ok_or(CompileError::no_such_a_member(None, member_name))?;
-                            let to_type = typ.to_basic_type_enum(self.context)?;
+                            let typ = fields.get_type(member_name).ok_or(CodeGenError::no_such_a_member(None, member_name))?;
+                            let to_type = TypeUtil::to_basic_type_enum(typ, self.context)?;
                             let ptr_type = to_type.ptr_type(AddressSpace::Generic);
                             let p = ptr.const_cast(ptr_type);
                             Ok((typ.clone(), p))
@@ -1970,24 +1971,24 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
             ExprAST::PointerAccess(expr, member_name) => {
                 let ast = &**expr;
                 let (_typ, ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
-                let ptr = self.builder.build_load(ptr, &format!("pointer_access_to_{}", member_name)).into_pointer_value();
-                let typ = ast.get_type(env)?;
+                let ptr = self.builder.build_load(ptr, &format!("pointer_access_to_{}", member_name))?.into_pointer_value();
+                let typ = TypeUtil::get_type(ast, env)?;
                 let typ = typ.get_pointed_type()?;
 
                 match typ {
                     Type::Struct {fields, ..} => {
-                        let index = fields.get_index(member_name).ok_or(CompileError::no_such_a_member(None, member_name))?;
+                        let index = fields.get_index(member_name).ok_or(CodeGenError::no_such_a_member(None, member_name))?;
                         let elem_ptr = self.builder.build_struct_gep(ptr, index as u32, "struct_member_access");
                         if let Ok(p) = elem_ptr {
                             let typ = fields.get_type(member_name).unwrap();
                             Ok((typ.clone(), p))
                         }else{
-                            return Err(Box::new(CompileError::cannot_access_struct_member(None, &member_name)));
+                            return Err(Box::new(CodeGenError::cannot_access_struct_member(None, &member_name)));
                         }
                     },
                     Type::Union { name, fields } => {
                         if let Some(id) = name {
-                            let type_or_union = env.get_type(&id).ok_or(CompileError::no_such_a_member(None, member_name))?;
+                            let type_or_union = env.get_type(&id).ok_or(CodeGenError::no_such_a_member(None, member_name))?;
                             match type_or_union {
                                 TypeOrUnion::Union { type_list, index_map, max_size: _, max_size_type: _ } => {
                                     let idx = index_map[member_name];
@@ -2003,11 +2004,11 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
                                     let p = ptr.const_cast(ptr_type);
                                     Ok((typ.clone(), p))
                                 },
-                                _ => return Err(Box::new(CompileError::not_union(None, &id))),
+                                _ => return Err(Box::new(CodeGenError::not_union(None, &id))),
                             }
                         }else{
-                            let typ = fields.get_type(member_name).ok_or(CompileError::no_such_a_member(None, member_name))?;
-                            let to_type = typ.to_basic_type_enum(self.context)?;
+                            let typ = fields.get_type(member_name).ok_or(CodeGenError::no_such_a_member(None, member_name))?;
+                            let to_type = TypeUtil::to_basic_type_enum(typ, self.context)?;
                             let ptr_type = to_type.ptr_type(AddressSpace::Generic);
                             let p = ptr.const_cast(ptr_type);
                             Ok((typ.clone(), p))
@@ -2020,7 +2021,7 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
                 let ast = &**expr;
                 let (typ, base_ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
 
-                let value = self.gen_expr(index, env, break_catcher, continue_catcher)?.ok_or(CompileError::no_index_value_while_access_array(None))?;
+                let value = self.gen_expr(index, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::no_index_value_while_access_array(None))?;
                 let index_val = value.get_value().into_int_value();
 
                 let i32_type = self.context.i32_type();
@@ -2031,7 +2032,7 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
                 Ok((typ.clone(), ptr))
             },
             ExprAST::_self => {
-                let (typ, ptr) = env.get_ptr("self").ok_or(Box::new(CompileError::no_such_a_variable(None, "self")))?;
+                let (typ, ptr) = env.get_ptr("self").ok_or(Box::new(CodeGenError::no_such_a_variable(None, "self")))?;
                 Ok((typ.clone(), ptr))
             },
             ExprAST::_Self => {
@@ -2072,7 +2073,7 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
         Ok(None)
     }
 
-    fn make_fun_type(name: &str, ret_type: &Type, params: &Params, _env: &Env) -> Result<Type, CompileError> {
+    fn make_fun_type(name: &str, ret_type: &Type, params: &Params, _env: &Env) -> Result<Type, CodeGenError> {
         Ok(Type::new_function_type(
             Some(name.to_string()),
             ret_type.clone(),
@@ -2081,14 +2082,14 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
         ))
     }
 
-    fn to_function(&self, any_val: &AnyValueEnum<'ctx>) -> Result<FunctionValue<'ctx>, CompileError> {
+    fn to_function(&self, any_val: &AnyValueEnum<'ctx>) -> Result<FunctionValue<'ctx>, CodeGenError> {
         match any_val {
             AnyValueEnum::FunctionValue(fun) => Ok(*fun),
-            _ => Err(CompileError::cannot_call_not_function(None, any_val)),
+            _ => Err(CodeGenError::cannot_call_not_function(None, any_val)),
         }
     }
 
-    fn try_as_basic_metadata_value(&self, any_val: &AnyValueEnum<'ctx>) -> Result<BasicMetadataValueEnum<'ctx>, CompileError> {
+    fn try_as_basic_metadata_value(&self, any_val: &AnyValueEnum<'ctx>) -> Result<BasicMetadataValueEnum<'ctx>, CodeGenError> {
         match any_val {
             AnyValueEnum::ArrayValue(val) => Ok(BasicMetadataValueEnum::ArrayValue(*val)),
             AnyValueEnum::IntValue(val) => Ok(BasicMetadataValueEnum::IntValue(*val)),
@@ -2096,11 +2097,12 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
             AnyValueEnum::PointerValue(val) => Ok(BasicMetadataValueEnum::PointerValue(*val)),
             AnyValueEnum::StructValue(val) => Ok(BasicMetadataValueEnum::StructValue(*val)),
             AnyValueEnum::VectorValue(val) => Ok(BasicMetadataValueEnum::VectorValue(*val)),
-            _ => Err(CompileError::cannot_convert_anyvalueenum_to_basicmetadatavalueenum(None, any_val)),
+            // _ => Err(CodeGenError::cannot_convert_anyvalueenum_to_basicmetadatavalueenum(None, any_val)),
+            _ => Err(CodeGenError::cannot_convert_anyvalueenum_to_basicmetadatavalueenum(None)),
         }
     }
 
-    fn try_as_basic_value(&self, any_val: &AnyValueEnum<'ctx>) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    fn try_as_basic_value(&self, any_val: &AnyValueEnum<'ctx>) -> Result<BasicValueEnum<'ctx>, CodeGenError> {
         match any_val {
             AnyValueEnum::ArrayValue(val) => Ok(BasicValueEnum::ArrayValue(*val)),
             AnyValueEnum::IntValue(val) => Ok(BasicValueEnum::IntValue(*val)),
@@ -2108,11 +2110,12 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
             AnyValueEnum::PointerValue(val) => Ok(BasicValueEnum::PointerValue(*val)),
             AnyValueEnum::StructValue(val) => Ok(BasicValueEnum::StructValue(*val)),
             AnyValueEnum::VectorValue(val) => Ok(BasicValueEnum::VectorValue(*val)),
-            _ => Err(CompileError::cannot_convert_anyvalueenum_to_basicvalueenum(None, any_val)),
+            // _ => Err(CodeGenError::cannot_convert_anyvalueenum_to_basicvalueenum(None, any_val)),
+            _ => Err(CodeGenError::cannot_convert_anyvalueenum_to_basicvalueenum(None)),
         }
     }
 
-    fn try_as_basic_type(&self, any_type: &AnyTypeEnum<'ctx>) -> Result<BasicTypeEnum<'ctx>, CompileError> {
+    fn try_as_basic_type(&self, any_type: &AnyTypeEnum<'ctx>) -> Result<BasicTypeEnum<'ctx>, CodeGenError> {
         match any_type {
             AnyTypeEnum::ArrayType(val) => Ok(BasicTypeEnum::ArrayType(*val)),
             AnyTypeEnum::IntType(val) => Ok(BasicTypeEnum::IntType(*val)),
@@ -2120,7 +2123,8 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
             AnyTypeEnum::PointerType(val) => Ok(BasicTypeEnum::PointerType(*val)),
             AnyTypeEnum::StructType(val) => Ok(BasicTypeEnum::StructType(*val)),
             AnyTypeEnum::VectorType(val) => Ok(BasicTypeEnum::VectorType(*val)),
-            _ => Err(CompileError::cannot_convert_anytypeenum_to_basictypeenum(None, any_type)),
+            // _ => Err(CodeGenError::cannot_convert_anytypeenum_to_basictypeenum(None, any_type)),
+            _ => Err(CodeGenError::cannot_convert_anytypeenum_to_basictypeenum(None)),
         }
     }
 
@@ -2190,7 +2194,7 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
         for (i, param) in params.get_params().iter().enumerate() {
             let typ = param.get_type();
             let name = param.get_name();
-            let ptr = self.builder.build_alloca(typ.to_basic_type_enum(self.context)?, name);
+            let ptr = self.builder.build_alloca(TypeUtil::to_basic_type_enum(&typ, self.context)?, name)?;
             let value = function.get_nth_param(i as u32).unwrap();
             self.builder.build_store(ptr, value);
             env.insert_local(name, typ.clone(), ptr);
@@ -2214,8 +2218,9 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
                 match last_stmt {
                     Some(AST::Return(None)) => Ok(()),  // do nothing
                     Some(AST::Return(Some(expr))) => {
-                        let typ: BasicTypeEnum = expr.get_type(env)?.to_basic_type_enum(self.context)?;
-                        return Err(Box::new(CompileError::return_type_mismatch(None, Some(&fn_type.get_return_type().unwrap()), Some(&typ))));
+                        let typ: Type = TypeUtil::get_type(expr, env)?;
+                        let basic_type: BasicTypeEnum = TypeUtil::to_basic_type_enum(&typ, self.context)?;
+                        return Err(Box::new(CodeGenError::return_type_mismatch(None, Some(&fn_type.get_return_type().unwrap()), Some(&basic_type))));
                     },
                     _ => {
                         self.builder.build_return(None);
@@ -2227,7 +2232,7 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
                 // 最後の文の型をチェックする。
                 match last_stmt {
                     Some(AST::Return(None)) => {
-                        return Err(Box::new(CompileError::no_return_for_type(None, &fn_type.get_return_type().unwrap())));
+                        return Err(Box::new(CodeGenError::no_return_for_type(None, &fn_type.get_return_type().unwrap())));
                     },
                     Some(AST::Return(Some(_expr))) => {
                         // let expr_type = expr.get_type(env)?.to_basic_type_enum(self.context)?;
@@ -2245,11 +2250,11 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
 
                                 Ok(())
                             }else{
-                                Err(Box::new(CompileError::return_type_mismatch(None, Some(&ret_type), Some(&typ))))
+                                Err(Box::new(CodeGenError::return_type_mismatch(None, Some(&ret_type), Some(&typ))))
                             }
 
                         }else{
-                            Err(Box::new(CompileError::return_type_mismatch(None, Some(&ret_type), None)))
+                            Err(Box::new(CodeGenError::return_type_mismatch(None, Some(&ret_type), None)))
                         }
                     },
                     Some(stmt) => {  // TODO: if文などの時に内部でreturnしているかもしれないので、その処理。
@@ -2257,11 +2262,11 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
                             if ret_type == typ {
                                 Ok(())
                             }else{
-                                Err(Box::new(CompileError::return_type_mismatch(None, Some(&ret_type), Some(&typ))))
+                                Err(Box::new(CodeGenError::return_type_mismatch(None, Some(&ret_type), Some(&typ))))
                             }
 
                         }else{
-                            Err(Box::new(CompileError::return_type_mismatch(None, Some(&ret_type), None)))
+                            Err(Box::new(CodeGenError::return_type_mismatch(None, Some(&ret_type), None)))
                         }
 
                     },
@@ -2280,7 +2285,8 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
                 Ok(None)
             },
             AST::Return(Some(expr)) => {
-                let expr_type = expr.get_type(env)?.to_basic_type_enum(self.context)?;
+                let typ = TypeUtil::get_type(&**expr, env)?;
+                let expr_type = TypeUtil::to_basic_type_enum(&typ, self.context)?;
                 Ok(Some(expr_type))
             },
             AST::If(_cond, if_then, if_else) => {
@@ -2292,22 +2298,22 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
                             if typ1 == else_type {
                                 Ok(Some(typ1))
                             }else{
-                                Err(Box::new(CompileError::mismatch_type_in_if(None, then_type, Some(else_type))))
+                                Err(Box::new(CodeGenError::mismatch_type_in_if(None, then_type, Some(else_type))))
                             }
 
                         }else{
-                            Err(Box::new(CompileError::mismatch_type_in_if(None, then_type, None)))
+                            Err(Box::new(CodeGenError::mismatch_type_in_if(None, then_type, None)))
                         }
 
                     }else{
-                        Err(Box::new(CompileError::mismatch_type_in_if(None, then_type, None)))
+                        Err(Box::new(CodeGenError::mismatch_type_in_if(None, then_type, None)))
                     }
 
                 }else{
                     if let Some(else_expr) = if_else {
                         let else_type = self.calc_ret_type(else_expr, env)?;
                         if let Some(_typ) = else_type {
-                            Err(Box::new(CompileError::mismatch_type_in_if(None, then_type, else_type)))
+                            Err(Box::new(CodeGenError::mismatch_type_in_if(None, then_type, else_type)))
                         }else{
                             Ok(None)
                         }
@@ -2343,7 +2349,7 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
     }
 
     fn make_function_type(&self, ret_type: &Type, params: &Params, _env: &Env<'ctx>) -> Result<FunctionType<'ctx>, Box<dyn Error>> {
-        let ret_t = ret_type.to_llvm_any_type(self.context)?;
+        let ret_t = TypeUtil::to_llvm_any_type(ret_type, self.context)?;
         let has_variadic = params.has_variadic();
 
         let mut arg_type_vec = Vec::new();
@@ -2351,7 +2357,7 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
         if let Some(cust_self) = params.get_self() {
             let typ = cust_self.get_type();
             let typ = Type::new_pointer_type(typ.clone(), false, false);
-            let t = typ.to_llvm_type(self.context)?;
+            let t = TypeUtil::to_llvm_type(&typ, self.context)?;
 
             arg_type_vec.push(t);
         }
@@ -2359,7 +2365,7 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
         for ds in params.get_params() {
             let typ = ds.get_type();
 
-            let t = typ.to_llvm_type(self.context)?;
+            let t = TypeUtil::to_llvm_type(&typ, self.context)?;
             arg_type_vec.push(t);
         }
         let params_type = &arg_type_vec;  // get slice
@@ -2389,7 +2395,7 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
             // AnyTypeEnum::FunctionType(t) => {
             //     Ok(t.fn_type(&params_type, false))
             // },
-            _ => Err(Box::new(CompileError::cannot_make_fn_type(None))),
+            _ => Err(Box::new(CodeGenError::cannot_make_fn_type(None))),
         }
     }
 }
@@ -2432,7 +2438,7 @@ mod tests {
         gen_prologue(&gen, fn_name, fn_type);
 
         let mut env = Env::new();
-        let value = gen.gen_expr(&ast, &mut env, None, None)?.ok_or(CompileError::illegal_end_of_input(None))?;
+        let value = gen.gen_expr(&ast, &mut env, None, None)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
         let result = value.get_value();
         let func = match result {
             AnyValueEnum::IntValue(_) => {
@@ -2936,7 +2942,7 @@ mod tests {
     }
 
     #[test]
-    fn code_gen_multiple_pointer_declaration() -> Result<(), CompileError> {
+    fn code_gen_multiple_pointer_declaration() -> Result<(), CodeGenError> {
         let src = "
             int test() {
                 int x, *y, **z;
@@ -2973,7 +2979,7 @@ mod tests {
     }
 
     #[test]
-    fn code_gen_struct() -> Result<(), CompileError> {
+    fn code_gen_struct() -> Result<(), CodeGenError> {
         let src = "
             struct date {
                 int year, month;
@@ -3019,7 +3025,7 @@ mod tests {
     }
 
     #[test]
-    fn code_gen_union() -> Result<(), CompileError> {
+    fn code_gen_union() -> Result<(), CodeGenError> {
         let src = "
             union foo {
                 int i_value;
@@ -3062,7 +3068,7 @@ mod tests {
     }
 
     #[test]
-    fn code_gen_array() -> Result<(), CompileError> {
+    fn code_gen_array() -> Result<(), CodeGenError> {
         let src = "
             int printf(char* format, ...);
 
