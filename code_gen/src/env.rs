@@ -1,12 +1,13 @@
 #![allow(dead_code)]
 
 use std::collections::HashMap;
+use std::error::Error;
 use inkwell::debug_info::DIFlagsConstants;
 use inkwell::values::{PointerValue, FunctionValue, GlobalValue, AnyValueEnum, IntValue, BasicValueEnum, BasicValue};
 use inkwell::types::{StructType, AnyTypeEnum, AnyType, BasicTypeEnum, IntType, BasicType};
 use inkwell::basic_block::BasicBlock;
 use inkwell::context::Context;
-use crate::parser::{Type, ConstExpr, NumberType, ExprAST};
+use crate::parser::{Type, ConstExpr, NumberType, ExprAST, CustFunctionType};
 use crate::CodeGenError;
 use super::type_util::TypeUtil;
 
@@ -190,17 +191,25 @@ enum ConstOrGlobalValue<'ctx> {
     GlobalValue{global: GlobalValue<'ctx>},
 }
 
+// #[derive(Debug, Clone, PartialEq)]
+// pub struct CompiledFunction<'ctx> {
+//     arg_types: Option<Vec<Type>>,
+//     ret_type: Option<Type>,
+
+//     function_value: FunctionValue<'ctx>,
+// }
+
 #[derive(Debug)]
 pub struct Env<'ctx> {
     global_def: HashMap<String, (Type, ConstOrGlobalValue<'ctx>)>,
-    global_functions: HashMap<String, (Type, FunctionValue<'ctx>)>,
+    global_functions: HashMap<String, (CustFunctionType, FunctionValue<'ctx>)>,
 
     locals: Vec<Vec<HashMap<String, (Type, PointerValue<'ctx>)>>>,
-    local_functions: Vec<Vec<HashMap<String, (Type, FunctionValue<'ctx>)>>>,
+    local_functions: Vec<Vec<HashMap<String, (CustFunctionType, FunctionValue<'ctx>)>>>,
     local_labels: Vec<Vec<HashMap<String, BasicBlock<'ctx>>>>,
     local_cases: Vec<Vec<Vec<CompiledCase<'ctx>>>>,
 
-    current_function: Option<FunctionValue<'ctx>>,
+    current_function: Option<(CustFunctionType, FunctionValue<'ctx>)>,
     types: HashMap<String, (TypeOrUnion<'ctx>, Option<HashMap<String, usize>>)>,
 }
 
@@ -278,17 +287,17 @@ impl<'ctx> Env<'ctx> {
         self.locals.last_mut().unwrap().last_mut().unwrap().insert(key.to_string(), (typ, ptr));
     }
 
-    pub fn insert_function(&mut self, key: &str, typ: Type, function: FunctionValue<'ctx>) {
+    pub fn insert_function(&mut self, key: &str, typ: CustFunctionType, function: FunctionValue<'ctx>) {
         self.global_functions.insert(key.to_string(), (typ, function));
     }
 
-    pub fn get_function(&self, key: &str) -> Option<&(Type, FunctionValue<'ctx>)> {
+    pub fn get_function(&self, key: &str) -> Option<&(CustFunctionType, FunctionValue<'ctx>)> {
         self.global_functions.get(key)
     }
 
-    pub fn insert_typedef(&mut self, key: &str, typ: &Type, ctx: &'ctx Context) -> Result<(), CodeGenError> {
+    pub fn insert_typedef(&mut self, key: &str, typ: &Type, ctx: &'ctx Context) -> Result<(), Box<dyn Error>> {
         if let Some(_any_type_enum) = self.types.get(key) {
-            return Err(CodeGenError::already_type_defined_in_typedef(None, typ, key));
+            return Err(Box::new(CodeGenError::already_type_defined_in_typedef(None, typ, key)));
         }
 
         let type_or_union = match typ {
@@ -300,7 +309,7 @@ impl<'ctx> Env<'ctx> {
                 if let Some(id) = name {
                     let t = self.get_type(id).ok_or(CodeGenError::no_such_a_type(None, id))?;
                     if ! t.is_struct_type() {
-                        return  Err(CodeGenError::mismatch_type_struct_fields(None, Some(id)));
+                        return  Err(Box::new(CodeGenError::mismatch_type_struct_fields(None, Some(id))));
                     }
                     t.clone()
 
@@ -314,7 +323,7 @@ impl<'ctx> Env<'ctx> {
                     let t = self.get_type(id).ok_or(CodeGenError::no_such_a_type(None, id))?;
 
                     if ! t.is_union_type() {
-                        return  Err(CodeGenError::mismatch_type_union_fields(None, Some(id)));
+                        return  Err(Box::new(CodeGenError::mismatch_type_union_fields(None, Some(id))));
                     }
                     t.clone()
 
@@ -335,7 +344,7 @@ impl<'ctx> Env<'ctx> {
         Ok(())
     }
 
-    pub fn basic_type_enum_from_type(&self, typ: &Type, ctx: &'ctx Context) -> Result<BasicTypeEnum<'ctx>, CodeGenError> {
+    pub fn basic_type_enum_from_type(&self, typ: &Type, ctx: &'ctx Context) -> Result<BasicTypeEnum<'ctx>, Box<dyn Error>> {
         match typ {
             Type::Struct { name, fields } => {
                 if let Some(id) = name {
@@ -345,7 +354,7 @@ impl<'ctx> Env<'ctx> {
                                 if let Ok(basic_type) = BasicTypeEnum::try_from(*t) {
                                     Ok(basic_type)
                                 }else{
-                                    Err(CodeGenError::mismatch_type_struct_fields(None, Some(id)))
+                                    Err(Box::new(CodeGenError::mismatch_type_struct_fields(None, Some(id))))
                                 }
                             },
                             TypeOrUnion::Union { max_size_type, .. } => {
@@ -353,7 +362,7 @@ impl<'ctx> Env<'ctx> {
                                 if let Ok(basic_type) = BasicTypeEnum::try_from(t) {
                                     Ok(basic_type)
                                 }else{
-                                    Err(CodeGenError::mismatch_type_union_fields(None, Some(id)))
+                                    Err(Box::new(CodeGenError::mismatch_type_union_fields(None, Some(id))))
                                 }
                             },
                             TypeOrUnion::StandardEnum { i32_type, .. } => {
@@ -379,7 +388,7 @@ impl<'ctx> Env<'ctx> {
                                 if let Ok(basic_type) = BasicTypeEnum::try_from(*t) {
                                     Ok(basic_type)
                                 }else{
-                                    Err(CodeGenError::mismatch_type_struct_fields(None, Some(id)))
+                                    Err(Box::new(CodeGenError::mismatch_type_struct_fields(None, Some(id))))
                                 }
                             },
                             TypeOrUnion::Union { max_size_type, .. } => {
@@ -387,7 +396,7 @@ impl<'ctx> Env<'ctx> {
                                 if let Ok(basic_type) = BasicTypeEnum::try_from(t) {
                                     Ok(basic_type)
                                 }else{
-                                    Err(CodeGenError::mismatch_type_union_fields(None, Some(id)))
+                                    Err(Box::new(CodeGenError::mismatch_type_union_fields(None, Some(id))))
                                 }
                             },
                             TypeOrUnion::StandardEnum { i32_type, .. } => {
@@ -413,7 +422,7 @@ impl<'ctx> Env<'ctx> {
 
                 unimplemented!()
             },
-            _ => TypeUtil::to_basic_type_enum(typ, ctx),
+            _ => Ok(TypeUtil::to_basic_type_enum(typ, ctx)?),
         }
     }
 
@@ -527,12 +536,24 @@ impl<'ctx> Env<'ctx> {
         }
     }
 
-    pub fn get_current_function(&self) -> Option<FunctionValue<'ctx>> {
-        self.current_function
+    pub fn get_current_function(&self) -> Option<(&CustFunctionType, &FunctionValue<'ctx>)> {
+        if let Some((ref typ, ref value)) = self.current_function {
+            Some((typ, value))
+        }else{
+            None
+        }
     }
 
-    pub fn set_current_function(&mut self, func: FunctionValue<'ctx>) {
-        self.current_function = Some(func);
+    pub fn get_current_function_type(&self) -> Option<CustFunctionType> {
+        if let Some((ref typ, ref value)) = self.current_function {
+            Some(typ.clone())
+        }else{
+            None
+        }
+    }
+
+    pub fn set_current_function(&mut self,  typ: &CustFunctionType, func: FunctionValue<'ctx>) {
+        self.current_function = Some((typ.clone(), func));
     }
 
     pub fn get_type(&self, key: &str) -> Option<&TypeOrUnion<'ctx>> {

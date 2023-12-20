@@ -456,17 +456,35 @@ impl EnumDefinition {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct CustFunctionType {
+    name: Option<String>,
+    ret_type: Box<Type>,
+    params_type: Vec<Type>,
+    has_variadic: bool,
+}
+
+impl CustFunctionType {
+    pub fn new(name: Option<String>, ret_type: Type, params_type: Vec<Type>, has_variadic: bool) -> CustFunctionType {
+        CustFunctionType {
+            name,
+            ret_type: Box::new(ret_type),
+            params_type,
+            has_variadic,
+        }
+    }
+
+    pub fn get_return_type(&self) -> &Type {
+        &self.ret_type
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Type {
     Number(NumberType),
     Void,
     Symbol(String),
     Pointer(Pointer, Box<Type>),
-    Function {
-        name: Option<String>,
-        ret_type: Box<Type>,
-        params_type: Vec<Type>,
-        has_variadic: bool,
-    },
+    Function(CustFunctionType),
     Struct {
         name: Option<String>,
         fields: StructDefinition,
@@ -489,12 +507,13 @@ pub enum Type {
 
 impl Type {
     pub fn new_function_type(name: Option<String>, ret_type: Type, params_type: Vec<Type>, has_variadic: bool) -> Type {
-        Type::Function {
-            name: name,
+        let fun_type = CustFunctionType {
+            name,
             ret_type: Box::new(ret_type),
-            params_type: params_type,
-            has_variadic: has_variadic,
-        }
+            params_type,
+            has_variadic,
+        };
+        Type::Function(fun_type)
     }
 
     pub fn new_pointer_type(typ: Type, is_const: bool, is_volatile: bool) -> Type {
@@ -512,6 +531,13 @@ impl Type {
 
     pub fn enum_from_enum_definition(name: Option<String>, enum_def: EnumDefinition) -> Type {
         Type::Enum { name: name, enum_def: enum_def }
+    }
+
+    pub fn is_void(&self) -> bool {
+        match self {
+            Type::Void => true,
+            _ => false,
+        }
     }
 
     pub fn is_struct(&self) -> bool {
@@ -538,8 +564,8 @@ impl Type {
     }
 
     pub fn get_fn_ret_type(&self) -> Result<&Type, ParserError> {
-        if let Type::Function { ret_type, .. } = self {
-            Ok(&ret_type)
+        if let Type::Function(fun_type) = self {
+            Ok(&fun_type.ret_type)
         }else{
             Err(ParserError::not_function(None, self))
         }
@@ -585,6 +611,13 @@ impl Type {
         match self {
             Type::Number(nt) => Ok(nt),
             _ => Err(ParserError::not_number_type(None, self)),
+        }
+    }
+
+    pub fn get_function_type(&self) -> Result<&CustFunctionType, ParserError> {
+        match self {
+            Type::Function(fun_type) => Ok(fun_type),
+            _ => Err(ParserError::not_function(None, self))
         }
     }
 
@@ -889,16 +922,16 @@ impl fmt::Display for Type {
 
                 Ok(())
             },
-            Type::Function {name, ret_type, params_type: _, has_variadic} => {
-                let name = if let Some(id) = name {
-                    id
+            Type::Function(fun_type) => {
+                let name = if let Some(id) = &fun_type.name {
+                    &id
                 }else{
                     "<no_name>"
                 };
-                if *has_variadic {
-                    write!(f, "{} {}(.., ...)", ret_type, name)
+                if fun_type.has_variadic {
+                    write!(f, "{} {}(.., ...)", fun_type.ret_type, name)
                 }else{
-                    write!(f, "{} {}(..)", ret_type, name)
+                    write!(f, "{} {}(..)", fun_type.ret_type, name)
                 }
             },
             Type::BitField => {

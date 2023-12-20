@@ -2,6 +2,7 @@ use crate::parser::{Type, NumberType, Pointer, BinOp};
 use crate::Env;
 use inkwell::context::Context;
 use inkwell::values::{BasicValueEnum, BasicMetadataValueEnum, AnyValueEnum, AnyValue, FunctionValue, InstructionOpcode, PointerValue, InstructionValue, BasicValue, IntValue};
+use std::error::Error;
 use inkwell::types::{BasicTypeEnum, AnyTypeEnum, FunctionType, BasicType, BasicMetadataTypeEnum};
 use inkwell::AddressSpace;
 use inkwell::types::AnyType;
@@ -11,7 +12,7 @@ use super::{CodeGen, CodeGenError};
 pub struct TypeUtil;
 
 impl TypeUtil {
-    pub fn to_basic_type_enum<'a>(typ: &Type, ctx: &'a Context) -> Result<BasicTypeEnum<'a>, CodeGenError> {
+    pub fn to_basic_type_enum<'a>(typ: &Type, ctx: &'a Context) -> Result<BasicTypeEnum<'a>, Box<dyn Error>> {
         match typ {
             Type::Number(NumberType::_Bool)  => Ok(BasicTypeEnum::IntType(ctx.bool_type())),
             Type::Number(NumberType::Char)   => Ok(BasicTypeEnum::IntType(ctx.i8_type())),
@@ -29,11 +30,11 @@ impl TypeUtil {
                 let typ = Self::to_llvm_type(to_type, ctx)?;
 
                 if typ.is_int_type() {
-                    Ok(typ.into_int_type().ptr_type(AddressSpace::Generic).into())
+                    Ok(typ.into_int_type().ptr_type(AddressSpace::default()).into())
                 }else if typ.is_float_type() {
-                    Ok(typ.into_float_type().ptr_type(AddressSpace::Generic).into())
+                    Ok(typ.into_float_type().ptr_type(AddressSpace::default()).into())
                 }else if typ.is_pointer_type() {
-                    Ok(typ.into_pointer_type().ptr_type(AddressSpace::Generic).into())
+                    Ok(typ.into_pointer_type().ptr_type(AddressSpace::default()).into())
                 }else if typ.is_array_type() {
 
 
@@ -48,9 +49,9 @@ impl TypeUtil {
 
                     unimplemented!()
                 }else if typ.is_struct_type() {
-                    Ok(typ.into_struct_type().ptr_type(AddressSpace::Generic).into())
+                    Ok(typ.into_struct_type().ptr_type(AddressSpace::default()).into())
                 }else{
-                    Err(CodeGenError::illegal_type_for_pointer(None, &to_type))
+                    Err(Box::new(CodeGenError::illegal_type_for_pointer(None, &to_type)))
                 }
 
             },
@@ -87,9 +88,9 @@ impl TypeUtil {
                     Ok(typ)
                 }else{
                     if let Some(id) = name {
-                        Err(CodeGenError::union_has_no_field(None, Some(id.to_string())))
+                        Err(Box::new(CodeGenError::union_has_no_field(None, Some(id.to_string()))))
                     }else{
-                        Err(CodeGenError::union_has_no_field(None, None))
+                        Err(Box::new(CodeGenError::union_has_no_field(None, None)))
                     }
                 }
             },
@@ -100,17 +101,17 @@ impl TypeUtil {
                 unimplemented!()
             },
             _ => {
-                Err(CodeGenError::no_such_a_type(None, &typ.to_string()))
+                Err(Box::new(CodeGenError::no_such_a_type(None, &typ.to_string())))
             },
         }
     }
 
 
-    pub fn to_llvm_type<'a>(typ: &Type, ctx: &'a Context) -> Result<BasicMetadataTypeEnum<'a>, CodeGenError> {
+    pub fn to_llvm_type<'a>(typ: &Type, ctx: &'a Context) -> Result<BasicMetadataTypeEnum<'a>, Box<dyn Error>> {
         Ok(Self::to_basic_type_enum(typ, ctx)?.into())
     }
 
-    pub fn to_llvm_any_type<'a>(typ: &Type, ctx: &'a Context) -> Result<AnyTypeEnum<'a>, CodeGenError> {
+    pub fn to_llvm_any_type<'a>(typ: &Type, ctx: &'a Context) -> Result<AnyTypeEnum<'a>, Box<dyn Error>> {
         match typ {
             Type::Number(NumberType::Char)   => Ok(AnyTypeEnum::IntType(ctx.i8_type())),
             Type::Number(NumberType::Short)  => Ok(AnyTypeEnum::IntType(ctx.i16_type())),
@@ -141,7 +142,7 @@ impl TypeUtil {
         }
     }
 
-    pub fn get_type(&expr: &ExprAST, env: &Env) -> Result<Type, CodeGenError> {
+    pub fn get_type(expr: &ExprAST, env: &Env) -> Result<Type, CodeGenError> {
         match expr {
             ExprAST::Assign(left, _right) => {
                 // (*left).get_type(env)
@@ -198,7 +199,7 @@ impl TypeUtil {
                 Ok(Type::new_pointer_type(t, false, false))
             },
             ExprAST::UnaryPointerAccess(boxed_ast) => {
-                let ast = &*boxed_ast;
+                let ast = &**boxed_ast;
                 match ast {
                     ExprAST::Symbol(name) => {
                         let (typ, _ptr) = env.get_ptr(name).ok_or(CodeGenError::no_such_a_variable(None, name))?;
@@ -255,7 +256,7 @@ impl TypeUtil {
                 }
             },
             ExprAST::TernaryOperator(_, e1, _) => {
-                TypeUtil::get_type(e1, env)
+                TypeUtil::get_type(&e1, env)
             },
             ExprAST::InitializerList(_) => {
 

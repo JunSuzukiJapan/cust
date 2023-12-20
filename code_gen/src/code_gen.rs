@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use crate::parser::{AST, ExprAST, BinOp, Type, Pointer, Block, Params, StructDefinition, StructField, NumberType, Function, FunProto, FunOrProto, EnumDefinition, Enumerator};
-use crate::parser::{Declaration, DeclarationSpecifier};
+use crate::parser::{Declaration, DeclarationSpecifier, CustFunctionType};
 use super::{CompiledValue, CodeGenError};
 use super::Env;
 use super::env::{BreakCatcher, ContinueCatcher, TypeOrUnion};
@@ -92,7 +92,8 @@ impl<'ctx> CodeGen<'ctx> {
                     let typ = declarator.make_type(base_type);
                     let name = declarator.get_name();
                     let basic_type = TypeUtil::to_basic_type_enum(&typ, self.context)?;
-                    let ptr = self.module.add_global(basic_type, Some(AddressSpace::Const), name);
+                    // let ptr = self.module.add_global(basic_type, Some(AddressSpace::Const), name);
+                    let ptr = self.module.add_global(basic_type, Some(AddressSpace::default()), name);
     
                     match decl.get_init_expr() {
                         Some(ast) => {
@@ -128,8 +129,9 @@ impl<'ctx> CodeGen<'ctx> {
             },
             AST::Block(block) => self.gen_block(block, env, break_catcher, continue_catcher),
             AST::Return(opt_expr) => {
-                let function = env.get_current_function().ok_or(CodeGenError::return_without_function(None))?;
-                let opt_required_ret_type = function.get_type().get_return_type();
+                let fun_typ = env.get_current_function_type().ok_or(CodeGenError::return_without_function(None))?;
+                // let opt_required_ret_type = fun_typ.get_return_type();
+                let required_ret_type = fun_typ.get_return_type();
 
                 let result: InstructionValue;
                 if let Some(expr) = opt_expr {
@@ -139,14 +141,14 @@ impl<'ctx> CodeGen<'ctx> {
 
 
                     let mut real_ret = self.gen_expr(expr, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
-                    let real_ret_type = self.try_as_basic_type(&real_ret.get_value().get_type())?;
+                    // let real_ret_type = self.try_as_basic_type(&real_ret.get_type())?;
+                    let real_ret_type = real_ret.get_type();
 
+                    // if opt_required_ret_type.is_none() {
+                    //     return Err(Box::new(CodeGenError::return_type_mismatch(None, Some(real_ret_type.clone()), None)));
+                    // }
 
-                    if opt_required_ret_type.is_none() {
-                        return Err(Box::new(CodeGenError::return_type_mismatch(None, Some(&real_ret_type), None)));
-                    }
-
-                    let required_ret_type = opt_required_ret_type.unwrap();
+                    // let required_ret_type = opt_required_ret_type.unwrap();
                     if required_ret_type != real_ret_type {
                         // let casted = self.gen_cast(&real_ret.get_value(), &required_ret_type)?;
                         // real_ret = CompiledValue::new(real_ret.get_type().clone(), casted);
@@ -154,13 +156,14 @@ impl<'ctx> CodeGen<'ctx> {
                     }
 
                     let ret = self.try_as_basic_value(&real_ret.get_value())?;
-                    result = self.builder.build_return(Some(&ret));
+                    result = self.builder.build_return(Some(&ret))?;
                 }else{
-                    if let Some(ret_type) = opt_required_ret_type {
-                        return Err(Box::new(CodeGenError::return_type_mismatch(None, None, Some(&ret_type))));
+                    // if let Some(ret_type) = opt_required_ret_type {
+                    if required_ret_type.is_void() {
+                        return Err(Box::new(CodeGenError::return_type_mismatch(None, None, Some(required_ret_type.clone()))));
                     }
 
-                    result = self.builder.build_return(None);
+                    result = self.builder.build_return(None)?;
                 }
                 Ok(Some(result.as_any_value_enum()))
             },
@@ -185,7 +188,8 @@ impl<'ctx> CodeGen<'ctx> {
                 Ok(Some(AnyValueEnum::FunctionValue(fun_proto)))
             },
             AST::If(condition, then, _else) => {
-                let func: FunctionValue<'ctx> = env.get_current_function().ok_or(CodeGenError::no_current_function(None))?;
+                let (fun_type, func) = env.get_current_function().ok_or(CodeGenError::no_current_function(None))?;
+                let func = func.clone();
                 let cond_block = self.context.append_basic_block(func, "if.cond");
                 let then_block = self.context.append_basic_block(func, "if.then");
                 let else_block = self.context.append_basic_block(func, "if.else");
@@ -198,7 +202,7 @@ impl<'ctx> CodeGen<'ctx> {
                 let cond = self.gen_expr(condition, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::condition_is_not_number(None, condition))?;
                 let mut comparison = cond.get_value().into_int_value();
                 let i1_type = self.context.bool_type();
-                comparison = self.builder.build_int_cast(comparison, i1_type, "cast to i1");  // cast to i1
+                comparison = self.builder.build_int_cast(comparison, i1_type, "cast to i1")?;  // cast to i1
                 self.builder.build_conditional_branch(comparison, then_block, else_block);
 
                 // then block
@@ -303,7 +307,7 @@ impl<'ctx> CodeGen<'ctx> {
             },
             AST::_self => {
                 if let Some((_typ, ptr)) = env.get_self_ptr() {
-                    let basic_val = self.builder.build_load(ptr, "get_self");
+                    let basic_val = self.builder.build_load(ptr, "get_self")?;
                     let any_val = basic_val.as_any_value_enum();
 
                     Ok(Some(any_val))
@@ -672,10 +676,10 @@ println!("typ != *init_type");
             let tried = call_site_value.try_as_basic_value();
             if tried.is_left() {  // BasicValueEnum
                 let any_val = tried.left().unwrap().as_any_value_enum();
-                Ok(Some(CompiledValue::new(fn_typ.get_fn_ret_type()?.clone(), any_val)))
+                Ok(Some(CompiledValue::new(fn_typ.get_return_type().clone(), any_val)))
 
             }else{                 // InstructionValue
-                Ok(Some(CompiledValue::new(fn_typ.get_fn_ret_type()?.clone(), AnyValueEnum::InstructionValue(tried.right().unwrap()))))
+                Ok(Some(CompiledValue::new(fn_typ.get_return_type().clone(), AnyValueEnum::InstructionValue(tried.right().unwrap()))))
             }
 
         }else{
@@ -695,7 +699,8 @@ println!("typ != *init_type");
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
 
-        let func: FunctionValue<'ctx> = env.get_current_function().ok_or(CodeGenError::no_current_function(None))?;
+        let (fun_type, func) = env.get_current_function().ok_or(CodeGenError::no_current_function(None))?;
+        let func = func.clone();
         let cond_block  = self.context.append_basic_block(func, "switch.cond");
         let end_block  = self.context.append_basic_block(func, "switch.end");
         let break_catcher = BreakCatcher::new(&end_block);
@@ -785,7 +790,7 @@ println!("typ != *init_type");
 
 
                 if i < len - 1 {
-                    current_block = self.context.append_basic_block(func, &format!("cond_block_{}", i + 1));
+                    current_block = self.context.append_basic_block(func.clone(), &format!("cond_block_{}", i + 1));
                 }else{
                     current_block = end_block;
                 }
@@ -824,8 +829,8 @@ println!("typ != *init_type");
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
 
-        let func: FunctionValue<'ctx> = env.get_current_function().ok_or(CodeGenError::no_current_function(None))?;
-        let case_block  = self.context.append_basic_block(func, "switch.case");
+        let (fun_type, func) = env.get_current_function().ok_or(CodeGenError::no_current_function(None))?;
+        let case_block  = self.context.append_basic_block(func.clone(), "switch.case");
 
         self.builder.position_at_end(case_block);
 
@@ -846,8 +851,8 @@ println!("typ != *init_type");
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
 
-        let func: FunctionValue<'ctx> = env.get_current_function().ok_or(CodeGenError::no_current_function(None))?;
-        let default_block  = self.context.append_basic_block(func, "switch.default");
+        let (fun_type, func) = env.get_current_function().ok_or(CodeGenError::no_current_function(None))?;
+        let default_block  = self.context.append_basic_block(func.clone(), "switch.default");
 
         self.builder.position_at_end(default_block);
         let code = self.gen_stmt(stmt, env, break_catcher, continue_catcher)?;
@@ -1022,7 +1027,7 @@ println!("typ != *init_type");
         Ok(Some(struct_type.as_any_type_enum()))
     }
 
-    pub fn struct_from_struct_definition(name: &Option<String>, struct_def: &StructDefinition, ctx: &'ctx Context) -> Result<(StructType<'ctx>, HashMap<String, usize>), CodeGenError> {
+    pub fn struct_from_struct_definition(name: &Option<String>, struct_def: &StructDefinition, ctx: &'ctx Context) -> Result<(StructType<'ctx>, HashMap<String, usize>), Box<dyn Error>> {
         let mut list: Vec<BasicTypeEnum<'ctx>> = Vec::new();
         let mut packed = false;
         let mut index_map: HashMap<String, usize> = HashMap::new();
@@ -1081,7 +1086,7 @@ println!("typ != *init_type");
     }
 
     pub fn union_from_struct_definition(_name: &Option<String>, struct_def: &StructDefinition, ctx: &'ctx Context)
-      -> Result<(Vec<(Type, BasicTypeEnum<'ctx>)>, HashMap<String, usize>, u64, Option<BasicTypeEnum<'ctx>>), CodeGenError>
+      -> Result<(Vec<(Type, BasicTypeEnum<'ctx>)>, HashMap<String, usize>, u64, Option<BasicTypeEnum<'ctx>>), Box<dyn Error>>
     {
         let mut list: Vec<(Type, BasicTypeEnum<'ctx>)> = Vec::new();
         let mut index_map: HashMap<String, usize> = HashMap::new();
@@ -1322,7 +1327,8 @@ println!("typ != *init_type");
         _continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
 
-        let func: FunctionValue<'ctx> = env.get_current_function().ok_or(CodeGenError::no_current_function(None))?;
+        let (fun_type, func) = env.get_current_function().ok_or(CodeGenError::no_current_function(None))?;
+        let func = func.clone();
         let pre_condition_block = self.context.append_basic_block(func, "loop.pre_condition");
         let start_block = self.context.append_basic_block(func, "loop.start");
         // let post_condition_block = self.context.append_basic_block(func, "loop.post_condition");
@@ -1948,9 +1954,9 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
                                     // if let Err(_err) = &to_type {
                                     //     return Err(Box::new(CompileError::cannot_convert_to_basic_type_enum(None)));
                                     // }
-                                    // let ptr_type = to_type.unwrap().ptr_type(AddressSpace::Generic);
+                                    // let ptr_type = to_type.unwrap().ptr_type(AddressSpace::default());
                                     let (typ, to_type) = &type_list[idx];
-                                    let ptr_type = to_type.ptr_type(AddressSpace::Generic);
+                                    let ptr_type = to_type.ptr_type(AddressSpace::default());
 
                                     let p = ptr.const_cast(ptr_type);
                                     Ok((typ.clone(), p))
@@ -1960,7 +1966,7 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
                         }else{
                             let typ = fields.get_type(member_name).ok_or(CodeGenError::no_such_a_member(None, member_name))?;
                             let to_type = TypeUtil::to_basic_type_enum(typ, self.context)?;
-                            let ptr_type = to_type.ptr_type(AddressSpace::Generic);
+                            let ptr_type = to_type.ptr_type(AddressSpace::default());
                             let p = ptr.const_cast(ptr_type);
                             Ok((typ.clone(), p))
                         }
@@ -1997,9 +2003,9 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
                                     // if let Err(_err) = &to_type {
                                     //     return Err(Box::new(CompileError::cannot_convert_to_basic_type_enum(None)));
                                     // }
-                                    // let ptr_type = to_type.unwrap().ptr_type(AddressSpace::Generic);
+                                    // let ptr_type = to_type.unwrap().ptr_type(AddressSpace::default());
                                     let (typ, to_type) = &type_list[idx];
-                                    let ptr_type = to_type.ptr_type(AddressSpace::Generic);
+                                    let ptr_type = to_type.ptr_type(AddressSpace::default());
 
                                     let p = ptr.const_cast(ptr_type);
                                     Ok((typ.clone(), p))
@@ -2009,7 +2015,7 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
                         }else{
                             let typ = fields.get_type(member_name).ok_or(CodeGenError::no_such_a_member(None, member_name))?;
                             let to_type = TypeUtil::to_basic_type_enum(typ, self.context)?;
-                            let ptr_type = to_type.ptr_type(AddressSpace::Generic);
+                            let ptr_type = to_type.ptr_type(AddressSpace::default());
                             let p = ptr.const_cast(ptr_type);
                             Ok((typ.clone(), p))
                         }
@@ -2073,8 +2079,8 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
         Ok(None)
     }
 
-    fn make_fun_type(name: &str, ret_type: &Type, params: &Params, _env: &Env) -> Result<Type, CodeGenError> {
-        Ok(Type::new_function_type(
+    fn make_fun_type(name: &str, ret_type: &Type, params: &Params, _env: &Env) -> Result<CustFunctionType, CodeGenError> {
+        Ok(CustFunctionType::new(
             Some(name.to_string()),
             ret_type.clone(),
             params.get_params_type(),
@@ -2152,17 +2158,20 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
     ) -> Result<FunctionValue<'ctx>, Box<dyn Error>> {
 
         let fn_type = self.make_function_type(&ret_type, params, env)?;
+        let has_variadic = false;
+        let cust_fn_type = CustFunctionType::new(Some(fn_name.to_string()), ret_type.clone(), params.get_params_type(), has_variadic);
         // TODO: 同名のプロトタイプが存在しないか確認する。
         //       存在した場合、プロトタイプと関数の型が一致するかチェックする。
 
         // prologue
         let function = self.module.add_function(fn_name, fn_type, None);
-        env.set_current_function(function);
+        env.set_current_function(&cust_fn_type, function);
         let basic_block = self.context.append_basic_block(function, "entry");
         self.builder.position_at_end(basic_block);
 
         env.add_new_function_local();
-        let result = self.gen_code_function_sub(&fn_type, &function, params, body, labels, env, break_catcher, continue_catcher);
+        // let result = self.gen_code_function_sub(&fn_type, &function, params, body, labels, env, break_catcher, continue_catcher);
+        let result = self.gen_code_function_sub(&cust_fn_type, &function, params, body, labels, env, break_catcher, continue_catcher);
         env.remove_function_local();
 
         if let Err(err) = result {
@@ -2173,7 +2182,8 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
     }
 
     fn gen_code_function_sub<'b, 'c>(&self,
-        fn_type: &FunctionType,
+        // fn_type: &FunctionType,
+        fn_type: &CustFunctionType,
         function: &FunctionValue<'ctx>,
         params: &Params,
         body: &'ctx Block,
@@ -2213,118 +2223,121 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
             last_stmt = Some(ast);
         }
 
-        match fn_type.get_return_type() {
-            None => {  // 戻り値の型がvoidで、かつ、最後の行がreturn文でないときに、build_returnしておく。
-                match last_stmt {
-                    Some(AST::Return(None)) => Ok(()),  // do nothing
-                    Some(AST::Return(Some(expr))) => {
-                        let typ: Type = TypeUtil::get_type(expr, env)?;
-                        let basic_type: BasicTypeEnum = TypeUtil::to_basic_type_enum(&typ, self.context)?;
-                        return Err(Box::new(CodeGenError::return_type_mismatch(None, Some(&fn_type.get_return_type().unwrap()), Some(&basic_type))));
-                    },
-                    _ => {
-                        self.builder.build_return(None);
-                        Ok(())
-                    },
-                }
-            },
-            Some(ret_type) => {  // TODO: 関数が返す型をチェックする。
-                // 最後の文の型をチェックする。
-                match last_stmt {
-                    Some(AST::Return(None)) => {
-                        return Err(Box::new(CodeGenError::no_return_for_type(None, &fn_type.get_return_type().unwrap())));
-                    },
-                    Some(AST::Return(Some(_expr))) => {
-                        // let expr_type = expr.get_type(env)?.to_basic_type_enum(self.context)?;
-                        // if ret_type != expr_type {
-                            // return Err(Box::new(CompileError::return_type_mismatch(None, Some(&ret_type), Some(&expr_type))));
-                        // }
+        let ret_type = fn_type.get_return_type();
+        if ret_type.is_void() {
+            // 戻り値の型がvoidで、かつ、最後の行がreturn文でないときに、build_returnしておく。
+            match last_stmt {
+                Some(AST::Return(None)) => Ok(()),  // do nothing
+                Some(AST::Return(Some(expr))) => {
+                    let typ: Type = TypeUtil::get_type(expr, env)?;
+                    // let basic_type: BasicTypeEnum = TypeUtil::to_basic_type_enum(&typ, self.context)?;
+                    // return Err(Box::new(CodeGenError::return_type_mismatch(None, Some(&fn_type.get_return_type().unwrap()), Some(&basic_type))));
+                    return Err(Box::new(CodeGenError::return_type_mismatch(None, Some(fn_type.get_return_type().clone()), Some(typ))));
+                },
+                _ => {
+                    self.builder.build_return(None);
+                    Ok(())
+                },
+            }
+        }else{
+            // TODO: 関数が返す型をチェックする。
 
-                        Ok(())
-                    },
-                    Some(AST::If(_cond, _then, _else)) => {
-                        if let Some(typ) = self.calc_ret_type(last_stmt.unwrap(), env)? {
-                            if ret_type == typ {
-                                // 最後の文が、ifのとき、ラベルif.endの後にコードが生成されないのでセグフォが起きることへのケア
-                                self.builder.build_return(None);
+            // 最後の文の型をチェックする。
+            match last_stmt {
+                Some(AST::Return(None)) => {
+                    return Err(Box::new(CodeGenError::no_return_for_type(None, &fn_type.get_return_type())));
+                },
+                Some(AST::Return(Some(_expr))) => {
+                    // let expr_type = expr.get_type(env)?.to_basic_type_enum(self.context)?;
+                    // if ret_type != expr_type {
+                        // return Err(Box::new(CompileError::return_type_mismatch(None, Some(&ret_type), Some(&expr_type))));
+                    // }
 
-                                Ok(())
-                            }else{
-                                Err(Box::new(CodeGenError::return_type_mismatch(None, Some(&ret_type), Some(&typ))))
-                            }
+                    Ok(())
+                },
+                Some(AST::If(_cond, _then, _else)) => {
+                    let typ = self.calc_ret_type(last_stmt.unwrap(), env)?;
+                    if typ.is_void() {
+                        Err(Box::new(CodeGenError::return_type_mismatch(None, Some(ret_type.clone()), None)))
+                    }else{
+                        if *ret_type == typ {
+                            // 最後の文が、ifのとき、ラベルif.endの後にコードが生成されないのでセグフォが起きることへのケア
+                            self.builder.build_return(None);
 
+                            Ok(())
                         }else{
-                            Err(Box::new(CodeGenError::return_type_mismatch(None, Some(&ret_type), None)))
-                        }
-                    },
-                    Some(stmt) => {  // TODO: if文などの時に内部でreturnしているかもしれないので、その処理。
-                        if let Some(typ) = self.calc_ret_type(stmt, env)? {
-                            if ret_type == typ {
-                                Ok(())
-                            }else{
-                                Err(Box::new(CodeGenError::return_type_mismatch(None, Some(&ret_type), Some(&typ))))
-                            }
-
-                        }else{
-                            Err(Box::new(CodeGenError::return_type_mismatch(None, Some(&ret_type), None)))
+                            Err(Box::new(CodeGenError::return_type_mismatch(None, Some(ret_type.clone()), Some(typ))))
                         }
 
-                    },
-                    _ => {
-                        // return Err(Box::new(CompileError::no_return_for_type(None, &ret_type)))
-                        Ok(())
-                    },
-                }
-            },
+                    }
+                },
+                Some(stmt) => {  // TODO: if文などの時に内部でreturnしているかもしれないので、その処理。
+                    // if let Some(typ) = self.calc_ret_type(stmt, env)? {
+                    let typ = self.calc_ret_type(stmt, env)?;
+                    if typ.is_void() {
+                        Err(Box::new(CodeGenError::return_type_mismatch(None, Some(ret_type.clone()), None)))
+                    }else{
+                        if *ret_type == typ {
+                            Ok(())
+                        }else{
+                            Err(Box::new(CodeGenError::return_type_mismatch(None, Some(ret_type.clone()), Some(typ))))
+                        }
+                    }
+
+                },
+                _ => {
+                    // return Err(Box::new(CompileError::no_return_for_type(None, &ret_type)))
+                    Ok(())
+                },
+            }
         }
     }
 
-    fn calc_ret_type(&self, stmt: &AST, env: &Env) -> Result<Option<BasicTypeEnum>, Box<dyn Error>> {
+    // fn calc_ret_type(&self, stmt: &AST, env: &Env) -> Result<Option<BasicTypeEnum>, Box<dyn Error>> {
+    fn calc_ret_type(&self, stmt: &AST, env: &Env) -> Result<Type, Box<dyn Error>> {
         match stmt {
             AST::Return(None) => {
-                Ok(None)
+                Ok(Type::Void)
             },
             AST::Return(Some(expr)) => {
                 let typ = TypeUtil::get_type(&**expr, env)?;
-                let expr_type = TypeUtil::to_basic_type_enum(&typ, self.context)?;
-                Ok(Some(expr_type))
+                // let expr_type = TypeUtil::to_basic_type_enum(&typ, self.context)?;
+                Ok(typ)
             },
             AST::If(_cond, if_then, if_else) => {
                 let then_type = self.calc_ret_type(if_then, env)?;
 
-                if let Some(typ1) = then_type {
+                // if let Some(typ1) = then_type {
+                if then_type.is_void() {
                     if let Some(else_expr) = if_else {
-                        if let Some(else_type) = self.calc_ret_type(else_expr, env)? {
-                            if typ1 == else_type {
-                                Ok(Some(typ1))
-                            }else{
-                                Err(Box::new(CodeGenError::mismatch_type_in_if(None, then_type, Some(else_type))))
-                            }
-
+                        let else_type = self.calc_ret_type(else_expr, env)?;
+                        // if let Some(_typ) = else_type {
+                        if else_type.is_void() {
+                            Ok(Type::Void)
                         }else{
-                            Err(Box::new(CodeGenError::mismatch_type_in_if(None, then_type, None)))
+                            Err(Box::new(CodeGenError::mismatch_type_in_if(None, then_type, else_type)))
                         }
 
                     }else{
-                        Err(Box::new(CodeGenError::mismatch_type_in_if(None, then_type, None)))
+                        Ok(Type::Void)
                     }
 
                 }else{
                     if let Some(else_expr) = if_else {
                         let else_type = self.calc_ret_type(else_expr, env)?;
-                        if let Some(_typ) = else_type {
+                        if else_type.is_void() {
                             Err(Box::new(CodeGenError::mismatch_type_in_if(None, then_type, else_type)))
                         }else{
-                            Ok(None)
+                            Ok(else_type)
                         }
 
                     }else{
-                        Ok(None)
+                        Err(Box::new(CodeGenError::mismatch_type_in_if(None, then_type, Type::Void)))
                     }
                 }
             },
             AST::Block(blk) => {
-                let mut typ = None;
+                let mut typ = Type::Void;
 
                 for e in &blk.body {
                     typ = self.calc_ret_type(e, env)?;
@@ -2340,10 +2353,10 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
                 Ok(typ)
             },
             AST::Switch(..) => {
-                Ok(None)
+                Ok(Type::Void)
             },
             _ => {
-                Ok(None)
+                Ok(Type::Void)
             },
         }
     }

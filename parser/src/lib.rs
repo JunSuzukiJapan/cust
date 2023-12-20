@@ -15,6 +15,6 @@ pub use ast::{StructDeclaration, AbstractDeclarator, DirectAbstractDeclarator, S
 pub use ast::{DirectDeclarator, CustSelf};
 pub use ast::{Function, FunProto, FunOrProto, Switch, Case, Block};
 pub use defines::Defines;
-pub use types::{Type, NumberType, TypeOrVariadic, Pointer, StructDefinition, EnumDefinition, Enumerator, StructField};
+pub use types::{Type, NumberType, TypeOrVariadic, Pointer, StructDefinition, EnumDefinition, Enumerator, StructField, CustFunctionType};
 pub use const_expr::ConstExpr;
 pub use parse::Parser;

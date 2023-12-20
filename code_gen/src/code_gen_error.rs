@@ -64,8 +64,8 @@ pub enum CodeGenError {
     NoReturnForType(Option<Position>, Type),
     MismatchTypeInIf {
         opt_pos: Option<Position>,
-        then_type: Option<Type>,
-        else_type: Option<Type>,
+        then_type: Type,
+        else_type: Type,
     },
     CannotMakeFnType(Option<Position>),
     AccessSelfTypeWithoutImpl(Option<Position>),
@@ -281,7 +281,7 @@ impl CodeGenError {
         Self::NoReturnForType(opt_pos, typ.clone())
     }
 
-    pub fn mismatch_type_in_if(opt_pos: Option<Position>, then_type: Option<Type>, else_type: Option<Type>) -> Self {
+    pub fn mismatch_type_in_if(opt_pos: Option<Position>, then_type: Type, else_type: Type) -> Self {
         Self::MismatchTypeInIf{
             opt_pos: opt_pos,
             then_type: then_type,
