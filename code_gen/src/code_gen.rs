@@ -152,7 +152,7 @@ impl<'ctx> CodeGen<'ctx> {
                     if required_ret_type != real_ret_type {
                         // let casted = self.gen_cast(&real_ret.get_value(), &required_ret_type)?;
                         // real_ret = CompiledValue::new(real_ret.get_type().clone(), casted);
-                        unimplemented!()
+                        unimplemented!("required type: '{}', real type: '{}'", required_ret_type, real_ret_type)
                     }
 
                     let ret = self.try_as_basic_value(&real_ret.get_value())?;
@@ -3288,6 +3288,7 @@ mod tests {
     #[test]
     fn code_gen_enum() -> Result<(), Box<dyn Error>> {
         let src = "
+            int printf(char* format, ...);
             typedef int bool;
 
             enum Weekday {
@@ -3301,6 +3302,14 @@ mod tests {
             };
 
             int test() {
+                printf(\"%d\\\n\",Sunday);
+                printf(\"%d\\\n\", Monday);
+                printf(\"%d\\\n\", Tuesday);
+                printf(\"%d\\\n\", Wednesday);
+                printf(\"%d\\\n\", Thursday);
+                printf(\"%d\\\n\", Friday);
+                printf(\"%d\\\n\", Saturday);
+
                 return Sunday +
                        Monday +
                        Tuesday +
@@ -3314,6 +3323,7 @@ mod tests {
         // parse
         let parser = Parser::new();
         let asts = parser.parse_from_str(src).unwrap();
+        assert_eq!(4, asts.len());
 
         // code gen
         let context = Context::create();
@@ -3321,7 +3331,7 @@ mod tests {
 
         let mut env = Env::new();
         for i in 0..asts.len() {
-            let _any_value = gen.gen_stmt(&asts[i], &mut env, None, None)?.unwrap();
+            let _any_value = gen.gen_stmt(&asts[i], &mut env, None, None)?;
         }
 
         let f: JitFunction<FuncType_void_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };

@@ -465,7 +465,7 @@ impl<'ctx> Env<'ctx> {
         }
 
         for (id, val) in &enumerator_list {
-            self.insert_global_enumerator(id, Type::Number(NumberType::UnsignedInt), *val);
+            self.insert_global_enumerator(id, Type::Number(NumberType::Int), *val);
         }
 
         let type_or_union = TypeOrUnion::StandardEnum { i32_type: *enum_type, enumerator_list: enumerator_list, index_map: index_map };
@@ -487,6 +487,19 @@ impl<'ctx> Env<'ctx> {
         }
 
         None
+    }
+
+    pub fn get_type_by_id(&self, key: &str) -> Option<&Type> {
+        if let Some((typ, ptr)) = self.get_ptr_from_local(key) {
+            Some(typ)
+        }else if let Some((typ, val)) = self.global_def.get(key) {
+            match val {
+                ConstOrGlobalValue::GlobalValue { global } => Some(typ),
+                ConstOrGlobalValue::Const { value } => Some(typ),
+            }
+        }else{
+            None
+        }
     }
 
     pub fn get_ptr(&self, key: &str) -> Option<(&Type, PointerValue<'ctx>)> {

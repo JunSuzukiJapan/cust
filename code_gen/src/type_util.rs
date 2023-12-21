@@ -177,7 +177,7 @@ impl TypeUtil {
                 Ok(typ)
             },
             ExprAST::Symbol(name) => {
-                let (typ, _expr) = env.get_ptr(&name).ok_or(CodeGenError::no_such_a_variable(None, &name))?;
+                let typ = env.get_type_by_id(&name).ok_or(CodeGenError::no_such_a_variable(None, &name))?;
                 Ok(typ.clone())
             },
             ExprAST::_Self => {
