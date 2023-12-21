@@ -22,8 +22,8 @@ pub enum CodeGenError {
     ReturnWithoutFunction(Option<Position>),
     ReturnTypeMismatch {
         opt_pos: Option<Position>,
-        opt_real_type: Option<Type>,
-        opt_required_type: Option<Type>,
+        real_type: Type,
+        required_type: Type,
     },
     NoCurrentFunction(Option<Position>),
     BreakNotInLoopOrSwitch(Option<Position>),
@@ -141,11 +141,11 @@ impl CodeGenError {
         Self::ReturnWithoutFunction(opt_pos)
     }
 
-    pub fn return_type_mismatch(opt_pos: Option<Position>, real_type: Option<Type>, required_type: Option<Type>) -> Self {
+    pub fn return_type_mismatch(opt_pos: Option<Position>, real_type: Type, required_type: Type) -> Self {
         Self::ReturnTypeMismatch {
             opt_pos: opt_pos,
-            opt_real_type: real_type,
-            opt_required_type: required_type,
+            real_type: real_type,
+            required_type: required_type,
         }
     }
 

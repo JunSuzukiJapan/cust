@@ -30,17 +30,6 @@ impl Parser {
         parser.parse_translation_unit(&mut iter, &mut defs)
     }
 
-    #[cfg(test)]
-    pub fn parse_expression_from_str(src: &str) -> Result<Option<ExprAST>, ParserError> {
-        let tokenizer = Tokenizer::new();
-        let token_list = tokenizer.tokenize(src).unwrap();
-        let mut iter = token_list.iter().peekable();
-        let parser = Parser::new();
-        let mut defs = Defines::new();
-        let mut labels = Vec::new();
-        parser.parse_expression(&mut iter, &mut defs, &mut Some(&mut labels))
-    }
-
     fn parse_external_declaration_from_str(src: &str) -> Result<Option<AST>, ParserError> {
         let tokenizer = Tokenizer::new();
         let token_list = tokenizer.tokenize(src).unwrap();

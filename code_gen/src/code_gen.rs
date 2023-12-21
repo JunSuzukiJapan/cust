@@ -158,9 +158,8 @@ impl<'ctx> CodeGen<'ctx> {
                     let ret = self.try_as_basic_value(&real_ret.get_value())?;
                     result = self.builder.build_return(Some(&ret))?;
                 }else{
-                    // if let Some(ret_type) = opt_required_ret_type {
-                    if required_ret_type.is_void() {
-                        return Err(Box::new(CodeGenError::return_type_mismatch(None, None, Some(required_ret_type.clone()))));
+                    if ! required_ret_type.is_void() {
+                        return Err(Box::new(CodeGenError::return_type_mismatch(None, Type::Void, required_ret_type.clone())));
                     }
 
                     result = self.builder.build_return(None)?;
@@ -864,7 +863,7 @@ println!("typ != *init_type");
     }
 
     fn gen_cast(&self, value: &AnyValueEnum<'ctx>, from_type: &Type, to_type: &Type) -> Result<AnyValueEnum<'ctx>, Box<dyn Error>> {
-        Caster::gen_cast(&self.builder, value, from_type, to_type)
+        Caster::gen_cast(&self.builder, &self.context, value, from_type, to_type)
     }
 
     #[cfg(test)]
@@ -2232,7 +2231,7 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
                     let typ: Type = TypeUtil::get_type(expr, env)?;
                     // let basic_type: BasicTypeEnum = TypeUtil::to_basic_type_enum(&typ, self.context)?;
                     // return Err(Box::new(CodeGenError::return_type_mismatch(None, Some(&fn_type.get_return_type().unwrap()), Some(&basic_type))));
-                    return Err(Box::new(CodeGenError::return_type_mismatch(None, Some(fn_type.get_return_type().clone()), Some(typ))));
+                    return Err(Box::new(CodeGenError::return_type_mismatch(None, fn_type.get_return_type().clone(), typ)));
                 },
                 _ => {
                     self.builder.build_return(None);
@@ -2250,7 +2249,7 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
                 Some(AST::Return(Some(_expr))) => {
                     // let expr_type = expr.get_type(env)?.to_basic_type_enum(self.context)?;
                     // if ret_type != expr_type {
-                        // return Err(Box::new(CompileError::return_type_mismatch(None, Some(&ret_type), Some(&expr_type))));
+                        // return Err(Box::new(CompileError::return_type_mismatch(None, ret_type.clone(), expr_type.clone())));
                     // }
 
                     Ok(())
@@ -2258,7 +2257,7 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
                 Some(AST::If(_cond, _then, _else)) => {
                     let typ = self.calc_ret_type(last_stmt.unwrap(), env)?;
                     if typ.is_void() {
-                        Err(Box::new(CodeGenError::return_type_mismatch(None, Some(ret_type.clone()), None)))
+                        Err(Box::new(CodeGenError::return_type_mismatch(None, ret_type.clone(), Type::Void)))
                     }else{
                         if *ret_type == typ {
                             // 最後の文が、ifのとき、ラベルif.endの後にコードが生成されないのでセグフォが起きることへのケア
@@ -2266,7 +2265,7 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
 
                             Ok(())
                         }else{
-                            Err(Box::new(CodeGenError::return_type_mismatch(None, Some(ret_type.clone()), Some(typ))))
+                            Err(Box::new(CodeGenError::return_type_mismatch(None, ret_type.clone(), typ)))
                         }
 
                     }
@@ -2275,12 +2274,12 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
                     // if let Some(typ) = self.calc_ret_type(stmt, env)? {
                     let typ = self.calc_ret_type(stmt, env)?;
                     if typ.is_void() {
-                        Err(Box::new(CodeGenError::return_type_mismatch(None, Some(ret_type.clone()), None)))
+                        Err(Box::new(CodeGenError::return_type_mismatch(None, ret_type.clone(), Type::Void)))
                     }else{
                         if *ret_type == typ {
                             Ok(())
                         }else{
-                            Err(Box::new(CodeGenError::return_type_mismatch(None, Some(ret_type.clone()), Some(typ))))
+                            Err(Box::new(CodeGenError::return_type_mismatch(None, ret_type.clone(), typ)))
                         }
                     }
 
@@ -2416,7 +2415,8 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parser::Parser;
+    use crate::tokenizer::Tokenizer;
+    use crate::parser::{Parser, ParserError};
     use inkwell::execution_engine::{JitFunction};
     use inkwell::values::BasicValue;
 
@@ -2425,6 +2425,16 @@ mod tests {
     type FuncType_i32i32_i32 = unsafe extern "C" fn(i32, i32) -> i32;
     type FuncType_i32i32i32_i32 = unsafe extern "C" fn(i32, i32, i32) -> i32;
     type FuncType_void_void = unsafe extern "C" fn() -> ();
+
+    pub fn parse_expression_from_str(src: &str) -> Result<Option<ExprAST>, ParserError> {
+        let tokenizer = Tokenizer::new();
+        let token_list = tokenizer.tokenize(src).unwrap();
+        let mut iter = token_list.iter().peekable();
+        let parser = Parser::new();
+        let mut defs = Defines::new();
+        let mut labels = Vec::new();
+        parser.parse_expression(&mut iter, &mut defs, &mut Some(&mut labels))
+    }
 
     fn gen_prologue<'ctx>(gen: &CodeGen<'ctx>, fn_name: &str, fn_type: FunctionType<'ctx>) {
         let function = gen.module.add_function(fn_name, fn_type, None);
@@ -2441,7 +2451,7 @@ mod tests {
 
     fn code_gen_from_str(input: &str) -> Result<i32, Box<dyn Error>> {
         // let parser = Parser::new();
-        let ast = &Parser::parse_expression_from_str(input)?.unwrap();
+        let ast = parse_expression_from_str(input)?.unwrap();
 
         let fn_name = "from_str_function";
         let context = Context::create();
@@ -2681,7 +2691,7 @@ mod tests {
     }
 
     #[test]
-    fn code_gen_fun_helloworld() {
+    fn code_gen_fun_helloworld() -> Result<(), Box<dyn Error>> {
         let src = "
             int printf(char* format, ...);
 
@@ -2702,11 +2712,13 @@ mod tests {
         let mut env = Env::new();
 
         for i in 0..asts.len() {
-            let _any_value = gen.gen_stmt(&asts[i], &mut env, None, None).unwrap();
+            let _any_value = gen.gen_stmt(&asts[i], &mut env, None, None)?.unwrap();
         }
 
         let f: JitFunction<FuncType_void_void> = unsafe { gen.execution_engine.get_function("hello_world").ok().unwrap() };
         let _result = unsafe { f.call() };
+
+        Ok(())
     }
 
     #[test]
@@ -3274,7 +3286,7 @@ mod tests {
     }
 
     #[test]
-    fn code_gen_enum() {
+    fn code_gen_enum() -> Result<(), Box<dyn Error>> {
         let src = "
             typedef int bool;
 
@@ -3309,10 +3321,12 @@ mod tests {
 
         let mut env = Env::new();
         for i in 0..asts.len() {
-            let _any_value = gen.gen_stmt(&asts[i], &mut env, None, None).unwrap();
+            let _any_value = gen.gen_stmt(&asts[i], &mut env, None, None)?.unwrap();
         }
 
         let f: JitFunction<FuncType_void_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
         assert_eq!(unsafe { f.call() }, 0 + 1 + 2 + 10 + 11 + 12 + 13);
+
+        Ok(())
     }
 }

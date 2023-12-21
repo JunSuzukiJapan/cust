@@ -1,4 +1,5 @@
 extern crate parser;
+extern crate tokenizer;
 
 mod code_gen;
 mod compiled_value;
