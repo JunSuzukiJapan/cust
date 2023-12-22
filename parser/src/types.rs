@@ -608,6 +608,7 @@ impl Type {
     }
 
     pub fn get_number_type(&self) -> Result<&NumberType, ParserError> {
+println!("get_number_type. self: '{}'", self);
         match self {
             Type::Number(nt) => Ok(nt),
             _ => Err(ParserError::not_number_type(None, self)),

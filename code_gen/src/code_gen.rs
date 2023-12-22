@@ -415,6 +415,7 @@ impl<'ctx> CodeGen<'ctx> {
                     ExprAST::Symbol(name) => {
                         let (typ, ptr) = env.get_ptr(name).ok_or(CodeGenError::no_such_a_variable(None, name))?;
                         let ptr = PointerValue::try_from(ptr).ok().ok_or(CodeGenError::cannot_get_pointer(None))?;
+                        let typ = Type::new_pointer_type(typ.clone(), false, false);
 
                         Ok(Some(CompiledValue::new(typ.clone(), ptr.into())))
                     },
@@ -541,10 +542,12 @@ impl<'ctx> CodeGen<'ctx> {
             let name = declarator.get_name();
             let basic_type = env.basic_type_enum_from_type(&typ, self.context)?;
             let ptr = self.builder.build_alloca(basic_type, name)?;
+            let init_expr = decl.get_init_expr();
 
 println!("def var '{:?}'. type: {:?}", name, typ);
+println!("init_expr: '{:?}'", init_expr);
 
-            match decl.get_init_expr() {
+            match init_expr {
                 Some(ast) => {
                     if let Type::Struct { fields, .. } = &typ {
                         self.gen_struct_init(&fields, ptr, &**ast, env, break_catcher, continue_catcher)?;
@@ -557,10 +560,12 @@ println!("def var '{:?}'. type: {:?}", name, typ);
                         let compiled_value = self.gen_expr(&**ast, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                         let mut init_value = compiled_value.get_value();
                         let init_type = compiled_value.get_type();
-println!("VarType: {:?}, InitType: {:?}", typ, init_type);
+println!("VarType: {:?}", typ);
+println!("InitType: {:?}", init_type);
 
                         if typ != *init_type {
 println!("typ != *init_type");
+println!("call gen_cast. typ: '{}', init_type: '{}'", typ, *init_type);
                             init_value = self.gen_cast(&init_value, &init_type, &typ)?;
                         }
 
@@ -572,6 +577,7 @@ println!("typ != *init_type");
             };
 
             env.insert_local(name, typ.clone(), ptr);
+println!("env: {:?}", env);
         }
 
         Ok(())
@@ -863,6 +869,7 @@ println!("typ != *init_type");
     }
 
     fn gen_cast(&self, value: &AnyValueEnum<'ctx>, from_type: &Type, to_type: &Type) -> Result<AnyValueEnum<'ctx>, Box<dyn Error>> {
+println!("code_gen.gen_cast. from: '{}', to '{}'", from_type, to_type);
         Caster::gen_cast(&self.builder, &self.context, value, from_type, to_type)
     }
 

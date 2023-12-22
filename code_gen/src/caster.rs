@@ -31,25 +31,24 @@ pub struct Caster;
 
 impl Caster {
     pub fn gen_cast<'ctx>(builder: &Builder<'ctx>, ctx: &'ctx Context, value: &AnyValueEnum<'ctx>, from_type: &Type, to_type: &Type) -> Result<AnyValueEnum<'ctx>, Box<dyn Error>> {
-        let from_t = from_type.get_number_type()?;
-        let to_t = to_type.get_number_type()?;
+println!("gen_cast. from: '{}', to: '{}'", from_type, to_type);
 
-        match (from_t, to_t) {
+        match (from_type, to_type) {
             // same types
-            (NumberType::Char, NumberType::Char) |
-            (NumberType::Short, NumberType::Short) |
-            (NumberType::Int, NumberType::Int) |
-            (NumberType::Long, NumberType::Long) |
-            (NumberType::LongLong, NumberType::LongLong) |
-            (NumberType::UnsignedChar, NumberType::UnsignedChar) |
-            (NumberType::UnsignedShort, NumberType::UnsignedShort) |
-            (NumberType::UnsignedInt, NumberType::UnsignedInt) |
-            (NumberType::UnsignedLong, NumberType::UnsignedLong) |
-            (NumberType::UnsignedLongLong, NumberType::UnsignedLongLong) |
-            (NumberType::Float, NumberType::Float) |
-            (NumberType::Double, NumberType::Double) => Ok(*value),
+            (Type::Number(NumberType::Char), Type::Number(NumberType::Char)) |
+            (Type::Number(NumberType::Short), Type::Number(NumberType::Short)) |
+            (Type::Number(NumberType::Int), Type::Number(NumberType::Int)) |
+            (Type::Number(NumberType::Long), Type::Number(NumberType::Long)) |
+            (Type::Number(NumberType::LongLong), Type::Number(NumberType::LongLong)) |
+            (Type::Number(NumberType::UnsignedChar), Type::Number(NumberType::UnsignedChar)) |
+            (Type::Number(NumberType::UnsignedShort), Type::Number(NumberType::UnsignedShort)) |
+            (Type::Number(NumberType::UnsignedInt), Type::Number(NumberType::UnsignedInt)) |
+            (Type::Number(NumberType::UnsignedLong), Type::Number(NumberType::UnsignedLong)) |
+            (Type::Number(NumberType::UnsignedLongLong), Type::Number(NumberType::UnsignedLongLong)) |
+            (Type::Number(NumberType::Float), Type::Number(NumberType::Float)) |
+            (Type::Number(NumberType::Double), Type::Number(NumberType::Double)) => Ok(*value),
             // char -> unsigned char
-            (NumberType::Char, NumberType::UnsignedChar) => {
+            (Type::Number(NumberType::Char), Type::Number(NumberType::UnsignedChar)) => {
                 let i8_type = ctx.i8_type();
                 let result = builder.build_int_cast_sign_flag(value.into_int_value(), i8_type, false, "cast_from_char_to_unsigned_char")?;
                 Ok(result.as_any_value_enum())
