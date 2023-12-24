@@ -363,8 +363,8 @@ println!("gen_cast. from: '{}', to: '{}'", from_type, to_type);
                 Ok(result.as_any_value_enum())
             },
             (Type::Number(NumberType::Float), Type::Number(NumberType::LongLong)) => {
-                let i32_type = ctx.i32_type();
-                let result = value.into_float_value().const_to_signed_int(i32_type);
+                let i64_type = ctx.i64_type();
+                let result = value.into_float_value().const_to_signed_int(i64_type);
                 Ok(result.as_any_value_enum())
             },
             (Type::Number(NumberType::Float), Type::Number(NumberType::UnsignedChar)) => {
@@ -395,6 +395,64 @@ println!("gen_cast. from: '{}', to: '{}'", from_type, to_type);
             (Type::Number(NumberType::Float), Type::Number(NumberType::Double)) => {
                 let f64_type = ctx.f64_type();
                 let result = value.into_float_value().const_cast(f64_type);
+                Ok(result.as_any_value_enum())
+            },
+            //
+            // from double
+            //
+            (Type::Number(NumberType::Double), Type::Number(NumberType::Char)) => {
+                let i8_type = ctx.i8_type();
+                let result = value.into_float_value().const_to_signed_int(i8_type);
+                Ok(result.as_any_value_enum())
+            },
+            (Type::Number(NumberType::Double), Type::Number(NumberType::Short)) => {
+                let i16_type = ctx.i16_type();
+                let result = value.into_float_value().const_to_signed_int(i16_type);
+                Ok(result.as_any_value_enum())
+            },
+            (Type::Number(NumberType::Double), Type::Number(NumberType::Int)) => {
+                let i32_type = ctx.i32_type();
+                let result = value.into_float_value().const_to_signed_int(i32_type);
+                Ok(result.as_any_value_enum())
+            },
+            (Type::Number(NumberType::Double), Type::Number(NumberType::Long)) => {
+                let i32_type = ctx.i32_type();
+                let result = value.into_float_value().const_to_signed_int(i32_type);
+                Ok(result.as_any_value_enum())
+            },
+            (Type::Number(NumberType::Double), Type::Number(NumberType::LongLong)) => {
+                let i64_type = ctx.i64_type();
+                let result = value.into_float_value().const_to_signed_int(i64_type);
+                Ok(result.as_any_value_enum())
+            },
+            (Type::Number(NumberType::Double), Type::Number(NumberType::UnsignedChar)) => {
+                let i8_type = ctx.i8_type();
+                let result = value.into_float_value().const_to_unsigned_int(i8_type);
+                Ok(result.as_any_value_enum())
+            },
+            (Type::Number(NumberType::Double), Type::Number(NumberType::UnsignedShort)) => {
+                let i16_type = ctx.i16_type();
+                let result = value.into_float_value().const_to_unsigned_int(i16_type);
+                Ok(result.as_any_value_enum())
+            },
+            (Type::Number(NumberType::Double), Type::Number(NumberType::UnsignedInt)) => {
+                let i32_type = ctx.i32_type();
+                let result = value.into_float_value().const_to_unsigned_int(i32_type);
+                Ok(result.as_any_value_enum())
+            },
+            (Type::Number(NumberType::Double), Type::Number(NumberType::UnsignedLong)) => {
+                let i32_type = ctx.i32_type();
+                let result = value.into_float_value().const_to_unsigned_int(i32_type);
+                Ok(result.as_any_value_enum())
+            },
+            (Type::Number(NumberType::Double), Type::Number(NumberType::UnsignedLongLong)) => {
+                let i64_type = ctx.i64_type();
+                let result = value.into_float_value().const_to_unsigned_int(i64_type);
+                Ok(result.as_any_value_enum())
+            },
+            (Type::Number(NumberType::Double), Type::Number(NumberType::Float)) => {
+                let f32_type = ctx.f32_type();
+                let result = value.into_float_value().const_cast(f32_type);
                 Ok(result.as_any_value_enum())
             },
 
