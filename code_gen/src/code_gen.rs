@@ -150,9 +150,9 @@ impl<'ctx> CodeGen<'ctx> {
 
                     // let required_ret_type = opt_required_ret_type.unwrap();
                     if required_ret_type != real_ret_type {
-                        // let casted = self.gen_cast(&real_ret.get_value(), &required_ret_type)?;
-                        // real_ret = CompiledValue::new(real_ret.get_type().clone(), casted);
-                        unimplemented!("required type: '{}', real type: '{}'", required_ret_type, real_ret_type)
+                        let casted = self.gen_cast(&real_ret.get_value(), &real_ret_type, &required_ret_type)?;
+                        real_ret = CompiledValue::new(real_ret.get_type().clone(), casted);
+                        // unimplemented!("required type: '{}', real type: '{}'", required_ret_type, real_ret_type)
                     }
 
                     let ret = self.try_as_basic_value(&real_ret.get_value())?;
