@@ -1,5 +1,4 @@
-extern crate position;
-
+mod position;
 mod token;
 mod tokenizer;
 mod tokenizer_error;
