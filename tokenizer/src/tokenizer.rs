@@ -383,11 +383,11 @@ impl Tokenizer {
                     if let Some(ch2) = ctx.chars.peek() {
                         if *ch2 == '.' {
                             self.next_char(ctx);  // skip '.'
-                            let ch3 = self.next_char(ctx).ok_or(TokenizerError::illegal_end_of_input(Some(start_pos.clone())))?;
+                            let ch3 = self.next_char(ctx).ok_or(TokenizerError::illegal_end_of_input(start_pos.clone()))?;
                             if ch3 == '.' {
                                 Ok(Some((Token::TripleDot, start_pos)))
                             }else{
-                                Err(TokenizerError::syntax_error(Some(start_pos)))
+                                Err(TokenizerError::syntax_error(start_pos))
                             }
 
                         }else{
@@ -525,12 +525,12 @@ impl Tokenizer {
     fn tokenize_digit(&self, ctx: &mut TokenizerContext) -> Result<Option<(Token, Position)>, TokenizerError> {
         if let Some(c) = ctx.chars.peek() {
             if ! c.is_digit(10) {
-                return Err(TokenizerError::IllegalCharWhileParsingDigit(Some(ctx.pos.clone())));
+                return Err(TokenizerError::IllegalCharWhileParsingDigit(ctx.pos.clone()));
             }
         }
 
         let start_pos = ctx.pos.clone();
-        let ch = ctx.chars.peek().ok_or(TokenizerError::illegal_end_of_input(Some(ctx.pos.clone())))?;
+        let ch = ctx.chars.peek().ok_or(TokenizerError::illegal_end_of_input(ctx.pos.clone()))?;
 
         match ch {
             '0' => {
@@ -696,7 +696,7 @@ impl Tokenizer {
     }
 
     fn tokenize_float_exponent(&self, ctx: &mut TokenizerContext, f: f64, start_pos: Position) -> Result<Option<(Token, Position)>, TokenizerError> {
-        let ch = self.peek_char(ctx).ok_or(TokenizerError::syntax_error(Some(start_pos.clone())))?;
+        let ch = self.peek_char(ctx).ok_or(TokenizerError::syntax_error(start_pos.clone()))?;
         let is_minus: bool;
 
         match ch {
@@ -743,7 +743,7 @@ impl Tokenizer {
     fn tokenize_char(&self, ctx: &mut TokenizerContext) -> Result<Option<(Token, Position)>, TokenizerError> {
         if let Some(c) = ctx.chars.peek() {
             if *c != '\'' {
-                return Err(TokenizerError::IllegalCharWhileParsingChar(Some(ctx.pos.clone())));
+                return Err(TokenizerError::IllegalCharWhileParsingChar(ctx.pos.clone()));
             }
 
             let start_pos = ctx.pos.clone();
@@ -756,14 +756,14 @@ impl Tokenizer {
                             if c == '\'' {
                                 Ok(Some((Token::CharLiteral(result as u32), start_pos)))
                             }else{
-                                Err(TokenizerError::IllegalCharWhileParsingCharAfter(Some(ctx.pos.clone()), c))
+                                Err(TokenizerError::IllegalCharWhileParsingCharAfter(ctx.pos.clone(), c))
                             }
                         }else{
-                            Err(TokenizerError::IllegalEndOfInputWhileParsingChar(Some(ctx.pos.clone())))
+                            Err(TokenizerError::IllegalEndOfInputWhileParsingChar(ctx.pos.clone()))
                         }                        
 
                     }else{
-                        Err(TokenizerError::IllegalEndOfInputWhileParsingChar(Some(ctx.pos.clone())))
+                        Err(TokenizerError::IllegalEndOfInputWhileParsingChar(ctx.pos.clone()))
                     }
 
                 }else{
@@ -771,27 +771,27 @@ impl Tokenizer {
                         if c == '\'' {
                             Ok(Some((Token::CharLiteral(result_ch as u32), start_pos)))
                         }else{
-                            Err(TokenizerError::IllegalCharWhileParsingCharAfter(Some(ctx.pos.clone()), c))
+                            Err(TokenizerError::IllegalCharWhileParsingCharAfter(ctx.pos.clone(), c))
                         }
                     }else{
-                        Err(TokenizerError::IllegalEndOfInputWhileParsingChar(Some(ctx.pos.clone())))
+                        Err(TokenizerError::IllegalEndOfInputWhileParsingChar(ctx.pos.clone()))
                     }
                 }
                 
             }else{
-                Err(TokenizerError::IllegalEndOfInputWhileParsingChar(Some(ctx.pos.clone())))
+                Err(TokenizerError::IllegalEndOfInputWhileParsingChar(ctx.pos.clone()))
             }
 
 
         }else{
-            Err(TokenizerError::IllegalEndOfInputWhileParsingChar(Some(ctx.pos.clone())))
+            Err(TokenizerError::IllegalEndOfInputWhileParsingChar(ctx.pos.clone()))
         }
     }
 
     fn tokenize_string(&self, ctx: &mut TokenizerContext) -> Result<Option<(Token, Position)>, TokenizerError> {
         if let Some(c) = ctx.chars.peek() {
             if *c != '"' {
-                return Err(TokenizerError::IllegalCharWhileParsingString(Some(ctx.pos.clone())));
+                return Err(TokenizerError::IllegalCharWhileParsingString(ctx.pos.clone()));
             }
 
             let start_pos = ctx.pos.clone();
@@ -810,20 +810,20 @@ impl Tokenizer {
                             if let Some(c) = self.next_char(ctx) {
                                 s.push(c);
                             }else{
-                                return Err(TokenizerError::IllegalEndOfInputWhileParsingString(Some(ctx.pos.clone())));
+                                return Err(TokenizerError::IllegalEndOfInputWhileParsingString(ctx.pos.clone()));
                             }
                         },
                         _ => s.push(c),
                     }
                 }else{
-                    return Err(TokenizerError::IllegalEndOfInputWhileParsingString(Some(ctx.pos.clone())));
+                    return Err(TokenizerError::IllegalEndOfInputWhileParsingString(ctx.pos.clone()));
                 }
             }
     
             Ok(Some((Token::StringLiteral(s), start_pos)))
 
         }else{
-            Err(TokenizerError::IllegalEndOfInputWhileParsingString(Some(ctx.pos.clone())))
+            Err(TokenizerError::IllegalEndOfInputWhileParsingString(ctx.pos.clone()))
         }
     }
 }
