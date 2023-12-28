@@ -122,7 +122,7 @@ impl<'a> TokenizerContext<'a> {
     pub fn new(input: &str) -> TokenizerContext {
         TokenizerContext {
             chars: input.chars().peekable(),
-            pos: Position::new(),
+            pos: Position::default(),
         }
     }
 }

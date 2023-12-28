@@ -9,11 +9,15 @@ pub struct Position {
 }
 
 impl Position {
-    pub fn new() -> Self {
+    pub fn default() -> Self {
         Position {
             line: 1,
             column: 1,
         }
+    }
+
+    pub fn new(line: u64, column: u64) -> Self {
+        Position { line, column }
     }
 
     pub fn inc(&mut self) {

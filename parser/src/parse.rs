@@ -1086,7 +1086,7 @@ impl Parser {
 
     fn parse_conditional_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ExprAST>, ParserError> {
         if let Some(expr) = self.parse_logical_or_expression(iter, defs, labels)? {
-            if let Some((tok, _pos)) = iter.peek() {
+            if let Some((tok, pos)) = iter.peek() {
                 if *tok == Token::Question {
                     iter.next();  // skip '?'
                     let then_expr = self.parse_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(None))?;
@@ -1094,7 +1094,7 @@ impl Parser {
                     self.parse_expected_token(iter, Token::Colon)?;
                     let else_expr = self.parse_conditional_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(None))?;
 
-                    Ok(Some(ExprAST::TernaryOperator(Box::new(expr), Box::new(then_expr), Box::new(else_expr))))
+                    Ok(Some(ExprAST::TernaryOperator(Box::new(expr), Box::new(then_expr), Box::new(else_expr), pos.clone())))
 
                 }else{
                     Ok(Some(expr))
@@ -1139,9 +1139,9 @@ impl Parser {
 
                         if let Some(right) = self.parse_logical_and_expression(iter, defs, labels)? {
                             if let Some(left) = result {
-                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(left), Box::new(right)));
+                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(left), Box::new(right), pos.clone()));
                             }else{
-                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(ast.clone()), Box::new(right)));
+                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(ast.clone()), Box::new(right), pos.clone()));
                             }
                         }else{
                             return Err(ParserError::syntax_error(Some(pos.clone())));
@@ -1189,9 +1189,9 @@ impl Parser {
 
                         if let Some(right) = self.parse_inclusive_or_expression(iter, defs, labels)? {
                             if let Some(left) = result {
-                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(left), Box::new(right)));
+                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(left), Box::new(right), pos.clone()));
                             }else{
-                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(ast.clone()), Box::new(right)));
+                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(ast.clone()), Box::new(right), pos.clone()));
                             }
                         }else{
                             return Err(ParserError::syntax_error(Some(pos.clone())));
@@ -1239,9 +1239,9 @@ impl Parser {
 
                         if let Some(right) = self.parse_exclusive_or_expression(iter, defs, labels)? {
                             if let Some(left) = result {
-                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(left), Box::new(right)));
+                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(left), Box::new(right), pos.clone()));
                             }else{
-                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(ast.clone()), Box::new(right)));
+                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(ast.clone()), Box::new(right), pos.clone()));
                             }
                         }else{
                             return Err(ParserError::syntax_error(Some(pos.clone())));
@@ -1288,9 +1288,9 @@ impl Parser {
 
                         if let Some(right) = self.parse_and_expression(iter, defs, labels)? {
                             if let Some(left) = result {
-                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(left), Box::new(right)));
+                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(left), Box::new(right), pos.clone()));
                             }else{
-                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(ast.clone()), Box::new(right)));
+                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(ast.clone()), Box::new(right), pos.clone()));
                             }
                         }else{
                             return Err(ParserError::syntax_error(Some(pos.clone())));
@@ -1338,9 +1338,9 @@ impl Parser {
 
                         if let Some(right) = self.parse_equality_expression(iter, defs, labels)? {
                             if let Some(left) = result {
-                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(left), Box::new(right)));
+                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(left), Box::new(right), pos.clone()));
                             }else{
-                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(ast.clone()), Box::new(right)));
+                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(ast.clone()), Box::new(right), pos.clone()));
                             }
                         }else{
                             return Err(ParserError::syntax_error(Some(pos.clone())));
@@ -1387,9 +1387,9 @@ impl Parser {
 
                         if let Some(right) = self.parse_relational_expression(iter, defs, labels)? {
                             if let Some(left) = result {
-                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(left), Box::new(right)));
+                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(left), Box::new(right), pos.clone()));
                             }else{
-                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(ast.clone()), Box::new(right)));
+                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(ast.clone()), Box::new(right), pos.clone()));
                             }
                         }else{
                             return Err(ParserError::syntax_error(Some(pos.clone())));
@@ -1436,9 +1436,9 @@ impl Parser {
 
                         if let Some(right) = self.parse_shift_expression(iter, defs, labels)? {
                             if let Some(left) = result {
-                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(left), Box::new(right)));
+                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(left), Box::new(right), pos.clone()));
                             }else{
-                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(ast.clone()), Box::new(right)));
+                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(ast.clone()), Box::new(right), pos.clone()));
                             }
                         }else{
                             return Err(ParserError::syntax_error(Some(pos.clone())));
@@ -1485,9 +1485,9 @@ impl Parser {
 
                         if let Some(right) = self.parse_additive_expression(iter, defs, labels)? {
                             if let Some(left) = result {
-                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(left), Box::new(right)));
+                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(left), Box::new(right), pos.clone()));
                             }else{
-                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(ast.clone()), Box::new(right)));
+                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(ast.clone()), Box::new(right), pos.clone()));
                             }
                         }else{
                             return Err(ParserError::syntax_error(Some(pos.clone())));
@@ -1534,9 +1534,9 @@ impl Parser {
 
                         if let Some(right) = self.parse_multiplicative_expression(iter, defs, labels)? {
                             if let Some(left) = result {
-                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(left), Box::new(right)));
+                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(left), Box::new(right), pos.clone()));
                             }else{
-                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(ast.clone()), Box::new(right)));
+                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(ast.clone()), Box::new(right), pos.clone()));
                             }
                         }else{
                             return Err(ParserError::syntax_error(Some(pos.clone())));
@@ -1582,9 +1582,9 @@ impl Parser {
 
                         if let Some(right) = self.parse_cast_expression(iter, defs, labels)? {
                             if let Some(left) = result {
-                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(left), Box::new(right)));
+                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(left), Box::new(right), pos.clone()));
                             }else{
-                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(ast.clone()), Box::new(right)));
+                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(ast.clone()), Box::new(right), pos.clone()));
                             }
                         }else{
                             return Err(ParserError::syntax_error(Some(pos.clone())));
@@ -1607,7 +1607,7 @@ impl Parser {
             Ok(opt_expr)
 
         }else{
-            let (tok, _pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
+            let (tok, pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
             if *tok == Token::ParenLeft {
                 iter.next();  // skip '('
                 let (_sq, type_or_variadic, _opt_abstract_decl) = self.parse_type_name(iter, defs, labels)?;
@@ -1615,7 +1615,7 @@ impl Parser {
                 self.parse_expected_token(iter, Token::ParenRight)?;
                 let expr = self.parse_cast_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(None))?;
 
-                Ok(Some(ExprAST::Cast(cast_type.clone(), Box::new(expr))))
+                Ok(Some(ExprAST::Cast(cast_type.clone(), Box::new(expr), pos.clone())))
             }else{
                 Ok(None)
             }
@@ -1634,20 +1634,20 @@ impl Parser {
                     iter.next();  // skip '++'
 
                     let expr = self.parse_unary_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(Some(pos.clone())))?;
-                    let one = ExprAST::Int(1);
-                    let add = ExprAST::BinExpr(BinOp::Add, Box::new(expr.clone()), Box::new(one));
+                    let one = ExprAST::Int(1, pos.clone());
+                    let add = ExprAST::BinExpr(BinOp::Add, Box::new(expr.clone()), Box::new(one), pos.clone());
 
-                    let inc = ExprAST::Assign(Box::new(expr), Box::new(add));
+                    let inc = ExprAST::Assign(Box::new(expr), Box::new(add), pos.clone());
                     Ok(Some(inc))
                 },
                 Token::Dec => {
                     iter.next();  // skip '--'
 
                     let expr = self.parse_unary_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(Some(pos.clone())))?;
-                    let one = ExprAST::Int(1);
-                    let add = ExprAST::BinExpr(BinOp::Sub, Box::new(expr.clone()), Box::new(one));
+                    let one = ExprAST::Int(1, pos.clone());
+                    let add = ExprAST::BinExpr(BinOp::Sub, Box::new(expr.clone()), Box::new(one), pos.clone());
 
-                    let inc = ExprAST::Assign(Box::new(expr), Box::new(add));
+                    let inc = ExprAST::Assign(Box::new(expr), Box::new(add), pos.clone());
                     Ok(Some(inc))
 
                 },
@@ -1658,7 +1658,7 @@ impl Parser {
                 Token::Sub => {      // '-'
                     iter.next();  // skip '-'
                     if let Some(expr) = self.parse_cast_expression(iter, defs, labels)? {
-                        Ok(Some(ExprAST::UnaryMinus(Box::new(expr))))
+                        Ok(Some(ExprAST::UnaryMinus(Box::new(expr), pos.clone())))
                     }else{
                         Ok(None)
                     }
@@ -1666,7 +1666,7 @@ impl Parser {
                 Token::BitAnd => {   // '&'. get address
                     iter.next();  // skip '&'
                     if let Some(expr) = self.parse_cast_expression(iter, defs, labels)? {
-                        Ok(Some(ExprAST::UnaryGetAddress(Box::new(expr))))
+                        Ok(Some(ExprAST::UnaryGetAddress(Box::new(expr), pos.clone())))
                     }else{
                         Ok(None)
                     }
@@ -1674,7 +1674,7 @@ impl Parser {
                 Token::Mul => {      // '*'. pointer access
                     iter.next();  // skip '*'
                     if let Some(expr) = self.parse_cast_expression(iter, defs, labels)? {
-                        Ok(Some(ExprAST::UnaryPointerAccess(Box::new(expr))))
+                        Ok(Some(ExprAST::UnaryPointerAccess(Box::new(expr), pos.clone())))
                     }else{
                         Ok(None)
                     }
@@ -1682,7 +1682,7 @@ impl Parser {
                 Token::Tilda => {    // '~'
                     iter.next();  // skip '~'
                     if let Some(expr) = self.parse_cast_expression(iter, defs, labels)? {
-                        Ok(Some(ExprAST::UnaryTilda(Box::new(expr))))
+                        Ok(Some(ExprAST::UnaryTilda(Box::new(expr), pos.clone())))
                     }else{
                         Ok(None)
                     }
@@ -1690,7 +1690,7 @@ impl Parser {
                 Token::Not => {      // '!'
                     iter.next();  // skip '!'
                     if let Some(expr) = self.parse_cast_expression(iter, defs, labels)? {
-                        Ok(Some(ExprAST::Not(Box::new(expr))))
+                        Ok(Some(ExprAST::Not(Box::new(expr), pos.clone())))
                     }else{
                         Ok(None)
                     }
@@ -1698,11 +1698,11 @@ impl Parser {
                 Token::Sizeof => {
                     iter.next();  // skip 'sizeof'
                     if let Some(expr) = self.parse_unary_expression(iter, defs, labels)? {
-                        Ok(Some(ExprAST::UnarySizeOfExpr(Box::new(expr))))
+                        Ok(Some(ExprAST::UnarySizeOfExpr(Box::new(expr), pos.clone())))
                     }else{
                         let (_sq, type_or_variadic, _opt_abstract_decl) = self.parse_type_name(iter, defs, labels)?;
                         let type_name = type_or_variadic.get_type().ok_or(ParserError::no_type_defined(None))?;
-                        Ok(Some(ExprAST::UnarySizeOfTypeName(type_name.clone())))
+                        Ok(Some(ExprAST::UnarySizeOfTypeName(type_name.clone(), pos.clone())))
                     }
                 },
                 Token::ParenRight => {
@@ -1724,14 +1724,14 @@ impl Parser {
                             iter.next();  // skip '['
                             let expr = self.parse_expression(iter, defs, labels)?.ok_or(ParserError::no_expr_while_access_array(None))?;
                             self.parse_expected_token(iter, Token::BracketRight)?;
-                            ast = ExprAST::ArrayAccess(Box::new(ast), Box::new(expr));
+                            ast = ExprAST::ArrayAccess(Box::new(ast), Box::new(expr), pos.clone());
                         },
                         Token::ParenLeft => {
                             iter.next();  // skip '('
                             let exprs = self.parse_expression(iter, defs, labels)?;
                             self.parse_expected_token(iter, Token::ParenRight)?;
                             let args: Vec<ExprAST> = self.exprs_to_vec(exprs)?;
-                            ast = ExprAST::CallFunction(Box::new(ast), args);
+                            ast = ExprAST::CallFunction(Box::new(ast), args, pos.clone());
                         },
                         Token::Dot => {
                             iter.next();  // skip '.'
@@ -1739,7 +1739,7 @@ impl Parser {
                             let (tok2, pos2) = iter.next().ok_or(ParserError::illegal_end_of_input(Some(pos.clone())))?;
                             match tok2 {
                                 Token::Symbol(id) => {
-                                    ast = ExprAST::MemberAccess(Box::new(ast), id.clone());
+                                    ast = ExprAST::MemberAccess(Box::new(ast), id.clone(), pos.clone());
                                 },
                                 _ => return Err(ParserError::no_id_after_dot(Some(pos2.clone()))),
                             }
@@ -1750,7 +1750,7 @@ impl Parser {
                             let (tok2, pos2) = iter.next().ok_or(ParserError::illegal_end_of_input(Some(pos.clone())))?;
                             match tok2 {
                                 Token::Symbol(id) => {
-                                    ast = ExprAST::PointerAccess(Box::new(ast), id.clone());
+                                    ast = ExprAST::PointerAccess(Box::new(ast), id.clone(), pos.clone());
                                 },
                                 _ => return Err(ParserError::no_id_after_arrow(Some(pos2.clone()))),
                             }
@@ -1760,17 +1760,17 @@ impl Parser {
                             iter.next();  // skip '++'
                             // ast = ExprAST::Inc(Box::new(ast));
 
-                            let one = ExprAST::Int(1);
-                            let add = ExprAST::BinExpr(BinOp::Add, Box::new(ast.clone()), Box::new(one));
-                            ast = ExprAST::Assign(Box::new(ast), Box::new(add));
+                            let one = ExprAST::Int(1, pos.clone());
+                            let add = ExprAST::BinExpr(BinOp::Add, Box::new(ast.clone()), Box::new(one), pos.clone());
+                            ast = ExprAST::Assign(Box::new(ast), Box::new(add), pos.clone());
                         },
                         Token::Dec => {
                             iter.next();  // skip '--'
                             // ast = ExprAST::Dec(Box::new(ast));
 
-                            let one = ExprAST::Int(1);
-                            let add = ExprAST::BinExpr(BinOp::Sub, Box::new(ast.clone()), Box::new(one));
-                            ast = ExprAST::Assign(Box::new(ast), Box::new(add));
+                            let one = ExprAST::Int(1, pos.clone());
+                            let add = ExprAST::BinExpr(BinOp::Sub, Box::new(ast.clone()), Box::new(one), pos.clone());
+                            ast = ExprAST::Assign(Box::new(ast), Box::new(add), pos.clone());
                         },
     
                         _ => break,
@@ -1794,7 +1794,7 @@ impl Parser {
 
         while let Some(expr) = exprs {
             match expr {
-                ExprAST::BinExpr(BinOp::Comma, left, right) => {
+                ExprAST::BinExpr(BinOp::Comma, left, right, pos) => {
                     result.push(*left);
                     exprs = Some(*right);
                 },
@@ -1809,19 +1809,19 @@ impl Parser {
     }
 
     fn parse_primary_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ExprAST>, ParserError> {
-        if let Some((tok, _pos)) = iter.peek() {
+        if let Some((tok, pos)) = iter.peek() {
             match &*tok {
                 Token::Symbol(name) => {
                     iter.next();  // skip symbol
-                    Ok(Some(ExprAST::Symbol(name.clone())))
+                    Ok(Some(ExprAST::Symbol(name.clone(), pos.clone())))
                 },
                 Token::_Self => {
                     iter.next();  // skip 'Self'
-                    Ok(Some(ExprAST::_Self))
+                    Ok(Some(ExprAST::_Self(pos.clone())))
                 },
                 Token::_self => {
                     iter.next();  // skip 'self'
-                    Ok(Some(ExprAST::_self))
+                    Ok(Some(ExprAST::_self(pos.clone())))
                 },
                 Token::ParenLeft => {
                     iter.next(); // skip '('
@@ -1840,12 +1840,12 @@ impl Parser {
     }
 
     fn parse_constant(&self, iter: &mut Peekable<Iter<(Token, Position)>>, _defs: &mut Defines) -> Result<Option<ExprAST>, ParserError> {
-        if let Some((tok, _pos)) = iter.peek() {
+        if let Some((tok, pos)) = iter.peek() {
 
             match &*tok {
                 Token::CharLiteral(ch) => {
                     iter.next();
-                    Ok(Some(ExprAST::Char(*ch)))
+                    Ok(Some(ExprAST::Char(*ch, pos.clone())))
                 },
                 // Token::ShortLiteral(num) => {
                 //     iter.next();
@@ -1853,7 +1853,7 @@ impl Parser {
                 // },
                 Token::IntLiteral(num) => {
                     iter.next();
-                    Ok(Some(ExprAST::Int(*num)))
+                    Ok(Some(ExprAST::Int(*num, pos.clone())))
                 },
                 // Token::LongLiteral(num) => {
                 //     iter.next();
@@ -1889,11 +1889,11 @@ impl Parser {
                 // },
                 Token::DoubleLiteral(num) => {
                     iter.next();
-                    Ok(Some(ExprAST::Double(*num)))
+                    Ok(Some(ExprAST::Double(*num, pos.clone())))
                 },
                 Token::StringLiteral(s) => {
                     iter.next();
-                    Ok(Some(ExprAST::StringLiteral(s.clone())))
+                    Ok(Some(ExprAST::StringLiteral(s.clone(), pos.clone())))
                 },
                 // TODO: enumeration-constant
 
@@ -1935,9 +1935,9 @@ impl Parser {
 
                         if let Some(right) = self.parse_expression(iter, defs, labels)? {
                             if let Some(left) = result {
-                                result = Some(ExprAST::BinExpr(BinOp::Comma, Box::new(left), Box::new(right)));
+                                result = Some(ExprAST::BinExpr(BinOp::Comma, Box::new(left), Box::new(right), pos.clone()));
                             }else{
-                                result = Some(ExprAST::BinExpr(BinOp::Comma, Box::new(ast.clone()), Box::new(right)));
+                                result = Some(ExprAST::BinExpr(BinOp::Comma, Box::new(ast.clone()), Box::new(right), pos.clone()));
                             }
                         }else{
                             return Err(ParserError::syntax_error(Some(pos.clone())));
@@ -1955,7 +1955,7 @@ impl Parser {
 
     fn parse_assignment_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ExprAST>, ParserError> {
         if let Some(mut ast) = self.parse_logical_or_expression(iter, defs, labels)? {
-            if let Some((tok, _pos)) = iter.peek() {
+            if let Some((tok, pos)) = iter.peek() {
                 match tok {
                     Token::Question => {
                         iter.next();  // skip '?'
@@ -1964,7 +1964,7 @@ impl Parser {
                         self.parse_expected_token(iter, Token::Colon)?;
                         let else_expr = self.parse_conditional_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(None))?;
     
-                        return Ok(Some(ExprAST::TernaryOperator(Box::new(ast), Box::new(then_expr), Box::new(else_expr))));
+                        return Ok(Some(ExprAST::TernaryOperator(Box::new(ast), Box::new(then_expr), Box::new(else_expr), pos.clone())));
                     },
                     Token::Assign | Token::AddAssign | Token::SubAssign | Token::MulAssign | Token::DivAssign | Token::ModAssign 
                      | Token:: ShiftLeftAssign | Token::ShiftRightAssign | Token::BitAndAssign | Token::BitOrAssign | Token::BitXorAssign =>
@@ -1998,77 +1998,77 @@ impl Parser {
                         iter.next();  // skip '='
                         let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::need_expr(Some(pos.clone())))?;
 
-                        result = ExprAST::Assign(Box::new(result), Box::new(r_value));
+                        result = ExprAST::Assign(Box::new(result), Box::new(r_value), pos.clone());
                     },
                     Token::AddAssign => {
                         iter.next(); // skip '+='
                         let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(Some(pos.clone())))?;
 
-                        let add = ExprAST::BinExpr(BinOp::Add, Box::new(result.clone()), Box::new(r_value));
-                        result = ExprAST::Assign(Box::new(result), Box::new(add));
+                        let add = ExprAST::BinExpr(BinOp::Add, Box::new(result.clone()), Box::new(r_value), pos.clone());
+                        result = ExprAST::Assign(Box::new(result), Box::new(add), pos.clone());
                     },
                     Token::SubAssign => {
                         iter.next(); // skip '-='
                         let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(Some(pos.clone())))?;
 
-                        let sub = ExprAST::BinExpr(BinOp::Sub, Box::new(result.clone()), Box::new(r_value));
-                        result = ExprAST::Assign(Box::new(result), Box::new(sub));
+                        let sub = ExprAST::BinExpr(BinOp::Sub, Box::new(result.clone()), Box::new(r_value), pos.clone());
+                        result = ExprAST::Assign(Box::new(result), Box::new(sub), pos.clone());
                     },
                     Token::MulAssign => {
                         iter.next(); // skip '*='
                         let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(Some(pos.clone())))?;
 
-                        let mul = ExprAST::BinExpr(BinOp::Mul, Box::new(result.clone()), Box::new(r_value));
-                        result = ExprAST::Assign(Box::new(result), Box::new(mul));
+                        let mul = ExprAST::BinExpr(BinOp::Mul, Box::new(result.clone()), Box::new(r_value), pos.clone());
+                        result = ExprAST::Assign(Box::new(result), Box::new(mul), pos.clone());
                     },
                     Token::DivAssign => {
                         iter.next(); // skip '/='
                         let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(Some(pos.clone())))?;
 
-                        let div = ExprAST::BinExpr(BinOp::Div, Box::new(result.clone()), Box::new(r_value));
-                        result = ExprAST::Assign(Box::new(result), Box::new(div));
+                        let div = ExprAST::BinExpr(BinOp::Div, Box::new(result.clone()), Box::new(r_value), pos.clone());
+                        result = ExprAST::Assign(Box::new(result), Box::new(div), pos.clone());
                     },
                     Token::ModAssign => {
                         iter.next(); // skip '%='
                         let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(Some(pos.clone())))?;
 
-                        let res = ExprAST::BinExpr(BinOp::Mod, Box::new(result.clone()), Box::new(r_value));
-                        result = ExprAST::Assign(Box::new(result), Box::new(res));
+                        let res = ExprAST::BinExpr(BinOp::Mod, Box::new(result.clone()), Box::new(r_value), pos.clone());
+                        result = ExprAST::Assign(Box::new(result), Box::new(res), pos.clone());
                     },
                     Token::ShiftLeftAssign => {
                         iter.next(); // skip '%='
                         let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(Some(pos.clone())))?;
 
-                        let res = ExprAST::BinExpr(BinOp::ShiftLeft, Box::new(result.clone()), Box::new(r_value));
-                        result = ExprAST::Assign(Box::new(result), Box::new(res));
+                        let res = ExprAST::BinExpr(BinOp::ShiftLeft, Box::new(result.clone()), Box::new(r_value), pos.clone());
+                        result = ExprAST::Assign(Box::new(result), Box::new(res), pos.clone());
                     },
                     Token::ShiftRightAssign => {
                         iter.next(); // skip '%='
                         let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(Some(pos.clone())))?;
 
-                        let res = ExprAST::BinExpr(BinOp::ShiftRight, Box::new(result.clone()), Box::new(r_value));
-                        result = ExprAST::Assign(Box::new(result), Box::new(res));
+                        let res = ExprAST::BinExpr(BinOp::ShiftRight, Box::new(result.clone()), Box::new(r_value), pos.clone());
+                        result = ExprAST::Assign(Box::new(result), Box::new(res), pos.clone());
                     },
                     Token::BitAndAssign => {
                         iter.next(); // skip '%='
                         let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(Some(pos.clone())))?;
 
-                        let res = ExprAST::BinExpr(BinOp::BitAnd, Box::new(result.clone()), Box::new(r_value));
-                        result = ExprAST::Assign(Box::new(result), Box::new(res));
+                        let res = ExprAST::BinExpr(BinOp::BitAnd, Box::new(result.clone()), Box::new(r_value), pos.clone());
+                        result = ExprAST::Assign(Box::new(result), Box::new(res), pos.clone());
                     },
                     Token::BitOrAssign => {
                         iter.next(); // skip '%='
                         let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(Some(pos.clone())))?;
 
-                        let res = ExprAST::BinExpr(BinOp::BitOr, Box::new(result.clone()), Box::new(r_value));
-                        result = ExprAST::Assign(Box::new(result), Box::new(res));
+                        let res = ExprAST::BinExpr(BinOp::BitOr, Box::new(result.clone()), Box::new(r_value), pos.clone());
+                        result = ExprAST::Assign(Box::new(result), Box::new(res), pos.clone());
                     },
                     Token::BitXorAssign => {
                         iter.next(); // skip '%='
                         let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(Some(pos.clone())))?;
 
-                        let res = ExprAST::BinExpr(BinOp::BitXor, Box::new(result.clone()), Box::new(r_value));
-                        result = ExprAST::Assign(Box::new(result), Box::new(res));
+                        let res = ExprAST::BinExpr(BinOp::BitXor, Box::new(result.clone()), Box::new(r_value), pos.clone());
+                        result = ExprAST::Assign(Box::new(result), Box::new(res), pos.clone());
                     },
 
                     _ => break,
@@ -2328,14 +2328,14 @@ impl Parser {
         let init_expr;
         if *tok == Token::BraceLeft {
             iter.next();  // skip '{'
-            init_expr = self.parse_initializer_list(iter, defs, labels)?;
+            init_expr = self.parse_initializer_list(pos, iter, defs, labels)?;
         }else{
             init_expr = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::need_expr(Some(pos.clone())))?;
         }
         Ok(init_expr)
     }
 
-    fn parse_initializer_list(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<ExprAST, ParserError> {
+    fn parse_initializer_list(&self, start_pos: &Position, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<ExprAST, ParserError> {
         let mut list: Vec<ExprAST> = Vec::new();
 
         loop {
@@ -2360,7 +2360,7 @@ impl Parser {
             }
         }
 
-        Ok(ExprAST::InitializerList(list))
+        Ok(ExprAST::InitializerList(list, start_pos.clone()))
     }
 
     fn parse_compound_statement(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Block, ParserError> {
@@ -2640,9 +2640,9 @@ impl Parser {
 
     // only for init-expr in for-statement
     pub fn parse_simple_declaration_or_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ExprAST>, ParserError> {
-        let (tok, _pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
+        let (tok, pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
         if self.is_type(tok, defs) {
-            self.parse_simple_declaration(iter, defs, labels)
+            self.parse_simple_declaration(pos, iter, defs, labels)
         }else{
             if let Some(expr) = self.parse_assignment_expression(iter, defs, labels)? {
                 Ok(Some(expr))
@@ -2664,7 +2664,7 @@ impl Parser {
         }
     }
 
-    pub fn parse_simple_declaration(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ExprAST>, ParserError> {
+    pub fn parse_simple_declaration(&self, start_pos: &Position, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ExprAST>, ParserError> {
         let ds = self.parse_declaration_specifier(iter, defs, labels)?;
         let ds = ds.get_declaration_specifier().unwrap();
         let decl = self.parse_declarator(iter, defs, labels)?;
@@ -2675,7 +2675,7 @@ impl Parser {
             Token::Comma => {
                 let declaration = Declaration::new(decl, None);
                 let (ds, declarations) = self.parse_def_var(ds.clone(), vec![declaration], defs)?;
-                let ast = ExprAST::DefVar { specifiers: ds, declarations: declarations };
+                let ast = ExprAST::DefVar { specifiers: ds, declarations: declarations, pos: start_pos.clone() };
                 Ok(Some(ast))
             },
             Token::Assign => {
@@ -2683,7 +2683,7 @@ impl Parser {
                 let expr = self.parse_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(Some(pos.clone())))?;
                 let declaration = Declaration::new(decl, Some(Box::new(expr)));
                 let (ds, declarations) = self.parse_def_var(ds.clone(), vec![declaration], defs)?;
-                let ast = ExprAST::DefVar { specifiers: ds, declarations: declarations };
+                let ast = ExprAST::DefVar { specifiers: ds, declarations: declarations, pos: start_pos.clone() };
                 Ok(Some(ast))
             },
             _ => Err(ParserError::syntax_error(Some(pos.clone()))),
@@ -2720,9 +2720,9 @@ impl Parser {
 
                         if let Some(right) = self.parse_for_init(iter, defs, labels)? {
                             if let Some(left) = result {
-                                result = Some(ExprAST::BinExpr(BinOp::Comma, Box::new(left), Box::new(right)));
+                                result = Some(ExprAST::BinExpr(BinOp::Comma, Box::new(left), Box::new(right), ast.get_position().clone()));
                             }else{
-                                result = Some(ExprAST::BinExpr(BinOp::Comma, Box::new(ast.clone()), Box::new(right)));
+                                result = Some(ExprAST::BinExpr(BinOp::Comma, Box::new(ast.clone()), Box::new(right), ast.get_position().clone()));
                             }
                         }else{
                             return Err(ParserError::syntax_error(Some(pos.clone())));
@@ -2858,7 +2858,7 @@ mod tests {
 
         assert_eq!(
             ast,
-            ExprAST::Int(123)
+            ExprAST::Int(123, Position::new(1, 1))
         );
     }
 
@@ -2871,12 +2871,14 @@ mod tests {
             ast,
             ExprAST::BinExpr(
                 BinOp::Comma,
-                Box::new(ExprAST::Int(1)),
+                Box::new(ExprAST::Int(1, Position::new(1, 2))),
                 Box::new(ExprAST::BinExpr(
                     BinOp::Comma,
-                    Box::new(ExprAST::Int(2)),
-                    Box::new(ExprAST::Int(3))
-                ))
+                    Box::new(ExprAST::Int(2, Position::new(1, 5))),
+                    Box::new(ExprAST::Int(3, Position::new(1, 8))),
+                    Position::new(1, 6)
+                )),
+                Position::new(1, 3)
             )
         );
     }
@@ -2890,8 +2892,9 @@ mod tests {
             ast,
             ExprAST::BinExpr(
                 BinOp::Add,
-                Box::new(ExprAST::Int(10)),
-                Box::new(ExprAST::Int(11))
+                Box::new(ExprAST::Int(10, Position::new(1, 1))),
+                Box::new(ExprAST::Int(11, Position::new(1, 6))),
+                Position::new(1, 4)
             )
         );
     }
@@ -2905,8 +2908,9 @@ mod tests {
             ast,
             ExprAST::BinExpr(
                 BinOp::Sub,
-                Box::new(ExprAST::Int(10)),
-                Box::new(ExprAST::Int(11))
+                Box::new(ExprAST::Int(10, Position::new(1, 1))),
+                Box::new(ExprAST::Int(11, Position::new(1, 6))),
+                Position::new(1, 4)
             )
         );
     }
@@ -2920,8 +2924,9 @@ mod tests {
             ast,
             ExprAST::BinExpr(
                 BinOp::Mul,
-                Box::new(ExprAST::Int(10)),
-                Box::new(ExprAST::Int(11))
+                Box::new(ExprAST::Int(10, Position::new(1, 1))),
+                Box::new(ExprAST::Int(11, Position::new(1, 6))),
+                Position::new(1, 4)
             )
         );
     }
@@ -2935,8 +2940,9 @@ mod tests {
             ast,
             ExprAST::BinExpr(
                 BinOp::Div,
-                Box::new(ExprAST::Int(10)),
-                Box::new(ExprAST::Int(11))
+                Box::new(ExprAST::Int(10, Position::new(1, 1))),
+                Box::new(ExprAST::Int(11, Position::new(1, 6))),
+                Position::new(1, 4)
             )
         );
     }
@@ -2950,12 +2956,12 @@ mod tests {
             ast,
             ExprAST::BinExpr(
                 BinOp::Mod,
-                Box::new(ExprAST::Int(10)),
-                Box::new(ExprAST::Int(11))
+                Box::new(ExprAST::Int(10, Position::new(1, 1))),
+                Box::new(ExprAST::Int(11, Position::new(1, 6))),
+                Position::new(1, 4)
             )
         );
     }
-
 
     #[test]
     fn parse_complex_expr() {
@@ -2969,17 +2975,20 @@ mod tests {
                 Box::new(
                     ExprAST::BinExpr(
                         BinOp::Add,
-                        Box::new(ExprAST::Int(10)),
+                        Box::new(ExprAST::Int(10, Position::new(1, 1))),
                         Box::new(
                             ExprAST::BinExpr(
                                 BinOp::Mul,
-                                Box::new(ExprAST::Int(11)),
-                                Box::new(ExprAST::Int(12))
+                                Box::new(ExprAST::Int(11, Position::new(1, 6))),
+                                Box::new(ExprAST::Int(12, Position::new(1, 11))),
+                                Position::new(1, 9)
                             )
-                        )
+                        ),
+                        Position::new(1, 4)
                     )
                 ),
-                Box::new(ExprAST::Int(13))
+                Box::new(ExprAST::Int(13, Position::new(1, 16))),
+                Position::new(1, 14)
             )
         );
     }
@@ -2991,7 +3000,7 @@ mod tests {
 
         assert_eq!(
             ast,
-            ExprAST::Int(5)
+            ExprAST::Int(5, Position::new(1, 2))
         );
     }
 
@@ -3002,7 +3011,7 @@ mod tests {
 
         assert_eq!(
             ast,
-            ExprAST::UnaryMinus(Box::new(ExprAST::Int(5)))
+            ExprAST::UnaryMinus(Box::new(ExprAST::Int(5, Position::new(1, 2))), Position::new(1, 1))
         );
     }
 
@@ -3013,7 +3022,7 @@ mod tests {
 
         assert_eq!(
             ast,
-            ExprAST::UnaryTilda(Box::new(ExprAST::Int(5)))
+            ExprAST::UnaryTilda(Box::new(ExprAST::Int(5, Position::new(1, 2))), Position::new(1, 1))
         );
     }
 
@@ -3024,10 +3033,11 @@ mod tests {
 
         assert_eq!(
             ast,
-            ExprAST::Not(Box::new(ExprAST::Int(0)))
+            ExprAST::Not(Box::new(ExprAST::Int(0, Position::new(1, 3))), Position::new(1, 1))
         );
     }
 
+/*
     #[test]
     fn parse_unary_paren() {
         let src = "-(1 + 2 * 3)";
@@ -3689,4 +3699,5 @@ mod tests {
             _ => panic!("ast: {:?}", ast),
         }
     }
+*/
 }

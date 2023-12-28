@@ -2,7 +2,7 @@
 
 use crate::ParserError;
 use super::{Type, Pointer, ConstExpr, Defines, StructDefinition, EnumDefinition};
-use tokenizer::Token;
+use tokenizer::{Token, Position};
 
 #[derive(Debug, Clone)]
 pub struct DefVar {
@@ -608,71 +608,115 @@ impl Switch {
 #[allow(non_camel_case_types)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum ExprAST {
-    Assign(Box<ExprAST>, Box<ExprAST>),
-    Inc(Box<ExprAST>),
-    Dec(Box<ExprAST>),
-    Char(u32),
-    Int(u128),
-    Short(i16),
-    Long(i64),
-    UChar(u8),
-    UInt(u32),
-    UShort(u16),
-    ULong(u64),
-    LongLong(i128),
-    ULongLong(u128),
-    Float(f32),
-    Double(f64),
-    StringLiteral(String),
-    Symbol(String),
-    BinExpr(BinOp, Box<ExprAST>, Box<ExprAST>),
-    Not(Box<ExprAST>),
-    UnaryMinus(Box<ExprAST>),
-    UnaryTilda(Box<ExprAST>),
-    UnarySizeOfExpr(Box<ExprAST>),
-    UnarySizeOfTypeName(Type),
-    ExpressionPair(Box<ExprAST>, Box<ExprAST>),
-    Cast(Type, Box<ExprAST>),
-    UnaryGetAddress(Box<ExprAST>),
-    UnaryPointerAccess(Box<ExprAST>),
-    MemberAccess(Box<ExprAST>, String),
-    PointerAccess(Box<ExprAST>, String),
-    TernaryOperator(Box<ExprAST>, Box<ExprAST>, Box<ExprAST>),
-    ArrayAccess(Box<ExprAST>, Box<ExprAST>),
-    CallFunction(Box<ExprAST>, Vec<ExprAST>),
-    InitializerList(Vec<ExprAST>),
+    Assign(Box<ExprAST>, Box<ExprAST>, Position),
+    Inc(Box<ExprAST>, Position),
+    Dec(Box<ExprAST>, Position),
+    Char(u32, Position),
+    Int(u128, Position),
+    Short(i16, Position),
+    Long(i64, Position),
+    UChar(u8, Position),
+    UInt(u32, Position),
+    UShort(u16, Position),
+    ULong(u64, Position),
+    LongLong(i128, Position),
+    ULongLong(u128, Position),
+    Float(f32, Position),
+    Double(f64, Position),
+    StringLiteral(String, Position),
+    Symbol(String, Position),
+    BinExpr(BinOp, Box<ExprAST>, Box<ExprAST>, Position),
+    Not(Box<ExprAST>, Position),
+    UnaryMinus(Box<ExprAST>, Position),
+    UnaryTilda(Box<ExprAST>, Position),
+    UnarySizeOfExpr(Box<ExprAST>, Position),
+    UnarySizeOfTypeName(Type, Position),
+    ExpressionPair(Box<ExprAST>, Box<ExprAST>, Position),
+    Cast(Type, Box<ExprAST>, Position),
+    UnaryGetAddress(Box<ExprAST>, Position),
+    UnaryPointerAccess(Box<ExprAST>, Position),
+    MemberAccess(Box<ExprAST>, String, Position),
+    PointerAccess(Box<ExprAST>, String, Position),
+    TernaryOperator(Box<ExprAST>, Box<ExprAST>, Box<ExprAST>, Position),
+    ArrayAccess(Box<ExprAST>, Box<ExprAST>, Position),
+    CallFunction(Box<ExprAST>, Vec<ExprAST>, Position),
+    InitializerList(Vec<ExprAST>, Position),
     DefVar {
         specifiers: DeclarationSpecifier,
         declarations: Vec<Declaration>,
+        pos: Position,
     },
-    _Self,
-    _self,
+    _Self(Position),
+    _self(Position),
 }
 
 impl ExprAST {
     pub fn is_signed(&self) -> Result<bool, ParserError> {
         match self {
-            ExprAST::Char(_) | ExprAST::Int(_) | ExprAST::Short(_) | ExprAST::Long(_) => Ok(true),
-            ExprAST::UChar(_) | ExprAST::UInt(_) | ExprAST::UShort(_) | ExprAST::ULong(_) => Ok(false),
-            _ => Err(ParserError::not_number(None, self)),
+            ExprAST::Char(_, _) | ExprAST::Int(_, _) | ExprAST::Short(_, _) | ExprAST::Long(_, _) => Ok(true),
+            ExprAST::UChar(_, _) | ExprAST::UInt(_, _) | ExprAST::UShort(_, _) | ExprAST::ULong(_, _) => Ok(false),
+            _ => Err(ParserError::not_number(self.get_position().clone(), self)),
+        }
+    }
+
+    pub fn get_position(&self) -> &Position {
+        match self {
+            ExprAST::Assign(_left, _right, pos) => pos,
+            ExprAST::Char(_, pos) => pos,
+            ExprAST::Int(_, pos) => pos,
+            ExprAST::Short(_, pos) => pos,
+            ExprAST::Long(_, pos) => pos,
+            ExprAST::LongLong(_, pos) => pos,
+            ExprAST::UChar(_, pos) => pos,
+            ExprAST::UInt(_, pos) => pos,
+            ExprAST::UShort(_, pos) => pos,
+            ExprAST::ULong(_, pos) => pos,
+            ExprAST::ULongLong(_, pos) => pos,
+            ExprAST::StringLiteral(_string, pos) => pos,
+            ExprAST::Float(_, pos) => pos,
+            ExprAST::Double(_, pos) => pos,
+            ExprAST::BinExpr(_op, _left, _right, pos) => pos,
+            ExprAST::UnaryMinus(expr, pos) => pos,
+            ExprAST::UnaryTilda(expr, pos) => pos,
+            // ExprAST::UnaryNot(expr) => expr.get_type(env),
+            ExprAST::UnarySizeOfExpr(_expr, pos) => pos,
+            ExprAST::UnarySizeOfTypeName(_typ, pos) => pos,
+            ExprAST::ArrayAccess(_expr, _index, pos) => pos,
+            ExprAST::Symbol(_name, pos) => pos,
+            ExprAST::_Self(pos) => pos,
+            ExprAST::_self(pos) => pos,
+            ExprAST::Not(_expr, pos) => pos,
+            ExprAST::ExpressionPair(_, _right, pos) => pos,
+            ExprAST::Cast(_typ, _, pos) => pos,
+            ExprAST::Inc(_expr, pos) => pos,
+            ExprAST::Dec(_expr, pos) => pos,
+            ExprAST::UnaryGetAddress(_boxed_ast, pos) => pos,
+            ExprAST::UnaryPointerAccess(_boxed_ast, pos) => pos,
+            ExprAST::MemberAccess(_boxed_ast, _field_name, pos) => pos,
+            ExprAST::PointerAccess(_boxed_ast, _field_name, pos) => pos,
+            ExprAST::TernaryOperator(_, _e1, _, pos) => pos,
+            ExprAST::InitializerList(_, pos) => pos,
+            ExprAST::CallFunction(_, _, pos) => pos,
+            ExprAST::DefVar { specifiers: _, declarations: _, pos } => pos,
+
         }
     }
 
     pub fn to_const(&self, defs: &Defines) -> Result<ConstExpr, ParserError> {
         match self {
-            ExprAST::Char(num) => Ok(ConstExpr::Int(*num as i64)),
-            ExprAST::Int(num) => Ok(ConstExpr::Int(*num as i64)),
-            ExprAST::Short(num) => Ok(ConstExpr::Int(*num as i64)),
-            ExprAST::Long(num) => Ok(ConstExpr::Int(*num as i64)),
-            ExprAST::LongLong(num) => Ok(ConstExpr::LongLong(*num as i128)),
-            ExprAST::UChar(num) => Ok(ConstExpr::Unsigned(*num as u64)),
-            ExprAST::UInt(num) => Ok(ConstExpr::Unsigned(*num as u64)),
-            ExprAST::UShort(num) => Ok(ConstExpr::Unsigned(*num as u64)),
-            ExprAST::ULong(num) => Ok(ConstExpr::Unsigned(*num as u64)),
-            ExprAST::ULongLong(num) => Ok(ConstExpr::ULongLong(*num as u128)),
-            ExprAST::Float(num) => Ok(ConstExpr::Double(*num as f64)),
-            ExprAST::Double(num) => Ok(ConstExpr::Double(*num as f64)),
-            ExprAST::BinExpr(op, left, right) => {
+            ExprAST::Char(num, _) => Ok(ConstExpr::Int(*num as i64)),
+            ExprAST::Int(num, _) => Ok(ConstExpr::Int(*num as i64)),
+            ExprAST::Short(num, _) => Ok(ConstExpr::Int(*num as i64)),
+            ExprAST::Long(num, _) => Ok(ConstExpr::Int(*num as i64)),
+            ExprAST::LongLong(num, _) => Ok(ConstExpr::LongLong(*num as i128)),
+            ExprAST::UChar(num, _) => Ok(ConstExpr::Unsigned(*num as u64)),
+            ExprAST::UInt(num, _) => Ok(ConstExpr::Unsigned(*num as u64)),
+            ExprAST::UShort(num, _) => Ok(ConstExpr::Unsigned(*num as u64)),
+            ExprAST::ULong(num, _) => Ok(ConstExpr::Unsigned(*num as u64)),
+            ExprAST::ULongLong(num, _) => Ok(ConstExpr::ULongLong(*num as u128)),
+            ExprAST::Float(num, _) => Ok(ConstExpr::Double(*num as f64)),
+            ExprAST::Double(num, _) => Ok(ConstExpr::Double(*num as f64)),
+            ExprAST::BinExpr(op, left, right, _) => {
                 match op {
                     BinOp::Add => {
                         let e1 = left.to_const(defs)?;
@@ -798,12 +842,12 @@ impl ExprAST {
                     },
                 }
             },
-            ExprAST::UnaryMinus(expr) => expr.to_const(defs),
-            ExprAST::Symbol(name) => {
+            ExprAST::UnaryMinus(expr, _) => expr.to_const(defs),
+            ExprAST::Symbol(name, _) => {
                 Ok(defs.get_const(name)?)
             },
-            ExprAST::Not(expr) => Ok((!expr.to_const(defs)?)?),
-            ExprAST::ExpressionPair(_, right) => right.to_const(defs),
+            ExprAST::Not(expr, _) => Ok((!expr.to_const(defs)?)?),
+            ExprAST::ExpressionPair(_, right, _) => right.to_const(defs),
 
 
             _ => Err(ParserError::is_not_constant(None, self)),
@@ -951,7 +995,7 @@ impl ExprAST {
 
     pub fn is_array_access(&self) -> bool {
         match self {
-            ExprAST::ArrayAccess(_, _) => true,
+            ExprAST::ArrayAccess(_, _, _) => true,
             _ => false,
         }
     }

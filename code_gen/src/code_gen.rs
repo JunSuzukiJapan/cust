@@ -336,17 +336,17 @@ impl<'ctx> CodeGen<'ctx> {
     ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
 
         match expr_ast {
-            ExprAST::Int(num) => {
+            ExprAST::Int(num, _pos) => {
                 let i32_type = self.context.i32_type();
                 let result = i32_type.const_int(*num as u64, true);
                 Ok(Some(CompiledValue::new(Type::Number(NumberType::Int), result.as_any_value_enum())))
             },
-            ExprAST::Short(num) => {
+            ExprAST::Short(num, _pos) => {
                 let i16_type = self.context.i16_type();
                 let result = i16_type.const_int(*num as u64, true);
                 Ok(Some(CompiledValue::new(Type::Number(NumberType::Short), result.as_any_value_enum())))
             },
-            ExprAST::Long(num) => {
+            ExprAST::Long(num, _pos) => {
                 let i64_type = self.context.i64_type();
                 let result = i64_type.const_int(*num as u64, true);
                 Ok(Some(CompiledValue::new(Type::Number(NumberType::Long), result.as_any_value_enum())))
@@ -356,39 +356,39 @@ impl<'ctx> CodeGen<'ctx> {
             //     let result = i128_type.const_int(*num as u128, true);
             //     Ok(Some(result.as_any_value_enum()))
             // },
-            ExprAST::UInt(num) => {
+            ExprAST::UInt(num, _pos) => {
                 let i32_type = self.context.i32_type();
                 let result = i32_type.const_int(*num as u64, true);
                 Ok(Some(CompiledValue::new(Type::Number(NumberType::UnsignedInt), result.as_any_value_enum())))
             },
-            ExprAST::UShort(num) => {
+            ExprAST::UShort(num, _pos) => {
                 let i16_type = self.context.i16_type();
                 let result = i16_type.const_int(*num as u64, true);
                 Ok(Some(CompiledValue::new(Type::Number(NumberType::UnsignedShort), result.as_any_value_enum())))
             },
-            ExprAST::ULong(num) => {
+            ExprAST::ULong(num, _pos) => {
                 let i64_type = self.context.i64_type();
                 let result = i64_type.const_int(*num as u64, true);
                 Ok(Some(CompiledValue::new(Type::Number(NumberType::UnsignedLong), result.as_any_value_enum())))
             },
-            ExprAST::Double(num) => {
+            ExprAST::Double(num, _pos) => {
                 let f64_type = self.context.f64_type();
                 let result = f64_type.const_float(*num);
                 Ok(Some(CompiledValue::new(Type::Number(NumberType::Double), result.as_any_value_enum())))
             },
-            ExprAST::StringLiteral(s) => {
+            ExprAST::StringLiteral(s, _pos) => {
                 // let result = self.context.const_string(s.as_bytes(), false);
                 let result = self.builder.build_global_string_ptr(s, &format!("global_str_{}", s))?;
                 let pointer = Pointer::new(false, false);
                 Ok(Some(CompiledValue::new(Type::Pointer(pointer, Box::new(Type::Number(NumberType::Char))), result.as_any_value_enum())))
             },
-            ExprAST::UnaryMinus(boxed_ast) => {
+            ExprAST::UnaryMinus(boxed_ast, _pos) => {
                 let code = self.gen_expr(&*boxed_ast, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
 
                 let result = self.builder.build_int_neg(code.get_value().into_int_value(), "neg")?;
                 Ok(Some(CompiledValue::new(code.get_type().clone(), result.as_any_value_enum())))
             },
-            ExprAST::Not(boxed_ast) => {
+            ExprAST::Not(boxed_ast, _pos) => {
                 let value = self.gen_expr(&*boxed_ast, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let code = value.get_value().into_int_value();
                 let zero = self.context.i32_type().const_int(0, false);
@@ -396,7 +396,7 @@ impl<'ctx> CodeGen<'ctx> {
                 let result = self.builder.build_int_compare(IntPredicate::EQ, code, zero, "Not")?;
                 Ok(Some(CompiledValue::new(value.get_type().clone(), result.as_any_value_enum())))
             },
-            ExprAST::UnaryTilda(boxed_ast) => {
+            ExprAST::UnaryTilda(boxed_ast, _pos) => {
                 let value = self.gen_expr(&*boxed_ast, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let code = value.get_value().into_int_value();
                 let all_ones = self.context.i32_type().const_all_ones();
@@ -404,15 +404,15 @@ impl<'ctx> CodeGen<'ctx> {
                 let result = self.builder.build_xor(code, all_ones, "bit_reversal")?;
                 Ok(Some(CompiledValue::new(value.get_type().clone(), result.as_any_value_enum())))
             },
-            ExprAST::BinExpr(op, left, right) => self.gen_bin_expr(op, &**left, &**right, env, break_catcher, continue_catcher),
-            ExprAST::DefVar{specifiers, declarations} => {
+            ExprAST::BinExpr(op, left, right, _pos) => self.gen_bin_expr(op, &**left, &**right, env, break_catcher, continue_catcher),
+            ExprAST::DefVar{specifiers, declarations, pos: _} => {
                 self.gen_def_var(specifiers, declarations, env, break_catcher, continue_catcher)?;
                 Ok(None)
             },
-            ExprAST::UnaryGetAddress(boxed_ast) => {
+            ExprAST::UnaryGetAddress(boxed_ast, _pos) => {
                 let ast = &**boxed_ast;
                 match ast {
-                    ExprAST::Symbol(name) => {
+                    ExprAST::Symbol(name, _pos) => {
                         let (typ, ptr) = env.get_ptr(name).ok_or(CodeGenError::no_such_a_variable(None, name))?;
                         let ptr = PointerValue::try_from(ptr).ok().ok_or(CodeGenError::cannot_get_pointer(None))?;
                         let typ = Type::new_pointer_type(typ.clone(), false, false);
@@ -428,10 +428,10 @@ impl<'ctx> CodeGen<'ctx> {
                     _ => unimplemented!(),
                 }
             },
-            ExprAST::UnaryPointerAccess(boxed_ast) => {
+            ExprAST::UnaryPointerAccess(boxed_ast, _pos) => {
                 let ast = &**boxed_ast;
                 match ast {
-                    ExprAST::Symbol(name) => {
+                    ExprAST::Symbol(name, _pos) => {
                         let (typ, ptr_to_ptr) = env.get_ptr(name).ok_or(CodeGenError::no_such_a_variable(None, name))?;
                         let ptr = self.builder.build_load(ptr_to_ptr, &format!("get_ptr_from_{}", name))?;
                         let basic_val = self.builder.build_load(ptr.into_pointer_value(), &format!("get_value_from_{}", name))?;
@@ -445,7 +445,7 @@ impl<'ctx> CodeGen<'ctx> {
                     _ => unimplemented!(),
                 }
             },
-            ExprAST::Symbol(name) => {
+            ExprAST::Symbol(name, _pos) => {
                 if let Some((typ, ptr)) = env.get_ptr(name) {
                     let basic_val = self.builder.build_load(ptr, name)?;
                     let any_val = basic_val.as_any_value_enum();
@@ -459,8 +459,8 @@ impl<'ctx> CodeGen<'ctx> {
                     Err(Box::new(CodeGenError::no_such_a_variable(None, name)))
                 }
             },
-            ExprAST::Assign(l_value, r_value) => self.gen_assign(&**l_value, &**r_value, env, break_catcher, continue_catcher),
-            ExprAST::CallFunction(fun, args) => {
+            ExprAST::Assign(l_value, r_value, _pos) => self.gen_assign(&**l_value, &**r_value, env, break_catcher, continue_catcher),
+            ExprAST::CallFunction(fun, args, _pos) => {
                 let mut v: Vec<BasicMetadataValueEnum> = Vec::new();
                 for expr in args {
                     let result = self.gen_expr(expr, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
@@ -468,10 +468,10 @@ impl<'ctx> CodeGen<'ctx> {
                 }
 
                 match &**fun {
-                    ExprAST::Symbol(name) => {
+                    ExprAST::Symbol(name, _pos) => {
                         self.gen_call_function(name, v, env, break_catcher, continue_catcher)
                     },
-                    ExprAST::MemberAccess(ast, fun_name) => {
+                    ExprAST::MemberAccess(ast, fun_name, _pos) => {
                         let typ = TypeUtil::get_type(ast, env)?;
                         let (_t, obj) = self.get_l_value(&**ast, env, break_catcher, continue_catcher)?;
                         let class_name = typ.get_type_name();
@@ -487,25 +487,25 @@ impl<'ctx> CodeGen<'ctx> {
                     _ => unimplemented!("'{:?}' in CallFunction.", **fun),
                 }
             },
-            ExprAST::MemberAccess(_boxed_ast, field_name) => {
+            ExprAST::MemberAccess(_boxed_ast, field_name, _pos) => {
                 let (typ, ptr) = self.get_l_value(expr_ast, env, break_catcher, continue_catcher)?;
                 let basic_val = self.builder.build_load(ptr, &format!("access_to_field_{}", field_name))?;
                 let any_val = basic_val.as_any_value_enum();
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
-            ExprAST::PointerAccess(_boxed_ast, field_name) => {
+            ExprAST::PointerAccess(_boxed_ast, field_name, _pos) => {
                 let (typ, ptr) = self.get_l_value(expr_ast, env, break_catcher, continue_catcher)?;
                 let basic_val = self.builder.build_load(ptr, &format!("pointer_access_to_field_{}", field_name))?;
                 let any_val = basic_val.as_any_value_enum();
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
-            ExprAST::ArrayAccess(_boxed_ast, _index) => {
+            ExprAST::ArrayAccess(_boxed_ast, _index, _pos) => {
                 let (typ, ptr) = self.get_l_value(expr_ast, env, break_catcher, continue_catcher)?;
                 let basic_val = self.builder.build_load(ptr, "get_value_from_array")?;
                 let any_val = basic_val.as_any_value_enum();
                 Ok(Some(CompiledValue::new(typ.get_element_type()?.clone(), any_val)))
             },
-            ExprAST::_self => {
+            ExprAST::_self(_pos) => {
                 if let Some((typ, ptr)) = env.get_self_ptr() {
                     let basic_val = self.builder.build_load(ptr, "get_self")?;
                     let any_val = basic_val.as_any_value_enum();
@@ -515,7 +515,7 @@ impl<'ctx> CodeGen<'ctx> {
                     Err(Box::new(CodeGenError::no_such_a_variable(None, "self")))
                 }
             },
-            ExprAST::InitializerList(_ast_list) => {
+            ExprAST::InitializerList(_ast_list, _pos) => {
                 // never reached, maybe
                 unimplemented!()
             },
@@ -592,7 +592,7 @@ println!("env: {:?}", env);
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
 
-        let init_value_list = if let ExprAST::InitializerList(list) = init {
+        let init_value_list = if let ExprAST::InitializerList(list, _pos) = init {
             list
         }else{
             return Err(Box::new(CodeGenError::mismatch_initializer_type(None)));
@@ -1917,18 +1917,18 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<(Type, PointerValue<'ctx>), Box<dyn Error>> {
         match ast {
-            ExprAST::Symbol(name) => {
+            ExprAST::Symbol(name, _pos) => {
                 let (typ, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(None, &name)))?;
                 Ok((typ.clone(), ptr))
             },
-            ExprAST::UnaryPointerAccess(boxed_ast) => {
+            ExprAST::UnaryPointerAccess(boxed_ast, _pos) => {
                 let ast = &**boxed_ast;
                 let (typ, ptr_to_ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
                 let ptr = self.builder.build_load(ptr_to_ptr, &String::from("get ptr from ptr"))?;
 
                 Ok((Type::new_pointer_type(typ.clone(), false, false), ptr.into_pointer_value()))
             },
-            ExprAST::MemberAccess(expr, member_name) => {
+            ExprAST::MemberAccess(expr, member_name, _pos) => {
                 let ast = &**expr;
                 let (_typ, ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
                 let typ = TypeUtil::get_type(ast, env)?;
@@ -1980,7 +1980,7 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
                     _ => unimplemented!("member access to {:?}", typ),
                 }
             },
-            ExprAST::PointerAccess(expr, member_name) => {
+            ExprAST::PointerAccess(expr, member_name, _pos) => {
                 let ast = &**expr;
                 let (_typ, ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
                 let ptr = self.builder.build_load(ptr, &format!("pointer_access_to_{}", member_name))?.into_pointer_value();
@@ -2029,7 +2029,7 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
                     _ => unimplemented!("member access to {:?}", typ),
                 }
             },
-            ExprAST::ArrayAccess(expr, index) => {
+            ExprAST::ArrayAccess(expr, index, _pos) => {
                 let ast = &**expr;
                 let (typ, base_ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
 
@@ -2043,11 +2043,11 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
 
                 Ok((typ.clone(), ptr))
             },
-            ExprAST::_self => {
+            ExprAST::_self(_pos) => {
                 let (typ, ptr) = env.get_ptr("self").ok_or(Box::new(CodeGenError::no_such_a_variable(None, "self")))?;
                 Ok((typ.clone(), ptr))
             },
-            ExprAST::_Self => {
+            ExprAST::_Self(_pos) => {
 
 
 

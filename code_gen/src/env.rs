@@ -583,7 +583,7 @@ impl<'ctx> Env<'ctx> {
 
     pub fn is_signed(&self, ast: &ExprAST) -> Result<bool, CodeGenError> {
         match ast {
-            ExprAST::Symbol(name) => {
+            ExprAST::Symbol(name, _pos) => {
                 if let Some((typ, _pointer)) = self.get_ptr(name) {
                     Ok(typ.is_signed()?)
                 }else{
