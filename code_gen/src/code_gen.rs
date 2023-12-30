@@ -402,15 +402,57 @@ impl<'ctx> CodeGen<'ctx> {
                     let basic_val = self.builder.build_load(ptr, name)?;
                     let any_val = basic_val.as_any_value_enum();
                     let one = TypeUtil::to_llvm_int_type(typ, self.context, pos)?.const_int(1, false);
-                    let added = self.builder.build_int_sub(any_val.into_int_value(), one, "pre_decrement")?;
+                    let subed = self.builder.build_int_sub(any_val.into_int_value(), one, "pre_decrement")?;
                     let (_ptr_type, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(Some(sym_pos.clone()), &name)))?;
-                    let _result = self.builder.build_store(ptr, added);
+                    let _result = self.builder.build_store(ptr, subed);
 
-                    Ok(Some(CompiledValue::new(typ.clone(), added.as_any_value_enum())))
+                    Ok(Some(CompiledValue::new(typ.clone(), subed.as_any_value_enum())))
     
                 }else{
                     Err(Box::new(CodeGenError::no_such_a_variable(Some(sym_pos.clone()), name)))
                 }
+            },
+            ExprAST::PreIncMemberAccess(boxed_ast, pos) => {
+                unimplemented!()
+            },
+            ExprAST::PreDecMemberAccess(boxed_ast, pos) => {
+                unimplemented!()
+            },
+            ExprAST::PostInc(name, sym_pos, pos) => {
+                if let Some((typ, ptr)) = env.get_ptr(name) {
+                    let basic_val = self.builder.build_load(ptr, name)?;
+                    let pre_val = basic_val.as_any_value_enum();
+                    let one = TypeUtil::to_llvm_int_type(typ, self.context, pos)?.const_int(1, false);
+                    let added = self.builder.build_int_add(pre_val.into_int_value(), one, "post_increment")?;
+                    let (_ptr_type, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(Some(sym_pos.clone()), &name)))?;
+                    let _result = self.builder.build_store(ptr, added);
+
+                    Ok(Some(CompiledValue::new(typ.clone(), pre_val)))
+    
+                }else{
+                    Err(Box::new(CodeGenError::no_such_a_variable(Some(sym_pos.clone()), name)))
+                }
+            },
+            ExprAST::PostDec(name, sym_pos, pos) => {
+                if let Some((typ, ptr)) = env.get_ptr(name) {
+                    let basic_val = self.builder.build_load(ptr, name)?;
+                    let pre_val = basic_val.as_any_value_enum();
+                    let one = TypeUtil::to_llvm_int_type(typ, self.context, pos)?.const_int(1, false);
+                    let subed = self.builder.build_int_sub(pre_val.into_int_value(), one, "post_decrement")?;
+                    let (_ptr_type, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(Some(sym_pos.clone()), &name)))?;
+                    let _result = self.builder.build_store(ptr, subed);
+
+                    Ok(Some(CompiledValue::new(typ.clone(), pre_val)))
+    
+                }else{
+                    Err(Box::new(CodeGenError::no_such_a_variable(Some(sym_pos.clone()), name)))
+                }
+            },
+            ExprAST::PostIncMemberAccess(boxed_ast, pos) => {
+                unimplemented!()
+            },
+            ExprAST::PostDecMemberAccess(boxed_ast, pos) => {
+                unimplemented!()
             },
             ExprAST::UnaryMinus(boxed_ast, _pos) => {
                 let code = self.gen_expr(&*boxed_ast, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
