@@ -613,6 +613,10 @@ pub enum ExprAST {
     PreDec(String, Position, Position),
     PostInc(String, Position, Position),
     PostDec(String, Position, Position),
+    PreIncMemberAccess(Box<ExprAST>, Position),
+    PreDecMemberAccess(Box<ExprAST>, Position),
+    PostIncMemberAccess(Box<ExprAST>, Position),
+    PostDecMemberAccess(Box<ExprAST>, Position),
     Char(u32, Position),
     Int(u128, Position),
     Short(i16, Position),
@@ -694,6 +698,10 @@ impl ExprAST {
             ExprAST::PreDec(_id, _sym_pos, pos) => pos,
             ExprAST::PostInc(_id, _sym_pos, pos) => pos,
             ExprAST::PostDec(_id, _sym_pos, pos) => pos,
+            ExprAST::PreIncMemberAccess(_, pos) => pos,
+            ExprAST::PreDecMemberAccess(_, pos) => pos,
+            ExprAST::PostIncMemberAccess(_, pos) => pos,
+            ExprAST::PostDecMemberAccess(_, pos) => pos,
             ExprAST::UnaryGetAddress(_boxed_ast, pos) => pos,
             ExprAST::UnaryPointerAccess(_boxed_ast, pos) => pos,
             ExprAST::MemberAccess(_boxed_ast, _field_name, pos) => pos,
@@ -703,6 +711,20 @@ impl ExprAST {
             ExprAST::CallFunction(_, _, pos) => pos,
             ExprAST::DefVar { specifiers: _, declarations: _, pos } => pos,
 
+        }
+    }
+
+    pub fn is_symbol(&self) -> bool {
+        match self {
+            ExprAST::Symbol(name, pos) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_member_access(&self) -> bool {
+        match self {
+            ExprAST::MemberAccess(_, _, _) | ExprAST::PointerAccess(_, _, _) => true,
+            _ => false,
         }
     }
 

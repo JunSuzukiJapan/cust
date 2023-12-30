@@ -221,6 +221,18 @@ impl TypeUtil {
                 let typ = env.get_type_by_id(&name).ok_or(CodeGenError::no_such_a_variable(None, &name))?;
                 Ok(typ.clone())
             },
+            ExprAST::PreIncMemberAccess(expr, _pos) => {
+                Self::get_type(expr, env)
+            },
+            ExprAST::PostIncMemberAccess(expr, _pos) => {
+                Self::get_type(expr, env)
+            },
+            ExprAST::PreDecMemberAccess(expr, _pos) => {
+                Self::get_type(expr, env)
+            },
+            ExprAST::PostDecMemberAccess(expr, _pos) => {
+                Self::get_type(expr, env)
+            },
             ExprAST::UnaryGetAddress(boxed_ast, _pos) => {
                 let ast = &*boxed_ast;
                 let t = TypeUtil::get_type(ast, env)?;

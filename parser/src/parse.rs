@@ -1638,10 +1638,17 @@ impl Parser {
                     // let add = ExprAST::BinExpr(BinOp::Add, Box::new(expr.clone()), Box::new(one), pos.clone());
                     // let inc = ExprAST::Assign(Box::new(expr), Box::new(add), pos.clone());
 
-                    let (sym, sym_pos) = expr.get_symbol()?;
-                    let inc = ExprAST::PreInc(sym.clone(), sym_pos.clone(), pos.clone());
-                    Ok(Some(inc))
-                },
+                    if expr.is_symbol() {
+                        let (sym, sym_pos) = expr.get_symbol()?;
+                        let inc = ExprAST::PreInc(sym.clone(), sym_pos.clone(), pos.clone());
+                        Ok(Some(inc))
+                    }else if expr.is_member_access() {
+                        let inc = ExprAST::PreIncMemberAccess(Box::new(expr.clone()), pos.clone());
+                        Ok(Some(inc))
+                    }else{
+                        Err(ParserError::syntax_error(Some(pos.clone())))
+                    }
+               },
                 Token::Dec => {
                     iter.next();  // skip '--'
 
@@ -1650,9 +1657,17 @@ impl Parser {
                     // let add = ExprAST::BinExpr(BinOp::Sub, Box::new(expr.clone()), Box::new(one), pos.clone());
                     // let inc = ExprAST::Assign(Box::new(expr), Box::new(add), pos.clone());
 
-                    let (sym, sym_pos) = expr.get_symbol()?;
-                    let dec = ExprAST::PreDec(sym.clone(), sym_pos.clone(), pos.clone());
-                    Ok(Some(dec))
+                    if expr.is_symbol() {
+                        let (sym, sym_pos) = expr.get_symbol()?;
+                        let dec = ExprAST::PreDec(sym.clone(), sym_pos.clone(), pos.clone());
+                        Ok(Some(dec))
+    
+                    }else if expr.is_member_access() {
+                        let inc = ExprAST::PreDecMemberAccess(Box::new(expr.clone()), pos.clone());
+                        Ok(Some(inc))
+                    }else{
+                        Err(ParserError::syntax_error(Some(pos.clone())))
+                    }
 
                 },
                 Token::Add => {      // '+'
@@ -1762,21 +1777,27 @@ impl Parser {
                         },
                         Token::Inc => {
                             iter.next();  // skip '++'
-                            let (sym, sym_pos) = ast.get_symbol()?;
-                            ast = ExprAST::PostInc(sym.clone(), sym_pos.clone(), pos.clone());
 
-                            // let one = ExprAST::Int(1, pos.clone());
-                            // let add = ExprAST::BinExpr(BinOp::Add, Box::new(ast.clone()), Box::new(one), pos.clone());
-                            // ast = ExprAST::Assign(Box::new(ast), Box::new(add), pos.clone());
+                            if ast.is_symbol() {
+                                let (sym, sym_pos) = ast.get_symbol()?;
+                                ast = ExprAST::PostInc(sym.clone(), sym_pos.clone(), pos.clone());
+                            }else if ast.is_member_access() {
+                                ast = ExprAST::PostIncMemberAccess(Box::new(ast.clone()), pos.clone());
+                            }else{
+                                return Err(ParserError::syntax_error(Some(pos.clone())));
+                            }
                         },
                         Token::Dec => {
                             iter.next();  // skip '--'
-                            let (sym, sym_pos) = ast.get_symbol()?;
-                            ast = ExprAST::PostDec(sym.clone(), sym_pos.clone(), pos.clone());
 
-                            // let one = ExprAST::Int(1, pos.clone());
-                            // let add = ExprAST::BinExpr(BinOp::Sub, Box::new(ast.clone()), Box::new(one), pos.clone());
-                            // ast = ExprAST::Assign(Box::new(ast), Box::new(add), pos.clone());
+                            if ast.is_symbol() {
+                                let (sym, sym_pos) = ast.get_symbol()?;
+                                ast = ExprAST::PostDec(sym.clone(), sym_pos.clone(), pos.clone());
+                            }else if ast.is_member_access() {
+                                ast = ExprAST::PostDecMemberAccess(Box::new(ast.clone()), pos.clone());
+                            }else{
+                                return Err(ParserError::syntax_error(Some(pos.clone())));
+                            }
                         },
     
                         _ => break,
