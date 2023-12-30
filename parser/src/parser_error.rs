@@ -12,6 +12,7 @@ pub enum ParserError {
     NotNumber(Position, ExprAST),
     NotPointer(Option<Position>, Type),
     NotArray(Option<Position>, Type),
+    NotSymbol(Position),
     NotFunction(Option<Position>, Type),
     NotNumberType(Option<Position>, Type),
     NotNumberTypeToBeUnsigned(Option<Position>, Type),
@@ -74,6 +75,10 @@ impl ParserError {
 
     pub fn not_array(opt_pos: Option<Position>, typ: &Type) -> ParserError {
         ParserError::NotArray(opt_pos, typ.clone())
+    }
+
+    pub fn not_symbol(pos: Position) -> Self {
+        ParserError::NotSymbol(pos)
     }
 
     pub fn not_function(opt_pos: Option<Position>, typ: &Type) -> ParserError {
@@ -270,6 +275,7 @@ impl fmt::Display for ParserError {
             Self::NotNumber(_opt_pos, _expr) => write!(f, "not a number"),
             Self::NotPointer(_opt_pos, _typ) => write!(f, "not pointer"),
             Self::NotArray(_opt_pos, _typ) => write!(f, "not array"),
+            Self::NotSymbol(_pos) => write!(f, "not symbol"),
             Self::NotFunction(_opt_pos, _typ) => write!(f, "not function"),
             Self::NotNumberType(_opt_pos, _typ) => write!(f, "not number type"),
             Self::NotNumberTypeToBeUnsigned(_opt_pos, _typ) => write!(f, "not number type to be unsigned"),

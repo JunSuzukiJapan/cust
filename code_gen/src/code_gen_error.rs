@@ -76,6 +76,7 @@ pub enum CodeGenError {
     CannotConvertAnyvalueenumToBasicmetadatavalueenum(Option<Position>),
     CannotConvertAnyvalueenumToBasicvalueenum(Option<Position>),
     CannotConvertAnytypeenumToBasictypeenum(Option<Position>),
+    NotIntType(Type, Position),
 }
 
 impl CodeGenError {
@@ -323,6 +324,10 @@ impl CodeGenError {
 
     pub fn cannot_convert_anytypeenum_to_basictypeenum(opt_pos: Option<Position>) -> Self {
         Self::CannotConvertAnytypeenumToBasictypeenum(opt_pos)
+    }
+
+    pub fn not_int_type(typ: Type, pos: Position) -> Self {
+        Self::NotIntType(typ, pos)
     }
 }
 

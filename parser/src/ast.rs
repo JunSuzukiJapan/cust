@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use crate::ParserError;
+use crate::{ParserError, Parser};
 use super::{Type, Pointer, ConstExpr, Defines, StructDefinition, EnumDefinition};
 use tokenizer::{Token, Position};
 
@@ -609,8 +609,10 @@ impl Switch {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ExprAST {
     Assign(Box<ExprAST>, Box<ExprAST>, Position),
-    Inc(Box<ExprAST>, Position),
-    Dec(Box<ExprAST>, Position),
+    PreInc(String, Position, Position),  // (id, id position, '++' position)
+    PreDec(String, Position, Position),
+    PostInc(String, Position, Position),
+    PostDec(String, Position, Position),
     Char(u32, Position),
     Int(u128, Position),
     Short(i16, Position),
@@ -688,8 +690,10 @@ impl ExprAST {
             ExprAST::Not(_expr, pos) => pos,
             ExprAST::ExpressionPair(_, _right, pos) => pos,
             ExprAST::Cast(_typ, _, pos) => pos,
-            ExprAST::Inc(_expr, pos) => pos,
-            ExprAST::Dec(_expr, pos) => pos,
+            ExprAST::PreInc(_id, _sym_pos, pos) => pos,
+            ExprAST::PreDec(_id, _sym_pos, pos) => pos,
+            ExprAST::PostInc(_id, _sym_pos, pos) => pos,
+            ExprAST::PostDec(_id, _sym_pos, pos) => pos,
             ExprAST::UnaryGetAddress(_boxed_ast, pos) => pos,
             ExprAST::UnaryPointerAccess(_boxed_ast, pos) => pos,
             ExprAST::MemberAccess(_boxed_ast, _field_name, pos) => pos,
@@ -699,6 +703,13 @@ impl ExprAST {
             ExprAST::CallFunction(_, _, pos) => pos,
             ExprAST::DefVar { specifiers: _, declarations: _, pos } => pos,
 
+        }
+    }
+
+    pub fn get_symbol(&self) -> Result<(&String, &Position), ParserError> {
+        match self {
+            ExprAST::Symbol(name, pos) => Ok((name, pos)),
+            _ => Err(ParserError::NotSymbol(self.get_position().clone()))
         }
     }
 

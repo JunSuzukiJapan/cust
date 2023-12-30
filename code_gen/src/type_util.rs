@@ -1,9 +1,8 @@
-use crate::parser::{Type, NumberType, Pointer, BinOp};
+use crate::parser::{Type, NumberType, Pointer, BinOp, Position};
 use crate::Env;
 use inkwell::context::Context;
-use inkwell::values::{BasicValueEnum, BasicMetadataValueEnum, AnyValueEnum, AnyValue, FunctionValue, InstructionOpcode, PointerValue, InstructionValue, BasicValue, IntValue};
 use std::error::Error;
-use inkwell::types::{BasicTypeEnum, AnyTypeEnum, FunctionType, BasicType, BasicMetadataTypeEnum};
+use inkwell::types::{BasicTypeEnum, AnyTypeEnum, BasicType, BasicMetadataTypeEnum, IntType};
 use inkwell::AddressSpace;
 use inkwell::types::AnyType;
 use parser::ExprAST;
@@ -12,6 +11,21 @@ use super::{CodeGen, CodeGenError};
 pub struct TypeUtil;
 
 impl TypeUtil {
+    pub fn to_llvm_int_type<'a>(typ: &Type, ctx: &'a Context, pos: &Position) -> Result<IntType<'a>, Box<dyn Error>> {
+        match typ {
+            Type::Number(NumberType::_Bool)  => Ok(ctx.bool_type()),
+            Type::Number(NumberType::Char)   => Ok(ctx.i8_type()),
+            Type::Number(NumberType::Int)    => Ok(ctx.i32_type()),
+            Type::Number(NumberType::Long)  => Ok(ctx.i64_type()),
+            Type::Number(NumberType::Short)  => Ok(ctx.i16_type()),
+            Type::Number(NumberType::UnsignedChar)   => Ok(ctx.i8_type()),
+            Type::Number(NumberType::UnsignedInt)    => Ok(ctx.i32_type()),
+            Type::Number(NumberType::UnsignedLong)  => Ok(ctx.i64_type()),
+            Type::Number(NumberType::UnsignedShort)  => Ok(ctx.i16_type()),
+            _ => Err(Box::new(CodeGenError::not_int_type(typ.clone(), pos.clone()))),
+        }
+    }
+
     pub fn to_basic_type_enum<'a>(typ: &Type, ctx: &'a Context) -> Result<BasicTypeEnum<'a>, Box<dyn Error>> {
         match typ {
             Type::Number(NumberType::_Bool)  => Ok(BasicTypeEnum::IntType(ctx.bool_type())),
@@ -106,7 +120,7 @@ impl TypeUtil {
         }
     }
 
-
+    #[inline]
     pub fn to_llvm_type<'a>(typ: &Type, ctx: &'a Context) -> Result<BasicMetadataTypeEnum<'a>, Box<dyn Error>> {
         Ok(Self::to_basic_type_enum(typ, ctx)?.into())
     }
@@ -191,8 +205,22 @@ impl TypeUtil {
             ExprAST::Not(_expr, _pos) => Ok(Type::Number(NumberType::_Bool)),
             ExprAST::ExpressionPair(_, right, _pos) => TypeUtil::get_type(&right, env),
             ExprAST::Cast(typ, _, _pos) => Ok(typ.clone()),
-            ExprAST::Inc(expr, _pos) => TypeUtil::get_type(&expr, env),
-            ExprAST::Dec(expr, _pos) => TypeUtil::get_type(&expr, env),
+            ExprAST::PreInc(name, _sym_pos, _pos) => {
+                let typ = env.get_type_by_id(&name).ok_or(CodeGenError::no_such_a_variable(None, &name))?;
+                Ok(typ.clone())
+            },
+            ExprAST::PreDec(name, _sym_pos, _pos) => {
+                let typ = env.get_type_by_id(&name).ok_or(CodeGenError::no_such_a_variable(None, &name))?;
+                Ok(typ.clone())
+            },
+            ExprAST::PostInc(name, _sym_pos, _pos) => {
+                let typ = env.get_type_by_id(&name).ok_or(CodeGenError::no_such_a_variable(None, &name))?;
+                Ok(typ.clone())
+            },
+            ExprAST::PostDec(name, _sym_pos, _pos) => {
+                let typ = env.get_type_by_id(&name).ok_or(CodeGenError::no_such_a_variable(None, &name))?;
+                Ok(typ.clone())
+            },
             ExprAST::UnaryGetAddress(boxed_ast, _pos) => {
                 let ast = &*boxed_ast;
                 let t = TypeUtil::get_type(ast, env)?;

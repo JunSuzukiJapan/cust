@@ -1634,21 +1634,25 @@ impl Parser {
                     iter.next();  // skip '++'
 
                     let expr = self.parse_unary_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(Some(pos.clone())))?;
-                    let one = ExprAST::Int(1, pos.clone());
-                    let add = ExprAST::BinExpr(BinOp::Add, Box::new(expr.clone()), Box::new(one), pos.clone());
+                    // let one = ExprAST::Int(1, pos.clone());
+                    // let add = ExprAST::BinExpr(BinOp::Add, Box::new(expr.clone()), Box::new(one), pos.clone());
+                    // let inc = ExprAST::Assign(Box::new(expr), Box::new(add), pos.clone());
 
-                    let inc = ExprAST::Assign(Box::new(expr), Box::new(add), pos.clone());
+                    let (sym, sym_pos) = expr.get_symbol()?;
+                    let inc = ExprAST::PreInc(sym.clone(), sym_pos.clone(), pos.clone());
                     Ok(Some(inc))
                 },
                 Token::Dec => {
                     iter.next();  // skip '--'
 
                     let expr = self.parse_unary_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(Some(pos.clone())))?;
-                    let one = ExprAST::Int(1, pos.clone());
-                    let add = ExprAST::BinExpr(BinOp::Sub, Box::new(expr.clone()), Box::new(one), pos.clone());
+                    // let one = ExprAST::Int(1, pos.clone());
+                    // let add = ExprAST::BinExpr(BinOp::Sub, Box::new(expr.clone()), Box::new(one), pos.clone());
+                    // let inc = ExprAST::Assign(Box::new(expr), Box::new(add), pos.clone());
 
-                    let inc = ExprAST::Assign(Box::new(expr), Box::new(add), pos.clone());
-                    Ok(Some(inc))
+                    let (sym, sym_pos) = expr.get_symbol()?;
+                    let dec = ExprAST::PreDec(sym.clone(), sym_pos.clone(), pos.clone());
+                    Ok(Some(dec))
 
                 },
                 Token::Add => {      // '+'
@@ -1758,19 +1762,21 @@ impl Parser {
                         },
                         Token::Inc => {
                             iter.next();  // skip '++'
-                            // ast = ExprAST::Inc(Box::new(ast));
+                            let (sym, sym_pos) = ast.get_symbol()?;
+                            ast = ExprAST::PostInc(sym.clone(), sym_pos.clone(), pos.clone());
 
-                            let one = ExprAST::Int(1, pos.clone());
-                            let add = ExprAST::BinExpr(BinOp::Add, Box::new(ast.clone()), Box::new(one), pos.clone());
-                            ast = ExprAST::Assign(Box::new(ast), Box::new(add), pos.clone());
+                            // let one = ExprAST::Int(1, pos.clone());
+                            // let add = ExprAST::BinExpr(BinOp::Add, Box::new(ast.clone()), Box::new(one), pos.clone());
+                            // ast = ExprAST::Assign(Box::new(ast), Box::new(add), pos.clone());
                         },
                         Token::Dec => {
                             iter.next();  // skip '--'
-                            // ast = ExprAST::Dec(Box::new(ast));
+                            let (sym, sym_pos) = ast.get_symbol()?;
+                            ast = ExprAST::PostDec(sym.clone(), sym_pos.clone(), pos.clone());
 
-                            let one = ExprAST::Int(1, pos.clone());
-                            let add = ExprAST::BinExpr(BinOp::Sub, Box::new(ast.clone()), Box::new(one), pos.clone());
-                            ast = ExprAST::Assign(Box::new(ast), Box::new(add), pos.clone());
+                            // let one = ExprAST::Int(1, pos.clone());
+                            // let add = ExprAST::BinExpr(BinOp::Sub, Box::new(ast.clone()), Box::new(one), pos.clone());
+                            // ast = ExprAST::Assign(Box::new(ast), Box::new(add), pos.clone());
                         },
     
                         _ => break,
@@ -3037,7 +3043,6 @@ mod tests {
         );
     }
 
-/*
     #[test]
     fn parse_unary_paren() {
         let src = "-(1 + 2 * 3)";
@@ -3049,16 +3054,19 @@ mod tests {
                 Box::new(
                     ExprAST::BinExpr(
                         BinOp::Add,
-                        Box::new(ExprAST::Int(1)),
+                        Box::new(ExprAST::Int(1, Position::new(1, 3))),
                         Box::new(
                             ExprAST::BinExpr(
                                 BinOp::Mul,
-                                Box::new(ExprAST::Int(2)),
-                                Box::new(ExprAST::Int(3))
+                                Box::new(ExprAST::Int(2, Position::new(1, 7))),
+                                Box::new(ExprAST::Int(3, Position::new(1, 11))),
+                                Position::new(1, 9)
                             )
-                        )
+                        ),
+                        Position::new(1, 5)
                     )
-                )
+                ),
+                Position::new(1, 1)
             )
         );
     }
@@ -3067,40 +3075,37 @@ mod tests {
     fn parse_postfix() {
         let src = "x++";
         let ast = parse_expression_from_str(src).unwrap().unwrap();
-
         assert_eq!(
             ast,
-            // ExprAST::Inc(Box::new(AST::Symbol("x".to_string())))
-            ExprAST::Assign(
-                Box::new(ExprAST::Symbol("x".to_string())),
-                Box::new(ExprAST::BinExpr(
-                    BinOp::Add,
-                    Box::new(ExprAST::Symbol("x".to_string())),
-                    Box::new(ExprAST::Int(1))
-                ))
-            )
+            ExprAST::PostInc("x".to_string(), Position::new(1, 1), Position::new(1, 2))
+        );
+
+        let src = "x--";
+        let ast = parse_expression_from_str(src).unwrap().unwrap();
+        assert_eq!(
+            ast,
+            ExprAST::PostDec("x".to_string(), Position::new(1, 1), Position::new(1, 2))
         );
     }
 
     #[test]
     fn parse_prefix() {
-        let src = "--x";
+        let src = "++x";
         let ast = parse_expression_from_str(src).unwrap().unwrap();
-
         assert_eq!(
             ast,
-            // ExprAST::Dec(Box::new(ExprAST::Symbol("x".to_string())))
-            ExprAST::Assign(
-                Box::new(ExprAST::Symbol("x".to_string())),
-                Box::new(ExprAST::BinExpr(
-                    BinOp::Sub,
-                    Box::new(ExprAST::Symbol("x".to_string())),
-                    Box::new(ExprAST::Int(1))
-                ))
-            )
+            ExprAST::PreInc("x".to_string(), Position::new(1, 3), Position::new(1, 1))
+        );
+
+        let src = "--x";
+        let ast = parse_expression_from_str(src).unwrap().unwrap();
+        assert_eq!(
+            ast,
+            ExprAST::PreDec("x".to_string(), Position::new(1, 3), Position::new(1, 1))
         );
     }
 
+/*
     #[test]
     fn parse_add_assign() {
         let src = "x += 1";
