@@ -2102,12 +2102,12 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
                     _ => unimplemented!("member access to {:?}", typ),
                 }
             },
-            ExprAST::PointerAccess(expr, member_name, _pos) => {
+            ExprAST::PointerAccess(expr, member_name, pos) => {
                 let ast = &**expr;
                 let (_typ, ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
                 let ptr = self.builder.build_load(ptr, &format!("pointer_access_to_{}", member_name))?.into_pointer_value();
                 let typ = TypeUtil::get_type(ast, env)?;
-                let typ = typ.get_pointed_type()?;
+                let typ = typ.get_pointed_type(pos)?;
 
                 match typ {
                     Type::Struct {fields, ..} => {

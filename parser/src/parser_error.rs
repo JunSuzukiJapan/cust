@@ -10,7 +10,7 @@ use std::error::Error;
 pub enum ParserError {
     TokenizerError(TokenizerError),
     NotNumber(Position, ExprAST),
-    NotPointer(Option<Position>, Type),
+    NotPointer(Position, Type),
     NotArray(Option<Position>, Type),
     NotSymbol(Position),
     NotFunction(Option<Position>, Type),
@@ -69,8 +69,8 @@ impl ParserError {
     pub fn not_number(pos: Position, exp: &ExprAST) -> ParserError {
         ParserError::NotNumber(pos, exp.clone())
     }
-    pub fn not_pointer(opt_pos: Option<Position>, typ: &Type) -> ParserError {
-        ParserError::NotPointer(opt_pos, typ.clone())
+    pub fn not_pointer(pos: Position, typ: &Type) -> ParserError {
+        ParserError::NotPointer(pos, typ.clone())
     }
 
     pub fn not_array(opt_pos: Option<Position>, typ: &Type) -> ParserError {

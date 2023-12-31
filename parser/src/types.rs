@@ -3,6 +3,7 @@
 // use crate::compiler::CodeGen;
 
 use super::{ParserError, StructDeclaration, SpecifierQualifier, ConstExpr};
+use crate::Position;
 
 // use inkwell::AddressSpace;
 // use inkwell::context::Context;
@@ -547,11 +548,11 @@ impl Type {
         }
     }
 
-    pub fn get_pointed_type(&self) -> Result<&Type, ParserError> {
+    pub fn get_pointed_type(&self, pos: &Position) -> Result<&Type, ParserError> {
         if let Type::Pointer(_pointer, to_type) = self {
             Ok(&**to_type)
         }else{
-            Err(ParserError::not_pointer(None, self))
+            Err(ParserError::not_pointer(pos.clone(), self))
         }
     }
 
