@@ -443,6 +443,7 @@ impl<'ctx> CodeGen<'ctx> {
                 }
             },
             ExprAST::PreIncMemberAccess(boxed_ast, pos) => {
+println!("pre inc member access");
                 let (typ, ptr) = self.get_l_value(&**boxed_ast, env, break_catcher, continue_catcher)?;
                 let name = match &**boxed_ast {
                     ExprAST::MemberAccess(_, field_name, _pos) => field_name,
@@ -473,6 +474,7 @@ impl<'ctx> CodeGen<'ctx> {
                 Ok(Some(CompiledValue::new(typ.clone(), subed.as_any_value_enum())))
             },
             ExprAST::PostIncMemberAccess(boxed_ast, pos) => {
+println!("POST inc member access");
                 let (typ, ptr) = self.get_l_value(&**boxed_ast, env, break_catcher, continue_catcher)?;
                 let name = match &**boxed_ast {
                     ExprAST::MemberAccess(_, field_name, _pos) => field_name,
@@ -3032,14 +3034,13 @@ mod tests {
     }
 
     #[test]
-    fn code_gen_increment() {
+    fn code_gen_pre_increment() {
         let src = "
             int printf(char* format, ...);
 
             int test(int x){
-                ++x;
-                x++;
-                return x;
+                int y = ++x;
+                return x + y;
             }
         ";
 
@@ -3059,18 +3060,43 @@ mod tests {
 
         let f: JitFunction<FuncType_i32_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
         assert_eq!(unsafe { f.call(0) }, 2);
+        assert_eq!(unsafe { f.call(1) }, 4);
+    }
+
+    #[test]
+    fn code_gen_post_increment() {
+        let src = "
+            int test(int x){
+                int y = x++;
+                return x + y;
+            }
+        ";
+
+        // parse
+        let parser = Parser::new();
+        let asts = parser.parse_from_str(src).unwrap();
+
+        // code gen
+        let context = Context::create();
+        let gen = CodeGen::try_new(&context, "test run").unwrap();
+
+        let mut env = Env::new();
+
+        for i in 0..asts.len() {
+            let _any_value = gen.gen_stmt(&asts[i], &mut env, None, None).unwrap();
+        }
+
+        let f: JitFunction<FuncType_i32_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
+        assert_eq!(unsafe { f.call(0) }, 1);
         assert_eq!(unsafe { f.call(1) }, 3);
     }
 
     #[test]
-    fn code_gen_decrement() {
+    fn code_gen_pre_decrement() {
         let src = "
-            int printf(char* format, ...);
-
             int test(int x){
-                --x;
-                x--;
-                return x;
+                int y = --x;
+                return x + y;
             }
         ";
 
@@ -3090,7 +3116,191 @@ mod tests {
 
         let f: JitFunction<FuncType_i32_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
         assert_eq!(unsafe { f.call(0) }, -2);
-        assert_eq!(unsafe { f.call(1) }, -1);
+        assert_eq!(unsafe { f.call(1) }, 0);
+    }
+
+    #[test]
+    fn code_gen_post_decrement() {
+        let src = "
+            int test(int x){
+                int y = x--;
+                return x + y;
+            }
+        ";
+
+        // parse
+        let parser = Parser::new();
+        let asts = parser.parse_from_str(src).unwrap();
+
+        // code gen
+        let context = Context::create();
+        let gen = CodeGen::try_new(&context, "test run").unwrap();
+
+        let mut env = Env::new();
+
+        for i in 0..asts.len() {
+            let _any_value = gen.gen_stmt(&asts[i], &mut env, None, None).unwrap();
+        }
+
+        let f: JitFunction<FuncType_i32_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
+        assert_eq!(unsafe { f.call(0) }, -1);
+        assert_eq!(unsafe { f.call(1) }, 1);
+    }
+
+    #[test]
+    fn code_gen_pre_increment_member() {
+        let src = "
+            int printf(char* format, ...);
+
+            struct foo {
+                int x;
+            };
+
+            typedef struct foo Foo;
+
+            int test(int x){
+                Foo foo;
+
+                foo.x = x;
+                int y = ++foo.x;
+                return foo.x + y;
+            }
+        ";
+
+        // parse
+        let parser = Parser::new();
+        let asts = parser.parse_from_str(src).unwrap();
+
+        // code gen
+        let context = Context::create();
+        let gen = CodeGen::try_new(&context, "test run").unwrap();
+
+        let mut env = Env::new();
+
+        for i in 0..asts.len() {
+            let _any_value = gen.gen_stmt(&asts[i], &mut env, None, None).unwrap();
+        }
+
+        let f: JitFunction<FuncType_i32_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
+        assert_eq!(unsafe { f.call(0) }, 2);
+        assert_eq!(unsafe { f.call(1) }, 4);
+    }
+
+    #[test]
+    fn code_gen_post_increment_member() {
+        let src = "
+            int printf(char* format, ...);
+
+            struct foo {
+                int x;
+            };
+
+            typedef struct foo Foo;
+
+            int test(int x){
+                Foo foo;
+
+                foo.x = x;
+                int y = foo.x++;
+                return foo.x + y;
+            }
+        ";
+
+        // parse
+        let parser = Parser::new();
+        let asts = parser.parse_from_str(src).unwrap();
+
+        // code gen
+        let context = Context::create();
+        let gen = CodeGen::try_new(&context, "test run").unwrap();
+
+        let mut env = Env::new();
+
+        for i in 0..asts.len() {
+            let _any_value = gen.gen_stmt(&asts[i], &mut env, None, None).unwrap();
+        }
+
+        let f: JitFunction<FuncType_i32_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
+        assert_eq!(unsafe { f.call(0) }, 1);
+        assert_eq!(unsafe { f.call(1) }, 3);
+    }
+
+    #[test]
+    fn code_gen_pre_decrement_member() {
+        let src = "
+            int printf(char* format, ...);
+
+            struct foo {
+                int x;
+            };
+
+            typedef struct foo Foo;
+
+            int test(int x){
+                Foo foo;
+
+                foo.x = x;
+                int y = --foo.x;
+                return foo.x + y;
+            }
+        ";
+
+        // parse
+        let parser = Parser::new();
+        let asts = parser.parse_from_str(src).unwrap();
+
+        // code gen
+        let context = Context::create();
+        let gen = CodeGen::try_new(&context, "test run").unwrap();
+
+        let mut env = Env::new();
+
+        for i in 0..asts.len() {
+            let _any_value = gen.gen_stmt(&asts[i], &mut env, None, None).unwrap();
+        }
+
+        let f: JitFunction<FuncType_i32_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
+        assert_eq!(unsafe { f.call(0) }, -2);
+        assert_eq!(unsafe { f.call(1) }, 0);
+    }
+
+    #[test]
+    fn code_gen_post_decrement_member() {
+        let src = "
+            int printf(char* format, ...);
+
+            struct foo {
+                int x;
+            };
+
+            typedef struct foo Foo;
+
+            int test(int x){
+                Foo foo;
+
+                foo.x = x;
+                int y = foo.x--;
+                return foo.x + y;
+            }
+        ";
+
+        // parse
+        let parser = Parser::new();
+        let asts = parser.parse_from_str(src).unwrap();
+
+        // code gen
+        let context = Context::create();
+        let gen = CodeGen::try_new(&context, "test run").unwrap();
+
+        let mut env = Env::new();
+
+        for i in 0..asts.len() {
+            let _any_value = gen.gen_stmt(&asts[i], &mut env, None, None).unwrap();
+        }
+
+        let f: JitFunction<FuncType_i32_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
+        assert_eq!(unsafe { f.call(0) }, -1);
+        assert_eq!(unsafe { f.call(1) }, 1);
     }
 
     #[test]
