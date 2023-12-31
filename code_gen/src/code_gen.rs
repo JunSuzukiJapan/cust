@@ -412,12 +412,6 @@ impl<'ctx> CodeGen<'ctx> {
                     Err(Box::new(CodeGenError::no_such_a_variable(Some(sym_pos.clone()), name)))
                 }
             },
-            ExprAST::PreIncMemberAccess(boxed_ast, pos) => {
-                unimplemented!()
-            },
-            ExprAST::PreDecMemberAccess(boxed_ast, pos) => {
-                unimplemented!()
-            },
             ExprAST::PostInc(name, sym_pos, pos) => {
                 if let Some((typ, ptr)) = env.get_ptr(name) {
                     let basic_val = self.builder.build_load(ptr, name)?;
@@ -448,11 +442,65 @@ impl<'ctx> CodeGen<'ctx> {
                     Err(Box::new(CodeGenError::no_such_a_variable(Some(sym_pos.clone()), name)))
                 }
             },
+            ExprAST::PreIncMemberAccess(boxed_ast, pos) => {
+                let (typ, ptr) = self.get_l_value(&**boxed_ast, env, break_catcher, continue_catcher)?;
+                let name = match &**boxed_ast {
+                    ExprAST::MemberAccess(_, field_name, _pos) => field_name,
+                    ExprAST::PointerAccess(_, field_name, _pos) => field_name,
+                    _ => "member_access",
+                };
+                let basic_val = self.builder.build_load(ptr, name)?;
+                let any_val = basic_val.as_any_value_enum();
+                let one = TypeUtil::to_llvm_int_type(&typ, self.context, pos)?.const_int(1, false);
+                let added = self.builder.build_int_add(any_val.into_int_value(), one, "pre_increment_member")?;
+                let _result = self.builder.build_store(ptr, added);
+
+                Ok(Some(CompiledValue::new(typ.clone(), added.as_any_value_enum())))
+            },
+            ExprAST::PreDecMemberAccess(boxed_ast, pos) => {
+                let (typ, ptr) = self.get_l_value(&**boxed_ast, env, break_catcher, continue_catcher)?;
+                let name = match &**boxed_ast {
+                    ExprAST::MemberAccess(_, field_name, _pos) => field_name,
+                    ExprAST::PointerAccess(_, field_name, _pos) => field_name,
+                    _ => "member_access",
+                };
+                let basic_val = self.builder.build_load(ptr, name)?;
+                let any_val = basic_val.as_any_value_enum();
+                let one = TypeUtil::to_llvm_int_type(&typ, self.context, pos)?.const_int(1, false);
+                let subed = self.builder.build_int_sub(any_val.into_int_value(), one, "pre_decrement_member")?;
+                let _result = self.builder.build_store(ptr, subed);
+
+                Ok(Some(CompiledValue::new(typ.clone(), subed.as_any_value_enum())))
+            },
             ExprAST::PostIncMemberAccess(boxed_ast, pos) => {
-                unimplemented!()
+                let (typ, ptr) = self.get_l_value(&**boxed_ast, env, break_catcher, continue_catcher)?;
+                let name = match &**boxed_ast {
+                    ExprAST::MemberAccess(_, field_name, _pos) => field_name,
+                    ExprAST::PointerAccess(_, field_name, _pos) => field_name,
+                    _ => "member_access",
+                };
+                let basic_val = self.builder.build_load(ptr, name)?;
+                let pre_val = basic_val.as_any_value_enum();
+                let one = TypeUtil::to_llvm_int_type(&typ, self.context, pos)?.const_int(1, false);
+                let added = self.builder.build_int_add(pre_val.into_int_value(), one, "post_increment_member")?;
+                let _result = self.builder.build_store(ptr, added);
+
+                Ok(Some(CompiledValue::new(typ.clone(), pre_val.as_any_value_enum())))
             },
             ExprAST::PostDecMemberAccess(boxed_ast, pos) => {
-                unimplemented!()
+                let (typ, ptr) = self.get_l_value(&**boxed_ast, env, break_catcher, continue_catcher)?;
+                let name = match &**boxed_ast {
+                    ExprAST::MemberAccess(_, field_name, _pos) => field_name,
+                    ExprAST::PointerAccess(_, field_name, _pos) => field_name,
+                    _ => "member_access",
+                };
+                let basic_val = self.builder.build_load(ptr, name)?;
+                let pre_val = basic_val.as_any_value_enum();
+                let one = TypeUtil::to_llvm_int_type(&typ, self.context, pos)?.const_int(1, false);
+                let subed = self.builder.build_int_sub(pre_val.into_int_value(), one, "post_decrement_member")?;
+                let _result = self.builder.build_store(ptr, subed);
+
+                Ok(Some(CompiledValue::new(typ.clone(), pre_val.as_any_value_enum())))
             },
             ExprAST::UnaryMinus(boxed_ast, _pos) => {
                 let code = self.gen_expr(&*boxed_ast, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
