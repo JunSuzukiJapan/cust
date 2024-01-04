@@ -2688,11 +2688,11 @@ impl Parser {
 
                     if *t == Token::SemiColon {
                         iter.next(); // skip ';'
-                        Ok(Some(AST::Return(None)))
+                        Ok(Some(AST::Return(None, pos.clone())))
                     }else{
                         if let Some(ast) = self.parse_expression(iter, defs, labels)? {
                             self.parse_expected_token(iter, Token::SemiColon)?;
-                            Ok(Some(AST::Return(Some(Box::new(ast)))))
+                            Ok(Some(AST::Return(Some(Box::new(ast)), pos.clone())))
                         }else{
                             Err(ParserError::illegal_end_of_input(pos.clone()))
                         }
@@ -3296,7 +3296,7 @@ mod tests {
             )
         );
     }
-/*
+
     #[test]
     fn parse_increment() {
         let src = "x++;";
@@ -3304,15 +3304,10 @@ mod tests {
 
         assert_eq!(
             ast,
-            ExprAST::Assign(
-                Box::new(ExprAST::Symbol("x".to_string())),
-                Box::new(
-                    ExprAST::BinExpr(
-                        BinOp::Add,
-                        Box::new(ExprAST::Symbol("x".to_string())),
-                        Box::new(ExprAST::Int(1))
-                    )
-                )
+            ExprAST::PostInc(
+                "x".to_string(),
+                Position::new(1, 1),
+                Position::new(1, 2)
             )            
         );
     }
@@ -3324,19 +3319,13 @@ mod tests {
 
         assert_eq!(
             ast,
-            ExprAST::Assign(
-                Box::new(ExprAST::Symbol("x".to_string())),
-                Box::new(
-                    ExprAST::BinExpr(
-                        BinOp::Sub,
-                        Box::new(ExprAST::Symbol("x".to_string())),
-                        Box::new(ExprAST::Int(1))
-                    )
-                )
+            ExprAST::PostDec(
+                "x".to_string(),
+                Position::new(1, 1),
+                Position::new(1, 2)
             )            
         );
     }
-
 
     #[test]
     fn parse_type_specifier_qualifier() {
@@ -3435,10 +3424,12 @@ mod tests {
                             AST::Return(Some(Box::new(
                                 ExprAST::BinExpr(
                                     BinOp::Add,
-                                    Box::new(ExprAST::Symbol(String::from("x"))),
-                                    Box::new(ExprAST::Symbol(String::from("y")))
-                                ))
-                            ))
+                                    Box::new(ExprAST::Symbol(String::from("x"), Position::new(3, 23))),
+                                    Box::new(ExprAST::Symbol(String::from("y"), Position::new(3, 27))),
+                                    Position::new(3, 25)
+                                ))),
+                                Position::new(3, 16)
+                            )
                         ],
                     }
                 );
@@ -3448,7 +3439,7 @@ mod tests {
 
         Ok(())
     }
-
+/*
     #[test]
     fn parse_multiple_declaration() -> Result<(), ParserError> {
         let src = "

@@ -1068,7 +1068,7 @@ pub enum AST {
     FunProto(FunProto),
     Block(Block),
     Expr(Box<ExprAST>),
-    Return(Option<Box<ExprAST>>),
+    Return(Option<Box<ExprAST>>, Position),
     Labeled(String, Option<Box<AST>>),
     Case(Case),
     Default(Box<AST>),

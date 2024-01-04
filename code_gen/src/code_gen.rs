@@ -128,7 +128,7 @@ impl<'ctx> CodeGen<'ctx> {
                 Ok(None)
             },
             AST::Block(block) => self.gen_block(block, env, break_catcher, continue_catcher),
-            AST::Return(opt_expr) => {
+            AST::Return(opt_expr, _pos) => {
                 let fun_typ = env.get_current_function_type().ok_or(CodeGenError::return_without_function(None))?;
                 // let opt_required_ret_type = fun_typ.get_return_type();
                 let required_ret_type = fun_typ.get_return_type();
@@ -2355,8 +2355,8 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
         if ret_type.is_void() {
             // 戻り値の型がvoidで、かつ、最後の行がreturn文でないときに、build_returnしておく。
             match last_stmt {
-                Some(AST::Return(None)) => Ok(()),  // do nothing
-                Some(AST::Return(Some(expr))) => {
+                Some(AST::Return(None, _)) => Ok(()),  // do nothing
+                Some(AST::Return(Some(expr), _)) => {
                     let typ: Type = TypeUtil::get_type(expr, env)?;
                     // let basic_type: BasicTypeEnum = TypeUtil::to_basic_type_enum(&typ, self.context)?;
                     // return Err(Box::new(CodeGenError::return_type_mismatch(None, Some(&fn_type.get_return_type().unwrap()), Some(&basic_type))));
@@ -2372,10 +2372,10 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
 
             // 最後の文の型をチェックする。
             match last_stmt {
-                Some(AST::Return(None)) => {
+                Some(AST::Return(None, _)) => {
                     return Err(Box::new(CodeGenError::no_return_for_type(None, &fn_type.get_return_type())));
                 },
-                Some(AST::Return(Some(_expr))) => {
+                Some(AST::Return(Some(_expr), _)) => {
                     // let expr_type = expr.get_type(env)?.to_basic_type_enum(self.context)?;
                     // if ret_type != expr_type {
                         // return Err(Box::new(CompileError::return_type_mismatch(None, ret_type.clone(), expr_type.clone())));
@@ -2424,10 +2424,10 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
     // fn calc_ret_type(&self, stmt: &AST, env: &Env) -> Result<Option<BasicTypeEnum>, Box<dyn Error>> {
     fn calc_ret_type(&self, stmt: &AST, env: &Env) -> Result<Type, Box<dyn Error>> {
         match stmt {
-            AST::Return(None) => {
+            AST::Return(None, _) => {
                 Ok(Type::Void)
             },
-            AST::Return(Some(expr)) => {
+            AST::Return(Some(expr), _) => {
                 let typ = TypeUtil::get_type(&**expr, env)?;
                 // let expr_type = TypeUtil::to_basic_type_enum(&typ, self.context)?;
                 Ok(typ)
@@ -2471,7 +2471,7 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
                     typ = self.calc_ret_type(e, env)?;
 
                     match e {
-                        AST::Return(_) => {
+                        AST::Return(_, _) => {
                             break;
                         },
                         _ => (),  // do nothing
