@@ -4,6 +4,10 @@
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
     //
+    // end of input
+    //
+    EndOfInput,
+    //
     // Literal
     //
     CharLiteral(u32),
@@ -146,6 +150,14 @@ impl Token {
         match self {
             Token::Char | Token::Double | Token::Float | Token::Int | Token::Long | Token::Short | Token::Void => true,
             // Token::Symbol(_name) => true,
+            _ => false,
+        }
+    }
+
+    #[inline]
+    pub fn is_eof(&self) -> bool {
+        match self {
+            Token::EndOfInput => true,
             _ => false,
         }
     }

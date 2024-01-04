@@ -144,14 +144,19 @@ impl Tokenizer {
         loop {
             let result = self.next_token(&mut ctx);
             match result {
-                Ok(opt_tok_pos) => if let Some(tok_pos) = opt_tok_pos {
+                Ok(opt_tok_pos) => {
+                    if let Some(tok_pos) = opt_tok_pos {
                         v.push(tok_pos);
                     }else{
                         break;
-                    },
+                    }
+                },
                 Err(err) => return Err(err),
             }
         }
+
+        // push end-of-input Token
+        v.push((Token::EndOfInput, ctx.pos));
 
         Ok(v)
     }
