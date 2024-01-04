@@ -843,7 +843,7 @@ mod tests {
         let result = tokenizer.tokenize("123 0");
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 2);
+                assert_eq!(v.len(), 3);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::IntLiteral(123));
@@ -852,6 +852,10 @@ mod tests {
                 let (tok, pos) = &v[1];
                 assert_eq!(*tok, Token::IntLiteral(0));
                 assert_eq!(*pos, Position {line: 1, column: 5});
+
+                let (tok, pos) = &v[2];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 6});
             },
             Err(_err)  => panic!("can't tokenize digit"),
         }
@@ -864,7 +868,7 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 3);
+                assert_eq!(v.len(), 4);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::CharLiteral('a' as u32));
@@ -877,6 +881,10 @@ mod tests {
                 let (tok, pos) = &v[2];
                 assert_eq!(*tok, Token::CharLiteral('\\' as u32));
                 assert_eq!(*pos, Position {line: 1, column: 9});
+
+                let (tok, pos) = &v[3];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 13});
             },
             Err(_err)  => panic!("can't tokenize {}", src),
         }
@@ -888,7 +896,7 @@ mod tests {
         let result = tokenizer.tokenize("3.14 12345e2 12345e-3 123.45e3 123.45e-1");
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 5);
+                assert_eq!(v.len(), 6);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::DoubleLiteral(3.14));
@@ -921,6 +929,10 @@ mod tests {
                 }else{
                     panic!("tokenize failed")
                 }
+
+                let (tok, pos) = &v[5];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 41});
             },
             Err(_err)  => panic!("can't tokenize float"),
         }
@@ -933,7 +945,7 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 3);
+                assert_eq!(v.len(), 4);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::StringLiteral("Hello, world!".to_string()));
@@ -946,6 +958,10 @@ mod tests {
                 let (tok, pos) = &v[2];
                 assert_eq!(*tok, Token::StringLiteral("\"文字列\"".to_string()));
                 assert_eq!(*pos, Position {line: 1, column: 29});
+
+                let (tok, pos) = &v[3];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 38});
             },
             Err(_err) => panic!("can't tokenize {}", src),
         }
@@ -958,7 +974,7 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 3);
+                assert_eq!(v.len(), 4);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Add);
@@ -971,6 +987,10 @@ mod tests {
                 let (tok, pos) = &v[2];
                 assert_eq!(*tok, Token::Inc);
                 assert_eq!(*pos, Position {line: 1, column: 6});
+
+                let (tok, pos) = &v[3];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 8});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -983,7 +1003,7 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 3);
+                assert_eq!(v.len(), 4);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Sub);
@@ -996,6 +1016,10 @@ mod tests {
                 let (tok, pos) = &v[2];
                 assert_eq!(*tok, Token::Dec);
                 assert_eq!(*pos, Position {line: 1, column: 6});
+
+                let (tok, pos) = &v[3];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 8});
              },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1008,7 +1032,7 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 2);
+                assert_eq!(v.len(), 3);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Mul);
@@ -1017,6 +1041,10 @@ mod tests {
                 let (tok, pos) = &v[1];
                 assert_eq!(*tok, Token::MulAssign);
                 assert_eq!(*pos, Position {line: 1, column: 3});
+
+                let (tok, pos) = &v[2];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 5});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1029,7 +1057,7 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 2);
+                assert_eq!(v.len(), 3);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Div);
@@ -1038,6 +1066,10 @@ mod tests {
                 let (tok, pos) = &v[1];
                 assert_eq!(*tok, Token::DivAssign);
                 assert_eq!(*pos, Position {line: 1, column: 3});
+
+                let (tok, pos) = &v[2];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 5});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1050,7 +1082,7 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 2);
+                assert_eq!(v.len(), 3);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Mod);
@@ -1059,6 +1091,10 @@ mod tests {
                 let (tok, pos) = &v[1];
                 assert_eq!(*tok, Token::ModAssign);
                 assert_eq!(*pos, Position {line: 1, column: 3});
+
+                let (tok, pos) = &v[2];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 5});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1071,7 +1107,7 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 3);
+                assert_eq!(v.len(), 4);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Less);
@@ -1084,6 +1120,10 @@ mod tests {
                 let (tok, pos) = &v[2];
                 assert_eq!(*tok, Token::ShiftLeft);
                 assert_eq!(*pos, Position {line: 1, column: 6});
+
+                let (tok, pos) = &v[3];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 8});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1096,7 +1136,7 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 3);
+                assert_eq!(v.len(), 4);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Greater);
@@ -1109,6 +1149,10 @@ mod tests {
                 let (tok, pos) = &v[2];
                 assert_eq!(*tok, Token::ShiftRight);
                 assert_eq!(*pos, Position {line: 1, column: 6});
+
+                let (tok, pos) = &v[3];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 8});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1121,7 +1165,7 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 2);
+                assert_eq!(v.len(), 3);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Assign);
@@ -1130,6 +1174,10 @@ mod tests {
                 let (tok, pos) = &v[1];
                 assert_eq!(*tok, Token::Equal);
                 assert_eq!(*pos, Position {line: 1, column: 3});
+
+                let (tok, pos) = &v[2];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 5});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1142,7 +1190,7 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 2);
+                assert_eq!(v.len(), 3);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Not);
@@ -1151,6 +1199,10 @@ mod tests {
                 let (tok, pos) = &v[1];
                 assert_eq!(*tok, Token::NotEqual);
                 assert_eq!(*pos, Position {line: 1, column: 3});
+
+                let (tok, pos) = &v[2];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 5});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1163,7 +1215,7 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 3);
+                assert_eq!(v.len(), 4);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::BitAnd);
@@ -1176,6 +1228,10 @@ mod tests {
                 let (tok, pos) = &v[2];
                 assert_eq!(*tok, Token::And);
                 assert_eq!(*pos, Position {line: 1, column: 6});
+
+                let (tok, pos) = &v[3];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 8});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1188,7 +1244,7 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 3);
+                assert_eq!(v.len(), 4);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::BitOr);
@@ -1201,6 +1257,10 @@ mod tests {
                 let (tok, pos) = &v[2];
                 assert_eq!(*tok, Token::Or);
                 assert_eq!(*pos, Position {line: 1, column: 6});
+
+                let (tok, pos) = &v[3];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 8});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1213,7 +1273,7 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 2);
+                assert_eq!(v.len(), 3);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::BitXor);
@@ -1222,6 +1282,10 @@ mod tests {
                 let (tok, pos) = &v[1];
                 assert_eq!(*tok, Token::BitXorAssign);
                 assert_eq!(*pos, Position {line: 1, column: 3});
+
+                let (tok, pos) = &v[2];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 5});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1234,11 +1298,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Tilda);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 2});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1251,11 +1319,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Question);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 2});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1268,7 +1340,7 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 10);
+                assert_eq!(v.len(), 11);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Colon);
@@ -1309,6 +1381,10 @@ mod tests {
                 let (tok, pos) = &v[9];
                 assert_eq!(*tok, Token::BracketRight);
                 assert_eq!(*pos, Position {line: 1, column: 17});
+
+                let (tok, pos) = &v[10];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 18});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1321,7 +1397,7 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 5);
+                assert_eq!(v.len(), 6);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Int);
@@ -1342,6 +1418,10 @@ mod tests {
                 let (tok, pos) = &v[4];
                 assert_eq!(*tok, Token::SemiColon);
                 assert_eq!(*pos, Position {line: 1, column: 10});
+
+                let (tok, pos) = &v[5];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 11});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1350,11 +1430,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Auto);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 5});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1363,11 +1447,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Break);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 6});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1376,11 +1464,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Case);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 5});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1389,11 +1481,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Char);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 5});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1402,11 +1498,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Const);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 6});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1415,11 +1515,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Continue);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 9});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1428,11 +1532,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Default);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 8});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1441,11 +1549,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Do);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 3});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1454,11 +1566,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Double);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 7});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1467,11 +1583,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Else);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 5});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1480,11 +1600,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Enum);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 5});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1493,11 +1617,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Extern);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 7});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1506,11 +1634,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Float);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 6});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1519,11 +1651,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::For);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 4});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1532,11 +1668,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Goto);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 5});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1545,11 +1685,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::If);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 3});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1558,11 +1702,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Inline);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 7});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1571,11 +1719,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Int);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 4});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1584,11 +1736,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Long);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 5});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1597,11 +1753,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Register);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 9});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1610,11 +1770,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Restrict);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 9});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1623,11 +1787,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Return);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 7});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1636,11 +1804,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Short);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 6});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1649,11 +1821,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Signed);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 7});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1662,11 +1838,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Sizeof);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 7});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1675,11 +1855,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Static);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 7});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1688,11 +1872,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Struct);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 7});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1701,11 +1889,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Switch);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 7});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1714,11 +1906,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Typedef);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 8});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1727,11 +1923,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Union);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 6});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1740,11 +1940,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Unsigned);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 9});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1753,11 +1957,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Void);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 5});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1766,11 +1974,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Volatile);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 9});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1779,11 +1991,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::While);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 6});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1792,11 +2008,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::_Alignas);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 9});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1805,11 +2025,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::_Alignof);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 9});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1818,11 +2042,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::_Atomic);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 8});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1831,11 +2059,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::_Bool);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 6});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1844,11 +2076,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::_Complex);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 9});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1857,11 +2093,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::_Generic);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 9});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1870,11 +2110,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::_Imaginary);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 11});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1883,11 +2127,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::_Noreturn);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 10});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1896,11 +2144,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::_Static_assert);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 15});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1909,11 +2161,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::_Thread_local);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 14});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1922,11 +2178,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Trait);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 6});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1935,11 +2195,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Impl);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 5});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1948,11 +2212,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::_self);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 5});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1961,11 +2229,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Dyn);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 4});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1974,11 +2246,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Let);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 4});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
@@ -1987,11 +2263,15 @@ mod tests {
         let result = tokenizer.tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 1);
+                assert_eq!(v.len(), 2);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Match);
                 assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 6});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }

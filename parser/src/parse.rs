@@ -3275,7 +3275,6 @@ mod tests {
         );
     }
 
-/*
     #[test]
     fn parse_add_assign() {
         let src = "x += 1";
@@ -3284,18 +3283,20 @@ mod tests {
         assert_eq!(
             ast,
             ExprAST::Assign(
-                Box::new(ExprAST::Symbol("x".to_string())),
+                Box::new(ExprAST::Symbol("x".to_string(), Position::new(1, 1))),
                 Box::new(
                     ExprAST::BinExpr(
                         BinOp::Add,
-                        Box::new(ExprAST::Symbol("x".to_string())),
-                        Box::new(ExprAST::Int(1))
+                        Box::new(ExprAST::Symbol("x".to_string(), Position::new(1, 1))),
+                        Box::new(ExprAST::Int(1, Position::new(1, 6))),
+                        Position::new(1, 3)
                     )
-                )
+                ),
+                Position::new(1, 3)
             )
         );
     }
-
+/*
     #[test]
     fn parse_increment() {
         let src = "x++;";
