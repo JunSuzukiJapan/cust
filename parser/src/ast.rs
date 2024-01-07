@@ -605,25 +605,11 @@ impl Switch {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum ExprOp {
-    Add,
-    Sub,
-    Mul,
-    Div,
-    Mod,
-    ShiftLeft,
-    ShiftRight,
-    BitAnd,
-    BitOr,
-    BitXor,
-}
-
 #[allow(non_camel_case_types)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum ExprAST {
     Assign(Box<ExprAST>, Box<ExprAST>, Position),
-    OpAssign(ExprOp, Box<ExprAST>, Box<ExprAST>, Position),
+    OpAssign(BinOp, Box<ExprAST>, Box<ExprAST>, Position),
     PreInc(String, Position, Position),  // (id, id position, '++' position)
     PreDec(String, Position, Position),
     PostInc(String, Position, Position),

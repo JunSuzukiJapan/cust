@@ -2123,71 +2123,81 @@ impl Parser {
                         iter.next(); // skip '+='
                         let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(Some(pos.clone())))?;
 
-                        let add = ExprAST::BinExpr(BinOp::Add, Box::new(result.clone()), Box::new(r_value), pos.clone());
-                        result = ExprAST::Assign(Box::new(result), Box::new(add), pos.clone());
+                        // let add = ExprAST::BinExpr(BinOp::Add, Box::new(result.clone()), Box::new(r_value), pos.clone());
+                        // result = ExprAST::Assign(Box::new(result), Box::new(add), pos.clone());
+                        result = ExprAST::OpAssign(BinOp::Add, Box::new(result.clone()), Box::new(r_value), pos.clone());
                     },
                     Token::SubAssign => {
                         iter.next(); // skip '-='
                         let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(Some(pos.clone())))?;
 
-                        let sub = ExprAST::BinExpr(BinOp::Sub, Box::new(result.clone()), Box::new(r_value), pos.clone());
-                        result = ExprAST::Assign(Box::new(result), Box::new(sub), pos.clone());
+                        // let sub = ExprAST::BinExpr(BinOp::Sub, Box::new(result.clone()), Box::new(r_value), pos.clone());
+                        // result = ExprAST::Assign(Box::new(result), Box::new(sub), pos.clone());
+                        result = ExprAST::OpAssign(BinOp::Sub, Box::new(result.clone()), Box::new(r_value), pos.clone());
                     },
                     Token::MulAssign => {
                         iter.next(); // skip '*='
                         let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(Some(pos.clone())))?;
 
-                        let mul = ExprAST::BinExpr(BinOp::Mul, Box::new(result.clone()), Box::new(r_value), pos.clone());
-                        result = ExprAST::Assign(Box::new(result), Box::new(mul), pos.clone());
+                        // let mul = ExprAST::BinExpr(BinOp::Mul, Box::new(result.clone()), Box::new(r_value), pos.clone());
+                        // result = ExprAST::Assign(Box::new(result), Box::new(mul), pos.clone());
+                        result = ExprAST::OpAssign(BinOp::Mul, Box::new(result.clone()), Box::new(r_value), pos.clone());
                     },
                     Token::DivAssign => {
                         iter.next(); // skip '/='
                         let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(Some(pos.clone())))?;
 
-                        let div = ExprAST::BinExpr(BinOp::Div, Box::new(result.clone()), Box::new(r_value), pos.clone());
-                        result = ExprAST::Assign(Box::new(result), Box::new(div), pos.clone());
+                        // let div = ExprAST::BinExpr(BinOp::Div, Box::new(result.clone()), Box::new(r_value), pos.clone());
+                        // result = ExprAST::Assign(Box::new(result), Box::new(div), pos.clone());
+                        result = ExprAST::OpAssign(BinOp::Div, Box::new(result.clone()), Box::new(r_value), pos.clone());
                     },
                     Token::ModAssign => {
                         iter.next(); // skip '%='
                         let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(Some(pos.clone())))?;
 
-                        let res = ExprAST::BinExpr(BinOp::Mod, Box::new(result.clone()), Box::new(r_value), pos.clone());
-                        result = ExprAST::Assign(Box::new(result), Box::new(res), pos.clone());
+                        // let res = ExprAST::BinExpr(BinOp::Mod, Box::new(result.clone()), Box::new(r_value), pos.clone());
+                        // result = ExprAST::Assign(Box::new(result), Box::new(res), pos.clone());
+                        result = ExprAST::OpAssign(BinOp::Mod, Box::new(result.clone()), Box::new(r_value), pos.clone());
                     },
                     Token::ShiftLeftAssign => {
                         iter.next(); // skip '%='
                         let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(Some(pos.clone())))?;
 
-                        let res = ExprAST::BinExpr(BinOp::ShiftLeft, Box::new(result.clone()), Box::new(r_value), pos.clone());
-                        result = ExprAST::Assign(Box::new(result), Box::new(res), pos.clone());
+                        // let res = ExprAST::BinExpr(BinOp::ShiftLeft, Box::new(result.clone()), Box::new(r_value), pos.clone());
+                        // result = ExprAST::Assign(Box::new(result), Box::new(res), pos.clone());
+                        result = ExprAST::OpAssign(BinOp::ShiftLeft, Box::new(result.clone()), Box::new(r_value), pos.clone());
                     },
                     Token::ShiftRightAssign => {
                         iter.next(); // skip '%='
                         let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(Some(pos.clone())))?;
 
-                        let res = ExprAST::BinExpr(BinOp::ShiftRight, Box::new(result.clone()), Box::new(r_value), pos.clone());
-                        result = ExprAST::Assign(Box::new(result), Box::new(res), pos.clone());
+                        // let res = ExprAST::BinExpr(BinOp::ShiftRight, Box::new(result.clone()), Box::new(r_value), pos.clone());
+                        // result = ExprAST::Assign(Box::new(result), Box::new(res), pos.clone());
+                        result = ExprAST::OpAssign(BinOp::ShiftRight, Box::new(result.clone()), Box::new(r_value), pos.clone());
                     },
                     Token::BitAndAssign => {
                         iter.next(); // skip '%='
                         let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(Some(pos.clone())))?;
 
-                        let res = ExprAST::BinExpr(BinOp::BitAnd, Box::new(result.clone()), Box::new(r_value), pos.clone());
-                        result = ExprAST::Assign(Box::new(result), Box::new(res), pos.clone());
+                        // let res = ExprAST::BinExpr(BinOp::BitAnd, Box::new(result.clone()), Box::new(r_value), pos.clone());
+                        // result = ExprAST::Assign(Box::new(result), Box::new(res), pos.clone());
+                        result = ExprAST::OpAssign(BinOp::BitAnd, Box::new(result.clone()), Box::new(r_value), pos.clone());
                     },
                     Token::BitOrAssign => {
                         iter.next(); // skip '%='
                         let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(Some(pos.clone())))?;
 
-                        let res = ExprAST::BinExpr(BinOp::BitOr, Box::new(result.clone()), Box::new(r_value), pos.clone());
-                        result = ExprAST::Assign(Box::new(result), Box::new(res), pos.clone());
+                        // let res = ExprAST::BinExpr(BinOp::BitOr, Box::new(result.clone()), Box::new(r_value), pos.clone());
+                        // result = ExprAST::Assign(Box::new(result), Box::new(res), pos.clone());
+                        result = ExprAST::OpAssign(BinOp::BitOr, Box::new(result.clone()), Box::new(r_value), pos.clone());
                     },
                     Token::BitXorAssign => {
                         iter.next(); // skip '%='
                         let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(Some(pos.clone())))?;
 
-                        let res = ExprAST::BinExpr(BinOp::BitXor, Box::new(result.clone()), Box::new(r_value), pos.clone());
-                        result = ExprAST::Assign(Box::new(result), Box::new(res), pos.clone());
+                        // let res = ExprAST::BinExpr(BinOp::BitXor, Box::new(result.clone()), Box::new(r_value), pos.clone());
+                        // result = ExprAST::Assign(Box::new(result), Box::new(res), pos.clone());
+                        result = ExprAST::OpAssign(BinOp::BitXor, Box::new(result.clone()), Box::new(r_value), pos.clone());
                     },
 
                     _ => break,
@@ -3294,16 +3304,154 @@ mod tests {
 
         assert_eq!(
             ast,
-            ExprAST::Assign(
+            ExprAST::OpAssign(
+                BinOp::Add,
                 Box::new(ExprAST::Symbol("x".to_string(), Position::new(1, 1))),
-                Box::new(
-                    ExprAST::BinExpr(
-                        BinOp::Add,
-                        Box::new(ExprAST::Symbol("x".to_string(), Position::new(1, 1))),
-                        Box::new(ExprAST::Int(1, Position::new(1, 6))),
-                        Position::new(1, 3)
-                    )
-                ),
+                Box::new(ExprAST::Int(1, Position::new(1, 6))),
+                Position::new(1, 3)
+            )
+        );
+    }
+
+    #[test]
+    fn parse_sub_assign() {
+        let src = "x -= 1";
+        let ast = parse_expression_from_str(src).unwrap().unwrap();
+
+        assert_eq!(
+            ast,
+            ExprAST::OpAssign(
+                BinOp::Sub,
+                Box::new(ExprAST::Symbol("x".to_string(), Position::new(1, 1))),
+                Box::new(ExprAST::Int(1, Position::new(1, 6))),
+                Position::new(1, 3)
+            )
+        );
+    }
+
+    #[test]
+    fn parse_mul_assign() {
+        let src = "x *= 1";
+        let ast = parse_expression_from_str(src).unwrap().unwrap();
+
+        assert_eq!(
+            ast,
+            ExprAST::OpAssign(
+                BinOp::Mul,
+                Box::new(ExprAST::Symbol("x".to_string(), Position::new(1, 1))),
+                Box::new(ExprAST::Int(1, Position::new(1, 6))),
+                Position::new(1, 3)
+            )
+        );
+    }
+
+    #[test]
+    fn parse_div_assign() {
+        let src = "x /= 1";
+        let ast = parse_expression_from_str(src).unwrap().unwrap();
+
+        assert_eq!(
+            ast,
+            ExprAST::OpAssign(
+                BinOp::Div,
+                Box::new(ExprAST::Symbol("x".to_string(), Position::new(1, 1))),
+                Box::new(ExprAST::Int(1, Position::new(1, 6))),
+                Position::new(1, 3)
+            )
+        );
+    }
+
+    #[test]
+    fn parse_mod_assign() {
+        let src = "x %= 1";
+        let ast = parse_expression_from_str(src).unwrap().unwrap();
+
+        assert_eq!(
+            ast,
+            ExprAST::OpAssign(
+                BinOp::Mod,
+                Box::new(ExprAST::Symbol("x".to_string(), Position::new(1, 1))),
+                Box::new(ExprAST::Int(1, Position::new(1, 6))),
+                Position::new(1, 3)
+            )
+        );
+    }
+
+    #[test]
+    fn parse_shift_left_assign() {
+        let src = "x <<= 1";
+        let ast = parse_expression_from_str(src).unwrap().unwrap();
+
+        assert_eq!(
+            ast,
+            ExprAST::OpAssign(
+                BinOp::ShiftLeft,
+                Box::new(ExprAST::Symbol("x".to_string(), Position::new(1, 1))),
+                Box::new(ExprAST::Int(1, Position::new(1, 7))),
+                Position::new(1, 3)
+            )
+        );
+    }
+
+    #[test]
+    fn parse_shift_right_assign() {
+        let src = "x >>= 1";
+        let ast = parse_expression_from_str(src).unwrap().unwrap();
+
+        assert_eq!(
+            ast,
+            ExprAST::OpAssign(
+                BinOp::ShiftRight,
+                Box::new(ExprAST::Symbol("x".to_string(), Position::new(1, 1))),
+                Box::new(ExprAST::Int(1, Position::new(1, 7))),
+                Position::new(1, 3)
+            )
+        );
+    }
+
+    #[test]
+    fn parse_bit_and_assign() {
+        let src = "x &= 1";
+        let ast = parse_expression_from_str(src).unwrap().unwrap();
+
+        assert_eq!(
+            ast,
+            ExprAST::OpAssign(
+                BinOp::BitAnd,
+                Box::new(ExprAST::Symbol("x".to_string(), Position::new(1, 1))),
+                Box::new(ExprAST::Int(1, Position::new(1, 6))),
+                Position::new(1, 3)
+            )
+        );
+    }
+
+    #[test]
+    fn parse_bit_or_assign() {
+        let src = "x |= 1";
+        let ast = parse_expression_from_str(src).unwrap().unwrap();
+
+        assert_eq!(
+            ast,
+            ExprAST::OpAssign(
+                BinOp::BitOr,
+                Box::new(ExprAST::Symbol("x".to_string(), Position::new(1, 1))),
+                Box::new(ExprAST::Int(1, Position::new(1, 6))),
+                Position::new(1, 3)
+            )
+        );
+    }
+
+    #[test]
+    fn parse_bit_xor_assign() {
+        let src = "x ^= 1";
+        let ast = parse_expression_from_str(src).unwrap().unwrap();
+
+        assert_eq!(
+            ast,
+            ExprAST::OpAssign(
+                BinOp::BitXor,
+                Box::new(ExprAST::Symbol("x".to_string(), Position::new(1, 1))),
+                Box::new(ExprAST::Int(1, Position::new(1, 6))),
                 Position::new(1, 3)
             )
         );

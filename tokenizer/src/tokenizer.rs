@@ -258,7 +258,18 @@ impl Tokenizer {
                         match c {
                             '<' => {
                                 self.next_char(ctx);
-                                Ok(Some((Token::ShiftLeft, start_pos)))
+                                if let Some(c2) = self.peek_char(ctx){
+                                    match c2 {
+                                        '=' => {
+                                            self.next_char(ctx);
+                                            Ok(Some((Token::ShiftLeftAssign, start_pos)))
+                                        },
+                                        _ => Ok(Some((Token::ShiftLeft, start_pos)))
+                                    }
+
+                                }else{
+                                    Ok(Some((Token::ShiftLeft, start_pos)))
+                                }
                             },
                             '=' => {
                                 self.next_char(ctx);
@@ -276,7 +287,18 @@ impl Tokenizer {
                         match c {
                             '>' => {
                                 self.next_char(ctx);
-                                Ok(Some((Token::ShiftRight, start_pos)))
+                                if let Some(c2) = self.peek_char(ctx){
+                                    match c2 {
+                                        '=' => {
+                                            self.next_char(ctx);
+                                            Ok(Some((Token::ShiftRightAssign, start_pos)))
+                                        },
+                                        _ => Ok(Some((Token::ShiftRight, start_pos)))
+                                    }
+
+                                }else{
+                                    Ok(Some((Token::ShiftRight, start_pos)))
+                                }
                             },
                             '=' => {
                                 self.next_char(ctx);
