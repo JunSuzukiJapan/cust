@@ -108,7 +108,7 @@ impl TypeUtil {
                     }
                 }
             },
-            Type::Enum { name, enum_def } => {
+            Type::Enum { name: _, enum_def: _ } => {
 
 
 
@@ -159,6 +159,10 @@ impl TypeUtil {
     pub fn get_type(expr: &ExprAST, env: &Env) -> Result<Type, CodeGenError> {
         match expr {
             ExprAST::Assign(left, _right, _pos) => {
+                // (*left).get_type(env)
+                Self::get_type(&left, env)
+            },
+            ExprAST::OpAssign(_op, left, _right, _pos) => {
                 // (*left).get_type(env)
                 Self::get_type(&left, env)
             },
@@ -265,7 +269,7 @@ impl TypeUtil {
                         let t = fields.get_type(&field_name).ok_or(CodeGenError::type_has_not_member(None, &field_name))?;
                         Ok(t.clone())
                     },
-                    Type::Enum { name, enum_def } => {
+                    Type::Enum { name: _, enum_def: _ } => {
 
 
 
@@ -286,7 +290,7 @@ impl TypeUtil {
                         let t = fields.get_type(&field_name).ok_or(CodeGenError::type_has_not_member(None, &field_name))?;
                         Ok(t.clone())
                     },
-                    Type::Enum { name, enum_def } => {
+                    Type::Enum { name: _, enum_def: _ } => {
 
 
 
@@ -313,7 +317,7 @@ impl TypeUtil {
 
                 unimplemented!()
             },
-            ExprAST::DefVar { specifiers, declarations, pos: _ } => {
+            ExprAST::DefVar { specifiers: _, declarations: _, pos: _ } => {
 
 
 

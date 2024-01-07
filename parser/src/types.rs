@@ -901,7 +901,7 @@ impl fmt::Display for Type {
                 };
                 write!(f, "union {}", name)
             },
-            Type::Enum { name, enum_def } => {
+            Type::Enum { name: _, enum_def: _} => {
 
 
 

@@ -251,7 +251,7 @@ impl Defines {
         Ok(typ)
     }
 
-    #[allow(mutable_borrow_reservation_conflict)]
+    // #[allow(mutable_borrow_reservation_conflict)]
     pub fn set_typedef(&mut self, typedef_name: &str, typ: &Type) -> Result<(), ParserError> {
         if self.exists_type(typedef_name) {
             return Err(ParserError::already_type_defined_in_env(None, typedef_name));
@@ -260,7 +260,7 @@ impl Defines {
         if let Type::Struct { name, fields } = typ {
             if let Some(id) = name {
                 if ! fields.has_fields() {
-                    let t = (&self.get_struct_type(id).ok_or(ParserError::no_such_a_struct(None, id))?).clone();
+                    let t = &self.get_struct_type(id).ok_or(ParserError::no_such_a_struct(None, id))?;
                     let def_type = DefineType::new_typedef(typedef_name, t);
                     if self.local_maps.last().unwrap().len() > 0 {
                         self.local_maps.last_mut().unwrap().last_mut().unwrap().type_map.insert(typedef_name.to_string(), def_type);

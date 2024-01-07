@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 use std::error::Error;
-use inkwell::debug_info::DIFlagsConstants;
+// use inkwell::debug_info::DIFlagsConstants;
 use inkwell::values::{PointerValue, FunctionValue, GlobalValue, AnyValueEnum, IntValue, BasicValueEnum, BasicValue};
 use inkwell::types::{StructType, AnyTypeEnum, AnyType, BasicTypeEnum, IntType, BasicType};
 use inkwell::basic_block::BasicBlock;
@@ -414,7 +414,7 @@ impl<'ctx> Env<'ctx> {
                     Ok(max_size_type)
                 }
             },
-            Type::Enum { name, enum_def } => {
+            Type::Enum { name: _, enum_def: _ } => {
 
 
 
@@ -490,12 +490,12 @@ impl<'ctx> Env<'ctx> {
     }
 
     pub fn get_type_by_id(&self, key: &str) -> Option<&Type> {
-        if let Some((typ, ptr)) = self.get_ptr_from_local(key) {
+        if let Some((typ, _ptr)) = self.get_ptr_from_local(key) {
             Some(typ)
         }else if let Some((typ, val)) = self.global_def.get(key) {
             match val {
-                ConstOrGlobalValue::GlobalValue { global } => Some(typ),
-                ConstOrGlobalValue::Const { value } => Some(typ),
+                ConstOrGlobalValue::GlobalValue { global: _ } => Some(typ),
+                ConstOrGlobalValue::Const { value: _ } => Some(typ),
             }
         }else{
             None
@@ -558,7 +558,7 @@ impl<'ctx> Env<'ctx> {
     }
 
     pub fn get_current_function_type(&self) -> Option<CustFunctionType> {
-        if let Some((ref typ, ref value)) = self.current_function {
+        if let Some((ref typ, ref _value)) = self.current_function {
             Some(typ.clone())
         }else{
             None

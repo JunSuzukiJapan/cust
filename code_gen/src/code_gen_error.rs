@@ -2,7 +2,8 @@ use parser::{ExprAST, ParserError, NumberType};
 use super::{Position, Type};
 use std::error::Error;
 use std::fmt;
-use inkwell::{values::{BasicValueEnum, BasicMetadataValueEnum, AnyValueEnum, AnyValue, FunctionValue, InstructionOpcode, PointerValue, InstructionValue, BasicValue, IntValue}, types::BasicTypeEnum};
+// use inkwell::{values::{BasicValueEnum, BasicMetadataValueEnum, AnyValueEnum, AnyValue, FunctionValue, InstructionOpcode, PointerValue, InstructionValue, BasicValue, IntValue}, types::BasicTypeEnum};
+use inkwell::values::AnyValueEnum;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum CodeGenError {
@@ -274,7 +275,7 @@ impl CodeGenError {
         Self::NoIndexValueWhileAccessArray(opt_pos)
     }
 
-    pub fn cannot_call_not_function(opt_pos: Option<Position>, any_val_enum: &AnyValueEnum) -> Self {
+    pub fn cannot_call_not_function(opt_pos: Option<Position>, _any_val_enum: &AnyValueEnum) -> Self {
         Self::CannotCallNotFunction(opt_pos)
     }
 

@@ -135,7 +135,7 @@ impl<'ctx> CodeGen<'ctx> {
 
                 let result: InstructionValue;
                 if let Some(expr) = opt_expr {
-                    let expr_type = TypeUtil::get_type(expr, env)?;
+                    // let expr_type = TypeUtil::get_type(expr, env)?;
 
 
 
@@ -187,14 +187,14 @@ impl<'ctx> CodeGen<'ctx> {
                 Ok(Some(AnyValueEnum::FunctionValue(fun_proto)))
             },
             AST::If(condition, then, _else) => {
-                let (fun_type, func) = env.get_current_function().ok_or(CodeGenError::no_current_function(None))?;
+                let (_fun_type, func) = env.get_current_function().ok_or(CodeGenError::no_current_function(None))?;
                 let func = func.clone();
                 let cond_block = self.context.append_basic_block(func, "if.cond");
                 let then_block = self.context.append_basic_block(func, "if.then");
                 let else_block = self.context.append_basic_block(func, "if.else");
                 let end_block  = self.context.append_basic_block(func, "if.end");
 
-                self.builder.build_unconditional_branch(cond_block);
+                self.builder.build_unconditional_branch(cond_block)?;
                 self.builder.position_at_end(cond_block);
 
                 // check condition
@@ -202,7 +202,7 @@ impl<'ctx> CodeGen<'ctx> {
                 let mut comparison = cond.get_value().into_int_value();
                 let i1_type = self.context.bool_type();
                 comparison = self.builder.build_int_cast(comparison, i1_type, "cast to i1")?;  // cast to i1
-                self.builder.build_conditional_branch(comparison, then_block, else_block);
+                self.builder.build_conditional_branch(comparison, then_block, else_block)?;
 
                 // then block
                 self.builder.position_at_end(then_block);
@@ -210,12 +210,12 @@ impl<'ctx> CodeGen<'ctx> {
                 if let Some(blk) = self.builder.get_insert_block() {
                     if ! self.last_is_jump_statement(blk) {
                         self.builder.position_at_end(blk);
-                        self.builder.build_unconditional_branch(end_block);
+                        self.builder.build_unconditional_branch(end_block)?;
                     }
                 }
                 if ! self.last_is_jump_statement(then_block) {
                     self.builder.position_at_end(then_block);
-                    self.builder.build_unconditional_branch(end_block);
+                    self.builder.build_unconditional_branch(end_block)?;
                 }
 
                 // else block
@@ -225,13 +225,13 @@ impl<'ctx> CodeGen<'ctx> {
                     if let Some(blk) = self.builder.get_insert_block() {
                         if ! self.last_is_jump_statement(blk) {
                             self.builder.position_at_end(blk);
-                            self.builder.build_unconditional_branch(end_block);
+                            self.builder.build_unconditional_branch(end_block)?;
                         }
                     }
                 }
                 if ! self.last_is_jump_statement(else_block) {
                     self.builder.position_at_end(else_block);
-                    self.builder.build_unconditional_branch(end_block);
+                    self.builder.build_unconditional_branch(end_block)?;
                 }
 
                 // end block
@@ -244,19 +244,19 @@ impl<'ctx> CodeGen<'ctx> {
             },
             AST::Break => {
                 let break_block = break_catcher.ok_or(CodeGenError::break_not_in_loop_or_switch(None))?.get_block();
-                self.builder.build_unconditional_branch(*break_block);
+                self.builder.build_unconditional_branch(*break_block)?;
 
                 Ok(None)
             },
             AST::Continue => {
                 let continue_block = continue_catcher.ok_or(CodeGenError::continue_not_in_loop(None))?.get_block();
-                self.builder.build_unconditional_branch(*continue_block);
+                self.builder.build_unconditional_branch(*continue_block)?;
 
                 Ok(None)
             },
             AST::Goto(id) => {
                 let block = env.get_block(id).ok_or(CodeGenError::no_such_a_label(None, id))?;
-                self.builder.build_unconditional_branch(*block);
+                self.builder.build_unconditional_branch(*block)?;
 
                 Ok(None)
             },
@@ -268,7 +268,7 @@ impl<'ctx> CodeGen<'ctx> {
                 //         self.builder.build_unconditional_branch(*block);
                 //     }
                 // }
-                self.builder.build_unconditional_branch(*block);
+                self.builder.build_unconditional_branch(*block)?;
 
                 self.builder.position_at_end(*block);
 
@@ -692,7 +692,7 @@ println!("call gen_cast. typ: '{}', init_type: '{}'", typ, *init_type);
                         }
 
                         let basic_value = self.try_as_basic_value(&init_value)?;
-                        self.builder.build_store(ptr, basic_value);
+                        self.builder.build_store(ptr, basic_value)?;
                     }
                 },
                 None => (),  // do nothing
@@ -826,7 +826,7 @@ println!("env: {:?}", env);
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
 
-        let (fun_type, func) = env.get_current_function().ok_or(CodeGenError::no_current_function(None))?;
+        let (_fun_type, func) = env.get_current_function().ok_or(CodeGenError::no_current_function(None))?;
         let func = func.clone();
         let cond_block  = self.context.append_basic_block(func, "switch.cond");
         let end_block  = self.context.append_basic_block(func, "switch.end");
@@ -836,7 +836,7 @@ println!("env: {:?}", env);
         //
         // condition expr
         //
-        self.builder.build_unconditional_branch(cond_block);
+        self.builder.build_unconditional_branch(cond_block)?;
         self.builder.position_at_end(cond_block);
         let opt_cond_expr = switch.get_cond_expr();
         let opt_cond = if let Some(e) = opt_cond_expr {
@@ -880,7 +880,7 @@ println!("env: {:?}", env);
                 };
 
                 self.builder.position_at_end(*block);
-                self.builder.build_unconditional_branch(next_block);
+                self.builder.build_unconditional_branch(next_block)?;
             }
 
             let insert_block = case.get_insert_block();
@@ -893,7 +893,7 @@ println!("env: {:?}", env);
                     };
 
                     self.builder.position_at_end(*blk);
-                    self.builder.build_unconditional_branch(next_block);
+                    self.builder.build_unconditional_branch(next_block)?;
                 }
             }
 
@@ -921,7 +921,7 @@ println!("env: {:?}", env);
                 }else{
                     current_block = end_block;
                 }
-                self.builder.build_conditional_branch(comparison, *case.get_block(), current_block);
+                self.builder.build_conditional_branch(comparison, *case.get_block(), current_block)?;
 
             }else{               // default
                 if opt_default.is_some() {
@@ -929,7 +929,7 @@ println!("env: {:?}", env);
                 }
                 opt_default = Some(case);
 
-                self.builder.build_unconditional_branch(*case.get_block());
+                self.builder.build_unconditional_branch(*case.get_block())?;
             }
         }
 
@@ -956,7 +956,7 @@ println!("env: {:?}", env);
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
 
-        let (fun_type, func) = env.get_current_function().ok_or(CodeGenError::no_current_function(None))?;
+        let (_fun_type, func) = env.get_current_function().ok_or(CodeGenError::no_current_function(None))?;
         let case_block  = self.context.append_basic_block(func.clone(), "switch.case");
 
         self.builder.position_at_end(case_block);
@@ -978,7 +978,7 @@ println!("env: {:?}", env);
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
 
-        let (fun_type, func) = env.get_current_function().ok_or(CodeGenError::no_current_function(None))?;
+        let (_fun_type, func) = env.get_current_function().ok_or(CodeGenError::no_current_function(None))?;
         let default_block  = self.context.append_basic_block(func.clone(), "switch.default");
 
         self.builder.position_at_end(default_block);
@@ -1332,7 +1332,7 @@ println!("code_gen.gen_cast. from: '{}', to '{}'", from_type, to_type);
 
     fn calc_type_size(basic_type: &dyn BasicType) -> Result<u64, Box<dyn Error>> {
         use inkwell::execution_engine::JitFunction;
-        type Func_void_u64 = unsafe extern "C" fn() -> u64;
+        type FuncVoidU64 = unsafe extern "C" fn() -> u64;
 
         let context = Context::create();
         let module = context.create_module("foo");
@@ -1359,7 +1359,7 @@ println!("code_gen.gen_cast. from: '{}', to '{}'", from_type, to_type);
         let _tmp = builder.build_return(Some(&size));
 
         let f = unsafe { engine.get_function(fn_name) };
-        let f: JitFunction<Func_void_u64> = f.ok().unwrap();
+        let f: JitFunction<FuncVoidU64> = f.ok().unwrap();
         let result: u64 = unsafe { f.call() };
 
         Ok(result)
@@ -1455,7 +1455,7 @@ println!("code_gen.gen_cast. from: '{}', to '{}'", from_type, to_type);
         _continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
 
-        let (fun_type, func) = env.get_current_function().ok_or(CodeGenError::no_current_function(None))?;
+        let (_fun_type, func) = env.get_current_function().ok_or(CodeGenError::no_current_function(None))?;
         let func = func.clone();
         let pre_condition_block = self.context.append_basic_block(func, "loop.pre_condition");
         let start_block = self.context.append_basic_block(func, "loop.start");
@@ -1478,15 +1478,15 @@ println!("code_gen.gen_cast. from: '{}', to '{}'", from_type, to_type);
         //
         // check pre condition
         //
-        self.builder.build_unconditional_branch(pre_condition_block);
+        self.builder.build_unconditional_branch(pre_condition_block)?;
         self.builder.position_at_end(pre_condition_block);
 
         if let Some(cond) = pre_condition {
             let cond = self.gen_expr(cond, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::condition_is_not_number(None, cond))?;
             let comparison = cond.get_value().into_int_value();
-            self.builder.build_conditional_branch(comparison, start_block, end_block);
+            self.builder.build_conditional_branch(comparison, start_block, end_block)?;
         }else{
-            self.builder.build_unconditional_branch(start_block);
+            self.builder.build_unconditional_branch(start_block)?;
         }
 
         // loop start
@@ -1502,7 +1502,7 @@ println!("code_gen.gen_cast. from: '{}', to '{}'", from_type, to_type);
         //
         // update
         //
-        self.builder.build_unconditional_branch(update_block);
+        self.builder.build_unconditional_branch(update_block)?;
         self.builder.position_at_end(update_block);
         if let Some(expr) = update_expr {
             self.gen_expr(expr, env, break_catcher, continue_catcher)?;
@@ -1514,9 +1514,9 @@ println!("code_gen.gen_cast. from: '{}', to '{}'", from_type, to_type);
         if let Some(cond) = post_condition {
             let cond = self.gen_expr(cond, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::condition_is_not_number(None, cond))?;
             let comparison = cond.get_value().into_int_value();
-            self.builder.build_conditional_branch(comparison, pre_condition_block, end_block);
+            self.builder.build_conditional_branch(comparison, pre_condition_block, end_block)?;
         }else{
-            self.builder.build_unconditional_branch(pre_condition_block);
+            self.builder.build_unconditional_branch(pre_condition_block)?;
         }
 
         // loop end
@@ -2028,7 +2028,7 @@ println!("gen_assign. compiled_value: {:?}", compiled_value);
 
         let (to_type, ptr) = self.get_l_value(l_value, env, break_catcher, continue_catcher)?;
 println!("  FROM: {:?} TO: {:?}", from_type, to_type);
-        self.builder.build_store(ptr, value);
+        self.builder.build_store(ptr, value)?;
         Ok(Some(compiled_value))
     }
 
@@ -2126,7 +2126,7 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
                             match type_or_union {
                                 TypeOrUnion::Union { type_list, index_map, max_size: _, max_size_type: _ } => {
                                     let idx = index_map[member_name];
-                                    let any_type_enum = &type_list[idx];
+                                    // let any_type_enum = &type_list[idx];
                                     // let to_type = BasicTypeEnum::try_from(any_type_enum);
                                     // if let Err(_err) = &to_type {
                                     //     return Err(Box::new(CompileError::cannot_convert_to_basic_type_enum(None)));
@@ -2334,7 +2334,7 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
             let name = param.get_name();
             let ptr = self.builder.build_alloca(TypeUtil::to_basic_type_enum(&typ, self.context)?, name)?;
             let value = function.get_nth_param(i as u32).unwrap();
-            self.builder.build_store(ptr, value);
+            self.builder.build_store(ptr, value)?;
             env.insert_local(name, typ.clone(), ptr);
         }
 
@@ -2363,7 +2363,7 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
                     return Err(Box::new(CodeGenError::return_type_mismatch(None, fn_type.get_return_type().clone(), typ)));
                 },
                 _ => {
-                    self.builder.build_return(None);
+                    self.builder.build_return(None)?;
                     Ok(())
                 },
             }
@@ -2390,7 +2390,7 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
                     }else{
                         if *ret_type == typ {
                             // 最後の文が、ifのとき、ラベルif.endの後にコードが生成されないのでセグフォが起きることへのケア
-                            self.builder.build_return(None);
+                            self.builder.build_return(None)?;
 
                             Ok(())
                         }else{

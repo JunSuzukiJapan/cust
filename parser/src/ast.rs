@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use crate::{ParserError, Parser};
+use crate::ParserError;
 use super::{Type, Pointer, ConstExpr, Defines, StructDefinition, EnumDefinition};
 use tokenizer::{Token, Position};
 
@@ -605,10 +605,25 @@ impl Switch {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum ExprOp {
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Mod,
+    ShiftLeft,
+    ShiftRight,
+    BitAnd,
+    BitOr,
+    BitXor,
+}
+
 #[allow(non_camel_case_types)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum ExprAST {
     Assign(Box<ExprAST>, Box<ExprAST>, Position),
+    OpAssign(ExprOp, Box<ExprAST>, Box<ExprAST>, Position),
     PreInc(String, Position, Position),  // (id, id position, '++' position)
     PreDec(String, Position, Position),
     PostInc(String, Position, Position),
@@ -668,6 +683,7 @@ impl ExprAST {
     pub fn get_position(&self) -> &Position {
         match self {
             ExprAST::Assign(_left, _right, pos) => pos,
+            ExprAST::OpAssign(_op, _l_value, _r_value, pos) => pos,
             ExprAST::Char(_, pos) => pos,
             ExprAST::Int(_, pos) => pos,
             ExprAST::Short(_, pos) => pos,
@@ -682,8 +698,8 @@ impl ExprAST {
             ExprAST::Float(_, pos) => pos,
             ExprAST::Double(_, pos) => pos,
             ExprAST::BinExpr(_op, _left, _right, pos) => pos,
-            ExprAST::UnaryMinus(expr, pos) => pos,
-            ExprAST::UnaryTilda(expr, pos) => pos,
+            ExprAST::UnaryMinus(_expr, pos) => pos,
+            ExprAST::UnaryTilda(_expr, pos) => pos,
             // ExprAST::UnaryNot(expr) => expr.get_type(env),
             ExprAST::UnarySizeOfExpr(_expr, pos) => pos,
             ExprAST::UnarySizeOfTypeName(_typ, pos) => pos,
@@ -716,7 +732,7 @@ impl ExprAST {
 
     pub fn is_symbol(&self) -> bool {
         match self {
-            ExprAST::Symbol(name, pos) => true,
+            ExprAST::Symbol(_name, _pos) => true,
             _ => false,
         }
     }

@@ -1913,7 +1913,7 @@ impl Parser {
 
         while let Some(expr) = exprs {
             match expr {
-                ExprAST::BinExpr(BinOp::Comma, left, right, pos) => {
+                ExprAST::BinExpr(BinOp::Comma, left, right, _pos) => {
                     result.push(*left);
                     exprs = Some(*right);
                 },
@@ -2740,7 +2740,7 @@ impl Parser {
         }
     }
 
-    fn parse_for(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, pos: &Position, labels: &mut Option<&mut Vec<String>>) -> Result<Option<AST>, ParserError> {
+    fn parse_for(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, _pos: &Position, labels: &mut Option<&mut Vec<String>>) -> Result<Option<AST>, ParserError> {
         iter.next();  // skip 'for'
         self.parse_expected_token(iter, Token::ParenLeft)?; // '('
         defs.new_local();
