@@ -23,22 +23,12 @@ type NoArgFunc = unsafe extern "C" fn() -> u64;
 type FuncType_void_void = unsafe extern "C" fn() -> i64;
 
 fn parse_expression_from_str(src: &str) -> Result<Option<ExprAST>, ParserError> {
-    let tokenizer = Tokenizer::new();
-    let token_list = tokenizer.tokenize(src).unwrap();
+    let token_list = Tokenizer::tokenize(src).unwrap();
     let mut iter = token_list.iter().peekable();
     let parser = Parser::new();
     let mut defs = Defines::new();
     let mut labels = Vec::new();
     parser.parse_expression(&mut iter, &mut defs, &mut Some(&mut labels))
-}
-pub fn parse_from_str(input: &str) -> Result<Vec<AST>, ParserError> {
-    let tokenizer = Tokenizer::new();
-    let token_list = tokenizer.tokenize(input)?;
-    let mut iter = token_list.iter().peekable();
-    let parser = Parser::new();
-    let mut defs = Defines::new();
-
-    parser.parse_translation_unit(&mut iter, &mut defs)
 }
 
 fn main() {
@@ -539,9 +529,10 @@ END: ;
     ";
 */
 
+    // tokenize
+    let tokenized = Tokenizer::tokenize(src).unwrap();
     // parse
-    let parser = Parser::new();
-    let asts = parse_from_str(src).unwrap();
+    let asts = Parser::parse(tokenized).unwrap();
 
     // code gen
     let context = Context::create();

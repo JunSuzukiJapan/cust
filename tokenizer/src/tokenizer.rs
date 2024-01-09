@@ -131,18 +131,17 @@ impl<'a> TokenizerContext<'a> {
 pub struct Tokenizer;
 
 impl Tokenizer {
-    pub fn new() -> Self {
+    fn new() -> Self {
         Tokenizer {}
     }
 
-    pub fn tokenize(&self, input: &str) -> Result<Vec<(Token, Position)>, TokenizerError> {
-        // let mut chars = input.chars().peekable();
-        // let mut pos = Position::new();
+    pub fn tokenize(input: &str) -> Result<Vec<(Token, Position)>, TokenizerError> {
         let mut ctx = TokenizerContext::new(input);
         let mut v = Vec::new();
+        let tokenizer = Tokenizer::new();
 
         loop {
-            let result = self.next_token(&mut ctx);
+            let result = tokenizer.next_token(&mut ctx);
             match result {
                 Ok(opt_tok_pos) => {
                     if let Some(tok_pos) = opt_tok_pos {
@@ -862,7 +861,7 @@ mod tests {
     #[test]
     fn tokenize_digit() {
         let tokenizer = Tokenizer::new();
-        let result = tokenizer.tokenize("123 0");
+        let result = Tokenizer::tokenize("123 0");
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 3);
@@ -887,7 +886,7 @@ mod tests {
     fn tokenize_char() {
         let tokenizer = Tokenizer::new();
         let src = "'a' '錆' '\\\\'";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 4);
@@ -915,7 +914,7 @@ mod tests {
     #[test]
     fn tokenize_float() {
         let tokenizer = Tokenizer::new();
-        let result = tokenizer.tokenize("3.14 12345e2 12345e-3 123.45e3 123.45e-1");
+        let result = Tokenizer::tokenize("3.14 12345e2 12345e-3 123.45e3 123.45e-1");
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 6);
@@ -964,7 +963,7 @@ mod tests {
     fn tokenize_string() {
         let tokenizer = Tokenizer::new();
         let src = "\"Hello, world!\" \"こんにちは、世界。\" \"\\\"文字列\\\"\"";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 4);
@@ -993,7 +992,7 @@ mod tests {
     fn tokenize_operator_add() {
         let tokenizer = Tokenizer::new();
         let src = "+ += ++";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 4);
@@ -1022,7 +1021,7 @@ mod tests {
     fn tokenize_operator_sub() {
         let tokenizer = Tokenizer::new();
         let src = "- -= --";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 4);
@@ -1051,7 +1050,7 @@ mod tests {
     fn tokenize_operator_mul() {
         let tokenizer = Tokenizer::new();
         let src = "* *=";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 3);
@@ -1076,7 +1075,7 @@ mod tests {
     fn tokenize_operator_div() {
         let tokenizer = Tokenizer::new();
         let src = "/ /=";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 3);
@@ -1101,7 +1100,7 @@ mod tests {
     fn tokenize_operator_mod() {
         let tokenizer = Tokenizer::new();
         let src = "% %=";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 3);
@@ -1126,7 +1125,7 @@ mod tests {
     fn tokenize_operator_less() {
         let tokenizer = Tokenizer::new();
         let src = "< <= <<";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 4);
@@ -1155,7 +1154,7 @@ mod tests {
     fn tokenize_operator_greater() {
         let tokenizer = Tokenizer::new();
         let src = "> >= >>";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 4);
@@ -1184,7 +1183,7 @@ mod tests {
     fn tokenize_operator_assign() {
         let tokenizer = Tokenizer::new();
         let src = "= ==";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 3);
@@ -1209,7 +1208,7 @@ mod tests {
     fn tokenize_operator_not() {
         let tokenizer = Tokenizer::new();
         let src = "! !=";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 3);
@@ -1234,7 +1233,7 @@ mod tests {
     fn tokenize_operator_and() {
         let tokenizer = Tokenizer::new();
         let src = "& &= &&";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 4);
@@ -1263,7 +1262,7 @@ mod tests {
     fn tokenize_operator_or() {
         let tokenizer = Tokenizer::new();
         let src = "| |= ||";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 4);
@@ -1292,7 +1291,7 @@ mod tests {
     fn tokenize_operator_xor() {
         let tokenizer = Tokenizer::new();
         let src = "^ ^=";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 3);
@@ -1317,7 +1316,7 @@ mod tests {
     fn tokenize_operator_tilda() {
         let tokenizer = Tokenizer::new();
         let src = "~";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -1338,7 +1337,7 @@ mod tests {
     fn tokenize_operator_question() {
         let tokenizer = Tokenizer::new();
         let src = "?";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -1359,7 +1358,7 @@ mod tests {
     fn tokenize_operator_others() {
         let tokenizer = Tokenizer::new();
         let src = ": ; . -> () {} []";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 11);
@@ -1416,7 +1415,7 @@ mod tests {
     fn tokenize_keywords() {
         let tokenizer = Tokenizer::new();
         let src = "int x = 0;";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 6);
@@ -1449,7 +1448,7 @@ mod tests {
         }
 
         let src = "auto";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -1466,7 +1465,7 @@ mod tests {
         }
  
         let src = "break";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -1483,7 +1482,7 @@ mod tests {
         }
  
         let src = "case";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -1500,7 +1499,7 @@ mod tests {
         }
  
         let src = "char";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -1517,7 +1516,7 @@ mod tests {
         }
  
         let src = "const";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -1534,7 +1533,7 @@ mod tests {
         }
  
         let src = "continue";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -1551,7 +1550,7 @@ mod tests {
         }
  
         let src = "default";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -1568,7 +1567,7 @@ mod tests {
         }
  
         let src = "do";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -1585,7 +1584,7 @@ mod tests {
         }
  
         let src = "double";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -1602,7 +1601,7 @@ mod tests {
         }
  
         let src = "else";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -1619,7 +1618,7 @@ mod tests {
         }
  
         let src = "enum";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -1636,7 +1635,7 @@ mod tests {
         }
  
         let src = "extern";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -1653,7 +1652,7 @@ mod tests {
         }
  
         let src = "float";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -1670,7 +1669,7 @@ mod tests {
         }
  
         let src = "for";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -1687,7 +1686,7 @@ mod tests {
         }
  
         let src = "goto";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -1704,7 +1703,7 @@ mod tests {
         }
  
         let src = "if";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -1721,7 +1720,7 @@ mod tests {
         }
  
         let src = "inline";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -1738,7 +1737,7 @@ mod tests {
         }
  
         let src = "int";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -1755,7 +1754,7 @@ mod tests {
         }
  
         let src = "long";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -1772,7 +1771,7 @@ mod tests {
         }
  
         let src = "register";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -1789,7 +1788,7 @@ mod tests {
         }
  
         let src = "restrict";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -1806,7 +1805,7 @@ mod tests {
         }
  
         let src = "return";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -1823,7 +1822,7 @@ mod tests {
         }
  
         let src = "short";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -1840,7 +1839,7 @@ mod tests {
         }
  
         let src = "signed";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -1857,7 +1856,7 @@ mod tests {
         }
  
         let src = "sizeof";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -1874,7 +1873,7 @@ mod tests {
         }
  
         let src = "static";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -1891,7 +1890,7 @@ mod tests {
         }
  
         let src = "struct";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -1908,7 +1907,7 @@ mod tests {
         }
  
         let src = "switch";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -1925,7 +1924,7 @@ mod tests {
         }
  
         let src = "typedef";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -1942,7 +1941,7 @@ mod tests {
         }
  
         let src = "union";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -1959,7 +1958,7 @@ mod tests {
         }
  
         let src = "unsigned";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -1976,7 +1975,7 @@ mod tests {
         }
  
         let src = "void";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -1993,7 +1992,7 @@ mod tests {
         }
  
         let src = "volatile";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -2010,7 +2009,7 @@ mod tests {
         }
  
         let src = "while";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -2027,7 +2026,7 @@ mod tests {
         }
  
         let src = "_Alignas";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -2044,7 +2043,7 @@ mod tests {
         }
  
         let src = "_Alignof";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -2061,7 +2060,7 @@ mod tests {
         }
  
         let src = "_Atomic";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -2078,7 +2077,7 @@ mod tests {
         }
  
         let src = "_Bool";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -2095,7 +2094,7 @@ mod tests {
         }
  
         let src = "_Complex";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -2112,7 +2111,7 @@ mod tests {
         }
  
         let src = "_Generic";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -2129,7 +2128,7 @@ mod tests {
         }
  
         let src = "_Imaginary";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -2146,7 +2145,7 @@ mod tests {
         }
  
         let src = "_Noreturn";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -2163,7 +2162,7 @@ mod tests {
         }
  
         let src = "_Static_assert";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -2180,7 +2179,7 @@ mod tests {
         }
  
         let src = "_Thread_local";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -2197,7 +2196,7 @@ mod tests {
         }
  
         let src = "trait";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -2214,7 +2213,7 @@ mod tests {
         }
  
         let src = "impl";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -2231,7 +2230,7 @@ mod tests {
         }
  
         let src = "self";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -2248,7 +2247,7 @@ mod tests {
         }
  
         let src = "dyn";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -2265,7 +2264,7 @@ mod tests {
         }
  
         let src = "let";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);
@@ -2282,7 +2281,7 @@ mod tests {
         }
  
         let src = "match";
-        let result = tokenizer.tokenize(src);
+        let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
                 assert_eq!(v.len(), 2);

@@ -20,7 +20,35 @@ impl Parser {
         Parser
     }
 
-    pub fn parse_translation_unit(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Vec<AST>, ParserError> {
+    // pub fn parse_from_str(&self, input: &str) -> Result<Vec<AST>, ParserError> {
+    //     let tokenizer = Tokenizer::new();
+    //     let token_list = Tokenizer::tokenize(input)?;
+    //     let mut iter = token_list.iter().peekable();
+    //     let parser = Parser::new();
+    //     let mut defs = Defines::new();
+
+    //     parser.parse_translation_unit(&mut iter, &mut defs)
+    // }
+
+    pub fn parse(input: Vec<(Token, Position)>) -> Result<Vec<AST>, ParserError> {
+        let mut iter = input.iter().peekable();
+        let parser = Parser::new();
+        let mut defs = Defines::new();
+
+        parser.parse_translation_unit(&mut iter, &mut defs)
+    }
+
+    // fn parse_external_declaration_from_str(src: &str) -> Result<Option<AST>, ParserError> {
+    //     let tokenizer = Tokenizer::new();
+    //     let token_list = Tokenizer::tokenize(src).unwrap();
+    //     let mut iter = token_list.iter().peekable();
+    //     let parser = Parser::new();
+    //     let mut defs = Defines::new();
+    //     let mut v = Vec::new();
+    //     parser.parse_external_declaration(&mut iter, &mut defs, &mut Some(&mut v))
+    // }
+
+    fn parse_translation_unit(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Vec<AST>, ParserError> {
         let mut declarations = Vec::new();
         let mut labels = Vec::new();
 
@@ -3069,8 +3097,7 @@ mod tests {
     use super::*;
 
     fn parse_expression_from_str(src: &str) -> Result<Option<ExprAST>, ParserError> {
-        let tokenizer = Tokenizer::new();
-        let token_list = tokenizer.tokenize(src).unwrap();
+        let token_list = Tokenizer::tokenize(src).unwrap();
         let mut iter = token_list.iter().peekable();
         let parser = Parser::new();
         let mut defs = Defines::new();
@@ -3079,8 +3106,7 @@ mod tests {
     }
 
     fn parse_external_declaration_from_str(src: &str) -> Result<Option<AST>, ParserError> {
-        let tokenizer = Tokenizer::new();
-        let token_list = tokenizer.tokenize(src).unwrap();
+        let token_list = Tokenizer::tokenize(src).unwrap();
         let mut iter = token_list.iter().peekable();
         let parser = Parser::new();
         let mut defs = Defines::new();
@@ -3089,8 +3115,7 @@ mod tests {
     }
 
     fn parse_translation_unit_from_str(src: &str) -> Result<Vec<AST>, ParserError> {
-        let tokenizer = Tokenizer::new();
-        let token_list = tokenizer.tokenize(src).unwrap();
+        let token_list = Tokenizer::tokenize(src).unwrap();
         let mut iter = token_list.iter().peekable();
         let parser = Parser::new();
         let mut defs = Defines::new();
@@ -3539,8 +3564,7 @@ mod tests {
     fn parse_type_specifier_qualifier() {
         let src = "int volatile short unsigned * volatile * const foo(";
 
-        let tokenizer = Tokenizer::new();
-        let token_list = tokenizer.tokenize(src).unwrap();
+        let token_list = Tokenizer::tokenize(src).unwrap();
         let mut iter = token_list.iter().peekable();
         let parser = Parser::new();
         let mut defs = Defines::new();
