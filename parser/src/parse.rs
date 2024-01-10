@@ -130,7 +130,6 @@ impl Parser {
     fn parse_external_declaration(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<AST>, ParserError> {
         // let (tok, _pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
         let (tok, pos) = iter.peek().unwrap();
-        println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
 
         if *tok == Token::Impl {
@@ -142,7 +141,6 @@ impl Parser {
 
         // let (tok, pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
         let (tok, pos) = iter.peek().unwrap();
-        println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
         if *tok == Token::SemiColon {
             iter.next();  // skip ';'
@@ -176,7 +174,6 @@ impl Parser {
         }else{
             // let (tok, pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
             let (tok, pos) = iter.peek().unwrap();
-            println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
             if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
     
             match decl.get_direct_declarator() {
@@ -228,7 +225,6 @@ impl Parser {
                             Ok(Some(self.make_global_def_array(ds.clone(), vec![declaration], opt_const_expr_list, defs)?))
                         },
                         _ => {
-                            // println!("Syntax Error at {}:{}:{}:", file!(), line!(), column!());
                             Err(ParserError::syntax_error(Some(pos.clone())))
                         },
                     }
@@ -279,7 +275,6 @@ impl Parser {
     fn parse_impl(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<AST>, ParserError> {
         // let (tok, pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
         let (tok, pos) = iter.peek().unwrap();
-println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
         if *tok != Token::Impl {
             return Err(ParserError::syntax_error(Some(pos.clone())));
@@ -289,7 +284,6 @@ println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!()
 
         // let (tok, pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
         let (tok, pos) = iter.peek().unwrap();
-        println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
         let impl_name = match tok {
             Token::Symbol(id) => {
@@ -305,7 +299,6 @@ println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!()
 
         // let (tok, pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
         let (tok, pos) = iter.peek().unwrap();
-        println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
         let for_something: Option<String>;
         match tok {
@@ -317,7 +310,6 @@ println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!()
 
                 // let (tok2, pos2) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
                 let (tok2, pos2) = iter.peek().unwrap();
-                println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
                 if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
                 match tok2 {
                     Token::Symbol(id2) => {
@@ -325,7 +317,6 @@ println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!()
 
                         // let (tok3, _pos3) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
                         let (tok3, pos3) = iter.peek().unwrap();
-                        println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
                         if tok3.is_eof() { return Err(ParserError::illegal_end_of_input(pos3.clone())); }
 
                         if *tok3 != Token::BraceLeft {
@@ -351,7 +342,6 @@ println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!()
     fn parse_impl_functions(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Vec<FunOrProto>, ParserError> {
         // let (tok, pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
         let (tok, pos) = iter.peek().unwrap();
-        println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
         if *tok != Token::BraceLeft {
             return Err(ParserError::syntax_error(Some(pos.clone())));
@@ -362,7 +352,6 @@ println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!()
         loop {
             // let (tok, _pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
             let (tok, pos) = iter.peek().unwrap();
-            println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
             if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
             if *tok == Token::BraceRight {
                 iter.next();  // skip '}'
@@ -385,7 +374,6 @@ println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!()
 
         // let (tok, pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
         let (tok, pos) = iter.peek().unwrap();
-        println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
         match decl.get_direct_declarator() {
             DirectDeclarator::FunctionDef(_direct_declarator, params) => {
@@ -531,7 +519,6 @@ println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!()
 
                         // let (tok2, pos2) = iter.peek().ok_or(ParserError::illegal_end_of_input(Some(pos.clone())))?;
                         let (tok2, pos2) = iter.peek().unwrap();
-                        println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
                         if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
                         match tok2 {
                             Token::Symbol(name) => {
@@ -539,7 +526,6 @@ println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!()
 
                                 // let (tok3, _pos3) = iter.peek().ok_or(ParserError::illegal_end_of_input(Some(pos.clone())))?;
                                 let (tok3, pos3) = iter.peek().unwrap();
-                                println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
                                 if tok3.is_eof() { return Err(ParserError::illegal_end_of_input(pos3.clone())); }
                                 match tok3 {
                                     Token::BraceLeft => {
@@ -554,7 +540,7 @@ println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!()
                                             type_struct,
                                             pos.clone()
                                         ));
-println!("opt_type: {:?}", opt_type);
+
                                         self.parse_expected_token(iter, Token::BraceRight)?;
                                     },
                                     _ => {
@@ -581,7 +567,7 @@ println!("opt_type: {:?}", opt_type);
                                     type_struct,
                                     pos.clone()
                                 ));
-println!("struct Definition: {:?}", opt_type);
+
                                 self.parse_expected_token(iter, Token::BraceRight)?;
                             },
                             _ => {
@@ -594,7 +580,6 @@ println!("struct Definition: {:?}", opt_type);
 
                         // let (tok2, pos2) = iter.peek().ok_or(ParserError::illegal_end_of_input(Some(pos.clone())))?;
                         let (tok2, pos2) = iter.peek().unwrap();
-                        println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
                         if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
                         match tok2 {
                             Token::Symbol(name) => {
@@ -602,7 +587,6 @@ println!("struct Definition: {:?}", opt_type);
 
                                 // let (tok3, _pos3) = iter.peek().ok_or(ParserError::illegal_end_of_input(Some(pos.clone())))?;
                                 let (tok3, pos3) = iter.peek().unwrap();
-                                println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
                                 if tok3.is_eof() { return Err(ParserError::illegal_end_of_input(pos3.clone())); }
                                 match tok3 {
                                     Token::BraceLeft => {
@@ -660,7 +644,6 @@ println!("struct Definition: {:?}", opt_type);
 
                         // let (tok2, pos2) = iter.peek().ok_or(ParserError::illegal_end_of_input(Some(pos.clone())))?;
                         let (tok2, pos2) = iter.peek().unwrap();
-                        println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
                         if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
                         match tok2 {
                             Token::Symbol(name) => {
@@ -668,7 +651,6 @@ println!("struct Definition: {:?}", opt_type);
                 
                                 // let (tok3, _pos3) = iter.peek().ok_or(ParserError::illegal_end_of_input(Some(pos.clone())))?;
                                 let (tok3, pos3) = iter.peek().unwrap();
-                                println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
                                 if tok3.is_eof() { return Err(ParserError::illegal_end_of_input(pos3.clone())); }
                                 match tok3 {
                                     Token::BraceLeft => {
@@ -847,27 +829,24 @@ println!("struct Definition: {:?}", opt_type);
 
     fn parse_struct_declaration_list(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Vec<StructDeclaration>, ParserError> {
         let mut list: Vec<StructDeclaration> = Vec::new();
-println!(">>> parse_struct_declaration_list");
+
         loop {
             // let (tok, _pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
             let (tok, pos) = iter.peek().unwrap();
-            println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
             if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
             if *tok == Token::BraceRight {
-println!("BREAK with BraceRight");
                 break;
             }
 
             let declaration = self.parse_struct_declaration(iter, defs, labels)?;
             list.push(declaration);
         }
-println!("<<< parse_struct_declaration_list. list: {:?}", list);
+
         Ok(list)
     }
 
     fn parse_struct_declaration(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<StructDeclaration, ParserError> {
         let mut list: Vec<StructDeclarator> = Vec::new();
-println!(">>> parse_struct_declaration");
         let (sq, type_or_variadic) = self.parse_type_specifier_qualifier(iter, defs, labels)?;
 
         //
@@ -883,7 +862,6 @@ println!(">>> parse_struct_declaration");
 
         // let (tok, _pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
         let (tok, pos) = iter.peek().unwrap();
-        println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
         if *tok == Token::BraceRight {
             return Ok(StructDeclaration::new(sq, Some(typ.clone()), list));
@@ -895,7 +873,6 @@ println!(">>> parse_struct_declaration");
 
             // let (next_token, _pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
             let (next_token, pos) = iter.peek().unwrap();
-            println!("tok: {:?}, illegal end at {}:{}:{}:", next_token, file!(), line!(), column!());
             if next_token.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
             if *next_token != Token::Comma {
                 break;
@@ -905,21 +882,19 @@ println!(">>> parse_struct_declaration");
         }
 
         self.parse_expected_token(iter, Token::SemiColon)?;
-println!("<<< parse_struct_declaration. list: {:?}", list);
+
         Ok(StructDeclaration::new(sq, Some(typ.clone()), list))
     }
 
     fn parse_struct_declarator(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<StructDeclarator, ParserError> {
-println!(">>> parse_struct_declarator");
         // let (tok, pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
         let (tok, pos) = iter.peek().unwrap();
-        println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
         if *tok == Token::Colon {
             iter.next();  // skip ':'
 
             let const_expr = self.parse_constant_expression(iter, defs, labels)?.ok_or(ParserError::no_constant_expr_parsing_struct_after_colon(Some(pos.clone())))?;
-println!("<<<1 parse_struct_declarator");
+
             Ok(StructDeclarator::new(None, Some(const_expr)))
 
         }else{
@@ -927,17 +902,15 @@ println!("<<<1 parse_struct_declarator");
 
             // let (tok, pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
             let (tok, pos) = iter.peek().unwrap();
-            println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
             if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
             if *tok == Token::Colon {
                 iter.next();  // skip ':'
 
                 let const_expr = self.parse_constant_expression(iter, defs, labels)?.ok_or(ParserError::no_constant_expr_parsing_struct_after_colon(Some(pos.clone())))?;
-println!("<<<2 parse_struct_declarator");
+
                 Ok(StructDeclarator::new(Some(decl), Some(const_expr)))
 
             }else{
-println!("<<<3 parse_struct_declarator");
                 Ok(StructDeclarator::new(Some(decl), None))
             }
         }
@@ -950,7 +923,6 @@ println!("<<<3 parse_struct_declarator");
         loop {
             // let (tok, _pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
             let (tok, pos) = iter.peek().unwrap();
-            println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
             if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
             if *tok == Token::BraceRight {
                 // iter.next();  // skip '}'
@@ -959,7 +931,6 @@ println!("<<<3 parse_struct_declarator");
 
             // let (next_token, pos) = iter.next().ok_or(ParserError::illegal_end_of_input(None))?;
             let (next_token, pos) = iter.next().unwrap();
-            println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
             if next_token.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
             let name = if let Token::Symbol(id) = next_token {
                 id
@@ -970,7 +941,6 @@ println!("<<<3 parse_struct_declarator");
             let enumerator: Enumerator;
             // let (tok2, pos2) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
             let (tok2, pos2) = iter.peek().unwrap();
-            println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
             if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
             match tok2 {
                 Token::BraceRight => {
@@ -985,7 +955,6 @@ println!("<<<3 parse_struct_declarator");
 
                     // let (tok3, _pos3) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
                     let (tok3, pos3) = iter.peek().unwrap();
-                    println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
                     if tok3.is_eof() { return Err(ParserError::illegal_end_of_input(pos3.clone())); }
                     if *tok3 == Token::Comma {
                         iter.next();  // skip ','
@@ -1018,7 +987,6 @@ println!("<<<3 parse_struct_declarator");
     fn parse_pointer(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Option<Pointer>, ParserError> {
         // let (tok, pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
         let (tok, pos) = iter.peek().unwrap();
-        println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
 
         if *tok != Token::Mul {
@@ -1031,7 +999,6 @@ println!("<<<3 parse_struct_declarator");
         let mut is_volatile = false;
         // while let (tok2, _pos2) = iter.peek().ok_or(ParserError::illegal_end_of_input(Some(pos.clone())))? {
         while let (tok2, pos2) = iter.peek().unwrap() {
-            println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
             if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone()))}
 
             match tok2 {
@@ -1068,7 +1035,6 @@ println!("<<<3 parse_struct_declarator");
     fn is_next_token(&self, iter: &mut Peekable<Iter<(Token, Position)>>, tok: &Token) -> Result<bool, ParserError> {
         // let (tok2, _pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
         let (tok2, pos2) = iter.peek().unwrap();
-        println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
         if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
 
         Ok(tok == tok2)
@@ -1077,7 +1043,6 @@ println!("<<<3 parse_struct_declarator");
     fn parse_type_qualifier(&self, iter: &mut Peekable<Iter<(Token, Position)>>, _defs: &mut Defines) -> Result<Option<TypeQualifier>, ParserError> {
         // let (tok, _pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
         let (tok, pos) = iter.peek().unwrap();
-        println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
 
         match &*tok {
@@ -1094,7 +1059,6 @@ println!("<<<3 parse_struct_declarator");
     fn parse_direct_declarator(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<DirectDeclarator, ParserError> {
         // let (tok, pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
         let (tok, pos) = iter.peek().unwrap();
-        println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
 
         let decl;
@@ -1121,7 +1085,6 @@ println!("<<<3 parse_struct_declarator");
     fn parse_direct_declarator_sub(&self, decl: DirectDeclarator, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<DirectDeclarator, ParserError> {
         // let (tok, pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
         let (tok, pos) = iter.peek().unwrap();
-        println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
         let cust_self;
         match tok {
@@ -1130,7 +1093,6 @@ println!("<<<3 parse_struct_declarator");
 
                 // let (tok2, pos2) = iter.peek().ok_or(ParserError::illegal_end_of_input(Some(pos.clone())))?;
                 let (tok2, pos2) = iter.peek().unwrap();
-                println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
                 if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
                 if *tok2 != Token::_self {
                     return Err(ParserError::syntax_error(Some(pos2.clone())));
@@ -1147,7 +1109,6 @@ println!("<<<3 parse_struct_declarator");
         loop {
             // let (tok, pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
             let (tok, pos) = iter.peek().unwrap();
-            println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
             if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
 
             match tok {
@@ -1157,7 +1118,6 @@ println!("<<<3 parse_struct_declarator");
 
                     // let (next_tok, _pos2) = iter.peek().ok_or(ParserError::illegal_end_of_input(Some(pos.clone())))?;
                     let (next_tok, pos2) = iter.peek().unwrap();
-                    println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
                     if next_tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
                     defs.add_new_function_local();
                     let param_type_list = if *next_tok == Token::ParenRight {
@@ -1183,7 +1143,6 @@ println!("<<<3 parse_struct_declarator");
                     loop {
                         // let (tok2, _pos2) = iter.peek().ok_or(ParserError::illegal_end_of_input(Some(pos.clone())))?;
                         let (tok2, pos2) = iter.peek().unwrap();
-                        println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
                         if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
 
                         if *tok2 != Token::BracketLeft {
@@ -1739,7 +1698,6 @@ println!("<<<3 parse_struct_declarator");
         }else{
             // let (tok, pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
             let (tok, pos) = iter.peek().unwrap();
-            println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
             if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
 
             if *tok == Token::ParenLeft {
@@ -1764,7 +1722,6 @@ println!("<<<3 parse_struct_declarator");
         }else{
             // let (tok, pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
             let (tok, pos) = iter.peek().unwrap();
-            println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
             if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
 
             match &*tok {
@@ -1895,7 +1852,6 @@ println!("<<<3 parse_struct_declarator");
 
                             // let (tok2, pos2) = iter.next().ok_or(ParserError::illegal_end_of_input(Some(pos.clone())))?;
                             let (tok2, pos2) = iter.next().unwrap();
-                            println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
                             if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
 
                             match tok2 {
@@ -1910,7 +1866,6 @@ println!("<<<3 parse_struct_declarator");
 
                             // let (tok2, pos2) = iter.next().ok_or(ParserError::illegal_end_of_input(Some(pos.clone())))?;
                             let (tok2, pos2) = iter.next().unwrap();
-                            println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
                             if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
 
                             match tok2 {
@@ -2266,7 +2221,6 @@ println!("<<<3 parse_struct_declarator");
     fn parse_parameter_type_list(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Params, ParserError> {
         // let (tok, pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
         let (tok, pos) = iter.peek().unwrap();
-        println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
         let cust_self;
         if *tok == Token::BitAnd {  // '&'
@@ -2274,7 +2228,6 @@ println!("<<<3 parse_struct_declarator");
 
             // let (tok2, pos2) = iter.next().ok_or(ParserError::illegal_end_of_input(Some(pos.clone())))?;
             let (tok2, pos2) = iter.next().unwrap();
-            println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
             if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
             if *tok2 != Token::_self {
                 return Err(ParserError::not_self_after_ref(Some(pos2.clone())));
@@ -2284,7 +2237,6 @@ println!("<<<3 parse_struct_declarator");
 
             // let (tok3, _pos3) = iter.peek().ok_or(ParserError::illegal_end_of_input(Some(pos.clone())))?;
             let (tok3, pos3) = iter.peek().unwrap();
-            println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
             if tok3.is_eof() { return Err(ParserError::illegal_end_of_input(pos3.clone())); }
             if *tok3 == Token::ParenRight {
                 let params = Params::new_with_self(cust_self, Vec::new(), false);
@@ -2303,7 +2255,6 @@ println!("<<<3 parse_struct_declarator");
 
                     // let (tok2, _pos2) = iter.next().ok_or(ParserError::illegal_end_of_input(Some(pos.clone())))?;
                     let (tok2, pos2) = iter.next().unwrap();
-                    println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
                     if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
 
                     if *tok2 == Token::TripleDot {
@@ -2344,7 +2295,6 @@ println!("<<<3 parse_struct_declarator");
         
                 // let (tok, pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
                 let (tok, pos) = iter.peek().unwrap();
-                println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
                 if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
 
                 match tok {
@@ -2415,7 +2365,6 @@ println!("<<<3 parse_struct_declarator");
     fn parse_direct_abstract_declarator(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<DirectAbstractDeclarator>, ParserError> {
         // let (tok, _pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
         let (tok, pos) = iter.peek().unwrap();
-        println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
 
         if *tok == Token::ParenLeft {
@@ -2432,7 +2381,6 @@ println!("<<<3 parse_struct_declarator");
     fn parse_direct_abstract_declarator_sub(&self, abs_decl: Option<AbstractDeclarator>, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<DirectAbstractDeclarator, ParserError> {
         // let (tok, _pos) = iter.next().ok_or(ParserError::illegal_end_of_input(None))?;
         let (tok, pos) = iter.next().unwrap();
-        println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
 
         let mut decl = DirectAbstractDeclarator::new_simple(abs_decl);
@@ -2482,7 +2430,6 @@ println!("<<<3 parse_struct_declarator");
 
             // let (tok, pos) = iter.next().ok_or(ParserError::illegal_end_of_input(None))?;
             let (tok, pos) = iter.next().unwrap();
-            println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
             if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
 
             match tok {
@@ -2503,7 +2450,6 @@ println!("<<<3 parse_struct_declarator");
 
                     // let (tok3, _pos3) = iter.next().ok_or(ParserError::illegal_end_of_input(None))?;
                     let (tok3, pos3) = iter.next().unwrap();
-                    println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
                     if tok3.is_eof() { return Err(ParserError::illegal_end_of_input(pos3.clone())); }
 
                     match tok3 {
@@ -2542,7 +2488,6 @@ println!("<<<3 parse_struct_declarator");
     fn parse_initializer(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<ExprAST, ParserError> {
         // let (tok, pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
         let (tok, pos) = iter.peek().unwrap();
-        println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
 
         let init_expr;
@@ -2564,7 +2509,6 @@ println!("<<<3 parse_struct_declarator");
 
             // let (tok2, pos2) = iter.next().ok_or(ParserError::illegal_end_of_input(None))?;
             let (tok2, pos2) = iter.next().unwrap();
-            println!("tok: {:?}, illegal end at {}:{}:{}:", tok2, file!(), line!(), column!());
             if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
 
             match tok2 {
@@ -2574,7 +2518,6 @@ println!("<<<3 parse_struct_declarator");
                 Token::Comma => {
                     // let (tok3, _pos3) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
                     let (tok3, pos3) = iter.peek().unwrap();
-                    println!("tok: {:?}, illegal end at {}:{}:{}:", tok3, file!(), line!(), column!());
                     if tok3.is_eof() { return Err(ParserError::illegal_end_of_input(pos3.clone())); }
 
                     if *tok3 == Token::BraceRight {
@@ -2599,7 +2542,6 @@ println!("<<<3 parse_struct_declarator");
         loop {
             // let (tok, _pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
             let (tok, pos) = iter.peek().unwrap();
-            println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
             if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
 
             if *tok == Token::BraceRight {
@@ -2744,7 +2686,6 @@ println!("<<<3 parse_struct_declarator");
                     iter.next();  // skip 'goto'
                     // let (id, pos2) = iter.next().ok_or(ParserError::illegal_end_of_input(Some(pos.clone())))?;
                     let (id, pos2) = iter.next().unwrap();
-                    println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
                     if id.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
 
                     if let Token::Symbol(name) = id {
@@ -2769,7 +2710,6 @@ println!("<<<3 parse_struct_declarator");
                     iter.next();  // skip 'return'
                     // let (t, _pos2) = iter.peek().ok_or(ParserError::illegal_end_of_input(Some(pos.clone())))?;
                     let (t, pos2) = iter.peek().unwrap();
-                    println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
                     if t.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
 
                     if *t == Token::SemiColon {
@@ -2780,7 +2720,6 @@ println!("<<<3 parse_struct_declarator");
                             self.parse_expected_token(iter, Token::SemiColon)?;
                             Ok(Some(AST::Return(Some(Box::new(ast)), pos.clone())))
                         }else{
-                            println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
                             Err(ParserError::illegal_end_of_input(pos.clone()))
                         }
                     }
@@ -2827,7 +2766,6 @@ println!("<<<3 parse_struct_declarator");
 
         // let (tok2, _pos2) = iter.peek().ok_or(ParserError::illegal_end_of_input(Some(pos.clone())))?;
         let (tok2, pos2) = iter.peek().unwrap();
-        println!("tok: {:?}, illegal end at {}:{}:{}:", tok2, file!(), line!(), column!());
         if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
 
         let init_expr = if *tok2 == Token::SemiColon {
@@ -2840,7 +2778,6 @@ println!("<<<3 parse_struct_declarator");
 
         // let (tok2, _pos2) = iter.peek().ok_or(ParserError::illegal_end_of_input(Some(pos.clone())))?;
         let (tok2, pos2) = iter.peek().unwrap();
-        println!("tok: {:?}, illegal end at {}:{}:{}:", tok2, file!(), line!(), column!());
         if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
 
         let cond = if *tok2 == Token::SemiColon {
@@ -2853,7 +2790,6 @@ println!("<<<3 parse_struct_declarator");
 
         // let (tok2, _pos2) = iter.peek().ok_or(ParserError::illegal_end_of_input(Some(pos.clone())))?;
         let (tok2, pos2) = iter.peek().unwrap();
-        println!("tok: {:?}, illegal end at {}:{}:{}:", tok2, file!(), line!(), column!());
         if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
 
         let step = if *tok2 == Token::ParenRight {
@@ -2896,7 +2832,6 @@ println!("<<<3 parse_struct_declarator");
     pub fn parse_simple_declaration_or_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ExprAST>, ParserError> {
         // let (tok, pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
         let (tok, pos) = iter.peek().unwrap();
-        println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
 
         if self.is_type(tok, defs) {
@@ -2930,7 +2865,6 @@ println!("<<<3 parse_struct_declarator");
 
         // let (tok, pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
         let (tok, pos) = iter.peek().unwrap();
-        println!("tok: {:?}, illegal end at {}:{}:{}:", tok, file!(), line!(), column!());
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
 
         match tok {
@@ -3083,7 +3017,6 @@ println!("<<<3 parse_struct_declarator");
         //     Err(ParserError::illegal_end_of_input(None))
         // }
         let (tok, pos) = iter.next().unwrap();
-println!("expected token: {:?}, real: {:?}", expected, tok);
         if *tok == expected {
             Ok(pos.clone())
         }else{
