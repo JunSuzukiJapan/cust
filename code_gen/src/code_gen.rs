@@ -621,11 +621,11 @@ println!("POST inc member access");
                 let any_val = basic_val.as_any_value_enum();
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
-            ExprAST::ArrayAccess(_boxed_ast, _index, _pos) => {
+            ExprAST::ArrayAccess(_boxed_ast, _index, pos) => {
                 let (typ, ptr) = self.get_l_value(expr_ast, env, break_catcher, continue_catcher)?;
                 let basic_val = self.builder.build_load(ptr, "get_value_from_array")?;
                 let any_val = basic_val.as_any_value_enum();
-                Ok(Some(CompiledValue::new(typ.get_element_type()?.clone(), any_val)))
+                Ok(Some(CompiledValue::new(typ.get_element_type(pos)?.clone(), any_val)))
             },
             ExprAST::_self(_pos) => {
                 if let Some((typ, ptr)) = env.get_self_ptr() {

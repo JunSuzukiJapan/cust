@@ -11,7 +11,7 @@ pub enum ParserError {
     TokenizerError(TokenizerError),
     NotNumber(Position, ExprAST),
     NotPointer(Position, Type),
-    NotArray(Option<Position>, Type),
+    NotArray(Position, Type),
     NotSymbol(Position),
     NotFunction(Option<Position>, Type),
     NotNumberType(Option<Position>, Type),
@@ -73,8 +73,8 @@ impl ParserError {
         ParserError::NotPointer(pos, typ.clone())
     }
 
-    pub fn not_array(opt_pos: Option<Position>, typ: &Type) -> ParserError {
-        ParserError::NotArray(opt_pos, typ.clone())
+    pub fn not_array(pos: Position, typ: &Type) -> ParserError {
+        ParserError::NotArray(pos, typ.clone())
     }
 
     pub fn not_symbol(pos: Position) -> Self {
@@ -274,7 +274,7 @@ impl fmt::Display for ParserError {
             Self::TokenizerError(tok_err) => write!(f, "{}", tok_err.to_string()),
             Self::NotNumber(_opt_pos, _expr) => write!(f, "not a number"),
             Self::NotPointer(_opt_pos, _typ) => write!(f, "not pointer"),
-            Self::NotArray(_opt_pos, _typ) => write!(f, "not array"),
+            Self::NotArray(_pos, _typ) => write!(f, "not array"),
             Self::NotSymbol(_pos) => write!(f, "not symbol"),
             Self::NotFunction(_opt_pos, _typ) => write!(f, "not function"),
             Self::NotNumberType(_opt_pos, _typ) => write!(f, "not number type"),

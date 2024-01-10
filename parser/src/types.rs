@@ -556,11 +556,11 @@ impl Type {
         }
     }
 
-    pub fn get_element_type(&self) -> Result<&Type, ParserError> {
+    pub fn get_element_type(&self, pos: &Position) -> Result<&Type, ParserError> {
         if let Type::Array { typ, .. } = self {
             Ok(&**typ)
         }else{
-            Err(ParserError::not_array(None, self))
+            Err(ParserError::not_array(pos.clone(), self))
         }
     }
 
