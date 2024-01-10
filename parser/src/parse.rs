@@ -4079,7 +4079,7 @@ mod tests {
 
         Ok(())
     }
-/*
+
     #[test]
     fn parse_define_array() -> Result<(), ParserError> {
         let src = "
@@ -4116,5 +4116,4 @@ mod tests {
             _ => panic!("ast: {:?}", ast),
         }
     }
-*/
 }
