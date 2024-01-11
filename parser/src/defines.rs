@@ -1,5 +1,5 @@
 use super::{ParserError, ExprAST, Type, ConstExpr, DeclarationSpecifier, Declarator, Params};
-use super::{StructDefinition, EnumDefinition};
+use super::{StructDefinition, EnumDefinition, Position};
 
 use std::collections::HashMap;
 
@@ -161,9 +161,9 @@ impl Defines {
         self.local_maps.last_mut().unwrap().pop();
     }
 
-    pub fn set_enum(&mut self, name: &str, enum_def: EnumDefinition) -> Result<(), ParserError> {
+    pub fn set_enum(&mut self, name: &str, enum_def: EnumDefinition, pos: &Position) -> Result<(), ParserError> {
         if self.exists_type(name) {
-            return Err(ParserError::already_var_defined(None, name));
+            return Err(ParserError::already_var_defined(pos.clone(), name));
         }
 
         if self.local_maps.last().unwrap().len() > 0 {
@@ -176,9 +176,9 @@ impl Defines {
         Ok(())
     }
 
-    pub fn set_struct(&mut self, name: &str, struct_def: StructDefinition) -> Result<(), ParserError> {
+    pub fn set_struct(&mut self, name: &str, struct_def: StructDefinition, pos: &Position) -> Result<(), ParserError> {
         if self.exists_type(name) {
-            return Err(ParserError::already_var_defined(None, name));
+            return Err(ParserError::already_var_defined(pos.clone(), name));
         }
 
         if self.local_maps.last().unwrap().len() > 0 {
@@ -191,9 +191,9 @@ impl Defines {
         Ok(())
     }
 
-    pub fn set_union(&mut self, name: &str, struct_def: StructDefinition) -> Result<(), ParserError> {
+    pub fn set_union(&mut self, name: &str, struct_def: StructDefinition, pos: &Position) -> Result<(), ParserError> {
         if self.exists_type(name) {
-            return Err(ParserError::already_var_defined(None, name));
+            return Err(ParserError::already_var_defined(pos.clone(), name));
         }
 
         if self.local_maps.last().unwrap().len() > 0 {
@@ -206,9 +206,9 @@ impl Defines {
         Ok(())
     }
 
-    pub fn set_var(&mut self, name: &str, typ: &Type, init_expr: Option<ExprAST>) -> Result<(), ParserError> {
+    pub fn set_var(&mut self, name: &str, typ: &Type, init_expr: Option<ExprAST>, pos: &Position) -> Result<(), ParserError> {
         if self.cannot_define_var(name) {
-            return Err(ParserError::already_var_defined(None, name));
+            return Err(ParserError::already_var_defined(pos.clone(), name));
         }
 
         if self.local_maps.last().unwrap().len() > 0 {
@@ -220,9 +220,9 @@ impl Defines {
         Ok(())
     }
 
-    pub fn set_const(&mut self, name: &str, typ: &Type, init_expr: ConstExpr) -> Result<(), ParserError> {
+    pub fn set_const(&mut self, name: &str, typ: &Type, init_expr: ConstExpr, pos: &Position) -> Result<(), ParserError> {
         if self.cannot_define_var(name) {
-            return Err(ParserError::already_var_defined(None, name));
+            return Err(ParserError::already_var_defined(pos.clone(), name));
         }
 
         if self.local_maps.last().unwrap().len() > 0 {
@@ -246,21 +246,21 @@ impl Defines {
         return Ok(());
     }
 
-    pub fn get_self_type(&self) -> Result<&Type, ParserError> {
-        let typ = self.get_type("Self").ok_or(ParserError::access_self_type_without_impl(None))?;
+    pub fn get_self_type(&self, pos: &Position) -> Result<&Type, ParserError> {
+        let typ = self.get_type("Self").ok_or(ParserError::access_self_type_without_impl(pos.clone()))?;
         Ok(typ)
     }
 
     // #[allow(mutable_borrow_reservation_conflict)]
-    pub fn set_typedef(&mut self, typedef_name: &str, typ: &Type) -> Result<(), ParserError> {
+    pub fn set_typedef(&mut self, typedef_name: &str, typ: &Type, pos: &Position) -> Result<(), ParserError> {
         if self.exists_type(typedef_name) {
-            return Err(ParserError::already_type_defined_in_env(None, typedef_name));
+            return Err(ParserError::already_type_defined_in_env(pos.clone(), typedef_name));
         }
 
         if let Type::Struct { name, fields } = typ {
             if let Some(id) = name {
                 if ! fields.has_fields() {
-                    let t = &self.get_struct_type(id).ok_or(ParserError::no_such_a_struct(None, id))?;
+                    let t = &self.get_struct_type(id).ok_or(ParserError::no_such_a_struct(pos.clone(), id))?;
                     let def_type = DefineType::new_typedef(typedef_name, t);
                     if self.local_maps.last().unwrap().len() > 0 {
                         self.local_maps.last_mut().unwrap().last_mut().unwrap().type_map.insert(typedef_name.to_string(), def_type);
@@ -282,9 +282,9 @@ impl Defines {
         Ok(())
     }
 
-    pub fn set_function(&mut self, name: &str, specifiers: DeclarationSpecifier, declarator: Declarator, params: Params) -> Result<(), ParserError> {
+    pub fn set_function(&mut self, name: &str, specifiers: DeclarationSpecifier, declarator: Declarator, params: Params, pos: &Position) -> Result<(), ParserError> {
         if self.exists_type(name) {
-            return Err(ParserError::already_type_defined_in_env(None, name));
+            return Err(ParserError::already_type_defined_in_env(pos.clone(), name));
         }
 
         if self.local_maps.last().unwrap().len() > 0 {
@@ -296,19 +296,19 @@ impl Defines {
         Ok(())
     }
 
-    pub fn get_const(&self, name: &str) -> Result<ConstExpr, ParserError> {
+    pub fn get_const(&self, name: &str, pos: &Position) -> Result<ConstExpr, ParserError> {
         let item;
         if self.local_maps.last().unwrap().len() > 0 {
-            item = self.local_maps.last().unwrap().last().unwrap().def_map.get(name).ok_or(ParserError::no_such_a_constant(None, name))?;
+            item = self.local_maps.last().unwrap().last().unwrap().def_map.get(name).ok_or(ParserError::no_such_a_constant(pos.clone(), name))?;
         }else{
-            item = self.global_maps.def_map.get(name).ok_or(ParserError::no_such_a_constant(None, name))?;
+            item = self.global_maps.def_map.get(name).ok_or(ParserError::no_such_a_constant(pos.clone(), name))?;
         }
 
         match item {
             DefineVar::Const{init_expr, ..} => {
                 Ok(init_expr.clone())
             },
-            _ => Err(ParserError::no_such_a_constant(None, name)),
+            _ => Err(ParserError::no_such_a_constant(pos.clone(), name)),
         }
     }
 

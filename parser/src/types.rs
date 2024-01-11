@@ -288,9 +288,9 @@ pub struct StructDefinition {
 }
 
 impl StructDefinition {
-    pub fn try_new(struct_name: Option<String>, fields: Option<Vec<StructDeclaration>>) -> Result<StructDefinition, ParserError> {
+    pub fn try_new(struct_name: Option<String>, fields: Option<Vec<StructDeclaration>>, pos: &Position) -> Result<StructDefinition, ParserError> {
         if let Some(vec) = fields {
-            let fields_and_index_map = Self::make_fields_from_vec(vec)?;
+            let fields_and_index_map = Self::make_fields_from_vec(vec, pos)?;
             Ok(StructDefinition {
                 name: struct_name,
                 fields_and_index_map: Some(fields_and_index_map),
@@ -303,7 +303,7 @@ impl StructDefinition {
         }
     }
 
-    pub fn make_fields_from_vec(fields: Vec<StructDeclaration>) -> Result<(Vec<StructField>, HashMap<String, usize>), ParserError> {
+    pub fn make_fields_from_vec(fields: Vec<StructDeclaration>, pos: &Position) -> Result<(Vec<StructField>, HashMap<String, usize>), ParserError> {
         let mut struct_fields = Vec::new();
         let mut index_map: HashMap<String, usize> = HashMap::new();
         let mut index = 0;
@@ -327,7 +327,7 @@ impl StructDefinition {
                     if let Some(t) = typ {
                         field = StructField::new_normal_field(field_name.clone(), t.clone(), sq.clone());
                     }else{
-                        return Err(ParserError::no_type_for_struct_field(None));
+                        return Err(ParserError::no_type_for_struct_field(pos.clone()));
                     }
                 }
                 struct_fields.push(field);

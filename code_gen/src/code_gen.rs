@@ -8,7 +8,7 @@ use super::env::{BreakCatcher, ContinueCatcher, TypeOrUnion};
 use super::caster::Caster;
 use super::type_util::TypeUtil;
 #[cfg(test)]
-use crate::parser::{SpecifierQualifier, DirectDeclarator, Declarator, Defines, Param};
+use crate::parser::{SpecifierQualifier, DirectDeclarator, Declarator, Defines, Param, Position};
 use crate::parser::{Switch, Case};
 
 use inkwell::OptimizationLevel;
@@ -1024,7 +1024,8 @@ println!("code_gen.gen_cast. from: '{}', to '{}'", from_type, to_type);
             let decl = Declarator::new(Some(pointer), dd);
 
             let mut defs = Defines::new();
-            let param = Param::new(ds, decl, &mut defs)?;
+            let dummy_pos = Position::new(1, 1);
+            let param = Param::new(ds, decl, &mut defs, &dummy_pos)?;
             let param_list = vec![param];
             let params = Params::new(param_list, true);
             let fun_proto = self.gen_code_function_prototype(name, &ret_type, &params, env)?;

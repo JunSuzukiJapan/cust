@@ -27,13 +27,13 @@ impl Block {
         }
     }
 
-    fn analyze<'a>(&'a self) -> BlockAnalyze<'a> {
+    fn analyze<'a>(&'a self, pos: &Position) -> BlockAnalyze<'a> {
         let mut def_vars = Vec::new();
         let mut inner_blocks = Vec::new();
 
         for (_i, ast) in self.body.iter().enumerate() {
             if ast.is_def_var() {
-                let (ds, decls) = ast.get_def_var().unwrap();
+                let (ds, decls) = ast.get_def_var(pos).unwrap();
                 let typ = ds.get_type();
                 for decl in decls {
                     let name = decl.get_declarator().get_name().to_string();
@@ -41,7 +41,7 @@ impl Block {
                 }
             }
             if ast.is_block() {
-                inner_blocks.push(ast.get_block().unwrap());
+                inner_blocks.push(ast.get_block(pos).unwrap());
             }
         }
 
@@ -76,7 +76,7 @@ pub enum BinOp {
 }
 
 impl BinOp {
-    pub fn from_token(token_type: &Token) -> Result<BinOp, ParserError> {
+    pub fn from_token(token_type: &Token, pos: &Position) -> Result<BinOp, ParserError> {
         match token_type {
             Token::Add => Ok(BinOp::Add),
             Token::Sub => Ok(BinOp::Sub),
@@ -96,7 +96,7 @@ impl BinOp {
             Token::BitAnd => Ok(BinOp::BitAnd),
             Token::BitOr => Ok(BinOp::BitOr),
             Token::BitXor => Ok(BinOp::BitXor),
-            _ => Err(ParserError::no_such_a_operator(None, token_type.clone())),
+            _ => Err(ParserError::no_such_a_operator(pos.clone(), token_type.clone())),
         }
     }
 }
@@ -737,128 +737,128 @@ impl ExprAST {
         }
     }
 
-    pub fn to_const(&self, defs: &Defines) -> Result<ConstExpr, ParserError> {
+    pub fn to_const(&self, defs: &Defines, pos: &Position) -> Result<ConstExpr, ParserError> {
         match self {
-            ExprAST::Char(num, _) => Ok(ConstExpr::Int(*num as i64)),
-            ExprAST::Int(num, _) => Ok(ConstExpr::Int(*num as i64)),
-            ExprAST::Short(num, _) => Ok(ConstExpr::Int(*num as i64)),
-            ExprAST::Long(num, _) => Ok(ConstExpr::Int(*num as i64)),
-            ExprAST::LongLong(num, _) => Ok(ConstExpr::LongLong(*num as i128)),
-            ExprAST::UChar(num, _) => Ok(ConstExpr::Unsigned(*num as u64)),
-            ExprAST::UInt(num, _) => Ok(ConstExpr::Unsigned(*num as u64)),
-            ExprAST::UShort(num, _) => Ok(ConstExpr::Unsigned(*num as u64)),
-            ExprAST::ULong(num, _) => Ok(ConstExpr::Unsigned(*num as u64)),
-            ExprAST::ULongLong(num, _) => Ok(ConstExpr::ULongLong(*num as u128)),
-            ExprAST::Float(num, _) => Ok(ConstExpr::Double(*num as f64)),
-            ExprAST::Double(num, _) => Ok(ConstExpr::Double(*num as f64)),
+            ExprAST::Char(num, _) => Ok(ConstExpr::Int(*num as i64, pos.clone())),
+            ExprAST::Int(num, _) => Ok(ConstExpr::Int(*num as i64, pos.clone())),
+            ExprAST::Short(num, _) => Ok(ConstExpr::Int(*num as i64, pos.clone())),
+            ExprAST::Long(num, _) => Ok(ConstExpr::Int(*num as i64, pos.clone())),
+            ExprAST::LongLong(num, _) => Ok(ConstExpr::LongLong(*num as i128, pos.clone())),
+            ExprAST::UChar(num, _) => Ok(ConstExpr::Unsigned(*num as u64, pos.clone())),
+            ExprAST::UInt(num, _) => Ok(ConstExpr::Unsigned(*num as u64, pos.clone())),
+            ExprAST::UShort(num, _) => Ok(ConstExpr::Unsigned(*num as u64, pos.clone())),
+            ExprAST::ULong(num, _) => Ok(ConstExpr::Unsigned(*num as u64, pos.clone())),
+            ExprAST::ULongLong(num, _) => Ok(ConstExpr::ULongLong(*num as u128, pos.clone())),
+            ExprAST::Float(num, _) => Ok(ConstExpr::Double(*num as f64, pos.clone())),
+            ExprAST::Double(num, _) => Ok(ConstExpr::Double(*num as f64, pos.clone())),
             ExprAST::BinExpr(op, left, right, _) => {
                 match op {
                     BinOp::Add => {
-                        let e1 = left.to_const(defs)?;
-                        let e2 = right.to_const(defs)?;
+                        let e1 = left.to_const(defs, pos)?;
+                        let e2 = right.to_const(defs, pos)?;
                         Ok(e1 + e2)
                     },
                     BinOp::Sub => {
-                        let e1 = left.to_const(defs)?;
-                        let e2 = right.to_const(defs)?;
+                        let e1 = left.to_const(defs, pos)?;
+                        let e2 = right.to_const(defs, pos)?;
                         Ok(e1 - e2)
                     },
                     BinOp::Mul => {
-                        let e1 = left.to_const(defs)?;
-                        let e2 = right.to_const(defs)?;
+                        let e1 = left.to_const(defs, pos)?;
+                        let e2 = right.to_const(defs, pos)?;
                         Ok(e1 * e2)
                     },
                     BinOp::Div => {
-                        let e1 = left.to_const(defs)?;
-                        let e2 = right.to_const(defs)?;
+                        let e1 = left.to_const(defs, pos)?;
+                        let e2 = right.to_const(defs, pos)?;
                         Ok(e1 / e2)
                     },
                     BinOp::Mod => {
-                        let e1 = left.to_const(defs)?;
-                        let e2 = right.to_const(defs)?;
+                        let e1 = left.to_const(defs, pos)?;
+                        let e2 = right.to_const(defs, pos)?;
                         Ok(e1 % e2)
                     },
                     BinOp::BitAnd => {
-                        let e1 = left.to_const(defs)?;
-                        let e2 = right.to_const(defs)?;
+                        let e1 = left.to_const(defs, pos)?;
+                        let e2 = right.to_const(defs, pos)?;
                         Ok((e1 & e2)?)
                     },
                     BinOp::BitOr => {
-                        let e1 = left.to_const(defs)?;
-                        let e2 = right.to_const(defs)?;
+                        let e1 = left.to_const(defs, pos)?;
+                        let e2 = right.to_const(defs, pos)?;
                         Ok((e1 | e2)?)
                     },
                     BinOp::BitXor => {
-                        let e1 = left.to_const(defs)?;
-                        let e2 = right.to_const(defs)?;
+                        let e1 = left.to_const(defs, pos)?;
+                        let e2 = right.to_const(defs, pos)?;
                         Ok((e1 ^ e2)?)
                     },
                     BinOp::Comma => {
-                        let e2 = right.to_const(defs)?;
+                        let e2 = right.to_const(defs, pos)?;
                         Ok(e2)
                     },
                     BinOp::ShiftLeft => {
-                        let e1 = left.to_const(defs)?;
-                        let e2 = right.to_const(defs)?;
+                        let e1 = left.to_const(defs, pos)?;
+                        let e2 = right.to_const(defs, pos)?;
                         Ok((e1 << e2)?)
                     },
                     BinOp::ShiftRight => {
-                        let e1 = left.to_const(defs)?;
-                        let e2 = right.to_const(defs)?;
+                        let e1 = left.to_const(defs, pos)?;
+                        let e2 = right.to_const(defs, pos)?;
                         Ok((e1 >> e2)?)
                     },
                     BinOp::Equal => {
-                        let e1 = left.to_const(defs)?;
-                        let e2 = right.to_const(defs)?;
+                        let e1 = left.to_const(defs, pos)?;
+                        let e2 = right.to_const(defs, pos)?;
                         if e1 == e2 {
-                            Ok(ConstExpr::Int(1))
+                            Ok(ConstExpr::Int(1, pos.clone()))
                         }else{
-                            Ok(ConstExpr::Int(0))
+                            Ok(ConstExpr::Int(0, pos.clone()))
                         }
                     },
                     BinOp::NotEqual => {
-                        let e1 = left.to_const(defs)?;
-                        let e2 = right.to_const(defs)?;
+                        let e1 = left.to_const(defs, pos)?;
+                        let e2 = right.to_const(defs, pos)?;
                         if e1 != e2 {
-                            Ok(ConstExpr::Int(1))
+                            Ok(ConstExpr::Int(1, pos.clone()))
                         }else{
-                            Ok(ConstExpr::Int(0))
+                            Ok(ConstExpr::Int(0, pos.clone()))
                         }
                     },
                     BinOp::Less => {
-                        let e1 = left.to_const(defs)?;
-                        let e2 = right.to_const(defs)?;
+                        let e1 = left.to_const(defs, pos)?;
+                        let e2 = right.to_const(defs, pos)?;
                         if e1 < e2 {
-                            Ok(ConstExpr::Int(1))
+                            Ok(ConstExpr::Int(1, pos.clone()))
                         }else{
-                            Ok(ConstExpr::Int(0))
+                            Ok(ConstExpr::Int(0, pos.clone()))
                         }
                     },
                     BinOp::LessEqual => {
-                        let e1 = left.to_const(defs)?;
-                        let e2 = right.to_const(defs)?;
+                        let e1 = left.to_const(defs, pos)?;
+                        let e2 = right.to_const(defs, pos)?;
                         if e1 <= e2 {
-                            Ok(ConstExpr::Int(1))
+                            Ok(ConstExpr::Int(1, pos.clone()))
                         }else{
-                            Ok(ConstExpr::Int(0))
+                            Ok(ConstExpr::Int(0, pos.clone()))
                         }
                     },
                     BinOp::Greater => {
-                        let e1 = left.to_const(defs)?;
-                        let e2 = right.to_const(defs)?;
+                        let e1 = left.to_const(defs, pos)?;
+                        let e2 = right.to_const(defs, pos)?;
                         if e1 > e2 {
-                            Ok(ConstExpr::Int(1))
+                            Ok(ConstExpr::Int(1, pos.clone()))
                         }else{
-                            Ok(ConstExpr::Int(0))
+                            Ok(ConstExpr::Int(0, pos.clone()))
                         }
                     },
                     BinOp::GreaterEqual => {
-                        let e1 = left.to_const(defs)?;
-                        let e2 = right.to_const(defs)?;
+                        let e1 = left.to_const(defs, pos)?;
+                        let e2 = right.to_const(defs, pos)?;
                         if e1 >= e2 {
-                            Ok(ConstExpr::Int(1))
+                            Ok(ConstExpr::Int(1, pos.clone()))
                         }else{
-                            Ok(ConstExpr::Int(0))
+                            Ok(ConstExpr::Int(0, pos.clone()))
                         }
                     },
                     BinOp::And => {
@@ -877,15 +877,15 @@ impl ExprAST {
                     },
                 }
             },
-            ExprAST::UnaryMinus(expr, _) => expr.to_const(defs),
+            ExprAST::UnaryMinus(expr, _) => expr.to_const(defs, pos),
             ExprAST::Symbol(name, _) => {
-                Ok(defs.get_const(name)?)
+                Ok(defs.get_const(name, pos)?)
             },
-            ExprAST::Not(expr, _) => Ok((!expr.to_const(defs)?)?),
-            ExprAST::ExpressionPair(_, right, _) => right.to_const(defs),
+            ExprAST::Not(expr, _) => Ok((!expr.to_const(defs, pos)?)?),
+            ExprAST::ExpressionPair(_, right, _) => right.to_const(defs, pos),
 
 
-            _ => Err(ParserError::is_not_constant(None, self)),
+            _ => Err(ParserError::is_not_constant(pos.clone(), self)),
         }
     }
 
@@ -1102,10 +1102,10 @@ impl AST {
         }
     }
 
-    pub fn get_block(&self) -> Result<&Block, ParserError> {
+    pub fn get_block(&self, pos: &Position) -> Result<&Block, ParserError> {
         match self {
             AST::Block(blk) => Ok(blk),
-            _ => Err(ParserError::cannot_get_block(None)),
+            _ => Err(ParserError::cannot_get_block(pos.clone())),
         }
     }
 
@@ -1116,12 +1116,12 @@ impl AST {
         }
     }
 
-    pub fn get_def_var(&self) -> Result<(&DeclarationSpecifier, &Vec<Declaration>), ParserError> {
+    pub fn get_def_var(&self, pos: &Position) -> Result<(&DeclarationSpecifier, &Vec<Declaration>), ParserError> {
         match self {
             AST::DefVar{specifiers, declarations: declaration} => {
                 Ok((specifiers, declaration))
             },
-            _ => Err(ParserError::not_defvar_when_get(None)),
+            _ => Err(ParserError::not_defvar_when_get(pos.clone())),
         }
     }
  }
@@ -1130,10 +1130,10 @@ impl AST {
  pub struct Param (DeclarationSpecifier, Declarator);
 
  impl Param {
-    pub fn new(ds: DeclarationSpecifier, decl: Declarator, defs: &mut Defines) -> Result<Param, ParserError> {
+    pub fn new(ds: DeclarationSpecifier, decl: Declarator, defs: &mut Defines, pos: &Position) -> Result<Param, ParserError> {
         let typ = ds.get_type();
         let name = decl.get_name();
-        defs.set_var(name, typ, None)?;
+        defs.set_var(name, typ, None, pos)?;
         Ok(Param(ds, decl))
     }
 
@@ -1188,10 +1188,10 @@ impl Params {
         }
     }
 
-    pub fn from_vec(params: Vec<(DeclarationSpecifier, Declarator)>, has_variadic: bool, defs: &mut Defines) -> Result<Params, ParserError> {
+    pub fn from_vec(params: Vec<(DeclarationSpecifier, Declarator)>, has_variadic: bool, defs: &mut Defines, pos: &Position) -> Result<Params, ParserError> {
         let mut v = Vec::new();
         for (ds, decl) in params {
-            v.push(Param::new(ds, decl, defs)?);
+            v.push(Param::new(ds, decl, defs, pos)?);
         }
 
         Ok(Params {
@@ -1201,10 +1201,10 @@ impl Params {
         })
     }
 
-    pub fn from_vec_with_self(_self: Option<CustSelf>, params: Vec<(DeclarationSpecifier, Declarator)>, has_variadic: bool, defs: &mut Defines) -> Result<Params, ParserError> {
+    pub fn from_vec_with_self(_self: Option<CustSelf>, params: Vec<(DeclarationSpecifier, Declarator)>, has_variadic: bool, defs: &mut Defines, pos: &Position) -> Result<Params, ParserError> {
         let mut v = Vec::new();
         for (ds, decl) in params {
-            v.push(Param::new(ds, decl, defs)?);
+            v.push(Param::new(ds, decl, defs, pos)?);
         }
 
         Ok(Params {

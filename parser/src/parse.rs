@@ -69,7 +69,7 @@ impl Parser {
         Ok(declarations)
     }
 
-    fn make_global_def_var(&self, ds: DeclarationSpecifier, declarations: Vec<Declaration>, defs: &mut Defines) -> Result<AST, ParserError> {
+    fn make_global_def_var(&self, ds: DeclarationSpecifier, declarations: Vec<Declaration>, defs: &mut Defines, pos: &Position) -> Result<AST, ParserError> {
         let typ = ds.get_type();
 
         for declaration in &declarations {
@@ -80,7 +80,7 @@ impl Parser {
             }else{
                 None
             };
-            defs.set_var(name, typ, init)?;
+            defs.set_var(name, typ, init, pos)?;
         }
 
         Ok(AST::GlobalDefVar {
@@ -89,7 +89,7 @@ impl Parser {
         })
     }
 
-    fn make_global_def_array(&self, ds: DeclarationSpecifier, declarations: Vec<Declaration>, opt_size_list: &Vec<Option<ConstExpr>>, defs: &mut Defines) -> Result<AST, ParserError> {
+    fn make_global_def_array(&self, ds: DeclarationSpecifier, declarations: Vec<Declaration>, opt_size_list: &Vec<Option<ConstExpr>>, defs: &mut Defines, pos: &Position) -> Result<AST, ParserError> {
         let typ = ds.get_type();
 
         for declaration in &declarations {
@@ -101,7 +101,7 @@ impl Parser {
             }else{
                 None
             };
-            defs.set_var(name, &array_type, init)?;
+            defs.set_var(name, &array_type, init, pos)?;
         }
 
         Ok(AST::GlobalDefVar {
@@ -110,7 +110,7 @@ impl Parser {
         })
     }
 
-    fn parse_def_var(&self, ds: DeclarationSpecifier, declarations: Vec<Declaration>, defs: &mut Defines) -> Result<(DeclarationSpecifier, Vec<Declaration>), ParserError> {
+    fn parse_def_var(&self, ds: DeclarationSpecifier, declarations: Vec<Declaration>, defs: &mut Defines, pos: &Position) -> Result<(DeclarationSpecifier, Vec<Declaration>), ParserError> {
         let typ = ds.get_type();
 
         for declaration in &declarations {
@@ -121,7 +121,7 @@ impl Parser {
             }else{
                 None
             };
-            defs.set_var(name, typ, init)?;
+            defs.set_var(name, typ, init, pos)?;
         }
 
         Ok((ds, declarations))
@@ -168,7 +168,7 @@ impl Parser {
 
             let typ = ds.get_type();
             let name = decl.get_name();
-            defs.set_typedef(&name, typ)?;
+            defs.set_typedef(&name, typ, pos)?;
 
             Ok(Some(AST::TypeDef(name.to_string(), typ.clone())))
         }else{
@@ -182,17 +182,17 @@ impl Parser {
                         Token::SemiColon => {
                             iter.next();  // skip ';'
                             let declaration = Declaration::new(decl, None);
-                            Ok(Some(self.make_global_def_var(ds.clone(), vec![declaration], defs)?))
+                            Ok(Some(self.make_global_def_var(ds.clone(), vec![declaration], defs, pos)?))
                         },
                         Token::Assign => {
                             iter.next();  // skip '='
 
                             let mut labels = Vec::new();
-                            // let init_expr = self.parse_expression_statement(iter, defs, &mut Some(&mut labels))?.ok_or(ParserError::need_expr(Some(pos.clone())))?;
-                            let init_expr = self.parse_expression(iter, defs, &mut Some(&mut labels))?.ok_or(ParserError::need_expr(Some(pos.clone())))?;
+                            // let init_expr = self.parse_expression_statement(iter, defs, &mut Some(&mut labels))?.ok_or(ParserError::need_expr(pos.clone()))?;
+                            let init_expr = self.parse_expression(iter, defs, &mut Some(&mut labels))?.ok_or(ParserError::need_expr(pos.clone()))?;
                             self.parse_expected_token(iter, Token::SemiColon)?;
                             let declaration = Declaration::new(decl, Some(Box::new(init_expr)));
-                            Ok(Some(self.make_global_def_var(ds.clone(), vec![declaration], defs)?))
+                            Ok(Some(self.make_global_def_var(ds.clone(), vec![declaration], defs, pos)?))
                         },
                         _ => {
                             Err(ParserError::syntax_error(pos.clone()))
@@ -212,17 +212,17 @@ impl Parser {
                             iter.next();  // skip ';'
 
                             let declaration = Declaration::new(decl.clone(), None);
-                            Ok(Some(self.make_global_def_array(ds.clone(), vec![declaration], opt_const_expr_list, defs)?))
+                            Ok(Some(self.make_global_def_array(ds.clone(), vec![declaration], opt_const_expr_list, defs, pos)?))
                         },
                         Token::Assign => {
                             iter.next();  // skip '='
 
                             let mut labels = Vec::new();
-                            // let init_expr = self.parse_expression_statement(iter, defs, &mut Some(&mut labels))?.ok_or(ParserError::need_expr(Some(pos.clone())))?;
-                            let init_expr = self.parse_expression(iter, defs, &mut Some(&mut labels))?.ok_or(ParserError::need_expr(Some(pos.clone())))?;
+                            // let init_expr = self.parse_expression_statement(iter, defs, &mut Some(&mut labels))?.ok_or(ParserError::need_expr(pos.clone()))?;
+                            let init_expr = self.parse_expression(iter, defs, &mut Some(&mut labels))?.ok_or(ParserError::need_expr(pos.clone()))?;
                             self.parse_expected_token(iter, Token::SemiColon)?;
                             let declaration = Declaration::new(decl.clone(), Some(Box::new(init_expr)));
-                            Ok(Some(self.make_global_def_array(ds.clone(), vec![declaration], opt_const_expr_list, defs)?))
+                            Ok(Some(self.make_global_def_array(ds.clone(), vec![declaration], opt_const_expr_list, defs, pos)?))
                         },
                         _ => {
                             Err(ParserError::syntax_error(pos.clone()))
@@ -241,7 +241,7 @@ impl Parser {
                             });
 
                             defs.remove_function_local();
-                            defs.set_function(decl.get_name(), ds.clone(), decl.clone(), params.clone())?;
+                            defs.set_function(decl.get_name(), ds.clone(), decl.clone(), params.clone(), pos)?;
 
                             Ok(Some(proto))
                         },
@@ -258,7 +258,7 @@ impl Parser {
                             });
 
                             defs.remove_function_local();
-                            defs.set_function(decl.get_name(), ds.clone(), decl.clone(), params.clone())?;
+                            defs.set_function(decl.get_name(), ds.clone(), decl.clone(), params.clone(), pos)?;
 
                             Ok(Some(func))
                         },
@@ -291,10 +291,10 @@ impl Parser {
                 id
             },
             _ => {
-                return Err(ParserError::not_symbol_while_parsing_impl(Some(pos.clone())));
+                return Err(ParserError::not_symbol_while_parsing_impl(pos.clone()));
             },
         };
-        let impl_type = defs.get_type(impl_name).ok_or(ParserError::no_such_a_type(Some(pos.clone()), impl_name))?.clone();
+        let impl_type = defs.get_type(impl_name).ok_or(ParserError::no_such_a_type(pos.clone(), impl_name))?.clone();
         defs.set_self_type(&impl_type)?;
 
         // let (tok, pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
@@ -320,16 +320,16 @@ impl Parser {
                         if tok3.is_eof() { return Err(ParserError::illegal_end_of_input(pos3.clone())); }
 
                         if *tok3 != Token::BraceLeft {
-                            return Err(ParserError::not_brace_left_or_for_while_parsing_impl(Some(pos.clone()), tok));
+                            return Err(ParserError::not_brace_left_or_for_while_parsing_impl(pos.clone(), tok));
                         }
                     },
                     _ => {
-                        return Err(ParserError::no_id_after_for_while_parsing_impl(Some(pos2.clone()), tok2));
+                        return Err(ParserError::no_id_after_for_while_parsing_impl(pos2.clone(), tok2));
                     }
                 }
             },
             _ => {
-                return Err(ParserError::not_brace_left_or_for_while_parsing_impl(Some(pos.clone()), tok));
+                return Err(ParserError::not_brace_left_or_for_while_parsing_impl(pos.clone(), tok));
             }
         }
 
@@ -388,7 +388,7 @@ impl Parser {
                         });
 
                         defs.remove_function_local();
-                        defs.set_function(decl.get_name(), ds.clone(), decl.clone(), params.clone())?;
+                        defs.set_function(decl.get_name(), ds.clone(), decl.clone(), params.clone(), pos)?;
 
                         Ok(proto)
                     },
@@ -405,7 +405,7 @@ impl Parser {
                         });
 
                         defs.remove_function_local();
-                        defs.set_function(decl.get_name(), ds.clone(), decl.clone(), params.clone())?;
+                        defs.set_function(decl.get_name(), ds.clone(), decl.clone(), params.clone(), pos)?;
 
                         Ok(func)
                     },
@@ -417,7 +417,7 @@ impl Parser {
             },
             _ => {
                 defs.remove_function_local();
-                return Err(ParserError::not_function_define_in_impl(Some(pos.clone())));
+                return Err(ParserError::not_function_define_in_impl(pos.clone()));
             },
         }
     }
@@ -517,14 +517,14 @@ impl Parser {
                     Token::Struct => {
                         iter.next();  // skip 'struct'
 
-                        // let (tok2, pos2) = iter.peek().ok_or(ParserError::illegal_end_of_input(Some(pos.clone())))?;
+                        // let (tok2, pos2) = iter.peek().ok_or(ParserError::illegal_end_of_input(pos.clone()))?;
                         let (tok2, pos2) = iter.peek().unwrap();
                         if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
                         match tok2 {
                             Token::Symbol(name) => {
                                 iter.next();  // skip Symbol
 
-                                // let (tok3, _pos3) = iter.peek().ok_or(ParserError::illegal_end_of_input(Some(pos.clone())))?;
+                                // let (tok3, _pos3) = iter.peek().ok_or(ParserError::illegal_end_of_input(pos.clone()))?;
                                 let (tok3, pos3) = iter.peek().unwrap();
                                 if tok3.is_eof() { return Err(ParserError::illegal_end_of_input(pos3.clone())); }
                                 match tok3 {
@@ -532,9 +532,9 @@ impl Parser {
                                         iter.next();  // skip '{'
 
                                         let declaration = self.parse_struct_declaration_list(iter, defs, labels)?;
-                                        let definition = StructDefinition::try_new(Some(name.clone()), Some(declaration))?;
+                                        let definition = StructDefinition::try_new(Some(name.clone()), Some(declaration), pos3)?;
                                         let type_struct = Type::struct_from_struct_definition(Some(name.clone()), definition.clone());
-                                        defs.set_struct(name, definition)?;
+                                        defs.set_struct(name, definition, pos3)?;
 
                                         opt_type = Some((
                                             type_struct,
@@ -547,7 +547,7 @@ impl Parser {
                                         let type_struct = if let Some(t) = defs.get_type(&name) {
                                             t.clone()
                                         }else{
-                                            let definition = StructDefinition::try_new(Some(name.clone()), None)?;
+                                            let definition = StructDefinition::try_new(Some(name.clone()), None, pos3)?;
                                             Type::struct_from_struct_definition(Some(name.clone()), definition)
                                         };
 
@@ -561,7 +561,7 @@ impl Parser {
                             Token::BraceLeft => {
                                 iter.next();  // skip '{'
                                 let declaration = self.parse_struct_declaration_list(iter, defs, labels)?;
-                                let definition = StructDefinition::try_new(None, Some(declaration))?;
+                                let definition = StructDefinition::try_new(None, Some(declaration), pos2)?;
                                 let type_struct = Type::struct_from_struct_definition(None, definition);
                                 opt_type = Some((
                                     type_struct,
@@ -578,14 +578,14 @@ impl Parser {
                     Token::Union => {
                         iter.next();  // skip 'union'
 
-                        // let (tok2, pos2) = iter.peek().ok_or(ParserError::illegal_end_of_input(Some(pos.clone())))?;
+                        // let (tok2, pos2) = iter.peek().ok_or(ParserError::illegal_end_of_input(pos.clone()))?;
                         let (tok2, pos2) = iter.peek().unwrap();
                         if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
                         match tok2 {
                             Token::Symbol(name) => {
                                 iter.next();  // skip Symbol
 
-                                // let (tok3, _pos3) = iter.peek().ok_or(ParserError::illegal_end_of_input(Some(pos.clone())))?;
+                                // let (tok3, _pos3) = iter.peek().ok_or(ParserError::illegal_end_of_input(pos.clone()))?;
                                 let (tok3, pos3) = iter.peek().unwrap();
                                 if tok3.is_eof() { return Err(ParserError::illegal_end_of_input(pos3.clone())); }
                                 match tok3 {
@@ -593,9 +593,9 @@ impl Parser {
                                         iter.next();  // skip '{'
 
                                         let declaration = self.parse_struct_declaration_list(iter, defs, labels)?;
-                                        let definition = StructDefinition::try_new(Some(name.clone()), Some(declaration))?;
+                                        let definition = StructDefinition::try_new(Some(name.clone()), Some(declaration), pos2)?;
                                         let type_union = Type::union_from_struct_definition(Some(name.clone()), definition.clone());
-                                        defs.set_union(name, definition)?;
+                                        defs.set_union(name, definition, pos3)?;
 
                                         opt_type = Some((
                                             type_union,
@@ -608,7 +608,7 @@ impl Parser {
                                         let type_union = if let Some(t) = defs.get_type(&name) {
                                             t.clone()
                                         }else{
-                                            let definition = StructDefinition::try_new(Some(name.clone()), None)?;
+                                            let definition = StructDefinition::try_new(Some(name.clone()), None, pos2)?;
                                             Type::union_from_struct_definition(Some(name.clone()), definition)
                                         };
 
@@ -625,7 +625,7 @@ impl Parser {
                             Token::BraceLeft => {
                                 iter.next();  // skip '{'
                                 let declaration = self.parse_struct_declaration_list(iter, defs, labels)?;
-                                let definition = StructDefinition::try_new(None, Some(declaration))?;
+                                let definition = StructDefinition::try_new(None, Some(declaration), pos2)?;
                                 let type_struct = Type::union_from_struct_definition(None, definition);
                                 opt_type = Some((
                                     type_struct,
@@ -642,14 +642,14 @@ impl Parser {
                     Token::Enum => {
                         iter.next();  // skip 'enum'
 
-                        // let (tok2, pos2) = iter.peek().ok_or(ParserError::illegal_end_of_input(Some(pos.clone())))?;
+                        // let (tok2, pos2) = iter.peek().ok_or(ParserError::illegal_end_of_input(pos.clone()))?;
                         let (tok2, pos2) = iter.peek().unwrap();
                         if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
                         match tok2 {
                             Token::Symbol(name) => {
                                 iter.next();  // skip Symbol
                 
-                                // let (tok3, _pos3) = iter.peek().ok_or(ParserError::illegal_end_of_input(Some(pos.clone())))?;
+                                // let (tok3, _pos3) = iter.peek().ok_or(ParserError::illegal_end_of_input(pos.clone()))?;
                                 let (tok3, pos3) = iter.peek().unwrap();
                                 if tok3.is_eof() { return Err(ParserError::illegal_end_of_input(pos3.clone())); }
                                 match tok3 {
@@ -659,7 +659,7 @@ impl Parser {
                                         let enum_list = self.parse_enumerator_list(iter, defs, labels)?;
                                         let definition = EnumDefinition::new(Some(name.clone()), Some(enum_list));
                                         let type_struct = Type::enum_from_enum_definition(Some(name.clone()), definition.clone());
-                                        defs.set_enum(name, definition)?;
+                                        defs.set_enum(name, definition, pos3)?;
                 
                                         opt_type = Some((
                                             type_struct,
@@ -703,11 +703,11 @@ impl Parser {
                     Token::Signed => {
                         iter.next();
                         if let Some((true, pre_pos)) = opt_unsigned {
-                            return Err(ParserError::cannot_combine_with_previous_unsigned_declaration_specifier(Some(pos.clone()), pre_pos.clone()));
+                            return Err(ParserError::cannot_combine_with_previous_unsigned_declaration_specifier(pos.clone(), pre_pos.clone()));
                         }
                         if let Some((typ, _pos)) = &opt_type {
                             if ! typ.can_sign() {
-                                return Err(ParserError::not_number_signed(Some(pos.clone()), &typ));
+                                return Err(ParserError::not_number_signed(pos.clone(), &typ));
                             }
                         }
                         opt_signed = Some((true, pos.clone()));
@@ -715,11 +715,11 @@ impl Parser {
                     Token::Unsigned => {
                         iter.next();
                         if let Some((true, pre_pos)) = opt_signed {
-                            return Err(ParserError::cannot_combine_with_previous_signed_declaration_specifier(Some(pos.clone()), pre_pos.clone()));
+                            return Err(ParserError::cannot_combine_with_previous_signed_declaration_specifier(pos.clone(), pre_pos.clone()));
                         }
                         if let Some((typ, _pos)) = &opt_type {
                             if ! typ.can_sign() {
-                                return Err(ParserError::not_number_unsigned(Some(pos.clone()), &typ));
+                                return Err(ParserError::not_number_unsigned(pos.clone(), &typ));
                             }
                         }
                         opt_unsigned = Some((true, pos.clone()));
@@ -727,21 +727,21 @@ impl Parser {
                     Token::Void => {
                         iter.next();
                         if let Some((pre_type, pre_pos)) = &opt_type {
-                            return Err(ParserError::already_type_defined(Some(pos.clone()), &Type::Void, &pre_type, &pre_pos));
+                            return Err(ParserError::already_type_defined(pos.clone(), &Type::Void, &pre_type, &pre_pos));
                         }
                         opt_type = Some((Type::Void, pos.clone()));
                     },
                     Token::_Bool => {
                         iter.next();
                         if let Some((pre_type, pre_pos)) = &opt_type {
-                            return Err(ParserError::already_type_defined(Some(pos.clone()), &Type::Number(NumberType::_Bool), &pre_type, &pre_pos));
+                            return Err(ParserError::already_type_defined(pos.clone(), &Type::Number(NumberType::_Bool), &pre_type, &pre_pos));
                         }
                         opt_type = Some((Type::Number(NumberType::_Bool), pos.clone()));
                     }
                     Token::Char => {
                         iter.next();
                         if let Some((pre_type, pre_pos)) = &opt_type {
-                            return Err(ParserError::already_type_defined(Some(pos.clone()), &Type::Number(NumberType::Char), &pre_type, &pre_pos));
+                            return Err(ParserError::already_type_defined(pos.clone(), &Type::Number(NumberType::Char), &pre_type, &pre_pos));
                         }
                         opt_type = Some((Type::Number(NumberType::Char), pos.clone()));
                     },
@@ -754,7 +754,7 @@ impl Parser {
                                     continue;
                                 },
                                 _ => {
-                                    return Err(ParserError::already_type_defined(Some(pos.clone()), &Type::Number(NumberType::Short), &pre_type, &pre_pos));
+                                    return Err(ParserError::already_type_defined(pos.clone(), &Type::Number(NumberType::Short), &pre_type, &pre_pos));
                                 },
                             }
                         }
@@ -768,7 +768,7 @@ impl Parser {
                                     continue;
                                 },
                                 _ => {
-                                    return Err(ParserError::already_type_defined(Some(pos.clone()), &Type::Number(NumberType::Int), &pre_type, &pre_pos));
+                                    return Err(ParserError::already_type_defined(pos.clone(), &Type::Number(NumberType::Int), &pre_type, &pre_pos));
                                 },
                             }
                         }
@@ -787,7 +787,7 @@ impl Parser {
                                     continue;
                                 },
                                 _ => {
-                                    return Err(ParserError::already_type_defined(Some(pos.clone()), &Type::Number(NumberType::Long), &pre_type, &pre_pos));
+                                    return Err(ParserError::already_type_defined(pos.clone(), &Type::Number(NumberType::Long), &pre_type, &pre_pos));
                                 },
                             }
                         }
@@ -796,14 +796,14 @@ impl Parser {
                     Token::Float => {
                         iter.next();
                         if let Some((pre_type, pre_pos)) = &opt_type {
-                            return Err(ParserError::already_type_defined(Some(pos.clone()), &Type::Number(NumberType::Float), &pre_type, &pre_pos));
+                            return Err(ParserError::already_type_defined(pos.clone(), &Type::Number(NumberType::Float), &pre_type, &pre_pos));
                         }
                         opt_type = Some((Type::Number(NumberType::Float), pos.clone()));
                     },
                     Token::Double => {
                         iter.next();
                         if let Some((pre_type, pre_pos)) = &opt_type {
-                            return Err(ParserError::already_type_defined(Some(pos.clone()), &Type::Number(NumberType::Double), &pre_type, &pre_pos));
+                            return Err(ParserError::already_type_defined(pos.clone(), &Type::Number(NumberType::Double), &pre_type, &pre_pos));
                         }
                         opt_type = Some((Type::Number(NumberType::Double), pos.clone()));
                     },
@@ -817,7 +817,7 @@ impl Parser {
             }
         }
 
-        let (typ, pos) = opt_type.ok_or(ParserError::no_type_defined(None))?;
+        let (typ, pos) = opt_type.ok_or(ParserError::no_type_defined(iter.peek().unwrap().1.clone()))?;
         let typ = if let Some((true, _)) = opt_unsigned {
             typ.to_unsigned(&pos)?
         }else{
@@ -893,7 +893,7 @@ impl Parser {
         if *tok == Token::Colon {
             iter.next();  // skip ':'
 
-            let const_expr = self.parse_constant_expression(iter, defs, labels)?.ok_or(ParserError::no_constant_expr_parsing_struct_after_colon(Some(pos.clone())))?;
+            let const_expr = self.parse_constant_expression(iter, defs, labels)?.ok_or(ParserError::no_constant_expr_parsing_struct_after_colon(pos.clone()))?;
 
             Ok(StructDeclarator::new(None, Some(const_expr)))
 
@@ -906,7 +906,7 @@ impl Parser {
             if *tok == Token::Colon {
                 iter.next();  // skip ':'
 
-                let const_expr = self.parse_constant_expression(iter, defs, labels)?.ok_or(ParserError::no_constant_expr_parsing_struct_after_colon(Some(pos.clone())))?;
+                let const_expr = self.parse_constant_expression(iter, defs, labels)?.ok_or(ParserError::no_constant_expr_parsing_struct_after_colon(pos.clone()))?;
 
                 Ok(StructDeclarator::new(Some(decl), Some(const_expr)))
 
@@ -935,7 +935,7 @@ impl Parser {
             let name = if let Token::Symbol(id) = next_token {
                 id
             }else{
-                return Err(ParserError::not_symbol_parsing_enum(Some(pos.clone())));
+                return Err(ParserError::not_symbol_parsing_enum(pos.clone()));
             };
 
             let enumerator: Enumerator;
@@ -948,7 +948,7 @@ impl Parser {
                 },
                 Token::Assign => {
                     iter.next();  // skip '='
-                    let const_val = self.parse_constant_expression(iter, defs, labels)?.ok_or(ParserError::enum_should_be_int(None))?;
+                    let const_val = self.parse_constant_expression(iter, defs, labels)?.ok_or(ParserError::enum_should_be_int(pos2.clone()))?;
                     let int_val = const_val.as_u32_value();
                     enumerator = Enumerator::new(name, int_val);
                     value = int_val;
@@ -965,7 +965,7 @@ impl Parser {
                     enumerator = Enumerator::new(name, value);
                 },
                 _ => {
-                    return Err(ParserError::should_be(Some(pos2.clone()), vec![Token::BraceRight, Token::Assign], tok2));
+                    return Err(ParserError::should_be(pos2.clone(), vec![Token::BraceRight, Token::Assign], tok2));
                 }
             }
 
@@ -997,7 +997,7 @@ impl Parser {
 
         let mut is_const = false;
         let mut is_volatile = false;
-        // while let (tok2, _pos2) = iter.peek().ok_or(ParserError::illegal_end_of_input(Some(pos.clone())))? {
+        // while let (tok2, _pos2) = iter.peek().ok_or(ParserError::illegal_end_of_input(pos.clone()))? {
         while let (tok2, pos2) = iter.peek().unwrap() {
             if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone()))}
 
@@ -1015,7 +1015,7 @@ impl Parser {
                 },
                 _ => {
                     // if is_const || is_volatile {
-                    //     return Err(ParserError::syntax_error(Some(pos2.clone())));
+                    //     return Err(ParserError::syntax_error(pos2.clone()));
                     // }
                     break;
                 },
@@ -1091,14 +1091,14 @@ impl Parser {
             Token::Mul => {  // '*'
                 iter.next();  // skip '*'
 
-                // let (tok2, pos2) = iter.peek().ok_or(ParserError::illegal_end_of_input(Some(pos.clone())))?;
+                // let (tok2, pos2) = iter.peek().ok_or(ParserError::illegal_end_of_input(pos.clone()))?;
                 let (tok2, pos2) = iter.peek().unwrap();
                 if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
                 if *tok2 != Token::_self {
                     return Err(ParserError::syntax_error(pos2.clone()));
                 }
 
-                cust_self = Some(CustSelf::Pointer(defs.get_self_type()?.clone()));
+                cust_self = Some(CustSelf::Pointer(defs.get_self_type(pos)?.clone()));
             },
             _ => {
                 cust_self = None;
@@ -1116,7 +1116,7 @@ impl Parser {
                     // read parameter type list
                     iter.next();  // skip '('
 
-                    // let (next_tok, _pos2) = iter.peek().ok_or(ParserError::illegal_end_of_input(Some(pos.clone())))?;
+                    // let (next_tok, _pos2) = iter.peek().ok_or(ParserError::illegal_end_of_input(pos.clone()))?;
                     let (next_tok, pos2) = iter.peek().unwrap();
                     if next_tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
                     defs.add_new_function_local();
@@ -1141,7 +1141,7 @@ impl Parser {
                     self.parse_expected_token(iter, Token::BracketRight)?;  // skip ']'
 
                     loop {
-                        // let (tok2, _pos2) = iter.peek().ok_or(ParserError::illegal_end_of_input(Some(pos.clone())))?;
+                        // let (tok2, _pos2) = iter.peek().ok_or(ParserError::illegal_end_of_input(pos.clone()))?;
                         let (tok2, pos2) = iter.peek().unwrap();
                         if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
 
@@ -1167,7 +1167,7 @@ impl Parser {
 
     fn parse_constant_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ConstExpr>, ParserError> {
         if let Some(expr) = self.parse_conditional_expression(iter, defs, labels)? {
-            Ok(Some(expr.to_const(defs)?))
+            Ok(Some(expr.to_const(defs, &iter.peek().unwrap().1)?))
         }else{
             Ok(None)
         }
@@ -1228,9 +1228,9 @@ impl Parser {
 
                         if let Some(right) = self.parse_logical_and_expression(iter, defs, labels)? {
                             if let Some(left) = result {
-                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(left), Box::new(right), pos.clone()));
+                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op, pos)?, Box::new(left), Box::new(right), pos.clone()));
                             }else{
-                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(ast.clone()), Box::new(right), pos.clone()));
+                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op, pos)?, Box::new(ast.clone()), Box::new(right), pos.clone()));
                             }
                         }else{
                             return Err(ParserError::syntax_error(pos.clone()));
@@ -1278,9 +1278,9 @@ impl Parser {
 
                         if let Some(right) = self.parse_inclusive_or_expression(iter, defs, labels)? {
                             if let Some(left) = result {
-                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(left), Box::new(right), pos.clone()));
+                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op, pos)?, Box::new(left), Box::new(right), pos.clone()));
                             }else{
-                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(ast.clone()), Box::new(right), pos.clone()));
+                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op, pos)?, Box::new(ast.clone()), Box::new(right), pos.clone()));
                             }
                         }else{
                             return Err(ParserError::syntax_error(pos.clone()));
@@ -1328,9 +1328,9 @@ impl Parser {
 
                         if let Some(right) = self.parse_exclusive_or_expression(iter, defs, labels)? {
                             if let Some(left) = result {
-                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(left), Box::new(right), pos.clone()));
+                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op, pos)?, Box::new(left), Box::new(right), pos.clone()));
                             }else{
-                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(ast.clone()), Box::new(right), pos.clone()));
+                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op, pos)?, Box::new(ast.clone()), Box::new(right), pos.clone()));
                             }
                         }else{
                             return Err(ParserError::syntax_error(pos.clone()));
@@ -1377,9 +1377,9 @@ impl Parser {
 
                         if let Some(right) = self.parse_and_expression(iter, defs, labels)? {
                             if let Some(left) = result {
-                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(left), Box::new(right), pos.clone()));
+                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op, pos)?, Box::new(left), Box::new(right), pos.clone()));
                             }else{
-                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(ast.clone()), Box::new(right), pos.clone()));
+                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op, pos)?, Box::new(ast.clone()), Box::new(right), pos.clone()));
                             }
                         }else{
                             return Err(ParserError::syntax_error(pos.clone()));
@@ -1427,9 +1427,9 @@ impl Parser {
 
                         if let Some(right) = self.parse_equality_expression(iter, defs, labels)? {
                             if let Some(left) = result {
-                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(left), Box::new(right), pos.clone()));
+                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op, pos)?, Box::new(left), Box::new(right), pos.clone()));
                             }else{
-                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(ast.clone()), Box::new(right), pos.clone()));
+                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op, pos)?, Box::new(ast.clone()), Box::new(right), pos.clone()));
                             }
                         }else{
                             return Err(ParserError::syntax_error(pos.clone()));
@@ -1476,9 +1476,9 @@ impl Parser {
 
                         if let Some(right) = self.parse_relational_expression(iter, defs, labels)? {
                             if let Some(left) = result {
-                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(left), Box::new(right), pos.clone()));
+                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op, pos)?, Box::new(left), Box::new(right), pos.clone()));
                             }else{
-                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(ast.clone()), Box::new(right), pos.clone()));
+                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op, pos)?, Box::new(ast.clone()), Box::new(right), pos.clone()));
                             }
                         }else{
                             return Err(ParserError::syntax_error(pos.clone()));
@@ -1525,9 +1525,9 @@ impl Parser {
 
                         if let Some(right) = self.parse_shift_expression(iter, defs, labels)? {
                             if let Some(left) = result {
-                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(left), Box::new(right), pos.clone()));
+                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op, pos)?, Box::new(left), Box::new(right), pos.clone()));
                             }else{
-                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(ast.clone()), Box::new(right), pos.clone()));
+                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op, pos)?, Box::new(ast.clone()), Box::new(right), pos.clone()));
                             }
                         }else{
                             return Err(ParserError::syntax_error(pos.clone()));
@@ -1574,9 +1574,9 @@ impl Parser {
 
                         if let Some(right) = self.parse_additive_expression(iter, defs, labels)? {
                             if let Some(left) = result {
-                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(left), Box::new(right), pos.clone()));
+                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op, pos)?, Box::new(left), Box::new(right), pos.clone()));
                             }else{
-                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(ast.clone()), Box::new(right), pos.clone()));
+                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op, pos)?, Box::new(ast.clone()), Box::new(right), pos.clone()));
                             }
                         }else{
                             return Err(ParserError::syntax_error(pos.clone()));
@@ -1623,9 +1623,9 @@ impl Parser {
 
                         if let Some(right) = self.parse_multiplicative_expression(iter, defs, labels)? {
                             if let Some(left) = result {
-                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(left), Box::new(right), pos.clone()));
+                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op, pos)?, Box::new(left), Box::new(right), pos.clone()));
                             }else{
-                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(ast.clone()), Box::new(right), pos.clone()));
+                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op, pos)?, Box::new(ast.clone()), Box::new(right), pos.clone()));
                             }
                         }else{
                             return Err(ParserError::syntax_error(pos.clone()));
@@ -1671,9 +1671,9 @@ impl Parser {
 
                         if let Some(right) = self.parse_cast_expression(iter, defs, labels)? {
                             if let Some(left) = result {
-                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(left), Box::new(right), pos.clone()));
+                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op, pos)?, Box::new(left), Box::new(right), pos.clone()));
                             }else{
-                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op)?, Box::new(ast.clone()), Box::new(right), pos.clone()));
+                                result = Some(ExprAST::BinExpr(BinOp::from_token(&op, pos)?, Box::new(ast.clone()), Box::new(right), pos.clone()));
                             }
                         }else{
                             return Err(ParserError::syntax_error(pos.clone()));
@@ -1703,7 +1703,7 @@ impl Parser {
             if *tok == Token::ParenLeft {
                 iter.next();  // skip '('
                 let (_sq, type_or_variadic, _opt_abstract_decl) = self.parse_type_name(iter, defs, labels)?;
-                let cast_type = type_or_variadic.get_type().ok_or(ParserError::no_type_defined(None))?;
+                let cast_type = type_or_variadic.get_type().ok_or(ParserError::no_type_defined(pos.clone()))?;
                 self.parse_expected_token(iter, Token::ParenRight)?;
 
                 let expr = self.parse_cast_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
@@ -1815,7 +1815,7 @@ impl Parser {
                         Ok(Some(ExprAST::UnarySizeOfExpr(Box::new(expr), pos.clone())))
                     }else{
                         let (_sq, type_or_variadic, _opt_abstract_decl) = self.parse_type_name(iter, defs, labels)?;
-                        let type_name = type_or_variadic.get_type().ok_or(ParserError::no_type_defined(None))?;
+                        let type_name = type_or_variadic.get_type().ok_or(ParserError::no_type_defined(pos.clone()))?;
                         Ok(Some(ExprAST::UnarySizeOfTypeName(type_name.clone(), pos.clone())))
                     }
                 },
@@ -1836,7 +1836,7 @@ impl Parser {
                     match tok {
                         Token::BracketLeft => {
                             iter.next();  // skip '['
-                            let expr = self.parse_expression(iter, defs, labels)?.ok_or(ParserError::no_expr_while_access_array(None))?;
+                            let expr = self.parse_expression(iter, defs, labels)?.ok_or(ParserError::no_expr_while_access_array(pos.clone()))?;
                             self.parse_expected_token(iter, Token::BracketRight)?;
                             ast = ExprAST::ArrayAccess(Box::new(ast), Box::new(expr), pos.clone());
                         },
@@ -1850,7 +1850,7 @@ impl Parser {
                         Token::Dot => {
                             iter.next();  // skip '.'
 
-                            // let (tok2, pos2) = iter.next().ok_or(ParserError::illegal_end_of_input(Some(pos.clone())))?;
+                            // let (tok2, pos2) = iter.next().ok_or(ParserError::illegal_end_of_input(pos.clone()))?;
                             let (tok2, pos2) = iter.next().unwrap();
                             if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
 
@@ -1858,13 +1858,13 @@ impl Parser {
                                 Token::Symbol(id) => {
                                     ast = ExprAST::MemberAccess(Box::new(ast), id.clone(), pos.clone());
                                 },
-                                _ => return Err(ParserError::no_id_after_dot(Some(pos2.clone()))),
+                                _ => return Err(ParserError::no_id_after_dot(pos2.clone())),
                             }
                         },
                         Token::MemberSelection => {
                             iter.next();  // skip '->'
 
-                            // let (tok2, pos2) = iter.next().ok_or(ParserError::illegal_end_of_input(Some(pos.clone())))?;
+                            // let (tok2, pos2) = iter.next().ok_or(ParserError::illegal_end_of_input(pos.clone()))?;
                             let (tok2, pos2) = iter.next().unwrap();
                             if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
 
@@ -1872,7 +1872,7 @@ impl Parser {
                                 Token::Symbol(id) => {
                                     ast = ExprAST::PointerAccess(Box::new(ast), id.clone(), pos.clone());
                                 },
-                                _ => return Err(ParserError::no_id_after_arrow(Some(pos2.clone()))),
+                                _ => return Err(ParserError::no_id_after_arrow(pos2.clone())),
                             }
 
                         },
@@ -2124,7 +2124,7 @@ impl Parser {
                 match tok {
                     Token::Assign => {
                         iter.next();  // skip '='
-                        let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::need_expr(Some(pos.clone())))?;
+                        let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::need_expr(pos.clone()))?;
 
                         result = ExprAST::Assign(Box::new(result), Box::new(r_value), pos.clone());
                     },
@@ -2226,16 +2226,16 @@ impl Parser {
         if *tok == Token::BitAnd {  // '&'
             iter.next();  // skip '&'
 
-            // let (tok2, pos2) = iter.next().ok_or(ParserError::illegal_end_of_input(Some(pos.clone())))?;
+            // let (tok2, pos2) = iter.next().ok_or(ParserError::illegal_end_of_input(pos.clone()))?;
             let (tok2, pos2) = iter.next().unwrap();
             if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
             if *tok2 != Token::_self {
-                return Err(ParserError::not_self_after_ref(Some(pos2.clone())));
+                return Err(ParserError::not_self_after_ref(pos2.clone()));
             }
 
-            cust_self = Some(CustSelf::Ref(defs.get_self_type()?.clone()));
+            cust_self = Some(CustSelf::Ref(defs.get_self_type(pos)?.clone()));
 
-            // let (tok3, _pos3) = iter.peek().ok_or(ParserError::illegal_end_of_input(Some(pos.clone())))?;
+            // let (tok3, _pos3) = iter.peek().ok_or(ParserError::illegal_end_of_input(pos.clone()))?;
             let (tok3, pos3) = iter.peek().unwrap();
             if tok3.is_eof() { return Err(ParserError::illegal_end_of_input(pos3.clone())); }
             if *tok3 == Token::ParenRight {
@@ -2253,7 +2253,7 @@ impl Parser {
                 Token::Comma => {
                     iter.next();  // skip ','
 
-                    // let (tok2, _pos2) = iter.next().ok_or(ParserError::illegal_end_of_input(Some(pos.clone())))?;
+                    // let (tok2, _pos2) = iter.next().ok_or(ParserError::illegal_end_of_input(pos.clone()))?;
                     let (tok2, pos2) = iter.next().unwrap();
                     if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
 
@@ -2291,7 +2291,7 @@ impl Parser {
         match ds_or_variadic {
             DeclarationSpecifierOrVariadic::DS(ds) => {
                 let decl = self.parse_declarator(iter, defs, &mut None)?;
-                list.push(Param::new(ds, decl, defs)?);
+                list.push(Param::new(ds, decl, defs, &iter.peek().unwrap().1)?);
         
                 // let (tok, pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
                 let (tok, pos) = iter.peek().unwrap();
@@ -2318,7 +2318,7 @@ impl Parser {
     fn parse_parameter_declaration2(&self, mut list: Vec<Param>, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<(Vec<Param>, bool), ParserError> {
         let mut has_variadic = false;
         loop {
-            if let Some((tok, _pos)) = iter.peek() {
+            if let Some((tok, pos)) = iter.peek() {
                 match tok {
                     Token::Comma => {
                         iter.next(); // skip ','
@@ -2327,7 +2327,7 @@ impl Parser {
                         match ds_or_variadic {
                             DeclarationSpecifierOrVariadic::DS(ds) => {
                                 let decl2 = self.parse_declarator(iter, defs, &mut None)?;
-                                list.push(Param::new(ds, decl2, defs)?);
+                                list.push(Param::new(ds, decl2, defs, pos)?);
                             },
                             DeclarationSpecifierOrVariadic::Variadic => {
                                 has_variadic = true;
@@ -2425,7 +2425,7 @@ impl Parser {
             let name = decl.get_name();
 
             if defs.exists_var(&name) {
-                return Err(ParserError::already_var_defined(None, &name));
+                return Err(ParserError::already_var_defined(iter.peek().unwrap().1.clone(), &name));
             }
 
             // let (tok, pos) = iter.next().ok_or(ParserError::illegal_end_of_input(None))?;
@@ -2477,7 +2477,7 @@ impl Parser {
             // }
         }
 
-        let (ds, declarations) = self.parse_def_var(ds.clone(), v, defs)?;
+        let (ds, declarations) = self.parse_def_var(ds.clone(), v, defs, &iter.peek().unwrap().1)?;
         let ast = AST::DefVar { specifiers: ds, declarations };
         Ok(Some(ast))
     }
@@ -2495,7 +2495,7 @@ impl Parser {
             iter.next();  // skip '{'
             init_expr = self.parse_initializer_list(pos, iter, defs, labels)?;
         }else{
-            init_expr = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::need_expr(Some(pos.clone())))?;
+            init_expr = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::need_expr(pos.clone()))?;
         }
         Ok(init_expr)
     }
@@ -2526,7 +2526,7 @@ impl Parser {
                     }
                 },
                 _ => {
-                    return Err(ParserError::need_brace_right_or_comma_when_parsing_initializer_list(Some(pos2.clone())));
+                    return Err(ParserError::need_brace_right_or_comma_when_parsing_initializer_list(pos2.clone()));
                 }
             }
         }
@@ -2684,14 +2684,14 @@ impl Parser {
                 // jump statement
                 Token::Goto => {
                     iter.next();  // skip 'goto'
-                    // let (id, pos2) = iter.next().ok_or(ParserError::illegal_end_of_input(Some(pos.clone())))?;
+                    // let (id, pos2) = iter.next().ok_or(ParserError::illegal_end_of_input(pos.clone()))?;
                     let (id, pos2) = iter.next().unwrap();
                     if id.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
 
                     if let Token::Symbol(name) = id {
                         Ok(Some(AST::Goto(name.to_string())))
                     }else{
-                        Err(ParserError::no_id_for_goto_statement(Some(pos2.clone())))
+                        Err(ParserError::no_id_for_goto_statement(pos2.clone()))
                     }
                 },
                 Token::Continue => {
@@ -2708,7 +2708,7 @@ impl Parser {
                 },
                 Token::Return => {
                     iter.next();  // skip 'return'
-                    // let (t, _pos2) = iter.peek().ok_or(ParserError::illegal_end_of_input(Some(pos.clone())))?;
+                    // let (t, _pos2) = iter.peek().ok_or(ParserError::illegal_end_of_input(pos.clone()))?;
                     let (t, pos2) = iter.peek().unwrap();
                     if t.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
 
@@ -2764,7 +2764,7 @@ impl Parser {
         self.parse_expected_token(iter, Token::ParenLeft)?; // '('
         defs.new_local();
 
-        // let (tok2, _pos2) = iter.peek().ok_or(ParserError::illegal_end_of_input(Some(pos.clone())))?;
+        // let (tok2, _pos2) = iter.peek().ok_or(ParserError::illegal_end_of_input(pos.clone()))?;
         let (tok2, pos2) = iter.peek().unwrap();
         if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
 
@@ -2776,7 +2776,7 @@ impl Parser {
 
         self.parse_expected_token(iter, Token::SemiColon)?; // ';'
 
-        // let (tok2, _pos2) = iter.peek().ok_or(ParserError::illegal_end_of_input(Some(pos.clone())))?;
+        // let (tok2, _pos2) = iter.peek().ok_or(ParserError::illegal_end_of_input(pos.clone()))?;
         let (tok2, pos2) = iter.peek().unwrap();
         if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
 
@@ -2788,7 +2788,7 @@ impl Parser {
 
         self.parse_expected_token(iter, Token::SemiColon)?; // ';'
 
-        // let (tok2, _pos2) = iter.peek().ok_or(ParserError::illegal_end_of_input(Some(pos.clone())))?;
+        // let (tok2, _pos2) = iter.peek().ok_or(ParserError::illegal_end_of_input(pos.clone()))?;
         let (tok2, pos2) = iter.peek().unwrap();
         if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
 
@@ -2870,7 +2870,7 @@ impl Parser {
         match tok {
             Token::Comma => {
                 let declaration = Declaration::new(decl, None);
-                let (ds, declarations) = self.parse_def_var(ds.clone(), vec![declaration], defs)?;
+                let (ds, declarations) = self.parse_def_var(ds.clone(), vec![declaration], defs, pos)?;
                 let ast = ExprAST::DefVar { specifiers: ds, declarations: declarations, pos: start_pos.clone() };
                 Ok(Some(ast))
             },
@@ -2879,7 +2879,7 @@ impl Parser {
 
                 let expr = self.parse_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
                 let declaration = Declaration::new(decl, Some(Box::new(expr)));
-                let (ds, declarations) = self.parse_def_var(ds.clone(), vec![declaration], defs)?;
+                let (ds, declarations) = self.parse_def_var(ds.clone(), vec![declaration], defs, pos)?;
                 let ast = ExprAST::DefVar { specifiers: ds, declarations: declarations, pos: start_pos.clone() };
                 Ok(Some(ast))
             },
@@ -2945,7 +2945,7 @@ impl Parser {
         if let Some(v) = labels {
             v.push(id.to_string());
         }else{
-            return Err(ParserError::labeled_statement_without_function(None));
+            return Err(ParserError::labeled_statement_without_function(iter.peek().unwrap().1.clone()));
         }
 
         if let Some(s) = stmt {
@@ -2957,11 +2957,11 @@ impl Parser {
 
     fn parse_case_labeled_statement(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<AST>, ParserError> {
         self.parse_expected_token(iter, Token::Case)?;
-        let constant_condition = self.parse_constant_expression(iter, defs, labels)?.ok_or(ParserError::no_constant_expr_after_case(None))?;
+        let constant_condition = self.parse_constant_expression(iter, defs, labels)?.ok_or(ParserError::no_constant_expr_after_case(iter.peek().unwrap().1.clone()))?;
 
         self.parse_expected_token(iter, Token::Colon)?;
 
-        let stmt = self.parse_statement(iter, defs, labels)?.ok_or(ParserError::syntax_error(iter.next().unwrap().1.clone()))?;
+        let stmt = self.parse_statement(iter, defs, labels)?.ok_or(ParserError::syntax_error(iter.peek().unwrap().1.clone()))?;
         let case = Case::new(constant_condition, Box::new(stmt));
         Ok(Some(AST::Case(case)))
     }
@@ -2970,7 +2970,7 @@ impl Parser {
         self.parse_expected_token(iter, Token::Default)?;
         self.parse_expected_token(iter, Token::Colon)?;
 
-        let stmt = self.parse_statement(iter, defs, labels)?.ok_or(ParserError::syntax_error(iter.next().unwrap().1.clone()))?;
+        let stmt = self.parse_statement(iter, defs, labels)?.ok_or(ParserError::syntax_error(iter.peek().unwrap().1.clone()))?;
         Ok(Some(AST::Default(Box::new(stmt))))
     }
 
@@ -3011,7 +3011,7 @@ impl Parser {
         //     if *tok == expected {
         //         Ok(pos.clone())
         //     }else{
-        //         Err(ParserError::without_expected_token(Some(pos.clone()), expected.clone(), tok.clone()))
+        //         Err(ParserError::without_expected_token(pos.clone(), expected.clone(), tok.clone()))
         //     }
         // }else{
         //     Err(ParserError::illegal_end_of_input(None))
@@ -3551,7 +3551,8 @@ mod tests {
                 let decl_x = Declarator::new(None, DirectDeclarator::Symbol(String::from("x")));
                 let ds_y = DeclarationSpecifier::new(Type::Number(NumberType::Int), sq.clone());
                 let decl_y = Declarator::new(None, DirectDeclarator::Symbol(String::from("y")));
-                assert_eq!(params, Params::from_vec(vec![(ds_x, decl_x), (ds_y, decl_y)], false, &mut defs)?);
+                let pos = Position::new(1, 1);
+                assert_eq!(params, Params::from_vec(vec![(ds_x, decl_x), (ds_y, decl_y)], false, &mut defs, &pos)?);
             },
             _ => panic!("ast: {:?}", ast),
         }
@@ -3582,7 +3583,8 @@ mod tests {
                 let decl_x = Declarator::new(None, DirectDeclarator::Symbol(String::from("x")));
                 let ds_y = DeclarationSpecifier::new(Type::Number(NumberType::Int), sq.clone());
                 let decl_y = Declarator::new(None, DirectDeclarator::Symbol(String::from("y")));
-                assert_eq!(params, Params::from_vec(vec![(ds_x, decl_x), (ds_y, decl_y)], false, &mut defs)?);
+                let pos = Position::new(1, 1);
+                assert_eq!(params, Params::from_vec(vec![(ds_x, decl_x), (ds_y, decl_y)], false, &mut defs, &pos)?);
                 assert_eq!(body,
                     Block {
                         body: vec![
@@ -3626,7 +3628,8 @@ mod tests {
                 assert_eq!(params.len(), 0);
 
                 let mut defs = Defines::new();
-                assert_eq!(params, Params::from_vec(vec![], false, &mut defs)?);
+                let pos = Position::new(1, 1);
+                assert_eq!(params, Params::from_vec(vec![], false, &mut defs, &pos)?);
 
                 let sq = SpecifierQualifier::new();
                 let specifier = DeclarationSpecifier::new(Type::Number(NumberType::Int), sq);
@@ -3704,7 +3707,8 @@ mod tests {
                 assert_eq!(params.len(), 0);
 
                 let mut defs = Defines::new();
-                assert_eq!(params, Params::from_vec(vec![], false, &mut defs)?);
+                let pos = Position::new(1, 1);
+                assert_eq!(params, Params::from_vec(vec![], false, &mut defs, &pos)?);
 
                 let sq = SpecifierQualifier::new();
                 let specifier = DeclarationSpecifier::new(Type::Number(NumberType::Int), sq);
@@ -3841,7 +3845,8 @@ mod tests {
             assert_eq!(params.len(), 0);
 
             let mut defs = Defines::new();
-            assert_eq!(*params, Params::from_vec(vec![], false, &mut defs)?);
+            let pos = Position::new(1, 1);
+            assert_eq!(*params, Params::from_vec(vec![], false, &mut defs, &pos)?);
 
             let list = &body.body;
             assert_eq!(list.len(), 8);
@@ -3866,7 +3871,8 @@ mod tests {
             let declarator_list = vec![declarator];
             field_list.push(StructDeclaration::new(sq.clone(), Some(int_type.clone()), declarator_list));
 
-            let struct_definition = StructDefinition::try_new(Some("date".to_string()), Some(field_list))?;
+            let dummy_pos = Position::new(1, 1);
+            let struct_definition = StructDefinition::try_new(Some("date".to_string()), Some(field_list), &dummy_pos)?;
             let type_struct = Type::Struct { name: Some("date".to_string()), fields: struct_definition.clone() };
             let specifier = DeclarationSpecifier::new(type_struct.clone(), sq);
 
@@ -4038,7 +4044,7 @@ mod tests {
 
                 match direct_decl {
                     DirectDeclarator::ArrayDef(second_direct_decl, size_list) => {
-                        assert_eq!(*size_list, vec![Some(ConstExpr::Int(2)), Some(ConstExpr::Int(3))]);
+                        assert_eq!(*size_list, vec![Some(ConstExpr::Int(2, Position::new(2, 20))), Some(ConstExpr::Int(3, Position::new(2, 23)))]);
                         assert_eq!(**second_direct_decl, DirectDeclarator::Symbol("ary".to_string()));
                    },
                     _ => panic!("direct_decl: {:?}", direct_decl),
