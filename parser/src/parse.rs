@@ -817,7 +817,12 @@ impl Parser {
             }
         }
 
-        let (typ, pos) = opt_type.ok_or(ParserError::no_type_defined(iter.peek().unwrap().1.clone()))?;
+        // let (typ, pos) = opt_type.ok_or(ParserError::no_type_defined(iter.peek().unwrap().1.clone()))?;
+        let (typ, pos) = if let Some((typ, pos)) = opt_type {
+            (typ, pos)
+        }else{
+            return Err(ParserError::no_type_defined(iter.peek().unwrap().1.clone()));
+        };
         let typ = if let Some((true, _)) = opt_unsigned {
             typ.to_unsigned(&pos)?
         }else{
@@ -2957,11 +2962,21 @@ impl Parser {
 
     fn parse_case_labeled_statement(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<AST>, ParserError> {
         self.parse_expected_token(iter, Token::Case)?;
-        let constant_condition = self.parse_constant_expression(iter, defs, labels)?.ok_or(ParserError::no_constant_expr_after_case(iter.peek().unwrap().1.clone()))?;
+        // let constant_condition = self.parse_constant_expression(iter, defs, labels)?.ok_or(ParserError::no_constant_expr_after_case(iter.peek().unwrap().1.clone()))?;
+        let constant_condition = if let Some(cond) = self.parse_constant_expression(iter, defs, labels)? {
+            cond
+        }else{
+            return Err(ParserError::no_constant_expr_after_case(iter.peek().unwrap().1.clone()));
+        };
 
         self.parse_expected_token(iter, Token::Colon)?;
 
-        let stmt = self.parse_statement(iter, defs, labels)?.ok_or(ParserError::syntax_error(iter.peek().unwrap().1.clone()))?;
+        // let stmt = self.parse_statement(iter, defs, labels)?.ok_or(ParserError::syntax_error(iter.peek().unwrap().1.clone()))?;
+        let stmt = if let Some(s) = self.parse_statement(iter, defs, labels)? {
+            s
+        }else{
+            return Err(ParserError::syntax_error(iter.peek().unwrap().1.clone()));
+        };
         let case = Case::new(constant_condition, Box::new(stmt));
         Ok(Some(AST::Case(case)))
     }
@@ -2970,7 +2985,12 @@ impl Parser {
         self.parse_expected_token(iter, Token::Default)?;
         self.parse_expected_token(iter, Token::Colon)?;
 
-        let stmt = self.parse_statement(iter, defs, labels)?.ok_or(ParserError::syntax_error(iter.peek().unwrap().1.clone()))?;
+        // let stmt = self.parse_statement(iter, defs, labels)?.ok_or(ParserError::syntax_error(iter.peek().unwrap().1.clone()))?;
+        let stmt = if let Some(s) = self.parse_statement(iter, defs, labels)? {
+            s
+        }else{
+            return Err(ParserError::syntax_error(iter.peek().unwrap().1.clone()))?;
+        };
         Ok(Some(AST::Default(Box::new(stmt))))
     }
 
