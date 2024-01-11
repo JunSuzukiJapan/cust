@@ -16,8 +16,8 @@ pub enum ParserError {
     NotFunction(Position, Type),
     NotNumberType(Position, Type),
     NotNumberTypeToBeUnsigned(Position, Type),
-    CannotToBeUnsigned(Option<Position>, NumberType),
-    SyntaxError(Option<Position>),
+    CannotToBeUnsigned(Position, NumberType),
+    SyntaxError(Position),
     IllegalEndOfInput(Position),
     WithoutExpectedToken{opt_pos: Option<Position>, expected_token: Token, real_token: Token},
     NoSuchAOperator{opt_pos: Option<Position>, token_type: Token},
@@ -48,7 +48,7 @@ pub enum ParserError {
     CannotCombineWithPreviousUnsignedDeclarationSpecifier(Option<Position>, Position),
     NotNumberSigned(Option<Position>, Type),
     NotNumberUnsigned(Option<Position>, Type),
-    SyntaxErrorWhileParsingStruct(Option<Position>, SpecifierQualifier, TypeOrVariadic),
+    SyntaxErrorWhileParsingStruct(Position, SpecifierQualifier, TypeOrVariadic),
     NotSelfAfterRef(Option<Position>),
     NoConstantExprParsingStructAfterColon(Option<Position>),
     NotSymbolParsingEnum(Option<Position>),
@@ -93,8 +93,8 @@ impl ParserError {
         ParserError::NotNumberTypeToBeUnsigned(pos, typ.clone())
     }
 
-    pub fn syntax_error(opt_pos: Option<Position>) -> ParserError {
-        ParserError::SyntaxError(opt_pos)
+    pub fn syntax_error(pos: Position) -> ParserError {
+        ParserError::SyntaxError(pos)
     }
 
     pub fn illegal_end_of_input(pos: Position) -> ParserError {
@@ -197,8 +197,8 @@ impl ParserError {
         ParserError::AlreadyTypeDefined { opt_pos, typ: typ.clone(), pre_type: pre_type.clone(), pre_pos: pre_pos.clone() }
     }
 
-    pub fn syntax_error_while_parsing_struct(opt_pos: Option<Position>, sp: &SpecifierQualifier, type_or_variadic: &TypeOrVariadic) -> ParserError {
-        ParserError::SyntaxErrorWhileParsingStruct(opt_pos, sp.clone(), type_or_variadic.clone())
+    pub fn syntax_error_while_parsing_struct(pos: Position, sp: &SpecifierQualifier, type_or_variadic: &TypeOrVariadic) -> ParserError {
+        ParserError::SyntaxErrorWhileParsingStruct(pos, sp.clone(), type_or_variadic.clone())
     }
 
     pub fn not_self_after_ref(opt_pos: Option<Position>) -> ParserError {
@@ -221,8 +221,8 @@ impl ParserError {
         ParserError::ShouldBe(opt_pos, token_type_vec, typ.clone())
     }
 
-    pub fn cannot_to_be_unsigned(opt_pos: Option<Position>, num_type: &NumberType) -> ParserError {
-        ParserError::CannotToBeUnsigned(opt_pos, num_type.clone())
+    pub fn cannot_to_be_unsigned(pos: Position, num_type: &NumberType) -> ParserError {
+        ParserError::CannotToBeUnsigned(pos, num_type.clone())
     }
 
     pub fn no_type_for_struct_field(opt_pos: Option<Position>) -> ParserError {
@@ -279,8 +279,8 @@ impl fmt::Display for ParserError {
             Self::NotFunction(_opt_pos, _typ) => write!(f, "not function"),
             Self::NotNumberType(_pos, _typ) => write!(f, "not number type"),
             Self::NotNumberTypeToBeUnsigned(_pos, _typ) => write!(f, "not number type to be unsigned"),
-            Self::CannotToBeUnsigned(_opt_pos, _number_type) => write!(f, "cannot to be unsigned"),
-            Self::SyntaxError(_opt_pos) => write!(f, "syntax error"),
+            Self::CannotToBeUnsigned(_pos, _number_type) => write!(f, "cannot to be unsigned"),
+            Self::SyntaxError(_pos) => write!(f, "syntax error"),
             Self::IllegalEndOfInput(_pos) => write!(f, "illegal end of input"),
             Self::WithoutExpectedToken{opt_pos: _, expected_token: _, real_token: _} => write!(f, "without expected token"),
             Self::NoSuchAOperator{opt_pos: _, token_type: _} => write!(f, "no such a operator"),
@@ -306,7 +306,7 @@ impl fmt::Display for ParserError {
             Self::CannotCombineWithPreviousUnsignedDeclarationSpecifier(_opt_pos, _pos) => write!(f, "cannot combine with previous unsigned declaration specifier"),
             Self::NotNumberSigned(_opt_pos, _typ) => write!(f, "not number signed"),
             Self::NotNumberUnsigned(_opt_pos, _typ) => write!(f, "not number unsigned"),
-            Self::SyntaxErrorWhileParsingStruct(_opt_pos, _specifier_qualifier, _type_or_variadic) => write!(f, "syntax error while parsing struct"),
+            Self::SyntaxErrorWhileParsingStruct(_pos, _specifier_qualifier, _type_or_variadic) => write!(f, "syntax error while parsing struct"),
             Self::NotSelfAfterRef(_opt_pos) => write!(f, "not self after ref"),
             Self::NoConstantExprParsingStructAfterColon(_opt_pos) => write!(f, "no constant expr parsing struct after colon"),
             Self::NotSymbolParsingEnum(_opt_pos) => write!(f, "not symbol parsing enum"),

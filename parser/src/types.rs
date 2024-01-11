@@ -48,7 +48,7 @@ impl NumberType {
     //     }
     // }
 
-    pub fn to_unsigned(&self) -> Result<NumberType, ParserError> {
+    pub fn to_unsigned(&self, pos: &Position) -> Result<NumberType, ParserError> {
         match self {
             NumberType::Char => {
                 Ok(NumberType::UnsignedChar)
@@ -66,7 +66,7 @@ impl NumberType {
                 Ok(NumberType::UnsignedLongLong)
             },
             NumberType::Float | NumberType::Double | NumberType::_Bool => {
-                Err(ParserError::cannot_to_be_unsigned(None, self))
+                Err(ParserError::cannot_to_be_unsigned(pos.clone(), self))
             },
             _ => Ok(self.clone())
         }
@@ -625,7 +625,7 @@ impl Type {
     pub fn to_unsigned(&self, pos: &Position) -> Result<Type, ParserError> {
         match self {
             Type::Number(nt) => {
-                Ok(Type::Number(nt.to_unsigned()?))
+                Ok(Type::Number(nt.to_unsigned(pos)?))
             },
             Type::Pointer(p, typ) => {
                 Ok(Type::Pointer(p.clone(), Box::new(typ.to_unsigned(pos)?)))
