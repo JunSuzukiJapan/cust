@@ -817,9 +817,9 @@ impl Parser {
             }
         }
 
-        let (typ, _pos) = opt_type.ok_or(ParserError::no_type_defined(None))?;
+        let (typ, pos) = opt_type.ok_or(ParserError::no_type_defined(None))?;
         let typ = if let Some((true, _)) = opt_unsigned {
-            typ.to_unsigned()?
+            typ.to_unsigned(&pos)?
         }else{
             typ
         };

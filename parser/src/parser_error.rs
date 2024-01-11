@@ -13,9 +13,9 @@ pub enum ParserError {
     NotPointer(Position, Type),
     NotArray(Position, Type),
     NotSymbol(Position),
-    NotFunction(Option<Position>, Type),
-    NotNumberType(Option<Position>, Type),
-    NotNumberTypeToBeUnsigned(Option<Position>, Type),
+    NotFunction(Position, Type),
+    NotNumberType(Position, Type),
+    NotNumberTypeToBeUnsigned(Position, Type),
     CannotToBeUnsigned(Option<Position>, NumberType),
     SyntaxError(Option<Position>),
     IllegalEndOfInput(Position),
@@ -81,16 +81,16 @@ impl ParserError {
         ParserError::NotSymbol(pos)
     }
 
-    pub fn not_function(opt_pos: Option<Position>, typ: &Type) -> ParserError {
-        ParserError::NotFunction(opt_pos, typ.clone())
+    pub fn not_function(pos: Position, typ: &Type) -> ParserError {
+        ParserError::NotFunction(pos, typ.clone())
     }
 
-    pub fn not_number_type(opt_pos: Option<Position>, typ: &Type) -> ParserError {
-        ParserError::NotNumberType(opt_pos, typ.clone())
+    pub fn not_number_type(pos: Position, typ: &Type) -> ParserError {
+        ParserError::NotNumberType(pos, typ.clone())
     }
 
-    pub fn not_number_type_to_be_unsigned(opt_pos: Option<Position>, typ: &Type) -> ParserError {
-        ParserError::NotNumberTypeToBeUnsigned(opt_pos, typ.clone())
+    pub fn not_number_type_to_be_unsigned(pos: Position, typ: &Type) -> ParserError {
+        ParserError::NotNumberTypeToBeUnsigned(pos, typ.clone())
     }
 
     pub fn syntax_error(opt_pos: Option<Position>) -> ParserError {
@@ -277,8 +277,8 @@ impl fmt::Display for ParserError {
             Self::NotArray(_pos, _typ) => write!(f, "not array"),
             Self::NotSymbol(_pos) => write!(f, "not symbol"),
             Self::NotFunction(_opt_pos, _typ) => write!(f, "not function"),
-            Self::NotNumberType(_opt_pos, _typ) => write!(f, "not number type"),
-            Self::NotNumberTypeToBeUnsigned(_opt_pos, _typ) => write!(f, "not number type to be unsigned"),
+            Self::NotNumberType(_pos, _typ) => write!(f, "not number type"),
+            Self::NotNumberTypeToBeUnsigned(_pos, _typ) => write!(f, "not number type to be unsigned"),
             Self::CannotToBeUnsigned(_opt_pos, _number_type) => write!(f, "cannot to be unsigned"),
             Self::SyntaxError(_opt_pos) => write!(f, "syntax error"),
             Self::IllegalEndOfInput(_pos) => write!(f, "illegal end of input"),

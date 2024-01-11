@@ -564,11 +564,11 @@ impl Type {
         }
     }
 
-    pub fn get_fn_ret_type(&self) -> Result<&Type, ParserError> {
+    pub fn get_fn_ret_type(&self, pos: &Position) -> Result<&Type, ParserError> {
         if let Type::Function(fun_type) = self {
             Ok(&fun_type.ret_type)
         }else{
-            Err(ParserError::not_function(None, self))
+            Err(ParserError::not_function(pos.clone(), self))
         }
     }
 
@@ -608,30 +608,29 @@ impl Type {
         }
     }
 
-    pub fn get_number_type(&self) -> Result<&NumberType, ParserError> {
-println!("get_number_type. self: '{}'", self);
+    pub fn get_number_type(&self, pos: &Position) -> Result<&NumberType, ParserError> {
         match self {
             Type::Number(nt) => Ok(nt),
-            _ => Err(ParserError::not_number_type(None, self)),
+            _ => Err(ParserError::not_number_type(pos.clone(), self)),
         }
     }
 
-    pub fn get_function_type(&self) -> Result<&CustFunctionType, ParserError> {
+    pub fn get_function_type(&self, pos: &Position) -> Result<&CustFunctionType, ParserError> {
         match self {
             Type::Function(fun_type) => Ok(fun_type),
-            _ => Err(ParserError::not_function(None, self))
+            _ => Err(ParserError::not_function(pos.clone(), self))
         }
     }
 
-    pub fn to_unsigned(&self) -> Result<Type, ParserError> {
+    pub fn to_unsigned(&self, pos: &Position) -> Result<Type, ParserError> {
         match self {
             Type::Number(nt) => {
                 Ok(Type::Number(nt.to_unsigned()?))
             },
             Type::Pointer(p, typ) => {
-                Ok(Type::Pointer(p.clone(), Box::new(typ.to_unsigned()?)))
+                Ok(Type::Pointer(p.clone(), Box::new(typ.to_unsigned(pos)?)))
             },
-            _ => Err(ParserError::not_number_type_to_be_unsigned(None, self)),
+            _ => Err(ParserError::not_number_type_to_be_unsigned(pos.clone(), self)),
         }
     }
 
