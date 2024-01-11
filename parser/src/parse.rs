@@ -3020,7 +3020,7 @@ impl Parser {
         if *tok == expected {
             Ok(pos.clone())
         }else{
-            Err(ParserError::without_expected_token(Some(pos.clone()), expected.clone(), tok.clone()))
+            Err(ParserError::without_expected_token(pos.clone(), expected.clone(), tok.clone()))
         }
     }
 }

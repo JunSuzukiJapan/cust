@@ -19,7 +19,7 @@ pub enum ParserError {
     CannotToBeUnsigned(Position, NumberType),
     SyntaxError(Position),
     IllegalEndOfInput(Position),
-    WithoutExpectedToken{opt_pos: Option<Position>, expected_token: Token, real_token: Token},
+    WithoutExpectedToken{pos: Position, expected_token: Token, real_token: Token},
     NoSuchAOperator{opt_pos: Option<Position>, token_type: Token},
     NeedExpr(Option<Position>),
     NoTypeDefined(Option<Position>),
@@ -101,8 +101,8 @@ impl ParserError {
         ParserError::IllegalEndOfInput(pos)
     }
 
-    pub fn without_expected_token(opt_pos: Option<Position>, expected: Token, real: Token) -> ParserError {
-        ParserError::WithoutExpectedToken{opt_pos, expected_token: expected, real_token: real}
+    pub fn without_expected_token(pos: Position, expected: Token, real: Token) -> ParserError {
+        ParserError::WithoutExpectedToken{pos, expected_token: expected, real_token: real}
     }
 
     pub fn no_such_a_operator(opt_pos: Option<Position>, token_type: Token) -> ParserError {
@@ -282,7 +282,7 @@ impl fmt::Display for ParserError {
             Self::CannotToBeUnsigned(_pos, _number_type) => write!(f, "cannot to be unsigned"),
             Self::SyntaxError(_pos) => write!(f, "syntax error"),
             Self::IllegalEndOfInput(_pos) => write!(f, "illegal end of input"),
-            Self::WithoutExpectedToken{opt_pos: _, expected_token: _, real_token: _} => write!(f, "without expected token"),
+            Self::WithoutExpectedToken{pos: _, expected_token: _, real_token: _} => write!(f, "without expected token"),
             Self::NoSuchAOperator{opt_pos: _, token_type: _} => write!(f, "no such a operator"),
             Self::NeedExpr(_opt_pos) => write!(f, "need expr"),
             Self::NoTypeDefined(_opt_pos) => write!(f, "no type defined"),
