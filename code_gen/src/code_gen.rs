@@ -336,6 +336,11 @@ impl<'ctx> CodeGen<'ctx> {
     ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
 
         match expr_ast {
+            ExprAST::Char(num, _pos) => {
+                let i8_type = self.context.i8_type();
+                let result = i8_type.const_int(*num as u64, true);
+                Ok(Some(CompiledValue::new(Type::Number(NumberType::Char), result.as_any_value_enum())))
+            },
             ExprAST::Int(num, _pos) => {
                 let i32_type = self.context.i32_type();
                 let result = i32_type.const_int(*num as u64, true);
@@ -351,25 +356,44 @@ impl<'ctx> CodeGen<'ctx> {
                 let result = i64_type.const_int(*num as u64, true);
                 Ok(Some(CompiledValue::new(Type::Number(NumberType::Long), result.as_any_value_enum())))
             },
-            // ExprAST::LongLong(num) => {
-            //     let i128_type = self.context.i128_type();
-            //     let result = i128_type.const_int(*num as u128, true);
-            //     Ok(Some(result.as_any_value_enum()))
-            // },
+            ExprAST::LongLong(num, _pos) => {
+                let i128_type = self.context.i128_type();
+                // let result = i128_type.const_int(*num as u128, true);
+                // let result = i128_type.const_int_arbitrary_precision(words);
+                // Ok(Some(CompiledValue::new(Type::Number(NumberType::LongLong), result.as_any_value_enum())))
+                unimplemented!()
+            },
+            ExprAST::UChar(num, _pos) => {
+                let i8_type = self.context.i8_type();
+                let result = i8_type.const_int(*num as u64, false);
+                Ok(Some(CompiledValue::new(Type::Number(NumberType::UnsignedChar), result.as_any_value_enum())))
+            },
             ExprAST::UInt(num, _pos) => {
                 let i32_type = self.context.i32_type();
-                let result = i32_type.const_int(*num as u64, true);
+                let result = i32_type.const_int(*num as u64, false);
                 Ok(Some(CompiledValue::new(Type::Number(NumberType::UnsignedInt), result.as_any_value_enum())))
             },
             ExprAST::UShort(num, _pos) => {
                 let i16_type = self.context.i16_type();
-                let result = i16_type.const_int(*num as u64, true);
+                let result = i16_type.const_int(*num as u64, false);
                 Ok(Some(CompiledValue::new(Type::Number(NumberType::UnsignedShort), result.as_any_value_enum())))
             },
             ExprAST::ULong(num, _pos) => {
                 let i64_type = self.context.i64_type();
-                let result = i64_type.const_int(*num as u64, true);
+                let result = i64_type.const_int(*num as u64, false);
                 Ok(Some(CompiledValue::new(Type::Number(NumberType::UnsignedLong), result.as_any_value_enum())))
+            },
+            ExprAST::ULongLong(num, _pos) => {
+                let i128_type = self.context.i128_type();
+                // let result = i128_type.const_int(*num as u128, false);
+                // let result = i128_type.const_int_arbitrary_precision(words);
+                // Ok(Some(CompiledValue::new(Type::Number(NumberType::LongLong), result.as_any_value_enum())))
+                unimplemented!()
+            },
+            ExprAST::Float(num, _pos) => {
+                let f32_type = self.context.f32_type();
+                let result = f32_type.const_float(*num as f64);
+                Ok(Some(CompiledValue::new(Type::Number(NumberType::Double), result.as_any_value_enum())))
             },
             ExprAST::Double(num, _pos) => {
                 let f64_type = self.context.f64_type();
@@ -642,11 +666,25 @@ println!("POST inc member access");
                 // never reached, maybe
                 unimplemented!()
             },
-
-
-
-
-            _ => unimplemented!("ast: {:?}", expr_ast),
+            ExprAST::UnarySizeOfExpr(_, _) => {
+                unimplemented!()
+            },
+            ExprAST::UnarySizeOfTypeName(_, _) => {
+                unimplemented!()
+            },
+            ExprAST::ExpressionPair(_, _, _) => {
+                unimplemented!()
+            },
+            ExprAST::Cast(_, _, _) => {
+                unimplemented!()
+            },
+            ExprAST::TernaryOperator(_, _, _, _) => {
+                unimplemented!()
+            },
+            ExprAST::_Self(_) => {
+                unimplemented!()
+            },
+            // _ => unimplemented!("ast: {:?}", expr_ast),
         }
     }
 
