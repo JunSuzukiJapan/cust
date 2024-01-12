@@ -52,6 +52,7 @@ pub enum CodeGenError {
     CannotModValue(Option<Position>, Type),
     CannotCompareValue(Option<Position>, Type),
     CannotApplyLogicalOpValue(Option<Position>, Type),
+    CannotCalculate(Position),
     NotIntInShift(Option<Position>, Type),
     NotIntBitAnd(Option<Position>, Type),
     NotIntBitOr(Option<Position>, Type),
@@ -216,27 +217,31 @@ impl CodeGenError {
     }
 
     pub fn cannot_sub_value(opt_pos: Option<Position>, typ: &Type) -> Self {
-        Self::CannotAddValue(opt_pos, typ.clone())
+        Self::CannotSubValue(opt_pos, typ.clone())
     }
 
     pub fn cannot_mul_value(opt_pos: Option<Position>, typ: &Type) -> Self {
-        Self::CannotAddValue(opt_pos, typ.clone())
+        Self::CannotMulValue(opt_pos, typ.clone())
     }
 
     pub fn cannot_div_value(opt_pos: Option<Position>, typ: &Type) -> Self {
-        Self::CannotAddValue(opt_pos, typ.clone())
+        Self::CannotDivValue(opt_pos, typ.clone())
     }
 
     pub fn cannot_mod_value(opt_pos: Option<Position>, typ: &Type) -> Self {
-        Self::CannotAddValue(opt_pos, typ.clone())
+        Self::CannotModValue(opt_pos, typ.clone())
     }
 
     pub fn cannot_compare_value(opt_pos: Option<Position>, typ: &Type) -> Self {
-        Self::CannotAddValue(opt_pos, typ.clone())
+        Self::CannotCompareValue(opt_pos, typ.clone())
     }
 
     pub fn cannot_apply_logical_op_value(opt_pos: Option<Position>, typ: &Type) -> Self {
-        Self::CannotAddValue(opt_pos, typ.clone())
+        Self::CannotApplyLogicalOpValue(opt_pos, typ.clone())
+    }
+
+    pub fn cannot_calculate(pos: Position) -> Self {
+        Self::CannotCalculate(pos)
     }
 
     pub fn not_int_in_shift(opt_pos: Option<Position>, typ: &Type) -> Self {

@@ -582,6 +582,7 @@ println!("POST inc member access");
                 }
             },
             ExprAST::Assign(l_value, r_value, _pos) => self.gen_assign(&**l_value, &**r_value, env, break_catcher, continue_catcher),
+            ExprAST::OpAssign(op, l_value, r_value, _pos) => self.gen_op_assign(op, &**l_value, &**r_value, env, break_catcher, continue_catcher),
             ExprAST::CallFunction(fun, args, _pos) => {
                 let mut v: Vec<BasicMetadataValueEnum> = Vec::new();
                 for expr in args {
@@ -2033,6 +2034,23 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
         Ok(Some(compiled_value))
     }
 
+    fn gen_op_assign<'b, 'c>(&self,
+        op: &BinOp,
+        l_value: &ExprAST,
+        r_value: &ExprAST,
+        env: &mut Env<'ctx>,
+        break_catcher: Option<&'b BreakCatcher>,
+        continue_catcher: Option<&'c ContinueCatcher>
+    ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
+        let compiled_value = self.gen_bin_expr(op, l_value, r_value, env, break_catcher, continue_catcher)?.ok_or(Box::new(CodeGenError::cannot_calculate(l_value.get_position().clone())))?;
+        let value = self.try_as_basic_value(&compiled_value.get_value())?;
+        let from_type = compiled_value.get_type();
+        let (to_type, ptr) = self.get_l_value(l_value, env, break_catcher, continue_catcher)?;
+
+        self.builder.build_store(ptr, value)?;
+        Ok(Some(compiled_value))
+    }
+
     fn get_l_value<'b, 'c>(&self,
         ast: &ExprAST,
         env: &mut Env<'ctx>,
@@ -2541,7 +2559,7 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
         }
     }
 }
-/*
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2556,9 +2574,13 @@ mod tests {
     type FuncType_i32i32i32_i32 = unsafe extern "C" fn(i32, i32, i32) -> i32;
     type FuncType_void_void = unsafe extern "C" fn() -> ();
 
+    pub fn parse_from_str(input: &str) -> Result<Vec<AST>, ParserError> {
+        let token_list = Tokenizer::tokenize(input)?;
+        Parser::parse(token_list)
+    }
+
     pub fn parse_expression_from_str(src: &str) -> Result<Option<ExprAST>, ParserError> {
-        let tokenizer = Tokenizer::new();
-        let token_list = tokenizer.tokenize(src).unwrap();
+        let token_list = Tokenizer::tokenize(src)?;
         let mut iter = token_list.iter().peekable();
         let parser = Parser::new();
         let mut defs = Defines::new();
@@ -2580,7 +2602,6 @@ mod tests {
     }
 
     fn code_gen_from_str(input: &str) -> Result<i32, Box<dyn Error>> {
-        // let parser = Parser::new();
         let ast = parse_expression_from_str(input)?.unwrap();
 
         let fn_name = "from_str_function";
@@ -2734,8 +2755,7 @@ mod tests {
         ";
 
         // parse
-        let parser = Parser::new();
-        let ast = &parser.parse_from_str(src).unwrap()[0];
+        let ast = &parse_from_str(src).unwrap()[0];
 
         // code gen
         let context = Context::create();
@@ -2752,8 +2772,7 @@ mod tests {
     #[test]
     fn code_gen_fun_add() {
         // parse
-        let parser = Parser::new();
-        let ast = &parser.parse_from_str("
+        let ast = &parse_from_str("
             int add(int x, int y) {
                 return x + y;
             }
@@ -2781,8 +2800,7 @@ mod tests {
         ";
 
         // parse
-        let parser = Parser::new();
-        let ast = &parser.parse_from_str(src).unwrap()[0];
+        let ast = &parse_from_str(src).unwrap()[0];
 
         // code gen
         let context = Context::create();
@@ -2805,8 +2823,7 @@ mod tests {
         ";
 
         // parse
-        let parser = Parser::new();
-        let ast = &parser.parse_from_str(src).unwrap()[0];
+        let ast = &parse_from_str(src).unwrap()[0];
 
         // code gen
         let context = Context::create();
@@ -2832,8 +2849,7 @@ mod tests {
         ";
 
         // parse
-        let parser = Parser::new();
-        let asts = parser.parse_from_str(src).unwrap();
+        let asts = parse_from_str(src).unwrap();
 
         // code gen
         let context = Context::create();
@@ -2866,8 +2882,7 @@ mod tests {
         ";
 
         // parse
-        let parser = Parser::new();
-        let asts = parser.parse_from_str(src).unwrap();
+        let asts = parse_from_str(src).unwrap();
 
         // code gen
         let context = Context::create();
@@ -2896,8 +2911,7 @@ mod tests {
         ";
 
         // parse
-        let parser = Parser::new();
-        let asts = parser.parse_from_str(src).unwrap();
+        let asts = parse_from_str(src).unwrap();
 
         // code gen
         let context = Context::create();
@@ -2926,8 +2940,7 @@ mod tests {
         ";
 
         // parse
-        let parser = Parser::new();
-        let asts = parser.parse_from_str(src).unwrap();
+        let asts = parse_from_str(src).unwrap();
 
         // code gen
         let context = Context::create();
@@ -2956,8 +2969,7 @@ mod tests {
         ";
 
         // parse
-        let parser = Parser::new();
-        let asts = parser.parse_from_str(src).unwrap();
+        let asts = parse_from_str(src).unwrap();
 
         // code gen
         let context = Context::create();
@@ -2986,8 +2998,7 @@ mod tests {
         ";
 
         // parse
-        let parser = Parser::new();
-        let asts = parser.parse_from_str(src).unwrap();
+        let asts = parse_from_str(src).unwrap();
 
         // code gen
         let context = Context::create();
@@ -3016,8 +3027,7 @@ mod tests {
         ";
 
         // parse
-        let parser = Parser::new();
-        let asts = parser.parse_from_str(src).unwrap();
+        let asts = parse_from_str(src).unwrap();
 
         // code gen
         let context = Context::create();
@@ -3046,8 +3056,7 @@ mod tests {
         ";
 
         // parse
-        let parser = Parser::new();
-        let asts = parser.parse_from_str(src).unwrap();
+        let asts = parse_from_str(src).unwrap();
 
         // code gen
         let context = Context::create();
@@ -3074,8 +3083,7 @@ mod tests {
         ";
 
         // parse
-        let parser = Parser::new();
-        let asts = parser.parse_from_str(src).unwrap();
+        let asts = parse_from_str(src).unwrap();
 
         // code gen
         let context = Context::create();
@@ -3102,8 +3110,7 @@ mod tests {
         ";
 
         // parse
-        let parser = Parser::new();
-        let asts = parser.parse_from_str(src).unwrap();
+        let asts = parse_from_str(src).unwrap();
 
         // code gen
         let context = Context::create();
@@ -3130,8 +3137,7 @@ mod tests {
         ";
 
         // parse
-        let parser = Parser::new();
-        let asts = parser.parse_from_str(src).unwrap();
+        let asts = parse_from_str(src).unwrap();
 
         // code gen
         let context = Context::create();
@@ -3169,8 +3175,7 @@ mod tests {
         ";
 
         // parse
-        let parser = Parser::new();
-        let asts = parser.parse_from_str(src).unwrap();
+        let asts = parse_from_str(src).unwrap();
 
         // code gen
         let context = Context::create();
@@ -3208,8 +3213,7 @@ mod tests {
         ";
 
         // parse
-        let parser = Parser::new();
-        let asts = parser.parse_from_str(src).unwrap();
+        let asts = parse_from_str(src).unwrap();
 
         // code gen
         let context = Context::create();
@@ -3247,8 +3251,7 @@ mod tests {
         ";
 
         // parse
-        let parser = Parser::new();
-        let asts = parser.parse_from_str(src).unwrap();
+        let asts = parse_from_str(src).unwrap();
 
         // code gen
         let context = Context::create();
@@ -3286,8 +3289,7 @@ mod tests {
         ";
 
         // parse
-        let parser = Parser::new();
-        let asts = parser.parse_from_str(src).unwrap();
+        let asts = parse_from_str(src).unwrap();
 
         // code gen
         let context = Context::create();
@@ -3322,8 +3324,7 @@ mod tests {
         ";
 
         // parse
-        let parser = Parser::new();
-        let asts = parser.parse_from_str(src).unwrap();
+        let asts = parse_from_str(src).unwrap();
 
         // code gen
         let context = Context::create();
@@ -3368,8 +3369,7 @@ mod tests {
         ";
 
         // parse
-        let parser = Parser::new();
-        let asts = parser.parse_from_str(src).unwrap();
+        let asts = parse_from_str(src).unwrap();
 
         // code gen
         let context = Context::create();
@@ -3411,8 +3411,7 @@ mod tests {
         ";
 
         // parse
-        let parser = Parser::new();
-        let asts = parser.parse_from_str(src).unwrap();
+        let asts = parse_from_str(src).unwrap();
 
         // code gen
         let context = Context::create();
@@ -3456,8 +3455,7 @@ mod tests {
         ";
 
         // parse
-        let parser = Parser::new();
-        let asts = parser.parse_from_str(src).unwrap();
+        let asts = parse_from_str(src).unwrap();
 
         // code gen
         let context = Context::create();
@@ -3496,8 +3494,7 @@ mod tests {
         ";
 
         // parse
-        let parser = Parser::new();
-        let asts = parser.parse_from_str(src).unwrap();
+        let asts = parse_from_str(src).unwrap();
 
         // code gen
         let context = Context::create();
@@ -3607,8 +3604,7 @@ mod tests {
         ";
 
         // parse
-        let parser = Parser::new();
-        let asts = parser.parse_from_str(src).unwrap();
+        let asts = parse_from_str(src).unwrap();
 
         // code gen
         let context = Context::create();
@@ -3659,8 +3655,7 @@ mod tests {
         ";
 
         // parse
-        let parser = Parser::new();
-        let asts = parser.parse_from_str(src).unwrap();
+        let asts = parse_from_str(src).unwrap();
         assert_eq!(4, asts.len());
 
         // code gen
@@ -3678,4 +3673,3 @@ mod tests {
         Ok(())
     }
 }
-*/
