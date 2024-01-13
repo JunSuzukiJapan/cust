@@ -207,7 +207,7 @@ impl TypeUtil {
                 Ok(typ.clone())
             },
             ExprAST::Not(_expr, _pos) => Ok(Type::Number(NumberType::_Bool)),
-            ExprAST::ExpressionPair(_, right, _pos) => TypeUtil::get_type(&right, env),
+            // ExprAST::ExpressionPair(_, right, _pos) => TypeUtil::get_type(&right, env),
             ExprAST::Cast(typ, _, _pos) => Ok(typ.clone()),
             ExprAST::PreInc(name, _sym_pos, _pos) => {
                 let typ = env.get_type_by_id(&name).ok_or(CodeGenError::no_such_a_variable(None, &name))?;

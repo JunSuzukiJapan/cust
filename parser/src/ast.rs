@@ -638,7 +638,7 @@ pub enum ExprAST {
     UnaryTilda(Box<ExprAST>, Position),
     UnarySizeOfExpr(Box<ExprAST>, Position),
     UnarySizeOfTypeName(Type, Position),
-    ExpressionPair(Box<ExprAST>, Box<ExprAST>, Position),
+    // ExpressionPair(Box<ExprAST>, Box<ExprAST>, Position),
     Cast(Type, Box<ExprAST>, Position),
     UnaryGetAddress(Box<ExprAST>, Position),
     UnaryPointerAccess(Box<ExprAST>, Position),
@@ -694,7 +694,7 @@ impl ExprAST {
             ExprAST::_Self(pos) => pos,
             ExprAST::_self(pos) => pos,
             ExprAST::Not(_expr, pos) => pos,
-            ExprAST::ExpressionPair(_, _right, pos) => pos,
+            // ExprAST::ExpressionPair(_, _right, pos) => pos,
             ExprAST::Cast(_typ, _, pos) => pos,
             ExprAST::PreInc(_id, _sym_pos, pos) => pos,
             ExprAST::PreDec(_id, _sym_pos, pos) => pos,
@@ -882,7 +882,7 @@ impl ExprAST {
                 Ok(defs.get_const(name, pos)?)
             },
             ExprAST::Not(expr, _) => Ok((!expr.to_const(defs, pos)?)?),
-            ExprAST::ExpressionPair(_, right, _) => right.to_const(defs, pos),
+            // ExprAST::ExpressionPair(_, right, _) => right.to_const(defs, pos),
 
 
             _ => Err(ParserError::is_not_constant(pos.clone(), self)),
