@@ -79,6 +79,8 @@ pub enum CodeGenError {
     CannotConvertAnyvalueenumToBasicvalueenum(Option<Position>),
     CannotConvertAnytypeenumToBasictypeenum(Option<Position>),
     NotIntType(Type, Position),
+    CannotGetSizeOf(Type, Position),
+    CannotConvertToBasicValue(ExprAST, Position),
 }
 
 impl CodeGenError {
@@ -334,6 +336,14 @@ impl CodeGenError {
 
     pub fn not_int_type(typ: Type, pos: Position) -> Self {
         Self::NotIntType(typ, pos)
+    }
+
+    pub fn cannot_get_size_of(typ: Type, pos: Position) -> Self {
+        Self::CannotGetSizeOf(typ, pos)
+    }
+
+    pub fn cannot_convert_to_basic_value(expr: ExprAST, pos: Position) -> Self {
+        Self::CannotConvertToBasicValue(expr, pos)
     }
 }
 

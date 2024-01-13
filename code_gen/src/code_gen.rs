@@ -18,6 +18,7 @@ use inkwell::execution_engine::ExecutionEngine;
 use inkwell::module::Module;
 use inkwell::values::{BasicValueEnum, BasicMetadataValueEnum, AnyValueEnum, AnyValue, FunctionValue, InstructionOpcode, PointerValue, InstructionValue, BasicValue, IntValue};
 use inkwell::types::{BasicTypeEnum, AnyTypeEnum, FunctionType, BasicType, BasicMetadataTypeEnum};
+use inkwell::basic_block::BasicBlock;
 use inkwell::{IntPredicate, FloatPredicate};
 use inkwell::AddressSpace;
 use inkwell::types::AnyType;
@@ -662,19 +663,90 @@ println!("POST inc member access");
                     Err(Box::new(CodeGenError::no_such_a_variable(None, "self")))
                 }
             },
-            ExprAST::UnarySizeOfExpr(_expr, _pos) => {
-                unimplemented!()
+            ExprAST::UnarySizeOfExpr(expr, pos) => {
+                let typ = TypeUtil::get_type(&**expr, env)?;
+                let llvm_type = TypeUtil::to_llvm_any_type(&typ, self.context)?;
+                let size = llvm_type.size_of().ok_or(CodeGenError::cannot_get_size_of(typ.clone(), pos.clone()))?;
+
+                Ok(Some(CompiledValue::new(Type::Number(NumberType::Int), size.as_any_value_enum())))
             },
-            ExprAST::UnarySizeOfTypeName(_typ, _pos) => {
-                unimplemented!()
+            ExprAST::UnarySizeOfTypeName(typ, pos) => {
+                let llvm_type = TypeUtil::to_llvm_any_type(typ, self.context)?;
+                let size = llvm_type.size_of().ok_or(CodeGenError::cannot_get_size_of(typ.clone(), pos.clone()))?;
+
+                Ok(Some(CompiledValue::new(Type::Number(NumberType::Int), size.as_any_value_enum())))
+            },
+            ExprAST::TernaryOperator(condition, then, _else, _pos) => {
+                let (_fun_type, func) = env.get_current_function().ok_or(CodeGenError::no_current_function(None))?;
+                let func = func.clone();
+                let cond_block = self.context.append_basic_block(func, "ternary.cond");
+                let then_block = self.context.append_basic_block(func, "ternary.then");
+                let else_block = self.context.append_basic_block(func, "ternary.else");
+                let end_block  = self.context.append_basic_block(func, "ternary.end");
+
+                self.builder.build_unconditional_branch(cond_block)?;
+                self.builder.position_at_end(cond_block);
+
+                // check condition
+                let cond = self.gen_expr(condition, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::condition_is_not_number(None, condition))?;
+                let mut comparison = cond.get_value().into_int_value();
+                let i1_type = self.context.bool_type();
+                comparison = self.builder.build_int_cast(comparison, i1_type, "cast to i1")?;  // cast to i1
+                self.builder.build_conditional_branch(comparison, then_block, else_block)?;
+
+                // then block
+                self.builder.position_at_end(then_block);
+                let then_result = self.gen_expr(then, env, break_catcher, continue_catcher)?.unwrap();
+                if let Some(blk) = self.builder.get_insert_block() {
+                    if ! self.last_is_jump_statement(blk) {
+                        self.builder.position_at_end(blk);
+                        self.builder.build_unconditional_branch(end_block)?;
+                    }
+                }
+                if ! self.last_is_jump_statement(then_block) {
+                    self.builder.position_at_end(then_block);
+                    self.builder.build_unconditional_branch(end_block)?;
+                }
+
+                // else block
+                self.builder.position_at_end(else_block);
+                let else_result = self.gen_expr(_else, env, break_catcher, continue_catcher)?.unwrap();
+                if let Some(blk) = self.builder.get_insert_block() {
+                    if ! self.last_is_jump_statement(blk) {
+                        self.builder.position_at_end(blk);
+                        self.builder.build_unconditional_branch(end_block)?;
+                    }
+                }
+                if ! self.last_is_jump_statement(else_block) {
+                    self.builder.position_at_end(else_block);
+                    self.builder.build_unconditional_branch(end_block)?;
+                }
+
+                // end block
+                self.builder.position_at_end(end_block);
+
+                let typ = then_result.get_type();
+                let llvm_type = TypeUtil::to_basic_type_enum(typ, self.context)?;
+                let phi_value = self.builder.build_phi(llvm_type, "ternary.phi")?;
+                let then_value = if let Ok(val) = BasicValueEnum::try_from(then_result.get_value()) {
+                    val
+                }else{
+                    return Err(Box::new(CodeGenError::cannot_convert_to_basic_value((**then).clone(), then.get_position().clone())));
+                };
+                let else_value = if let Ok(val) = BasicValueEnum::try_from(else_result.get_value()) {
+                    val
+                }else{
+                    return Err(Box::new(CodeGenError::cannot_convert_to_basic_value((**_else).clone(), _else.get_position().clone())));
+                };
+                let incoming: [(&dyn BasicValue<'ctx>, BasicBlock<'ctx>); 2] = [(&then_value, then_block), (&else_value, else_block)];
+                phi_value.add_incoming(&incoming);
+
+                Ok(Some(CompiledValue::new(typ.clone(), phi_value.as_any_value_enum())))
             },
             ExprAST::ExpressionPair(_left_expr, _right_expr, _pos) => {
                 unimplemented!()
             },
             ExprAST::Cast(_to_type, _expr, _pos) => {
-                unimplemented!()
-            },
-            ExprAST::TernaryOperator(_cond, _then, _else, _pos) => {
                 unimplemented!()
             },
             ExprAST::_Self(_) => {
@@ -1472,7 +1544,7 @@ println!("code_gen.gen_cast. from: '{}', to '{}'", from_type, to_type);
         Ok(())
     }
 
-    fn last_is_jump_statement(&self, block: inkwell::basic_block::BasicBlock) -> bool {
+    fn last_is_jump_statement(&self, block: BasicBlock) -> bool {
         if let Some(inst) = block.get_last_instruction() {
             let op_code = inst.get_opcode();
             match op_code {
@@ -3709,5 +3781,26 @@ mod tests {
         assert_eq!(unsafe { f.call() }, 0 + 1 + 2 + 10 + 11 + 12 + 13);
 
         Ok(())
+    }
+
+    #[test]
+    fn code_gen_ternary() {
+        // parse
+        let ast = &parse_from_str("
+            int test(int p, int x, int y) {
+                return p ? x : y;
+            }
+        ").unwrap()[0];
+
+        // code gen
+        let context = Context::create();
+        let gen = CodeGen::try_new(&context, "test run").unwrap();
+
+        let mut env = Env::new();
+        let _any_value = gen.gen_stmt(&ast, &mut env, None, None).unwrap();
+
+        let f: JitFunction<FuncType_i32i32i32_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
+        assert_eq!(unsafe { f.call(1, 1, 2)}, 1);
+        assert_eq!(unsafe { f.call(0, 1, 2)}, 2);
     }
 }
