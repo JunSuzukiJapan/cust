@@ -151,7 +151,7 @@ impl<'ctx> CodeGen<'ctx> {
 
                     // let required_ret_type = opt_required_ret_type.unwrap();
                     if required_ret_type != real_ret_type {
-                        let casted = self.gen_cast(&real_ret.get_value(), &real_ret_type, &required_ret_type)?;
+                        let casted = self.gen_implicit_cast(&real_ret.get_value(), &real_ret_type, &required_ret_type)?;
                         real_ret = CompiledValue::new(real_ret.get_type().clone(), casted);
                         // unimplemented!("required type: '{}', real type: '{}'", required_ret_type, real_ret_type)
                     }
@@ -743,13 +743,17 @@ println!("POST inc member access");
 
                 Ok(Some(CompiledValue::new(typ.clone(), phi_value.as_any_value_enum())))
             },
-            ExprAST::Cast(_to_type, _expr, _pos) => {
-                unimplemented!()
+            ExprAST::Cast(to_type, expr, _pos) => {
+                let from = TypeUtil::get_type(&**expr, env)?;
+                let value = self.gen_expr(&**expr, env, break_catcher, continue_catcher)?.unwrap().get_value();
+                let result = Caster::gen_cast(&self.builder, self.context, &value, &from, to_type, &**expr)?;
+                Ok(Some(CompiledValue::new(to_type.clone(), result)))
             },
             // ExprAST::ExpressionPair(_left_expr, _right_expr, _pos) => {
             //     unimplemented!()
             // },
             ExprAST::_Self(_) => {
+                // never reached, maybe
                 unimplemented!()
             },
             ExprAST::InitializerList(_ast_list, _pos) => {
@@ -799,7 +803,7 @@ println!("InitType: {:?}", init_type);
                         if typ != *init_type {
 println!("typ != *init_type");
 println!("call gen_cast. typ: '{}', init_type: '{}'", typ, *init_type);
-                            init_value = self.gen_cast(&init_value, &init_type, &typ)?;
+                            init_value = self.gen_implicit_cast(&init_value, &init_type, &typ)?;
                         }
 
                         let basic_value = self.try_as_basic_value(&init_value)?;
@@ -1101,9 +1105,9 @@ println!("env: {:?}", env);
         Ok(None)
     }
 
-    fn gen_cast(&self, value: &AnyValueEnum<'ctx>, from_type: &Type, to_type: &Type) -> Result<AnyValueEnum<'ctx>, Box<dyn Error>> {
+    fn gen_implicit_cast(&self, value: &AnyValueEnum<'ctx>, from_type: &Type, to_type: &Type) -> Result<AnyValueEnum<'ctx>, Box<dyn Error>> {
 println!("code_gen.gen_cast. from: '{}', to '{}'", from_type, to_type);
-        Caster::gen_cast(&self.builder, &self.context, value, from_type, to_type)
+        Caster::gen_implicit_cast(&self.builder, &self.context, value, from_type, to_type)
     }
 
     #[cfg(test)]
@@ -3803,4 +3807,28 @@ mod tests {
         assert_eq!(unsafe { f.call(1, 1, 2)}, 1);
         assert_eq!(unsafe { f.call(0, 1, 2)}, 2);
     }
+/*
+    #[test]
+    fn code_gen_pointr_cast() {
+        // parse
+        let ast = &parse_from_str("
+            typedef unsigned int size_t;
+            void *malloc(size_t size);
+
+            int test() {
+                int* ptr = (int*)malloc(1);
+            }
+        ").unwrap()[0];
+
+        // code gen
+        let context = Context::create();
+        let gen = CodeGen::try_new(&context, "test run").unwrap();
+
+        let mut env = Env::new();
+        let _any_value = gen.gen_stmt(&ast, &mut env, None, None).unwrap();
+
+        let f: JitFunction<FuncType_void_void> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
+        let _result = unsafe { f.call() };
+    }
+*/
 }

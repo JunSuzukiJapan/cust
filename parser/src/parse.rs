@@ -444,6 +444,7 @@ impl Parser {
             if let Some((tok, pos)) = iter.peek() {
                 match tok {
                     Token::Equal | Token::SemiColon | Token::ParenLeft | Token::BracketLeft | Token::Comma | Token::ParenRight => {
+println!("( in parse_type_sp_q");
                         break;
                     },
 
@@ -1073,6 +1074,7 @@ impl Parser {
                 decl = DirectDeclarator::Symbol(id.to_string());
             },
             Token::ParenLeft => {
+println!("( in parse_direct_declarator");
                 iter.next();  // skip '('
 
                 let d = self.parse_declarator(iter, defs, labels)?;
@@ -1118,6 +1120,7 @@ impl Parser {
 
             match tok {
                 Token::ParenLeft => {  // define function
+println!("( in parse_direct_declarator_sub");
                     // read parameter type list
                     iter.next();  // skip '('
 
@@ -1696,7 +1699,9 @@ impl Parser {
 
 
     fn parse_cast_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ExprAST>, ParserError> {
+println!("parse_cast_expression");
         let opt_expr = self.parse_unary_expression(iter, defs, labels)?;
+println!("opt_expr: {:?}", opt_expr);
         if opt_expr.is_some() {
             Ok(opt_expr)
 
@@ -1706,9 +1711,13 @@ impl Parser {
             if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
 
             if *tok == Token::ParenLeft {
+println!("skip '('");
                 iter.next();  // skip '('
+println!("goto parse_type_name");
                 let (_sq, type_or_variadic, _opt_abstract_decl) = self.parse_type_name(iter, defs, labels)?;
+println!("come back from parse_type_name");
                 let cast_type = type_or_variadic.get_type().ok_or(ParserError::no_type_defined(pos.clone()))?;
+println!("goto parse_expected_token");
                 self.parse_expected_token(iter, Token::ParenRight)?;
 
                 let expr = self.parse_cast_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
@@ -1721,6 +1730,7 @@ impl Parser {
     }
 
     fn parse_unary_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ExprAST>, ParserError> {
+println!("parse_unary_expression");
         if let Some(ast) = self.parse_postfix_expression(iter, defs, labels)? {
             Ok(Some(ast))
 
@@ -1835,6 +1845,7 @@ impl Parser {
     }
 
     fn parse_postfix_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ExprAST>, ParserError> {
+println!("parse_postfix_expression");
         if let Some(mut ast) = self.parse_primary_expression(iter, defs, labels)? {
             loop {
                 if let Some((tok, pos)) = iter.peek() {
@@ -1846,6 +1857,7 @@ impl Parser {
                             ast = ExprAST::ArrayAccess(Box::new(ast), Box::new(expr), pos.clone());
                         },
                         Token::ParenLeft => {
+println!("( in parse_postfix");
                             iter.next();  // skip '('
                             let exprs = self.parse_expression(iter, defs, labels)?;
                             self.parse_expected_token(iter, Token::ParenRight)?;
@@ -1942,6 +1954,7 @@ impl Parser {
     }
 
     fn parse_primary_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ExprAST>, ParserError> {
+println!("parse_primary_expression");
         if let Some((tok, pos)) = iter.peek() {
             match &*tok {
                 Token::Symbol(name) => {
@@ -1957,6 +1970,7 @@ impl Parser {
                     Ok(Some(ExprAST::_self(pos.clone())))
                 },
                 Token::ParenLeft => {
+println!("( in primary");
                     iter.next(); // skip '('
                     let result = self.parse_expression(iter, defs, labels)?;
                     self.parse_expected_token(iter, Token::ParenRight)?;
@@ -2373,6 +2387,7 @@ impl Parser {
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
 
         if *tok == Token::ParenLeft {
+println!("( in parse_direct_abstract_declarator");
             iter.next();  // skip '('
             let abs_decl = self.parse_abstract_declarator(iter, defs, labels)?;
             self.parse_expected_token(iter, Token::ParenRight)?;  // skip ')'
@@ -2392,6 +2407,7 @@ impl Parser {
         loop {
             match tok {
                 Token::ParenLeft => {
+println!("sub");
                     let param_list = self.parse_parameter_type_list(iter, defs, labels)?;
                     self.parse_expected_token(iter, Token::ParenRight)?;  // skip ')'
 
@@ -2587,6 +2603,7 @@ impl Parser {
                 // selection statement
                 Token::If => {
                     iter.next();  // skip 'if'
+println!("( in parse_statement if");
                     self.parse_expected_token(iter, Token::ParenLeft)?;  // skip '('
 
                     let cond = self.parse_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
@@ -2610,7 +2627,7 @@ impl Parser {
                 },
                 Token::Switch => {
                     iter.next();  // skip 'switch'
-
+println!("( in parse_statement switch");
                     self.parse_expected_token(iter, Token::ParenLeft)?;
                     let expr = self.parse_expression(iter, defs, labels)?;
                     self.parse_expected_token(iter, Token::ParenRight)?;
@@ -2628,7 +2645,7 @@ impl Parser {
                 // iteration statement
                 Token::While => {
                     iter.next();  // skip 'while'
-
+println!("( in parse_statement while");
                     self.parse_expected_token(iter, Token::ParenLeft)?;  // skip '('
 
                     let condition = self.parse_expression(iter, defs, labels)?;
@@ -2659,6 +2676,7 @@ impl Parser {
                     let stmt = self.parse_statement(iter, defs, labels)?;
 
                     self.parse_expected_token(iter, Token::While)?;        // skip 'while'
+println!("( in parse_statement do-while");
                     self.parse_expected_token(iter, Token::ParenLeft)?;    // skip '('
 
                     let cond = self.parse_expression(iter, defs, labels)?;
@@ -2766,6 +2784,7 @@ impl Parser {
 
     fn parse_for(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, _pos: &Position, labels: &mut Option<&mut Vec<String>>) -> Result<Option<AST>, ParserError> {
         iter.next();  // skip 'for'
+println!("( in parse_for");
         self.parse_expected_token(iter, Token::ParenLeft)?; // '('
         defs.new_local();
 
@@ -4072,6 +4091,62 @@ mod tests {
 
                 Ok(())
             },
+            _ => panic!("ast: {:?}", ast),
+        }
+    }
+
+    #[test]
+    fn parse_parened_expr() -> Result<(), ParserError> {
+        let src = "
+            int x = (1 + 1);
+        ";
+        let ast = parse_external_declaration_from_str(src).unwrap().unwrap();
+
+        match ast {
+            AST::GlobalDefVar { specifiers: DeclarationSpecifier {typ, specifier_qualifier}, declaration } => {
+                assert_eq!(typ, Type::Number(NumberType::Int));
+                assert_eq!(specifier_qualifier, SpecifierQualifier::new());
+
+                assert_eq!(declaration.len(), 1);
+                let decl = &declaration[0];
+
+                let init_expr = decl.get_init_expr();
+                assert_eq!(*init_expr,
+                    Some(Box::new(ExprAST::BinExpr(
+                        BinOp::Add,
+                        Box::new(ExprAST::Int(1, Position::new(2, 21))),
+                        Box::new(ExprAST::Int(1, Position::new(2, 25))),
+                        Position::new(2, 23)
+                    )))
+                );
+
+                let declarator = decl.get_declarator();
+                assert_eq!(*declarator.get_pointer(), None);
+                let direct_decl = declarator.get_direct_declarator();
+                assert_eq!(direct_decl.get_name(), "x");
+
+                match direct_decl {
+                    DirectDeclarator::Symbol(name) => {
+                        assert_eq!(name, "x");
+                    },
+                    _ => panic!("direct_decl: {:?}", direct_decl),
+                }
+
+                Ok(())
+            }, 
+            _ => panic!("ast: {:?}", ast),
+        }
+    }
+
+    #[test]
+    fn parse_type_cast() -> Result<(), ParserError> {
+        let src = "
+            int* ptr = (int*)malloc(1);
+        ";
+        let ast = parse_external_declaration_from_str(src).unwrap().unwrap();
+
+        match ast {
+ 
             _ => panic!("ast: {:?}", ast),
         }
     }
