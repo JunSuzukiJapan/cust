@@ -167,9 +167,9 @@ impl PartialOrd for NumberType {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Pointer {
-    is_const: bool,
-    is_volatile: bool,
-    next_pointer: Option<Box<Pointer>>,
+    pub is_const: bool,
+    pub is_volatile: bool,
+    pub next_pointer: Option<Box<Pointer>>,
 }
 
 impl Pointer {
@@ -177,6 +177,14 @@ impl Pointer {
         Pointer {
             is_const: is_const,
             is_volatile: is_volatile,
+            next_pointer: None,
+        }
+    }
+
+    pub fn default() -> Pointer {
+        Pointer {
+            is_const: false,
+            is_volatile: false,
             next_pointer: None,
         }
     }

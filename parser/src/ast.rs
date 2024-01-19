@@ -460,6 +460,24 @@ impl AbstractDeclarator {
             direct_abstract_declarator: direct_abstract_declarator,
         }
     }
+
+    pub fn calc_type(&self, mut typ: &Type) -> Type {
+        if let Some(ptr) = &self.pointer {
+            let t = Type::Pointer(Pointer::default(), Box::new(typ.clone()));
+            if let Some(d_a_d) = &self.direct_abstract_declarator {
+                d_a_d.calc_type(&t)
+            }else{
+                t.clone()
+            }
+
+        }else{
+            if let Some(d_a_d) = &self.direct_abstract_declarator {
+                d_a_d.calc_type(typ)
+            }else{
+                typ.clone()
+            }
+        }
+    }
 }
 
 
@@ -485,6 +503,19 @@ impl DirectAbstractDeclarator {
 
     pub fn new_array_access(abs_decl: DirectAbstractDeclarator, index: Option<ConstExpr>) -> DirectAbstractDeclarator {
         DirectAbstractDeclarator::ArrayAccess(Box::new(abs_decl), index)
+    }
+
+    pub fn calc_type(&self, typ: &Type) -> Type {
+        match self {
+            Self::Simple(opt_abs_decl) => {
+                if let Some(abs_decl) = opt_abs_decl {
+                    abs_decl.calc_type(typ)
+                }else{
+                    typ.clone()
+                }
+            },
+            _ => panic!("cannot calc type of {:?}", self),
+        }
     }
 }
 
