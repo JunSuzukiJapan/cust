@@ -404,7 +404,6 @@ END: ;
             }
         }
     ";
-*/
 
     let src = "
         int printf(char* format, ...);
@@ -430,8 +429,7 @@ END: ;
             printf(\"%d\\\n\", Saturday);
         }
     ";
-
-/*
+*/
     let src = "
         int printf(char* format, ...);
         typedef unsigned char bool;
@@ -527,7 +525,19 @@ END: ;
             return p1 && p2;
         }
     ";
-*/
+
+    let src = "
+        int printf(char* format, ...);
+
+        void test() {
+            int x = 1;
+            printf(\"x = %d\\\n\", x);
+            int* ptr = &x;
+            printf(\"*ptr = %d\\\n\", *ptr);
+            int** handle = &ptr;
+            printf(\"**handle = %d\\\n\", **handle);
+        }
+    ";
 
     // tokenize
     let tokenized = Tokenizer::tokenize(src).unwrap();
@@ -549,10 +559,11 @@ END: ;
 
     println!("<<get llvm function>>");
     let f: JitFunction<FuncType_void_void> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
+    // let f: JitFunction<NoArgFunc> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
     println!("<<call llvm function>>");
-    let _result = unsafe { f.call() };
+    // let _result = unsafe { f.call() };
+    unsafe { f.call() };
     println!("<<end call llvm function>>");
 
-    // gen.module.print_to_stderr();
     println!("<<all end>>");
 }

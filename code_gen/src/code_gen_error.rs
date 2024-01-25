@@ -81,6 +81,8 @@ pub enum CodeGenError {
     NotIntType(Type, Position),
     CannotGetSizeOf(Type, Position),
     CannotConvertToBasicValue(ExprAST, Position),
+    CannotConvertToBasicType(String, Option<Position>),
+    NotFunction(String, Position),
 }
 
 impl CodeGenError {
@@ -344,6 +346,14 @@ impl CodeGenError {
 
     pub fn cannot_convert_to_basic_value(expr: ExprAST, pos: Position) -> Self {
         Self::CannotConvertToBasicValue(expr, pos)
+    }
+
+    pub fn cannot_convert_to_basic_type(name: String, pos: Option<Position>) -> Self {
+        Self::CannotConvertToBasicType(name, pos)
+    }
+
+    pub fn not_function(name: &str, pos: Position) -> Self {
+        Self::NotFunction(name.to_string(), pos)
     }
 }
 

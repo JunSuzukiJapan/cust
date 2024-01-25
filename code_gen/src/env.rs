@@ -422,7 +422,10 @@ impl<'ctx> Env<'ctx> {
 
                 unimplemented!()
             },
-            _ => Ok(TypeUtil::to_basic_type_enum(typ, ctx)?),
+            _ => {
+                println!("to_basic_type_enum. {}:{}:{}", file!(), line!(), column!());
+                Ok(TypeUtil::to_basic_type_enum(typ, ctx)?)
+            },
         }
     }
 
@@ -527,6 +530,7 @@ impl<'ctx> Env<'ctx> {
     }
 
     fn get_ptr_from_local(&self, key: &str) -> Option<&(Type, PointerValue<'ctx>)> {
+println!("get_ptr_from_local");
         let list = self.locals.last().unwrap();
         let mut index = list.len() - 1;
         loop {

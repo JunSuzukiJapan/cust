@@ -216,7 +216,9 @@ impl Pointer {
     pub fn make_type_to(&self, typ: &Type) -> Type {
         if let Some(p) = &self.next_pointer {
             let next = p.make_type_to(typ);
-            Type::Pointer(self.clone(), Box::new(next))
+            let mut t = self.clone();
+            t.next_pointer = None;
+            Type::Pointer(t, Box::new(next))
         }else{
             Type::Pointer(self.clone(), Box::new(typ.clone()))
         }

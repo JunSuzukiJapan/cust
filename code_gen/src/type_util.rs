@@ -2,7 +2,9 @@ use crate::parser::{Type, NumberType, Pointer, BinOp, Position};
 use crate::Env;
 use inkwell::context::Context;
 use std::error::Error;
-use inkwell::types::{BasicTypeEnum, AnyTypeEnum, BasicType, BasicMetadataTypeEnum, IntType};
+use std::ops::Add;
+use std::ptr;
+use inkwell::types::{BasicTypeEnum, AnyTypeEnum, BasicType, BasicMetadataTypeEnum, IntType, PointerType};
 use inkwell::AddressSpace;
 use inkwell::types::AnyType;
 use parser::ExprAST;
@@ -41,7 +43,9 @@ impl TypeUtil {
             Type::Number(NumberType::UnsignedShort)  => Ok(BasicTypeEnum::IntType(ctx.i16_type())),
             // Type::Void   => Ok(BasicTypeEnum::VoidType(ctx.void_type())),
             Type::Pointer(_p, to_type) => {
-                let typ = Self::to_llvm_type(to_type, ctx)?;
+                println!("to_llvm_type_enum. {}:{}:{}", file!(), line!(), column!());
+                // let typ = Self::to_llvm_type(to_type, ctx)?;
+                let typ = Self::to_llvm_any_type(typ, ctx)?;
 
                 if typ.is_int_type() {
                     Ok(typ.into_int_type().ptr_type(AddressSpace::default()).into())
@@ -70,6 +74,7 @@ impl TypeUtil {
 
             },
             Type::Array { name: _, typ: type2, opt_size_list } => {
+                println!("to_basic_type_enum. {}:{}:{}", file!(), line!(), column!());
                 let mut to_type = Self::to_basic_type_enum(type2, ctx)?;
 
                 for opt_size in opt_size_list.iter().rev() {
@@ -115,13 +120,14 @@ impl TypeUtil {
                 unimplemented!()
             },
             _ => {
-                Err(Box::new(CodeGenError::no_such_a_type(None, &typ.to_string())))
+                Err(Box::new(CodeGenError::cannot_convert_to_basic_type(typ.to_string(), None)))
             },
         }
     }
 
     #[inline]
     pub fn to_llvm_type<'a>(typ: &Type, ctx: &'a Context) -> Result<BasicMetadataTypeEnum<'a>, Box<dyn Error>> {
+        println!("to_basic_type_enum. {}:{}:{}", file!(), line!(), column!());
         Ok(Self::to_basic_type_enum(typ, ctx)?.into())
     }
 
@@ -150,8 +156,44 @@ impl TypeUtil {
             Type::Symbol(_name) => {
                 unimplemented!("'{}' to AnyTypeEnum", typ.to_string())
             },
+            Type::Pointer(_ptr, typ) => {
+                let ptr_type = Self::make_llvm_ptr_type(typ, ctx)?;
+                Ok(AnyTypeEnum::PointerType(ptr_type))
+            },
             _ => {
                 unimplemented!("'{}' to AnyTypeEnum", typ.to_string())
+            },
+        }
+    }
+
+    fn make_llvm_ptr_type<'a>(typ: &Type, ctx: &'a Context) -> Result<PointerType<'a>, Box<dyn Error>> {
+        match typ {
+            Type::Number(NumberType::Char)   => Ok(ctx.i8_type().ptr_type(AddressSpace::default())),
+            Type::Number(NumberType::Short)  => Ok(ctx.i16_type().ptr_type(AddressSpace::default())),
+            Type::Number(NumberType::Int)    => Ok(ctx.i32_type().ptr_type(AddressSpace::default())),
+            Type::Number(NumberType::Long)   => Ok(ctx.i64_type().ptr_type(AddressSpace::default())),
+            Type::Number(NumberType::Float)  => Ok(ctx.f64_type().ptr_type(AddressSpace::default())),
+            Type::Number(NumberType::Double) => Ok(ctx.f128_type().ptr_type(AddressSpace::default())),
+            Type::Number(NumberType::UnsignedChar)   => Ok(ctx.i8_type().ptr_type(AddressSpace::default())),
+            Type::Number(NumberType::UnsignedShort)  => Ok(ctx.i16_type().ptr_type(AddressSpace::default())),
+            Type::Number(NumberType::UnsignedInt)    => Ok(ctx.i32_type().ptr_type(AddressSpace::default())),
+            Type::Number(NumberType::UnsignedLong)   => Ok(ctx.i64_type().ptr_type(AddressSpace::default())),
+            Type::Void   => Ok(ctx.i8_type().ptr_type(AddressSpace::default())),
+            Type::Struct { name, fields } => {
+                let name = if let Some(id) = name {
+                    Some(id.clone())
+                }else{
+                    None
+                };
+                let (struct_type, _tbl) = CodeGen::struct_from_struct_definition(&name, &fields, ctx)?;
+                Ok(struct_type.ptr_type(AddressSpace::default()))
+            },
+            Type::Pointer(_ptr, typ) => {
+                let ptr_type = Self::make_llvm_ptr_type(typ, ctx)?;
+                Ok(ptr_type.ptr_type(AddressSpace::default()))
+            },
+            _ => {
+                unimplemented!("'{}' can't make ptr type", typ.to_string())
             },
         }
     }
@@ -302,15 +344,33 @@ impl TypeUtil {
             ExprAST::TernaryOperator(_, e1, _, _pos) => {
                 TypeUtil::get_type(&e1, env)
             },
+            ExprAST::CallFunction(fun, _args, _pos) => {
+                let f_type = match &**fun {
+                    ExprAST::Symbol(name, pos2) => {
+                        if let Some((fun_type, _f_value)) = env.get_function(name) {
+                            fun_type
+                        }else{
+                            return Err(CodeGenError::not_function(name, pos2.clone()));
+                        }
+                    },
+                    ExprAST::MemberAccess(ast, fun_name, pos2) => {
+                        let typ = TypeUtil::get_type(ast, env)?;
+                        let class_name = typ.get_type_name();
+                        let method_name = CodeGen::make_function_name_in_impl(&class_name, fun_name);
+
+                        if let Some((fun_type, _f_value)) = env.get_function(&method_name) {
+                            fun_type
+                        }else{
+                            return Err(CodeGenError::not_function(&method_name, pos2.clone()));
+                        }
+                    },
+                    _ => panic!("'{:?}' is not function.", **fun),
+                };
+
+                Ok(f_type.get_return_type().clone())
+            },
             ExprAST::InitializerList(_, _pos) => {
 
-
-
-
-
-                unimplemented!()
-            },
-            ExprAST::CallFunction(_, _, _pos) => {
 
 
 

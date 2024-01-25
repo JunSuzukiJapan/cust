@@ -92,6 +92,7 @@ impl<'ctx> CodeGen<'ctx> {
                     let declarator = decl.get_declarator();
                     let typ = declarator.make_type(base_type);
                     let name = declarator.get_name();
+                    println!("to_basic_type_enum. {}:{}:{}", file!(), line!(), column!());
                     let basic_type = TypeUtil::to_basic_type_enum(&typ, self.context)?;
                     // let ptr = self.module.add_global(basic_type, Some(AddressSpace::Const), name);
                     let ptr = self.module.add_global(basic_type, Some(AddressSpace::default()), name);
@@ -160,6 +161,7 @@ impl<'ctx> CodeGen<'ctx> {
                     result = self.builder.build_return(Some(&ret))?;
                 }else{
                     if ! required_ret_type.is_void() {
+                        println!("return type mismatch. {}:{}:{}", file!(), line!(), column!());
                         return Err(Box::new(CodeGenError::return_type_mismatch(None, Type::Void, required_ret_type.clone())));
                     }
 
@@ -169,9 +171,10 @@ impl<'ctx> CodeGen<'ctx> {
             },
             AST::Function(Function {specifiers, declarator, params, body, labels}) => {
                 let name = declarator.get_name();
-                let ret_type = specifiers.get_type();
-                let function = self.gen_code_function(name, ret_type, params, body, labels, env, break_catcher, continue_catcher)?;
-                let fun_type = Self::make_fun_type(&name, ret_type, params, env)?;
+                let sp_type = specifiers.get_type();
+                let ret_type = declarator.make_type(&sp_type);
+                let function = self.gen_code_function(name, &ret_type, params, body, labels, env, break_catcher, continue_catcher)?;
+                let fun_type = Self::make_fun_type(&name, &ret_type, params, env)?;
 
                 env.insert_function(&name, fun_type, function);
 
@@ -179,9 +182,10 @@ impl<'ctx> CodeGen<'ctx> {
             },
             AST::FunProto(FunProto {specifiers, declarator, params}) => {
                 let name = declarator.get_name();
-                let ret_type = specifiers.get_type();
-                let fun_proto = self.gen_code_function_prototype(name, ret_type, params, env)?;
-                let fun_type = Self::make_fun_type(&name, ret_type, params, env)?;
+                let sp_type = specifiers.get_type();
+                let ret_type = declarator.make_type(&sp_type);
+                let fun_proto = self.gen_code_function_prototype(name, &ret_type, params, env)?;
+                let fun_type = Self::make_fun_type(&name, &ret_type, params, env)?;
 
                 env.insert_function(&name, fun_type, fun_proto);
 
@@ -556,15 +560,21 @@ println!("POST inc member access");
                 self.gen_def_var(specifiers, declarations, env, break_catcher, continue_catcher)?;
                 Ok(None)
             },
-            ExprAST::UnaryGetAddress(boxed_ast, _pos) => {
+            ExprAST::UnaryGetAddress(boxed_ast, pos) => {
                 let ast = &**boxed_ast;
+println!("UnaryGetAddress. ast: {:?}\n", ast);
                 match ast {
-                    ExprAST::Symbol(name, _pos) => {
-                        let (typ, ptr) = env.get_ptr(name).ok_or(CodeGenError::no_such_a_variable(None, name))?;
-                        let ptr = PointerValue::try_from(ptr).ok().ok_or(CodeGenError::cannot_get_pointer(None))?;
-                        let typ = Type::new_pointer_type(typ.clone(), false, false);
+                    ExprAST::Symbol(name, pos2) => {
+                        let (typ, ptr) = env.get_ptr(name).ok_or(CodeGenError::no_such_a_variable(Some(pos2.clone()), name))?;
+println!("typ: {:?}\n", typ);
+println!("ptr: {:?}\n", ptr);
 
-                        Ok(Some(CompiledValue::new(typ.clone(), ptr.into())))
+                        
+                        let ptr = PointerValue::try_from(ptr).ok().ok_or(CodeGenError::cannot_get_pointer(Some(pos.clone())))?;
+                        let typ = Type::new_pointer_type(typ.clone(), false, false);
+println!("--> typ: {:?}\n", typ);
+println!("--> ptr: {:?}\n", ptr);
+                        Ok(Some(CompiledValue::new(typ, ptr.into())))
                     },
 
 
@@ -578,10 +588,11 @@ println!("POST inc member access");
             ExprAST::UnaryPointerAccess(boxed_ast, _pos) => {
                 let ast = &**boxed_ast;
                 match ast {
-                    ExprAST::Symbol(name, _pos) => {
-                        let (typ, ptr_to_ptr) = env.get_ptr(name).ok_or(CodeGenError::no_such_a_variable(None, name))?;
+                    ExprAST::Symbol(name, pos2) => {
+                        let (typ, ptr_to_ptr) = env.get_ptr(name).ok_or(CodeGenError::no_such_a_variable(Some(pos2.clone()), name))?;
                         let ptr = self.builder.build_load(ptr_to_ptr, &format!("get_ptr_from_{}", name))?;
                         let basic_val = self.builder.build_load(ptr.into_pointer_value(), &format!("get_value_from_{}", name))?;
+
                         let any_val = basic_val.as_any_value_enum();
                         Ok(Some(CompiledValue::new(typ.clone(), any_val)))
                     },
@@ -623,7 +634,7 @@ println!("POST inc member access");
                         let typ = TypeUtil::get_type(ast, env)?;
                         let (_t, obj) = self.get_l_value(&**ast, env, break_catcher, continue_catcher)?;
                         let class_name = typ.get_type_name();
-                        let method_name = self.make_function_name_in_impl(&class_name, fun_name);
+                        let method_name = Self::make_function_name_in_impl(&class_name, fun_name);
                         let mut args: Vec<BasicMetadataValueEnum> = Vec::new();
                         args.push(obj.into());
 
@@ -726,6 +737,7 @@ println!("POST inc member access");
                 self.builder.position_at_end(end_block);
 
                 let typ = then_result.get_type();
+                println!("to_basic_type_enum. {}:{}:{}", file!(), line!(), column!());
                 let llvm_type = TypeUtil::to_basic_type_enum(typ, self.context)?;
                 let phi_value = self.builder.build_phi(llvm_type, "ternary.phi")?;
                 let then_value = if let Ok(val) = BasicValueEnum::try_from(then_result.get_value()) {
@@ -775,14 +787,16 @@ println!("POST inc member access");
         let base_type = specifiers.get_type();
         for decl in declarations {
             let declarator = decl.get_declarator();
+println!("declarator: {:?}", declarator);
             let typ = declarator.make_type(base_type);
+println!("BASE_TYPE: {:?}\nTYP: {:?}", base_type, typ);
             let name = declarator.get_name();
             let basic_type = env.basic_type_enum_from_type(&typ, self.context)?;
             let ptr = self.builder.build_alloca(basic_type, name)?;
             let init_expr = decl.get_init_expr();
 
-println!("def var '{:?}'. type: {:?}", name, typ);
-println!("init_expr: '{:?}'", init_expr);
+println!("def var '{:?}'. type: {:?}\n", name, typ);
+println!("init_expr: '{:?}'\n", init_expr);
 
             match init_expr {
                 Some(ast) => {
@@ -797,12 +811,12 @@ println!("init_expr: '{:?}'", init_expr);
                         let compiled_value = self.gen_expr(&**ast, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                         let mut init_value = compiled_value.get_value();
                         let init_type = compiled_value.get_type();
-println!("VarType: {:?}", typ);
-println!("InitType: {:?}", init_type);
+println!("VarType: {:?}\n", typ);
+println!("InitType: {:?}\n", init_type);
 
                         if typ != *init_type {
 println!("typ != *init_type");
-println!("call gen_cast. typ: '{}', init_type: '{}'", typ, *init_type);
+println!("call gen_cast. typ: '{}', init_type: '{}'\n", typ, *init_type);
                             init_value = self.gen_implicit_cast(&init_value, &init_type, &typ)?;
                         }
 
@@ -814,7 +828,7 @@ println!("call gen_cast. typ: '{}', init_type: '{}'", typ, *init_type);
             };
 
             env.insert_local(name, typ.clone(), ptr);
-println!("env: {:?}", env);
+println!("\nenv: {:?}\n", env);
         }
 
         Ok(())
@@ -879,6 +893,7 @@ println!("env: {:?}", env);
     }
 
     fn const_zero(&self, typ: &Type) -> Result<BasicValueEnum, Box<dyn Error>> {
+        println!("to_llvm_type_enum. {}:{}:{}", file!(), line!(), column!());
         let t = TypeUtil::to_llvm_type(typ, self.context)?;
         match t {
             BasicMetadataTypeEnum::ArrayType(_) => {
@@ -1230,27 +1245,28 @@ println!("code_gen.gen_cast. from: '{}', to '{}'", from_type, to_type);
 
         let declarator = fun_or_proto.get_declarator();
         let specifiers = fun_or_proto.get_specifiers();
-        let ret_type = specifiers.get_type();
+        let sp_type = specifiers.get_type();
+        let ret_type = declarator.make_type(&sp_type);
         let params = fun_or_proto.get_params();
         let decl_name = declarator.get_name();
-        let fun_name = self.make_function_name_in_impl(class_name, decl_name);
+        let fun_name = Self::make_function_name_in_impl(class_name, decl_name);
         let body = fun_or_proto.get_body();
         let function = if let Some(b) = body {
             // Function
             let labels = fun_or_proto.get_labels().unwrap();
-            self.gen_code_function(&fun_name, ret_type, params, b, labels, env, break_catcher, continue_catcher)?
+            self.gen_code_function(&fun_name, &ret_type, params, b, labels, env, break_catcher, continue_catcher)?
         }else{
             // Function Prototype
-            self.gen_code_function_prototype(&fun_name, ret_type, params, env)?
+            self.gen_code_function_prototype(&fun_name, &ret_type, params, env)?
         };
 
-        let fun_type = Self::make_fun_type(&fun_name, ret_type, params, env)?;
+        let fun_type = Self::make_fun_type(&fun_name, &ret_type, params, env)?;
         env.insert_function(&fun_name, fun_type, function);
 
         Ok(Some(AnyValueEnum::FunctionValue(function)))
     }
 
-    fn make_function_name_in_impl(&self, class_name: &str, fun_name: &str) -> String {
+    pub fn make_function_name_in_impl(class_name: &str, fun_name: &str) -> String {
         format!("${}${}", class_name, fun_name)
     }
 
@@ -1281,6 +1297,7 @@ println!("code_gen.gen_cast. from: '{}', to '{}'", from_type, to_type);
             for field in fields {
                 match field {
                     StructField::NormalField { name: _, sq: _, typ } => {
+                        println!("to_basic_type_enum. {}:{}:{}", file!(), line!(), column!());
                         let t = TypeUtil::to_basic_type_enum(typ, ctx)?;
                         list.push(t);
 
@@ -1342,6 +1359,7 @@ println!("code_gen.gen_cast. from: '{}', to '{}'", from_type, to_type);
             for field in fields {
                 match field {
                     StructField::NormalField { name: field_name, sq: _, typ } => {
+                        println!("to_basic_type_enum. {}:{}:{}", file!(), line!(), column!());
                         let t = TypeUtil::to_basic_type_enum(typ, ctx)?;
                         list.push((typ.clone(), t.clone()));
 
@@ -2140,10 +2158,8 @@ println!("no cast");
         let compiled_value = self.gen_expr(r_value, env, break_catcher, continue_catcher)?.ok_or(Box::new(CodeGenError::assign_illegal_value(None, r_value)))?;
         let value = self.try_as_basic_value(&compiled_value.get_value())?;
         let from_type = compiled_value.get_type();
-println!("gen_assign. compiled_value: {:?}", compiled_value);
-
         let (to_type, ptr) = self.get_l_value(l_value, env, break_catcher, continue_catcher)?;
-println!("  FROM: {:?} TO: {:?}", from_type, to_type);
+
         self.builder.build_store(ptr, value)?;
         Ok(Some(compiled_value))
     }
@@ -2179,34 +2195,43 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
             ExprAST::UnaryPointerAccess(boxed_ast, _pos) => {
                 let ast = &**boxed_ast;
                 let (typ, ptr_to_ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
-                let ptr = self.builder.build_load(ptr_to_ptr, &String::from("get ptr from ptr"))?;
-
-                Ok((Type::new_pointer_type(typ.clone(), false, false), ptr.into_pointer_value()))
+                let ptr_type = Type::new_pointer_type(typ.clone(), false, false);
+                let pointer_value = self.builder.build_alloca(TypeUtil::to_basic_type_enum(&ptr_type, self.context)?, &format!("make_pointer_type_to_{:?}", typ))?;
+                let _result = self.builder.build_store(pointer_value, ptr_to_ptr)?;
+println!("UnaryPointerAccess");
+                Ok((Type::new_pointer_type(ptr_type.clone(), false, false), pointer_value))
             },
-            ExprAST::MemberAccess(expr, member_name, _pos) => {
+            ExprAST::MemberAccess(expr, member_name, pos) => {
                 let ast = &**expr;
                 let (_typ, ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
                 let typ = TypeUtil::get_type(ast, env)?;
 
                 match typ {
                     Type::Struct {name, fields} => {
-                        let index = fields.get_index(member_name).ok_or(CodeGenError::no_such_a_member(None, member_name))?;
+                        let index = fields.get_index(member_name).ok_or(CodeGenError::no_such_a_member(Some(pos.clone()), member_name))?;
                         let elem_type = fields.get_type(member_name).unwrap();
-                        let msg = if let Some(id) = name {
+                        let msg = if let Some(id) = &name {
                             format!("struct_{}.{}", id, member_name)
                         }else{
                             format!("struct?.{}", member_name)
                         };
+println!("Member Access. struct: {:?}, field: {member_name}, ptr: {:?}\n", name, ptr);
+println!("  at {pos}\n");
+                        let ptr = self.builder.build_load(ptr, "load_struct_ptr")?.into_pointer_value();
+println!("  ==> ptr: {:?}\n", ptr);
                         let elem_ptr = self.builder.build_struct_gep(ptr, index as u32, &msg);
                         if let Ok(p) = elem_ptr {
                             Ok((elem_type.clone(), p))
                         }else{
-                            return Err(Box::new(CodeGenError::cannot_access_struct_member(None, &member_name)));
+println!("CANNOT ACCESS. {}:{}:{}", file!(), line!(), column!());
+println!("index: {index}, msg: {msg}");
+println!("ptr: {:?}\n", ptr);
+                            return Err(Box::new(CodeGenError::cannot_access_struct_member(Some(pos.clone()), &member_name)));
                         }
                     },
                     Type::Union { name, fields } => {
                         if let Some(id) = name {
-                            let type_or_union = env.get_type(&id).ok_or(CodeGenError::no_such_a_member(None, member_name))?;
+                            let type_or_union = env.get_type(&id).ok_or(CodeGenError::no_such_a_member(Some(pos.clone()), member_name))?;
                             match type_or_union {
                                 TypeOrUnion::Union { type_list, index_map, max_size: _, max_size_type: _ } => {
                                     let idx = index_map[member_name];
@@ -2222,10 +2247,11 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
                                     let p = ptr.const_cast(ptr_type);
                                     Ok((typ.clone(), p))
                                 },
-                                _ => return Err(Box::new(CodeGenError::not_union(None, &id))),
+                                _ => return Err(Box::new(CodeGenError::not_union(Some(pos.clone()), &id))),
                             }
                         }else{
-                            let typ = fields.get_type(member_name).ok_or(CodeGenError::no_such_a_member(None, member_name))?;
+                            let typ = fields.get_type(member_name).ok_or(CodeGenError::no_such_a_member(Some(pos.clone()), member_name))?;
+                            println!("to_basic_type_enum. {}:{}:{}", file!(), line!(), column!());
                             let to_type = TypeUtil::to_basic_type_enum(typ, self.context)?;
                             let ptr_type = to_type.ptr_type(AddressSpace::default());
                             let p = ptr.const_cast(ptr_type);
@@ -2237,25 +2263,42 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
             },
             ExprAST::PointerAccess(expr, member_name, pos) => {
                 let ast = &**expr;
+println!("ast: {:?}", ast);
                 let (_typ, ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
-                let ptr = self.builder.build_load(ptr, &format!("pointer_access_to_{}", member_name))?.into_pointer_value();
-                let typ = TypeUtil::get_type(ast, env)?;
-                let typ = typ.get_pointed_type(pos)?;
+println!("_typ: {:?}\n", _typ);
+println!("l_value ptr: {:?}\n", ptr);
+//                 let ptr = self.builder.build_load(ptr, &format!("pointer_access_to_{}", member_name))?.into_pointer_value();
+println!("\nptr: {:?}\n", ptr);
+println!("ptr type: {:?}\n", ptr.get_type());
 
-                match typ {
+// println!("element type: {:?}\n", ptr.get_type().get_element_type());
+// let element_pointer = self.builder.build_load(ptr, "get_element_pointer")?;
+// println!("element pointer: {:?}\n", element_pointer);
+// let elem_ptr = self.builder.build_struct_gep(element_pointer.into_pointer_value(), 0, "test");
+// println!("test_ptr: {:?}\n", elem_ptr);
+
+
+                // let ptr = self.builder.build_load(ptr, "get_pointer")?.into_pointer_value();
+
+                let typ = TypeUtil::get_type(ast, env)?;
+                let pointed_type = typ.get_pointed_type(pos)?;
+
+                match pointed_type {
                     Type::Struct {fields, ..} => {
-                        let index = fields.get_index(member_name).ok_or(CodeGenError::no_such_a_member(None, member_name))?;
+                        let index = fields.get_index(member_name).ok_or(CodeGenError::no_such_a_member(Some(pos.clone()), member_name))?;
+println!("index: {:?}", index);
                         let elem_ptr = self.builder.build_struct_gep(ptr, index as u32, "struct_member_access");
                         if let Ok(p) = elem_ptr {
                             let typ = fields.get_type(member_name).unwrap();
                             Ok((typ.clone(), p))
                         }else{
-                            return Err(Box::new(CodeGenError::cannot_access_struct_member(None, &member_name)));
+println!("typ: {:?}\nindex: {:?}\nelem_ptr: {:?}", pointed_type, index, elem_ptr);
+                            return Err(Box::new(CodeGenError::cannot_access_struct_member(Some(pos.clone()), &member_name)));
                         }
                     },
                     Type::Union { name, fields } => {
                         if let Some(id) = name {
-                            let type_or_union = env.get_type(&id).ok_or(CodeGenError::no_such_a_member(None, member_name))?;
+                            let type_or_union = env.get_type(&id).ok_or(CodeGenError::no_such_a_member(Some(pos.clone()), member_name))?;
                             match type_or_union {
                                 TypeOrUnion::Union { type_list, index_map, max_size: _, max_size_type: _ } => {
                                     let idx = index_map[member_name];
@@ -2271,17 +2314,18 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
                                     let p = ptr.const_cast(ptr_type);
                                     Ok((typ.clone(), p))
                                 },
-                                _ => return Err(Box::new(CodeGenError::not_union(None, &id))),
+                                _ => return Err(Box::new(CodeGenError::not_union(Some(pos.clone()), &id))),
                             }
                         }else{
-                            let typ = fields.get_type(member_name).ok_or(CodeGenError::no_such_a_member(None, member_name))?;
+                            let typ = fields.get_type(member_name).ok_or(CodeGenError::no_such_a_member(Some(pos.clone()), member_name))?;
+                            println!("to_basic_type_enum. {}:{}:{}", file!(), line!(), column!());
                             let to_type = TypeUtil::to_basic_type_enum(typ, self.context)?;
                             let ptr_type = to_type.ptr_type(AddressSpace::default());
                             let p = ptr.const_cast(ptr_type);
                             Ok((typ.clone(), p))
                         }
                     },
-                    _ => unimplemented!("member access to {:?}", typ),
+                    _ => unimplemented!("member access to {:?}", pointed_type),
                 }
             },
             ExprAST::ArrayAccess(expr, index, _pos) => {
@@ -2465,6 +2509,7 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
         for (i, param) in params.get_params().iter().enumerate() {
             let typ = param.get_type();
             let name = param.get_name();
+            println!("to_basic_type_enum. {}:{}:{}", file!(), line!(), column!());
             let ptr = self.builder.build_alloca(TypeUtil::to_basic_type_enum(&typ, self.context)?, name)?;
             let value = function.get_nth_param(i as u32).unwrap();
             self.builder.build_store(ptr, value)?;
@@ -2491,8 +2536,7 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
                 Some(AST::Return(None, _)) => Ok(()),  // do nothing
                 Some(AST::Return(Some(expr), _)) => {
                     let typ: Type = TypeUtil::get_type(expr, env)?;
-                    // let basic_type: BasicTypeEnum = TypeUtil::to_basic_type_enum(&typ, self.context)?;
-                    // return Err(Box::new(CodeGenError::return_type_mismatch(None, Some(&fn_type.get_return_type().unwrap()), Some(&basic_type))));
+                    println!("return type mismatch. {}:{}:{}", file!(), line!(), column!());
                     return Err(Box::new(CodeGenError::return_type_mismatch(None, fn_type.get_return_type().clone(), typ)));
                 },
                 _ => {
@@ -2519,6 +2563,7 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
                 Some(AST::If(_cond, _then, _else)) => {
                     let typ = self.calc_ret_type(last_stmt.unwrap(), env)?;
                     if typ.is_void() {
+                        println!("return type mismatch. {}:{}:{}", file!(), line!(), column!());
                         Err(Box::new(CodeGenError::return_type_mismatch(None, ret_type.clone(), Type::Void)))
                     }else{
                         if *ret_type == typ {
@@ -2527,6 +2572,7 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
 
                             Ok(())
                         }else{
+                            println!("return type mismatch. {}:{}:{}", file!(), line!(), column!());
                             Err(Box::new(CodeGenError::return_type_mismatch(None, ret_type.clone(), typ)))
                         }
 
@@ -2536,6 +2582,8 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
                     // if let Some(typ) = self.calc_ret_type(stmt, env)? {
                     let typ = self.calc_ret_type(stmt, env)?;
                     if typ.is_void() {
+                        println!("return type mismatch. {}:{}:{}", file!(), line!(), column!());
+                        println!("ret_type: {:?}", ret_type);
                         Err(Box::new(CodeGenError::return_type_mismatch(None, ret_type.clone(), Type::Void)))
                     }else{
                         if *ret_type == typ {
@@ -2631,6 +2679,7 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
         if let Some(cust_self) = params.get_self() {
             let typ = cust_self.get_type();
             let typ = Type::new_pointer_type(typ.clone(), false, false);
+            println!("to_llvm_type_enum. {}:{}:{}", file!(), line!(), column!());
             let t = TypeUtil::to_llvm_type(&typ, self.context)?;
 
             arg_type_vec.push(t);
@@ -2639,6 +2688,7 @@ println!("  FROM: {:?} TO: {:?}", from_type, to_type);
         for ds in params.get_params() {
             let typ = ds.get_type();
 
+            println!("to_llvm_type_enum. {}:{}:{}", file!(), line!(), column!());
             let t = TypeUtil::to_llvm_type(&typ, self.context)?;
             arg_type_vec.push(t);
         }
@@ -2679,7 +2729,7 @@ mod tests {
     use super::*;
     use crate::tokenizer::Tokenizer;
     use crate::parser::{Parser, ParserError};
-    use inkwell::execution_engine::{JitFunction};
+    use inkwell::execution_engine::{JitFunction, FunctionLookupError};
     use inkwell::values::BasicValue;
 
     type FuncType_void_i32 = unsafe extern "C" fn() -> i32;
@@ -3807,28 +3857,40 @@ mod tests {
         assert_eq!(unsafe { f.call(1, 1, 2)}, 1);
         assert_eq!(unsafe { f.call(0, 1, 2)}, 2);
     }
-/*
+
     #[test]
-    fn code_gen_pointr_cast() {
+    fn code_gen_pointr_cast() -> Result<(), Box<dyn Error>> {
         // parse
-        let ast = &parse_from_str("
+        let src = "
             typedef unsigned int size_t;
             void *malloc(size_t size);
+            void free(void *ptr);
 
             int test() {
                 int* ptr = (int*)malloc(1);
+                free(ptr);
+                return 0;
             }
-        ").unwrap()[0];
+        ";
+
+        // parse
+        let asts = parse_from_str(src).unwrap();
+        assert_eq!(4, asts.len());
 
         // code gen
         let context = Context::create();
         let gen = CodeGen::try_new(&context, "test run").unwrap();
 
         let mut env = Env::new();
-        let _any_value = gen.gen_stmt(&ast, &mut env, None, None).unwrap();
+        for i in 0..asts.len() {
+            let _any_value = gen.gen_stmt(&asts[i], &mut env, None, None)?;
+        }
 
+        let dummy: Result<JitFunction<FuncType_void_void>, inkwell::execution_engine::FunctionLookupError> = unsafe { gen.execution_engine.get_function("test") };
+        println!("dummy: {:?}", dummy);
         let f: JitFunction<FuncType_void_void> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
         let _result = unsafe { f.call() };
+
+        Ok(())
     }
-*/
 }
