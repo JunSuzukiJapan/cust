@@ -530,7 +530,6 @@ impl<'ctx> Env<'ctx> {
     }
 
     fn get_ptr_from_local(&self, key: &str) -> Option<&(Type, PointerValue<'ctx>)> {
-println!("get_ptr_from_local");
         let list = self.locals.last().unwrap();
         let mut index = list.len() - 1;
         loop {

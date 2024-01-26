@@ -17,6 +17,7 @@ use inkwell::execution_engine::JitFunction;
 
 type FuncType = unsafe extern "C" fn(i64, i64) -> i64;
 type NoArgFunc = unsafe extern "C" fn() -> u64;
+type FuncType_i32_i32 = unsafe extern "C" fn(i32) -> i32;
 // type FuncType_i64_i64 = unsafe extern "C" fn(i64) -> i64;
 // type FuncType_i64i64_i64 = unsafe extern "C" fn(i64, i64) -> i64;
 // type FuncType_i64i64i64_i64 = unsafe extern "C" fn(i64, i64, i64) -> i64;
@@ -538,7 +539,21 @@ END: ;
             printf(\"**handle = %d\\\n\", **handle);
         }
     ";
+    let src = "
+    int printf(char* format, ...);
 
+    int test(int i) {
+        int x = i;
+        int* ptr = &x;
+        int** handle = &ptr;
+
+        printf(\"x = %d\\\n\", x);
+        printf(\"*ptr = %d\\\n\", *ptr);
+        printf(\"**handle = %d\\\n\", **handle);
+
+        return *ptr;
+    }
+";
     // tokenize
     let tokenized = Tokenizer::tokenize(src).unwrap();
     // parse
@@ -558,11 +573,14 @@ END: ;
     gen.module.print_to_stderr();
 
     println!("<<get llvm function>>");
-    let f: JitFunction<FuncType_void_void> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
+    // let f: JitFunction<FuncType_void_void> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
+    let f: JitFunction<FuncType_i32_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
     // let f: JitFunction<NoArgFunc> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
     println!("<<call llvm function>>");
     // let _result = unsafe { f.call() };
-    unsafe { f.call() };
+    // unsafe { f.call() };
+    let result = unsafe { f.call(1) };
+    println!("result: {result}");
     println!("<<end call llvm function>>");
 
     println!("<<all end>>");

@@ -583,14 +583,18 @@ println!("--> ptr: {:?}\n", ptr);
                     _ => unimplemented!(),
                 }
             },
-            ExprAST::UnaryPointerAccess(boxed_ast, _pos) => {  // *pointer
+            ExprAST::UnaryPointerAccess(boxed_ast, pos) => {  // *pointer
                 let ast = &**boxed_ast;
-
+println!("UnaryPointerAccess");
                 let (typ, ptr_to_ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
                 let ptr = self.builder.build_load(ptr_to_ptr, "get_pointer")?;
                 let basic_val = self.builder.build_load(ptr.into_pointer_value(), &format!("get_value_from_pointer"))?;
                 let any_val = basic_val.as_any_value_enum();
-                Ok(Some(CompiledValue::new(typ.clone(), any_val)))
+
+                let type2 = typ.peel_off_pointer().ok_or(CodeGenError::not_pointer(pos.clone(), &typ))?;
+println!("  typ: {:?}", typ);
+println!("  type2: {:?}", type2);
+                Ok(Some(CompiledValue::new(type2, any_val)))
             },
             ExprAST::Symbol(name, _pos) => {
                 if let Some((typ, ptr)) = env.get_ptr(name) {
@@ -800,12 +804,12 @@ println!("init_expr: '{:?}'\n", init_expr);
                         let compiled_value = self.gen_expr(&**ast, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                         let mut init_value = compiled_value.get_value();
                         let init_type = compiled_value.get_type();
-println!("VarType: {:?}\n", typ);
-println!("InitType: {:?}\n", init_type);
+// println!("VarType: {:?}\n", typ);
+// println!("InitType: {:?}\n", init_type);
 
                         if typ != *init_type {
-println!("typ != *init_type");
-println!("call gen_cast. typ: '{}', init_type: '{}'\n", typ, *init_type);
+// println!("typ != *init_type");
+// println!("call gen_cast. typ: '{}', init_type: '{}'\n", typ, *init_type);
                             init_value = self.gen_implicit_cast(&init_value, &init_type, &typ)?;
                         }
 
@@ -817,7 +821,7 @@ println!("call gen_cast. typ: '{}', init_type: '{}'\n", typ, *init_type);
             };
 
             env.insert_local(name, typ.clone(), ptr);
-println!("\nenv: {:?}\n", env);
+// println!("\nenv: {:?}\n", env);
         }
 
         Ok(())
@@ -1110,7 +1114,7 @@ println!("\nenv: {:?}\n", env);
     }
 
     fn gen_implicit_cast(&self, value: &AnyValueEnum<'ctx>, from_type: &Type, to_type: &Type) -> Result<AnyValueEnum<'ctx>, Box<dyn Error>> {
-println!("code_gen.gen_cast. from: '{}', to '{}'", from_type, to_type);
+println!("code_gen.gen_implicit_cast. from: '{}', to '{}'", from_type, to_type);
         Caster::gen_implicit_cast(&self.builder, &self.context, value, from_type, to_type)
     }
 
@@ -3890,10 +3894,16 @@ mod tests {
     fn code_gen_handle() -> Result<(), Box<dyn Error>> {
         // parse
         let src = "
+            int printf(char* format, ...);
+
             int test(int i) {
                 int x = i;
                 int* ptr = &x;
                 int** handle = &ptr;
+
+                printf(\"x = %d\\\n\", x);
+                printf(\"*ptr = %d\\\n\", *ptr);
+                printf(\"**handle = %d\\\n\", **handle);
 
                 return x + *ptr + **handle;
             }
@@ -3901,7 +3911,6 @@ mod tests {
 
         // parse
         let asts = parse_from_str(src).unwrap();
-        assert_eq!(1, asts.len());
 
         // code gen
         let context = Context::create();
