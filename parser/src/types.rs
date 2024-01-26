@@ -867,6 +867,13 @@ impl Type {
     //         _ => unimplemented!(),
     //     }
     // }
+
+    pub fn peel_off_pointer(&self) -> Option<Type> {
+        match self {
+            Self::Pointer(_, boxed_type) => Some((**boxed_type).clone()),
+            _ => None,
+        }
+    }
 }
 
 impl fmt::Display for Type {

@@ -1836,7 +1836,7 @@ impl Parser {
                         Ok(None)
                     }
                 },
-                Token::Mul => {      // '*'. pointer access
+                Token::Mul => {      // '*'.  "*pointer" pointer access
                     iter.next();  // skip '*'
                     if let Some(expr) = self.parse_cast_expression(iter, defs, labels)? {
                         Ok(Some(ExprAST::UnaryPointerAccess(Box::new(expr), pos.clone())))

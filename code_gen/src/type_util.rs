@@ -284,16 +284,16 @@ impl TypeUtil {
                 let t = TypeUtil::get_type(ast, env)?;
                 Ok(Type::new_pointer_type(t, false, false))
             },
-            ExprAST::UnaryPointerAccess(boxed_ast, _pos) => {
+            ExprAST::UnaryPointerAccess(boxed_ast, _pos) => {  // *pointer
                 let ast = &**boxed_ast;
                 match ast {
-                    ExprAST::Symbol(name, _pos) => {
+                    ExprAST::Symbol(name, pos2) => {
                         let (typ, _ptr) = env.get_ptr(name).ok_or(CodeGenError::no_such_a_variable(None, name))?;
                         match typ {
                             Type::Pointer(_p, t) => {
                                 Ok(*t.clone())
                             },
-                            _ => Err(CodeGenError::not_pointer(None, typ)),
+                            _ => Err(CodeGenError::not_pointer(pos2.clone(), typ)),
                         }
                     },
                     _ => unimplemented!(),

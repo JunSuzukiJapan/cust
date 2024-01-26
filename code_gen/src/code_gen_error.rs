@@ -72,7 +72,7 @@ pub enum CodeGenError {
     CannotMakeFnType(Option<Position>),
     AccessSelfTypeWithoutImpl(Option<Position>),
     AccessSelfWithoutImpl(Option<Position>),
-    NotPointer(Option<Position>, Type),
+    NotPointer(Position, Type),
     TypeHasNotMember(Option<Position>, String),
     CannotUseFloatForBitsize(Option<Position>),
     CannotConvertAnyvalueenumToBasicmetadatavalueenum(Option<Position>),
@@ -312,8 +312,8 @@ impl CodeGenError {
         Self::AccessSelfWithoutImpl(opt_pos)
     }
 
-    pub fn not_pointer(opt_pos: Option<Position>, typ: &Type) -> Self {
-        Self::NotPointer(opt_pos, typ.clone())
+    pub fn not_pointer(pos: Position, typ: &Type) -> Self {
+        Self::NotPointer(pos, typ.clone())
     }
 
     pub fn type_has_not_member(opt_pos: Option<Position>, id: &str) -> Self {

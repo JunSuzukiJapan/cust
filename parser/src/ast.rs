@@ -672,7 +672,7 @@ pub enum ExprAST {
     // ExpressionPair(Box<ExprAST>, Box<ExprAST>, Position),
     Cast(Type, Box<ExprAST>, Position),
     UnaryGetAddress(Box<ExprAST>, Position),
-    UnaryPointerAccess(Box<ExprAST>, Position),
+    UnaryPointerAccess(Box<ExprAST>, Position),  // *pointer
     MemberAccess(Box<ExprAST>, String, Position),
     PointerAccess(Box<ExprAST>, String, Position),
     TernaryOperator(Box<ExprAST>, Box<ExprAST>, Box<ExprAST>, Position),
@@ -736,7 +736,7 @@ impl ExprAST {
             ExprAST::PostIncMemberAccess(_, pos) => pos,
             ExprAST::PostDecMemberAccess(_, pos) => pos,
             ExprAST::UnaryGetAddress(_boxed_ast, pos) => pos,
-            ExprAST::UnaryPointerAccess(_boxed_ast, pos) => pos,
+            ExprAST::UnaryPointerAccess(_boxed_ast, pos) => pos,  // *pointer
             ExprAST::MemberAccess(_boxed_ast, _field_name, pos) => pos,
             ExprAST::PointerAccess(_boxed_ast, _field_name, pos) => pos,
             ExprAST::TernaryOperator(_, _e1, _, pos) => pos,

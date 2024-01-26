@@ -472,7 +472,6 @@ impl<'ctx> CodeGen<'ctx> {
                 }
             },
             ExprAST::PreIncMemberAccess(boxed_ast, pos) => {
-println!("pre inc member access");
                 let (typ, ptr) = self.get_l_value(&**boxed_ast, env, break_catcher, continue_catcher)?;
                 let name = match &**boxed_ast {
                     ExprAST::MemberAccess(_, field_name, _pos) => field_name,
@@ -503,7 +502,6 @@ println!("pre inc member access");
                 Ok(Some(CompiledValue::new(typ.clone(), subed.as_any_value_enum())))
             },
             ExprAST::PostIncMemberAccess(boxed_ast, pos) => {
-println!("POST inc member access");
                 let (typ, ptr) = self.get_l_value(&**boxed_ast, env, break_catcher, continue_catcher)?;
                 let name = match &**boxed_ast {
                     ExprAST::MemberAccess(_, field_name, _pos) => field_name,
@@ -585,23 +583,14 @@ println!("--> ptr: {:?}\n", ptr);
                     _ => unimplemented!(),
                 }
             },
-            ExprAST::UnaryPointerAccess(boxed_ast, _pos) => {
+            ExprAST::UnaryPointerAccess(boxed_ast, _pos) => {  // *pointer
                 let ast = &**boxed_ast;
-                match ast {
-                    ExprAST::Symbol(name, pos2) => {
-                        let (typ, ptr_to_ptr) = env.get_ptr(name).ok_or(CodeGenError::no_such_a_variable(Some(pos2.clone()), name))?;
-                        let ptr = self.builder.build_load(ptr_to_ptr, &format!("get_ptr_from_{}", name))?;
-                        let basic_val = self.builder.build_load(ptr.into_pointer_value(), &format!("get_value_from_{}", name))?;
 
-                        let any_val = basic_val.as_any_value_enum();
-                        Ok(Some(CompiledValue::new(typ.clone(), any_val)))
-                    },
-
-
-
-
-                    _ => unimplemented!(),
-                }
+                let (typ, ptr_to_ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
+                let ptr = self.builder.build_load(ptr_to_ptr, "get_pointer")?;
+                let basic_val = self.builder.build_load(ptr.into_pointer_value(), &format!("get_value_from_pointer"))?;
+                let any_val = basic_val.as_any_value_enum();
+                Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
             ExprAST::Symbol(name, _pos) => {
                 if let Some((typ, ptr)) = env.get_ptr(name) {
@@ -2192,14 +2181,17 @@ println!("no cast");
                 let (typ, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(None, &name)))?;
                 Ok((typ.clone(), ptr))
             },
-            ExprAST::UnaryPointerAccess(boxed_ast, _pos) => {
+            ExprAST::UnaryPointerAccess(boxed_ast, pos) => {  // *pointer
                 let ast = &**boxed_ast;
                 let (typ, ptr_to_ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
-                let ptr_type = Type::new_pointer_type(typ.clone(), false, false);
-                let pointer_value = self.builder.build_alloca(TypeUtil::to_basic_type_enum(&ptr_type, self.context)?, &format!("make_pointer_type_to_{:?}", typ))?;
-                let _result = self.builder.build_store(pointer_value, ptr_to_ptr)?;
-println!("UnaryPointerAccess");
-                Ok((Type::new_pointer_type(ptr_type.clone(), false, false), pointer_value))
+
+                if let Some(type2) = typ.peel_off_pointer() {
+                    let ptr = self.builder.build_load(ptr_to_ptr, "load_ptr")?;
+
+                    Ok((Type::new_pointer_type(type2.clone(), false, false), ptr.into_pointer_value()))
+                }else{
+                    Err(Box::new(CodeGenError::not_pointer(pos.clone(), &typ)))
+                }
             },
             ExprAST::MemberAccess(expr, member_name, pos) => {
                 let ast = &**expr;
