@@ -540,20 +540,20 @@ END: ;
         }
     ";
     let src = "
-    int printf(char* format, ...);
+        int printf(char* format, ...);
 
-    int test(int i) {
-        int x = i;
-        int* ptr = &x;
-        int** handle = &ptr;
+        int test(int i) {
+            int x = i;
+            int* ptr = &x;
+            int** handle = &ptr;
 
-        printf(\"x = %d\\\n\", x);
-        printf(\"*ptr = %d\\\n\", *ptr);
-        printf(\"**handle = %d\\\n\", **handle);
+            printf(\"x = %d\\\n\", x);
+            printf(\"*ptr = %d\\\n\", *ptr);
+            printf(\"**handle = %d\\\n\", **handle);
 
-        return *ptr;
-    }
-";
+            return *ptr;
+        }
+    ";
     // tokenize
     let tokenized = Tokenizer::tokenize(src).unwrap();
     // parse

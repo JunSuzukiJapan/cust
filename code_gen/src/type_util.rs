@@ -44,15 +44,18 @@ impl TypeUtil {
             // Type::Void   => Ok(BasicTypeEnum::VoidType(ctx.void_type())),
             Type::Pointer(_p, to_type) => {
                 println!("to_llvm_type_enum. {}:{}:{}", file!(), line!(), column!());
-                // let typ = Self::to_llvm_type(to_type, ctx)?;
+
                 let typ = Self::to_llvm_any_type(typ, ctx)?;
 
                 if typ.is_int_type() {
-                    Ok(typ.into_int_type().ptr_type(AddressSpace::default()).into())
+                    // Ok(typ.into_int_type().ptr_type(AddressSpace::default()).into())
+                    Ok(typ.into_int_type().into())
                 }else if typ.is_float_type() {
-                    Ok(typ.into_float_type().ptr_type(AddressSpace::default()).into())
+                    // Ok(typ.into_float_type().ptr_type(AddressSpace::default()).into())
+                    Ok(typ.into_float_type().into())
                 }else if typ.is_pointer_type() {
-                    Ok(typ.into_pointer_type().ptr_type(AddressSpace::default()).into())
+                    // Ok(typ.into_pointer_type().ptr_type(AddressSpace::default()).into())
+                    Ok(typ.into_pointer_type().into())
                 }else if typ.is_array_type() {
 
 

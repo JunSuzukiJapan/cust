@@ -132,29 +132,16 @@ impl<'ctx> CodeGen<'ctx> {
             AST::Block(block) => self.gen_block(block, env, break_catcher, continue_catcher),
             AST::Return(opt_expr, _pos) => {
                 let fun_typ = env.get_current_function_type().ok_or(CodeGenError::return_without_function(None))?;
-                // let opt_required_ret_type = fun_typ.get_return_type();
                 let required_ret_type = fun_typ.get_return_type();
 
                 let result: InstructionValue;
                 if let Some(expr) = opt_expr {
-                    // let expr_type = TypeUtil::get_type(expr, env)?;
-
-
-
-
                     let mut real_ret = self.gen_expr(expr, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
-                    // let real_ret_type = self.try_as_basic_type(&real_ret.get_type())?;
                     let real_ret_type = real_ret.get_type();
 
-                    // if opt_required_ret_type.is_none() {
-                    //     return Err(Box::new(CodeGenError::return_type_mismatch(None, Some(real_ret_type.clone()), None)));
-                    // }
-
-                    // let required_ret_type = opt_required_ret_type.unwrap();
                     if required_ret_type != real_ret_type {
                         let casted = self.gen_implicit_cast(&real_ret.get_value(), &real_ret_type, &required_ret_type)?;
                         real_ret = CompiledValue::new(real_ret.get_type().clone(), casted);
-                        // unimplemented!("required type: '{}', real type: '{}'", required_ret_type, real_ret_type)
                     }
 
                     let ret = self.try_as_basic_value(&real_ret.get_value())?;
@@ -575,25 +562,25 @@ println!("--> ptr: {:?}\n", ptr);
                         Ok(Some(CompiledValue::new(typ, ptr.into())))
                     },
 
-
-
-
-
-
                     _ => unimplemented!(),
                 }
             },
             ExprAST::UnaryPointerAccess(boxed_ast, pos) => {  // *pointer
                 let ast = &**boxed_ast;
 println!("UnaryPointerAccess");
-                let (typ, ptr_to_ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
-                let ptr = self.builder.build_load(ptr_to_ptr, "get_pointer")?;
-                let basic_val = self.builder.build_load(ptr.into_pointer_value(), &format!("get_value_from_pointer"))?;
-                let any_val = basic_val.as_any_value_enum();
+println!("  ast: {:?}", ast);
+                // let (typ, ptr_to_ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
+// println!("  ptr_to_ptr: {:?}", ptr_to_ptr);
+                // let ptr = self.builder.build_load(ptr_to_ptr, "get_handle")?;
 
+                let ptr = self.gen_expr(&ast, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::not_pointer(pos.clone(), &TypeUtil::get_type(&ast, env)?))?;
+                let typ = ptr.get_type();
+
+                let basic_val = self.builder.build_load(ptr.get_value().into_pointer_value(), &format!("get_value_from_pointer"))?;
+                let any_val = basic_val.as_any_value_enum();
                 let type2 = typ.peel_off_pointer().ok_or(CodeGenError::not_pointer(pos.clone(), &typ))?;
-println!("  typ: {:?}", typ);
-println!("  type2: {:?}", type2);
+println!("  ptr: {:?}", ptr);
+println!("  any_val: {:?}", any_val);
                 Ok(Some(CompiledValue::new(type2, any_val)))
             },
             ExprAST::Symbol(name, _pos) => {
@@ -785,6 +772,7 @@ println!("declarator: {:?}", declarator);
 println!("BASE_TYPE: {:?}\nTYP: {:?}", base_type, typ);
             let name = declarator.get_name();
             let basic_type = env.basic_type_enum_from_type(&typ, self.context)?;
+println!("basic_type: {:?}", basic_type);
             let ptr = self.builder.build_alloca(basic_type, name)?;
             let init_expr = decl.get_init_expr();
 
@@ -1683,13 +1671,18 @@ println!("no cast");
     ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
         match op {
             BinOp::Add => {
+println!("BinOp::ADD");
                 let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
+println!("  left: {:?}\n", left);
                 let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
+println!("  right: {:?}\n", right);
                 let (left, right) = self.bin_expr_implicit_cast(left, right)?;
                 let left_type = left.get_type();
                 let left_value = left.get_value();
                 let right_value = right.get_value();
-
+println!("ADD");
+println!("  left: {:?}\n", left_value);
+println!("  right: {:?}\n", right_value);
                 if left_value.is_int_value() {
                     let result = self.builder.build_int_add(left_value.into_int_value(), right_value.into_int_value(), "add_int")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
