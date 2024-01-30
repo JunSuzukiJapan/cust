@@ -2206,7 +2206,7 @@ println!("  right: {:?}\n", right_value);
                         };
 println!("Member Access. struct: {:?}, field: {member_name}, ptr: {:?}\n", name, ptr);
 println!("  at {pos}\n");
-                        let ptr = self.builder.build_load(ptr, "load_struct_ptr")?.into_pointer_value();
+                        // let ptr = self.builder.build_load(ptr, "load_struct_ptr")?.into_pointer_value();
 println!("  ==> ptr: {:?}\n", ptr);
                         let elem_ptr = self.builder.build_struct_gep(ptr, index as u32, &msg);
                         if let Ok(p) = elem_ptr {
@@ -2267,7 +2267,8 @@ println!("ptr type: {:?}\n", ptr.get_type());
 // println!("test_ptr: {:?}\n", elem_ptr);
 
 
-                // let ptr = self.builder.build_load(ptr, "get_pointer")?.into_pointer_value();
+                let ptr = self.builder.build_load(ptr, "get_pointer")?.into_pointer_value();
+println!("\nptr: {:?}\n", ptr);
 
                 let typ = TypeUtil::get_type(ast, env)?;
                 let pointed_type = typ.get_pointed_type(pos)?;
