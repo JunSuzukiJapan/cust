@@ -3611,7 +3611,7 @@ mod tests {
         assert_eq!(
             pointer.make_type_to(&typ),
             Type::Pointer(
-                Pointer::new_with_next_pointer(false, true, Pointer::new(true, false)),
+                Pointer::new(false, true),
                 Box::new(Type::Pointer(
                     Pointer::new(true, false),
                     Box::new(Type::Number(NumberType::UnsignedShort))
@@ -3821,7 +3821,7 @@ mod tests {
                 assert_eq!(
                     handle.make_type_to(&typ),
                     Type::Pointer(
-                        Pointer::new_with_next_pointer(false, false, Pointer::new(false, false)),
+                        Pointer::new(false, false),
                         Box::new(Type::Pointer(
                             Pointer::new(false, false),
                             Box::new(Type::Number(NumberType::Int))
