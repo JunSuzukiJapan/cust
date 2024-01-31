@@ -43,8 +43,6 @@ impl TypeUtil {
             Type::Number(NumberType::UnsignedShort)  => Ok(BasicTypeEnum::IntType(ctx.i16_type())),
             // Type::Void   => Ok(BasicTypeEnum::VoidType(ctx.void_type())),
             Type::Pointer(_p, to_type) => {
-                println!("to_llvm_type_enum. {}:{}:{}", file!(), line!(), column!());
-
                 let typ = Self::to_llvm_any_type(typ, ctx)?;
 
                 if typ.is_int_type() {
@@ -77,7 +75,6 @@ impl TypeUtil {
 
             },
             Type::Array { name: _, typ: type2, opt_size_list } => {
-                println!("to_basic_type_enum. {}:{}:{}", file!(), line!(), column!());
                 let mut to_type = Self::to_basic_type_enum(type2, ctx)?;
 
                 for opt_size in opt_size_list.iter().rev() {
@@ -130,7 +127,6 @@ impl TypeUtil {
 
     #[inline]
     pub fn to_llvm_type<'a>(typ: &Type, ctx: &'a Context) -> Result<BasicMetadataTypeEnum<'a>, Box<dyn Error>> {
-        println!("to_basic_type_enum. {}:{}:{}", file!(), line!(), column!());
         Ok(Self::to_basic_type_enum(typ, ctx)?.into())
     }
 

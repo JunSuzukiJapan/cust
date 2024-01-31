@@ -423,7 +423,6 @@ impl<'ctx> Env<'ctx> {
                 unimplemented!()
             },
             _ => {
-                println!("to_basic_type_enum. {}:{}:{}", file!(), line!(), column!());
                 Ok(TypeUtil::to_basic_type_enum(typ, ctx)?)
             },
         }

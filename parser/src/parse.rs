@@ -190,7 +190,6 @@ impl Parser {
                             iter.next();  // skip '='
 
                             let mut labels = Vec::new();
-                            // let init_expr = self.parse_expression_statement(iter, defs, &mut Some(&mut labels))?.ok_or(ParserError::need_expr(pos.clone()))?;
                             let init_expr = self.parse_expression(iter, defs, &mut Some(&mut labels))?.ok_or(ParserError::need_expr(pos.clone()))?;
                             self.parse_expected_token(iter, Token::SemiColon)?;
                             let declaration = Declaration::new(decl, Some(Box::new(init_expr)));

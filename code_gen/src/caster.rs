@@ -13,8 +13,6 @@ pub struct Caster;
 
 impl Caster {
     pub fn gen_implicit_cast<'ctx>(builder: &Builder<'ctx>, ctx: &'ctx Context, value: &AnyValueEnum<'ctx>, from_type: &Type, to_type: &Type) -> Result<AnyValueEnum<'ctx>, Box<dyn Error>> {
-println!("gen_implicit_cast. from: '{}', to: '{}'", from_type, to_type);
-
         match (from_type, to_type) {
             //
             // same types

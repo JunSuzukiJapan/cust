@@ -92,7 +92,6 @@ impl<'ctx> CodeGen<'ctx> {
                     let declarator = decl.get_declarator();
                     let typ = declarator.make_type(base_type);
                     let name = declarator.get_name();
-                    println!("to_basic_type_enum. {}:{}:{}", file!(), line!(), column!());
                     let basic_type = TypeUtil::to_basic_type_enum(&typ, self.context)?;
                     // let ptr = self.module.add_global(basic_type, Some(AddressSpace::Const), name);
                     let ptr = self.module.add_global(basic_type, Some(AddressSpace::default()), name);
@@ -148,7 +147,6 @@ impl<'ctx> CodeGen<'ctx> {
                     result = self.builder.build_return(Some(&ret))?;
                 }else{
                     if ! required_ret_type.is_void() {
-                        println!("return type mismatch. {}:{}:{}", file!(), line!(), column!());
                         return Err(Box::new(CodeGenError::return_type_mismatch(None, Type::Void, required_ret_type.clone())));
                     }
 
@@ -547,18 +545,12 @@ impl<'ctx> CodeGen<'ctx> {
             },
             ExprAST::UnaryGetAddress(boxed_ast, pos) => {
                 let ast = &**boxed_ast;
-println!("UnaryGetAddress. ast: {:?}\n", ast);
                 match ast {
                     ExprAST::Symbol(name, pos2) => {
                         let (typ, ptr) = env.get_ptr(name).ok_or(CodeGenError::no_such_a_variable(Some(pos2.clone()), name))?;
-println!("typ: {:?}\n", typ);
-println!("ptr: {:?}\n", ptr);
-
-                        
                         let ptr = PointerValue::try_from(ptr).ok().ok_or(CodeGenError::cannot_get_pointer(Some(pos.clone())))?;
                         let typ = Type::new_pointer_type(typ.clone(), false, false);
-println!("--> typ: {:?}\n", typ);
-println!("--> ptr: {:?}\n", ptr);
+
                         Ok(Some(CompiledValue::new(typ, ptr.into())))
                     },
 
@@ -567,20 +559,13 @@ println!("--> ptr: {:?}\n", ptr);
             },
             ExprAST::UnaryPointerAccess(boxed_ast, pos) => {  // *pointer
                 let ast = &**boxed_ast;
-println!("UnaryPointerAccess");
-println!("  ast: {:?}", ast);
-                // let (typ, ptr_to_ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
-// println!("  ptr_to_ptr: {:?}", ptr_to_ptr);
-                // let ptr = self.builder.build_load(ptr_to_ptr, "get_handle")?;
-
                 let ptr = self.gen_expr(&ast, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::not_pointer(pos.clone(), &TypeUtil::get_type(&ast, env)?))?;
                 let typ = ptr.get_type();
 
                 let basic_val = self.builder.build_load(ptr.get_value().into_pointer_value(), &format!("get_value_from_pointer"))?;
                 let any_val = basic_val.as_any_value_enum();
                 let type2 = typ.peel_off_pointer().ok_or(CodeGenError::not_pointer(pos.clone(), &typ))?;
-println!("  ptr: {:?}", ptr);
-println!("  any_val: {:?}", any_val);
+
                 Ok(Some(CompiledValue::new(type2, any_val)))
             },
             ExprAST::Symbol(name, _pos) => {
@@ -717,7 +702,6 @@ println!("  any_val: {:?}", any_val);
                 self.builder.position_at_end(end_block);
 
                 let typ = then_result.get_type();
-                println!("to_basic_type_enum. {}:{}:{}", file!(), line!(), column!());
                 let llvm_type = TypeUtil::to_basic_type_enum(typ, self.context)?;
                 let phi_value = self.builder.build_phi(llvm_type, "ternary.phi")?;
                 let then_value = if let Ok(val) = BasicValueEnum::try_from(then_result.get_value()) {
@@ -767,17 +751,11 @@ println!("  any_val: {:?}", any_val);
         let base_type = specifiers.get_type();
         for decl in declarations {
             let declarator = decl.get_declarator();
-println!("declarator: {:?}", declarator);
             let typ = declarator.make_type(base_type);
-println!("BASE_TYPE: {:?}\nTYP: {:?}", base_type, typ);
             let name = declarator.get_name();
             let basic_type = env.basic_type_enum_from_type(&typ, self.context)?;
-println!("basic_type: {:?}", basic_type);
             let ptr = self.builder.build_alloca(basic_type, name)?;
             let init_expr = decl.get_init_expr();
-
-println!("def var '{:?}'. type: {:?}\n", name, typ);
-println!("init_expr: '{:?}'\n", init_expr);
 
             match init_expr {
                 Some(ast) => {
@@ -792,12 +770,8 @@ println!("init_expr: '{:?}'\n", init_expr);
                         let compiled_value = self.gen_expr(&**ast, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                         let mut init_value = compiled_value.get_value();
                         let init_type = compiled_value.get_type();
-// println!("VarType: {:?}\n", typ);
-// println!("InitType: {:?}\n", init_type);
 
                         if typ != *init_type {
-// println!("typ != *init_type");
-// println!("call gen_cast. typ: '{}', init_type: '{}'\n", typ, *init_type);
                             init_value = self.gen_implicit_cast(&init_value, &init_type, &typ)?;
                         }
 
@@ -809,7 +783,6 @@ println!("init_expr: '{:?}'\n", init_expr);
             };
 
             env.insert_local(name, typ.clone(), ptr);
-// println!("\nenv: {:?}\n", env);
         }
 
         Ok(())
@@ -874,7 +847,6 @@ println!("init_expr: '{:?}'\n", init_expr);
     }
 
     fn const_zero(&self, typ: &Type) -> Result<BasicValueEnum, Box<dyn Error>> {
-        println!("to_llvm_type_enum. {}:{}:{}", file!(), line!(), column!());
         let t = TypeUtil::to_llvm_type(typ, self.context)?;
         match t {
             BasicMetadataTypeEnum::ArrayType(_) => {
@@ -1102,7 +1074,6 @@ println!("init_expr: '{:?}'\n", init_expr);
     }
 
     fn gen_implicit_cast(&self, value: &AnyValueEnum<'ctx>, from_type: &Type, to_type: &Type) -> Result<AnyValueEnum<'ctx>, Box<dyn Error>> {
-println!("code_gen.gen_implicit_cast. from: '{}', to '{}'", from_type, to_type);
         Caster::gen_implicit_cast(&self.builder, &self.context, value, from_type, to_type)
     }
 
@@ -1278,7 +1249,6 @@ println!("code_gen.gen_implicit_cast. from: '{}', to '{}'", from_type, to_type);
             for field in fields {
                 match field {
                     StructField::NormalField { name: _, sq: _, typ } => {
-                        println!("to_basic_type_enum. {}:{}:{}", file!(), line!(), column!());
                         let t = TypeUtil::to_basic_type_enum(typ, ctx)?;
                         list.push(t);
 
@@ -1340,7 +1310,6 @@ println!("code_gen.gen_implicit_cast. from: '{}', to '{}'", from_type, to_type);
             for field in fields {
                 match field {
                     StructField::NormalField { name: field_name, sq: _, typ } => {
-                        println!("to_basic_type_enum. {}:{}:{}", file!(), line!(), column!());
                         let t = TypeUtil::to_basic_type_enum(typ, ctx)?;
                         list.push((typ.clone(), t.clone()));
 
@@ -1643,12 +1612,8 @@ println!("code_gen.gen_implicit_cast. from: '{}', to '{}'", from_type, to_type);
     fn bin_expr_implicit_cast(&self, left: CompiledValue<'ctx>, right: CompiledValue<'ctx>) -> Result<(CompiledValue<'ctx>, CompiledValue<'ctx>), Box<dyn Error>> {
         if let (Type::Number(left_type), Type::Number(right_type)) = (left.get_type(), right.get_type()) {
             if left_type == right_type {
-println!("no cast");
                 Ok((left, right))
             }else if left_type < right_type {
-//                 let value = self.gen_cast(&left.get_value(), &right_type.to_basic_type_enum(self.context)?)?;
-// println!("CAST left type {:?} to {:?}", left_type, right_type);
-//                 Ok((CompiledValue::new(Type::Number(right_type.clone()), value), right))
                 unimplemented!()
             }else{  // left_type > right_type
 //                 let value = self.gen_cast(&right.get_value(), &left_type.to_basic_type_enum(self.context)?)?;
@@ -1671,18 +1636,13 @@ println!("no cast");
     ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
         match op {
             BinOp::Add => {
-println!("BinOp::ADD");
                 let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
-println!("  left: {:?}\n", left);
                 let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
-println!("  right: {:?}\n", right);
                 let (left, right) = self.bin_expr_implicit_cast(left, right)?;
                 let left_type = left.get_type();
                 let left_value = left.get_value();
                 let right_value = right.get_value();
-println!("ADD");
-println!("  left: {:?}\n", left_value);
-println!("  right: {:?}\n", right_value);
+
                 if left_value.is_int_value() {
                     let result = self.builder.build_int_add(left_value.into_int_value(), right_value.into_int_value(), "add_int")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
@@ -1694,11 +1654,6 @@ println!("  right: {:?}\n", right_value);
                 }
             },
             BinOp::Sub => {
-                // let left = self.gen_expr(&*left, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?.into_int_value();
-                // let right = self.gen_expr(&*right, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?.into_int_value();
-
-                // let result = self.builder.build_int_sub(left, right, "sub");
-                // Ok(Some(result.as_any_value_enum()))
                 let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let (left, right) = self.bin_expr_implicit_cast(left, right)?;
@@ -1717,11 +1672,6 @@ println!("  right: {:?}\n", right_value);
                 }
             },
             BinOp::Mul => {
-                // let left = self.gen_expr(&*left, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?.into_int_value();
-                // let right = self.gen_expr(&*right, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?.into_int_value();
-
-                // let result = self.builder.build_int_mul(left, right, "mul");
-                // Ok(Some(result.as_any_value_enum()))
                 let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let (left, right) = self.bin_expr_implicit_cast(left, right)?;
@@ -1740,11 +1690,6 @@ println!("  right: {:?}\n", right_value);
                 }
             },
             BinOp::Div => {
-                // let left = self.gen_expr(&*left, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?.into_int_value();
-                // let right = self.gen_expr(&*right, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?.into_int_value();
-
-                // let result = self.builder.build_int_signed_div(left, right, "div");
-                // Ok(Some(result.as_any_value_enum()))
                 let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let (left, right) = self.bin_expr_implicit_cast(left, right)?;
@@ -1768,11 +1713,6 @@ println!("  right: {:?}\n", right_value);
                 }
             },
             BinOp::Mod => {
-                // let left = self.gen_expr(&*left, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?.into_int_value();
-                // let right = self.gen_expr(&*right, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?.into_int_value();
-
-                // let result = self.builder.build_int_signed_rem(left, right, "mod");
-                // Ok(Some(result.as_any_value_enum()))
                 let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let (left, right) = self.bin_expr_implicit_cast(left, right)?;
@@ -1796,11 +1736,6 @@ println!("  right: {:?}\n", right_value);
                 }
             },
             BinOp::Equal => {
-                // let left = self.gen_expr(&*left, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?.into_int_value();
-                // let right = self.gen_expr(&*right, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?.into_int_value();
-
-                // let result = self.builder.build_int_compare(IntPredicate::EQ, left, right, "Equal");
-                // Ok(Some(result.as_any_value_enum()))
                 let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let (left, right) = self.bin_expr_implicit_cast(left, right)?;
@@ -1819,11 +1754,6 @@ println!("  right: {:?}\n", right_value);
                 }
             },
             BinOp::NotEqual => {
-                // let left = self.gen_expr(&*left, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?.into_int_value();
-                // let right = self.gen_expr(&*right, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?.into_int_value();
-
-                // let result = self.builder.build_int_compare(IntPredicate::NE, left, right, "NotEqual");
-                // Ok(Some(result.as_any_value_enum()))
                 let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let (left, right) = self.bin_expr_implicit_cast(left, right)?;
@@ -1842,16 +1772,6 @@ println!("  right: {:?}\n", right_value);
                 }
             },
             BinOp::Less => {
-                // let lhs = self.gen_expr(&*left, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?.into_int_value();
-                // let rhs = self.gen_expr(&*right, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?.into_int_value();
-
-                // let predicate = if env.is_signed(left)? {
-                //     IntPredicate::SLT
-                // }else{
-                //     IntPredicate::ULT
-                // };
-                // let result = self.builder.build_int_compare(predicate, lhs, rhs, "Less");
-                // Ok(Some(result.as_any_value_enum()))
                 let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let (left, right) = self.bin_expr_implicit_cast(left, right)?;
@@ -1875,16 +1795,6 @@ println!("  right: {:?}\n", right_value);
                 }
             },
             BinOp::LessEqual => {
-                // let lhs = self.gen_expr(&*left, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?.into_int_value();
-                // let rhs = self.gen_expr(&*right, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?.into_int_value();
-
-                // let predicate = if env.is_signed(left)? {
-                //     IntPredicate::SLE
-                // }else{
-                //     IntPredicate::ULE
-                // };
-                // let result = self.builder.build_int_compare(predicate, lhs, rhs, "LessEqual");
-                // Ok(Some(result.as_any_value_enum()))
                 let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let (left, right) = self.bin_expr_implicit_cast(left, right)?;
@@ -1908,16 +1818,6 @@ println!("  right: {:?}\n", right_value);
                 }
             },
             BinOp::Greater => {
-                // let lhs = self.gen_expr(&*left, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?.into_int_value();
-                // let rhs = self.gen_expr(&*right, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?.into_int_value();
-
-                // let predicate = if env.is_signed(left)? {
-                //     IntPredicate::SGT
-                // }else{
-                //     IntPredicate::UGT
-                // };
-                // let result = self.builder.build_int_compare(predicate, lhs, rhs, "Greater");
-                // Ok(Some(result.as_any_value_enum()))
                 let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let (left, right) = self.bin_expr_implicit_cast(left, right)?;
@@ -1941,16 +1841,6 @@ println!("  right: {:?}\n", right_value);
                 }
             },
             BinOp::GreaterEqual => {
-                // let lhs = self.gen_expr(&*left, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?.into_int_value();
-                // let rhs = self.gen_expr(&*right, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?.into_int_value();
-
-                // let predicate = if env.is_signed(left)? {
-                //     IntPredicate::SGE
-                // }else{
-                //     IntPredicate::UGE
-                // };
-                // let result = self.builder.build_int_compare(predicate, lhs, rhs, "GreaterEqual");
-                // Ok(Some(result.as_any_value_enum()))
                 let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let (left, right) = self.bin_expr_implicit_cast(left, right)?;
@@ -1974,11 +1864,6 @@ println!("  right: {:?}\n", right_value);
                 }
             },
             BinOp::And => {
-                // let left = self.gen_expr(&*left, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?.into_int_value();
-                // let right = self.gen_expr(&*right, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?.into_int_value();
-
-                // let result = self.builder.build_and(left, right, "And");
-                // Ok(Some(result.as_any_value_enum()))
                 let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let (left, right) = self.bin_expr_implicit_cast(left, right)?;
@@ -1994,11 +1879,6 @@ println!("  right: {:?}\n", right_value);
                 }
             },
             BinOp::Or => {
-                // let left = self.gen_expr(&*left, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?.into_int_value();
-                // let right = self.gen_expr(&*right, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?.into_int_value();
-
-                // let result = self.builder.build_or(left, right, "Or");
-                // Ok(Some(result.as_any_value_enum()))
                 let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let (left, right) = self.bin_expr_implicit_cast(left, right)?;
@@ -2038,12 +1918,6 @@ println!("  right: {:?}\n", right_value);
                 Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
             },
             BinOp::ShiftRight => {
-                // let value = self.gen_expr(&*left, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?.into_int_value();
-                // let count = self.gen_expr(&*right, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?.into_int_value();
-
-                // let sign_extend = env.is_signed(left)?;
-                // let result = self.builder.build_right_shift(value, count, sign_extend, "ShiftRight");
-                // Ok(Some(result.as_any_value_enum()))
                 let left = self.gen_expr(&*left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let right = self.gen_expr(&*right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let left_type = left.get_type();
@@ -2062,11 +1936,6 @@ println!("  right: {:?}\n", right_value);
                 Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
             },
             BinOp::BitAnd => {
-                // let left = self.gen_expr(&*left, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?.into_int_value();
-                // let right = self.gen_expr(&*right, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?.into_int_value();
-
-                // let result = self.builder.build_and(left, right, "BitAnd");
-                // Ok(Some(result.as_any_value_enum()))
                 let left = self.gen_expr(&*left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let right = self.gen_expr(&*right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let left_type = left.get_type();
@@ -2085,11 +1954,6 @@ println!("  right: {:?}\n", right_value);
                 Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
             },
             BinOp::BitOr => {
-                // let left = self.gen_expr(&*left, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?.into_int_value();
-                // let right = self.gen_expr(&*right, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?.into_int_value();
-
-                // let result = self.builder.build_or(left, right, "BitOr");
-                // Ok(Some(result.as_any_value_enum()))
                 let left = self.gen_expr(&*left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let right = self.gen_expr(&*right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let left_type = left.get_type();
@@ -2108,11 +1972,6 @@ println!("  right: {:?}\n", right_value);
                 Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
             },
             BinOp::BitXor => {
-                // let left = self.gen_expr(&*left, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?.into_int_value();
-                // let right = self.gen_expr(&*right, env, break_catcher, continue_catcher)?.ok_or(CompileError::illegal_end_of_input(None))?.into_int_value();
-
-                // let result = self.builder.build_xor(left, right, "BitXor");
-                // Ok(Some(result.as_any_value_enum()))
                 let left = self.gen_expr(&*left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let right = self.gen_expr(&*right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
                 let left_type = left.get_type();
@@ -2204,17 +2063,11 @@ println!("  right: {:?}\n", right_value);
                         }else{
                             format!("struct?.{}", member_name)
                         };
-println!("Member Access. struct: {:?}, field: {member_name}, ptr: {:?}\n", name, ptr);
-println!("  at {pos}\n");
-                        // let ptr = self.builder.build_load(ptr, "load_struct_ptr")?.into_pointer_value();
-println!("  ==> ptr: {:?}\n", ptr);
+
                         let elem_ptr = self.builder.build_struct_gep(ptr, index as u32, &msg);
                         if let Ok(p) = elem_ptr {
                             Ok((elem_type.clone(), p))
                         }else{
-println!("CANNOT ACCESS. {}:{}:{}", file!(), line!(), column!());
-println!("index: {index}, msg: {msg}");
-println!("ptr: {:?}\n", ptr);
                             return Err(Box::new(CodeGenError::cannot_access_struct_member(Some(pos.clone()), &member_name)));
                         }
                     },
@@ -2224,12 +2077,6 @@ println!("ptr: {:?}\n", ptr);
                             match type_or_union {
                                 TypeOrUnion::Union { type_list, index_map, max_size: _, max_size_type: _ } => {
                                     let idx = index_map[member_name];
-                                    // let any_type_enum = type_list[idx];
-                                    // let to_type = BasicTypeEnum::try_from(any_type_enum);
-                                    // if let Err(_err) = &to_type {
-                                    //     return Err(Box::new(CompileError::cannot_convert_to_basic_type_enum(None)));
-                                    // }
-                                    // let ptr_type = to_type.unwrap().ptr_type(AddressSpace::default());
                                     let (typ, to_type) = &type_list[idx];
                                     let ptr_type = to_type.ptr_type(AddressSpace::default());
 
@@ -2240,7 +2087,6 @@ println!("ptr: {:?}\n", ptr);
                             }
                         }else{
                             let typ = fields.get_type(member_name).ok_or(CodeGenError::no_such_a_member(Some(pos.clone()), member_name))?;
-                            println!("to_basic_type_enum. {}:{}:{}", file!(), line!(), column!());
                             let to_type = TypeUtil::to_basic_type_enum(typ, self.context)?;
                             let ptr_type = to_type.ptr_type(AddressSpace::default());
                             let p = ptr.const_cast(ptr_type);
@@ -2252,37 +2098,19 @@ println!("ptr: {:?}\n", ptr);
             },
             ExprAST::PointerAccess(expr, member_name, pos) => {
                 let ast = &**expr;
-println!("ast: {:?}", ast);
                 let (_typ, ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
-println!("_typ: {:?}\n", _typ);
-println!("l_value ptr: {:?}\n", ptr);
-//                 let ptr = self.builder.build_load(ptr, &format!("pointer_access_to_{}", member_name))?.into_pointer_value();
-println!("\nptr: {:?}\n", ptr);
-println!("ptr type: {:?}\n", ptr.get_type());
-
-// println!("element type: {:?}\n", ptr.get_type().get_element_type());
-// let element_pointer = self.builder.build_load(ptr, "get_element_pointer")?;
-// println!("element pointer: {:?}\n", element_pointer);
-// let elem_ptr = self.builder.build_struct_gep(element_pointer.into_pointer_value(), 0, "test");
-// println!("test_ptr: {:?}\n", elem_ptr);
-
-
                 let ptr = self.builder.build_load(ptr, "get_pointer")?.into_pointer_value();
-println!("\nptr: {:?}\n", ptr);
-
                 let typ = TypeUtil::get_type(ast, env)?;
                 let pointed_type = typ.get_pointed_type(pos)?;
 
                 match pointed_type {
                     Type::Struct {fields, ..} => {
                         let index = fields.get_index(member_name).ok_or(CodeGenError::no_such_a_member(Some(pos.clone()), member_name))?;
-println!("index: {:?}", index);
                         let elem_ptr = self.builder.build_struct_gep(ptr, index as u32, "struct_member_access");
                         if let Ok(p) = elem_ptr {
                             let typ = fields.get_type(member_name).unwrap();
                             Ok((typ.clone(), p))
                         }else{
-println!("typ: {:?}\nindex: {:?}\nelem_ptr: {:?}", pointed_type, index, elem_ptr);
                             return Err(Box::new(CodeGenError::cannot_access_struct_member(Some(pos.clone()), &member_name)));
                         }
                     },
@@ -2308,7 +2136,6 @@ println!("typ: {:?}\nindex: {:?}\nelem_ptr: {:?}", pointed_type, index, elem_ptr
                             }
                         }else{
                             let typ = fields.get_type(member_name).ok_or(CodeGenError::no_such_a_member(Some(pos.clone()), member_name))?;
-                            println!("to_basic_type_enum. {}:{}:{}", file!(), line!(), column!());
                             let to_type = TypeUtil::to_basic_type_enum(typ, self.context)?;
                             let ptr_type = to_type.ptr_type(AddressSpace::default());
                             let p = ptr.const_cast(ptr_type);
@@ -2499,7 +2326,6 @@ println!("typ: {:?}\nindex: {:?}\nelem_ptr: {:?}", pointed_type, index, elem_ptr
         for (i, param) in params.get_params().iter().enumerate() {
             let typ = param.get_type();
             let name = param.get_name();
-            println!("to_basic_type_enum. {}:{}:{}", file!(), line!(), column!());
             let ptr = self.builder.build_alloca(TypeUtil::to_basic_type_enum(&typ, self.context)?, name)?;
             let value = function.get_nth_param(i as u32).unwrap();
             self.builder.build_store(ptr, value)?;
@@ -2526,7 +2352,6 @@ println!("typ: {:?}\nindex: {:?}\nelem_ptr: {:?}", pointed_type, index, elem_ptr
                 Some(AST::Return(None, _)) => Ok(()),  // do nothing
                 Some(AST::Return(Some(expr), _)) => {
                     let typ: Type = TypeUtil::get_type(expr, env)?;
-                    println!("return type mismatch. {}:{}:{}", file!(), line!(), column!());
                     return Err(Box::new(CodeGenError::return_type_mismatch(None, fn_type.get_return_type().clone(), typ)));
                 },
                 _ => {
@@ -2553,7 +2378,6 @@ println!("typ: {:?}\nindex: {:?}\nelem_ptr: {:?}", pointed_type, index, elem_ptr
                 Some(AST::If(_cond, _then, _else)) => {
                     let typ = self.calc_ret_type(last_stmt.unwrap(), env)?;
                     if typ.is_void() {
-                        println!("return type mismatch. {}:{}:{}", file!(), line!(), column!());
                         Err(Box::new(CodeGenError::return_type_mismatch(None, ret_type.clone(), Type::Void)))
                     }else{
                         if *ret_type == typ {
@@ -2562,7 +2386,6 @@ println!("typ: {:?}\nindex: {:?}\nelem_ptr: {:?}", pointed_type, index, elem_ptr
 
                             Ok(())
                         }else{
-                            println!("return type mismatch. {}:{}:{}", file!(), line!(), column!());
                             Err(Box::new(CodeGenError::return_type_mismatch(None, ret_type.clone(), typ)))
                         }
 
@@ -2572,8 +2395,6 @@ println!("typ: {:?}\nindex: {:?}\nelem_ptr: {:?}", pointed_type, index, elem_ptr
                     // if let Some(typ) = self.calc_ret_type(stmt, env)? {
                     let typ = self.calc_ret_type(stmt, env)?;
                     if typ.is_void() {
-                        println!("return type mismatch. {}:{}:{}", file!(), line!(), column!());
-                        println!("ret_type: {:?}", ret_type);
                         Err(Box::new(CodeGenError::return_type_mismatch(None, ret_type.clone(), Type::Void)))
                     }else{
                         if *ret_type == typ {
@@ -2669,7 +2490,6 @@ println!("typ: {:?}\nindex: {:?}\nelem_ptr: {:?}", pointed_type, index, elem_ptr
         if let Some(cust_self) = params.get_self() {
             let typ = cust_self.get_type();
             let typ = Type::new_pointer_type(typ.clone(), false, false);
-            println!("to_llvm_type_enum. {}:{}:{}", file!(), line!(), column!());
             let t = TypeUtil::to_llvm_type(&typ, self.context)?;
 
             arg_type_vec.push(t);
@@ -2678,7 +2498,6 @@ println!("typ: {:?}\nindex: {:?}\nelem_ptr: {:?}", pointed_type, index, elem_ptr
         for ds in params.get_params() {
             let typ = ds.get_type();
 
-            println!("to_llvm_type_enum. {}:{}:{}", file!(), line!(), column!());
             let t = TypeUtil::to_llvm_type(&typ, self.context)?;
             arg_type_vec.push(t);
         }
@@ -3877,7 +3696,6 @@ mod tests {
         }
 
         let dummy: Result<JitFunction<FuncType_void_void>, inkwell::execution_engine::FunctionLookupError> = unsafe { gen.execution_engine.get_function("test") };
-        println!("dummy: {:?}", dummy);
         let f: JitFunction<FuncType_void_void> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
         let _result = unsafe { f.call() };
 
