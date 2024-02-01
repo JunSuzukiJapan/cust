@@ -3628,7 +3628,7 @@ mod tests {
                 let decl_x = Declarator::new(None, DirectDeclarator::Symbol(String::from("x"), Position::new(2, 24)));
                 let ds_y = DeclarationSpecifier::new(Type::Number(NumberType::Int), sq.clone());
                 let decl_y = Declarator::new(None, DirectDeclarator::Symbol(String::from("y"), Position::new(2, 31)));
-                let pos = Position::new(1, 1);
+                let pos = Position::new(2, 25);
                 assert_eq!(params, Params::from_vec(vec![(ds_x, decl_x), (ds_y, decl_y)], false, &mut defs, &pos)?);
             },
             _ => panic!("ast: {:?}", ast),
@@ -3660,7 +3660,7 @@ mod tests {
                 let decl_x = Declarator::new(None, DirectDeclarator::Symbol(String::from("x"), Position::new(2, 24)));
                 let ds_y = DeclarationSpecifier::new(Type::Number(NumberType::Int), sq.clone());
                 let decl_y = Declarator::new(None, DirectDeclarator::Symbol(String::from("y"), Position::new(2, 31)));
-                let pos = Position::new(1, 1);
+                let pos = Position::new(2, 25);
                 assert_eq!(params, Params::from_vec(vec![(ds_x, decl_x), (ds_y, decl_y)], false, &mut defs, &pos)?);
                 assert_eq!(body,
                     Block {
@@ -3729,7 +3729,7 @@ mod tests {
                             AST::DefVar{
                                 specifiers: specifier,
                                 declarations: v,
-                                pos: Position::new(1, 1),
+                                pos: Position::new(3, 31),
                             },
                             AST::Expr(
                                 Box::new(ExprAST::Assign(
@@ -3737,7 +3737,7 @@ mod tests {
                                     Box::new(ExprAST::Int(1, Position::new(4, 20))),
                                     Position::new(4, 18)
                                 )),
-                                Position::new(1, 1),
+                                Position::new(4, 16),
                             ),
                             AST::Expr(
                                 Box::new(ExprAST::Assign(
@@ -3745,7 +3745,7 @@ mod tests {
                                     Box::new(ExprAST::Int(3, Position::new(5, 20))),
                                     Position::new(5, 18)
                                 )),
-                                Position::new(1, 1)
+                                Position::new(5, 16)
                             ),
                             AST::Return(Some(Box::new(
                                 ExprAST::BinExpr(
@@ -3830,7 +3830,7 @@ mod tests {
                             AST::DefVar{
                                 specifiers: specifier,
                                 declarations: v,
-                                pos: Position::new(1, 1)
+                                pos: Position::new(3, 30)
                             }
                         ],
                     }
@@ -3960,7 +3960,7 @@ mod tests {
             let specifier = DeclarationSpecifier::new(type_struct.clone(), sq);
 
             let mut v = Vec::new();
-            let declarator = Declarator::new(None, DirectDeclarator::Symbol(String::from("date"), Position::new(2, 19)));
+            let declarator = Declarator::new(None, DirectDeclarator::Symbol(String::from("date"), Position::new(10, 21)));
             let declaration = Declaration::new(declarator, None);
             v.push(declaration);
 
@@ -3969,7 +3969,7 @@ mod tests {
                 AST::DefVar{
                     specifiers: specifier,
                     declarations: v,
-                    pos: Position::new(1, 1),
+                    pos: Position::new(10, 25),
                 }
             );
             // date.year = 2022;
@@ -3987,7 +3987,7 @@ mod tests {
                         Box::new(ExprAST::Int(2022, Position::new(12, 28))),
                         Position::new(12, 26)
                     )),
-                    Position::new(1, 1)
+                    Position::new(12, 16)
                 )
             );
             assert_eq!(
@@ -4002,7 +4002,7 @@ mod tests {
                         Box::new(ExprAST::Int(12, Position::new(13, 29))),
                         Position::new(13, 27)
                     )),
-                    Position::new(1, 1)
+                    Position::new(13, 16)
                 )
             );
             assert_eq!(
@@ -4017,7 +4017,7 @@ mod tests {
                         Box::new(ExprAST::Int(31, Position::new(14, 27))),
                         Position::new(14, 25)
                     )),
-                    Position::new(1, 1)
+                    Position::new(14, 16)
                 )
             );
 
@@ -4074,7 +4074,7 @@ mod tests {
                         Box::new(ExprAST::Int(2023, Position::new(17, 32))),
                         Position::new(17, 30)
                     )),
-                    Position::new(1, 1)
+                    Position::new(17, 16)
                 )
             );
             assert_eq!(
@@ -4089,7 +4089,7 @@ mod tests {
                         Box::new(ExprAST::Int(1, Position::new(18, 33))),
                         Position::new(18, 31)
                     )),
-                    Position::new(1, 1)
+                    Position::new(18, 16)
                 )
             );
             assert_eq!(
@@ -4104,7 +4104,7 @@ mod tests {
                         Box::new(ExprAST::Int(1, Position::new(19, 31))),
                         Position::new(19, 29)
                     )),
-                    Position::new(1, 1)
+                    Position::new(19, 16)
                 )
             );
 
