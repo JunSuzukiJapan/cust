@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use super::{Position, Token, Tokenizer};
+use super::{Position, Token};
 use super::ParserError;
 use super::ast::{AST, ExprAST, Block, Param, Params, BinOp, TypeQualifier, DeclarationSpecifier, SpecifierQualifier, Declarator, DirectDeclarator};
 use super::ast::{DeclarationSpecifierOrVariadic, Declaration, StructDeclaration, StructDeclarator, AbstractDeclarator, DirectAbstractDeclarator};
@@ -56,8 +56,8 @@ impl Parser {
             if tok.is_eof() { break; }
             if let Some(mut decl) = self.parse_external_declaration(iter, defs, &mut Some(&mut labels))? {
                 match decl {
-                    AST::DefVar {specifiers, declarations: declaration} => {
-                        decl = AST::GlobalDefVar{specifiers, declaration};
+                    AST::DefVar {specifiers, declarations: declaration, pos} => {
+                        decl = AST::GlobalDefVar{specifiers, declaration, pos};
                     },
                     _ => {
                     },
@@ -86,6 +86,7 @@ impl Parser {
         Ok(AST::GlobalDefVar {
             specifiers: ds,
             declaration: declarations,
+            pos: pos.clone(),
         })
     }
 
@@ -107,6 +108,7 @@ impl Parser {
         Ok(AST::GlobalDefVar {
             specifiers: ds,
             declaration: declarations,
+            pos: pos.clone(),
         })
     }
 
@@ -139,7 +141,6 @@ impl Parser {
         let ds = self.parse_declaration_specifier(iter, defs, labels)?;
         let ds = ds.get_declaration_specifier().unwrap();
 
-        // let (tok, pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
         let (tok, pos) = iter.peek().unwrap();
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
         if *tok == Token::SemiColon {
@@ -147,13 +148,13 @@ impl Parser {
 
             match ds.get_type() {
                 Type::Struct { name, fields } => {
-                    return Ok(Some(AST::DefineStruct{name: name.clone(), fields: fields.clone()}));
+                    return Ok(Some(AST::DefineStruct{name: name.clone(), fields: fields.clone(), pos: pos.clone()}));
                 },
                 Type::Union { name, fields } => {
-                    return Ok(Some(AST::DefineUnion{name: name.clone(), fields: fields.clone()}));
+                    return Ok(Some(AST::DefineUnion{name: name.clone(), fields: fields.clone(), pos: pos.clone()}));
                 },
                 Type::Enum { name, enum_def } => {
-                    return Ok(Some(AST::DefineEnum {name: name.clone(), fields: enum_def.clone()}));
+                    return Ok(Some(AST::DefineEnum {name: name.clone(), fields: enum_def.clone(), pos: pos.clone()}));
                 }
                 _ => {
                     // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
@@ -171,14 +172,13 @@ impl Parser {
             let name = decl.get_name();
             defs.set_typedef(&name, typ, pos)?;
 
-            Ok(Some(AST::TypeDef(name.to_string(), typ.clone())))
+            Ok(Some(AST::TypeDef(name.to_string(), typ.clone(), pos.clone())))
         }else{
-            // let (tok, pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
             let (tok, pos) = iter.peek().unwrap();
             if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
     
             match decl.get_direct_declarator() {
-                DirectDeclarator::Symbol(_id) => {
+                DirectDeclarator::Symbol(_id, _pos2) => {
                     match tok {
                         Token::SemiColon => {
                             iter.next();  // skip ';'
@@ -202,14 +202,14 @@ impl Parser {
                         },
                     }
                 },
-                DirectDeclarator::Enclosed(_decl) => {
+                DirectDeclarator::Enclosed(_decl, _pos2) => {
 
 
 
 
                     unimplemented!()
                 },
-                DirectDeclarator::ArrayDef(_direct_declarator, opt_const_expr_list) => {
+                DirectDeclarator::ArrayDef(_direct_declarator, opt_const_expr_list, _pos2) => {
                     match tok {
                         Token::SemiColon => {
                             iter.next();  // skip ';'
@@ -233,16 +233,18 @@ impl Parser {
                         },
                     }
                 },
-                DirectDeclarator::FunctionDef(_direct_declarator, params) => {
+                DirectDeclarator::FunctionDef(_direct_declarator, params, _pos2) => {
                     match tok {
                         Token::SemiColon => {  // pre function definition
                             iter.next();  // skip ';'
 
                             let proto = AST::FunProto(FunProto {
-                                specifiers: ds.clone(),
-                                declarator: decl.clone(),
-                                params: params.clone(),
-                            });
+                                    specifiers: ds.clone(),
+                                    declarator: decl.clone(),
+                                    params: params.clone(),
+                                },
+                                pos.clone()
+                            );
 
                             defs.remove_function_local();
                             defs.set_function(decl.get_name(), ds.clone(), decl.clone(), params.clone(), pos)?;
@@ -254,12 +256,14 @@ impl Parser {
                             let block = self.parse_compound_statement(iter, defs, &mut Some(&mut labels))?;
  
                             let func = AST::Function(Function {
-                                specifiers: ds.clone(),
-                                declarator: decl.clone(),
-                                params: params.clone(),
-                                body: block,
-                                labels: labels,
-                            });
+                                    specifiers: ds.clone(),
+                                    declarator: decl.clone(),
+                                    params: params.clone(),
+                                    body: block,
+                                    labels: labels,
+                                },
+                                pos.clone()
+                            );
 
                             defs.remove_function_local();
                             defs.set_function(decl.get_name(), ds.clone(), decl.clone(), params.clone(), pos)?;
@@ -303,7 +307,6 @@ impl Parser {
         let impl_type = defs.get_type(impl_name).ok_or(ParserError::no_such_a_type(pos.clone(), impl_name))?.clone();
         defs.set_self_type(&impl_type)?;
 
-        // let (tok, pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
         let (tok, pos) = iter.peek().unwrap();
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
         let for_something: Option<String>;
@@ -314,14 +317,12 @@ impl Parser {
             Token::For => {
                 iter.next();  // skip 'for'
 
-                // let (tok2, pos2) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
                 let (tok2, pos2) = iter.peek().unwrap();
                 if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
                 match tok2 {
                     Token::Symbol(id2) => {
                         for_something = Some(id2.clone());
 
-                        // let (tok3, _pos3) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
                         let (tok3, pos3) = iter.peek().unwrap();
                         if tok3.is_eof() { return Err(ParserError::illegal_end_of_input(pos3.clone())); }
 
@@ -341,7 +342,7 @@ impl Parser {
 
         let functions = self.parse_impl_functions(iter, defs, labels)?;
         self.parse_expected_token(iter, Token::BraceRight)?;
-        let ast_impl = AST::new_impl(impl_name, impl_type, for_something, functions);
+        let ast_impl = AST::new_impl(impl_name, impl_type, for_something, functions, pos);
         Ok(Some(ast_impl))
     }
 
@@ -379,11 +380,10 @@ impl Parser {
         let ds = ds.get_declaration_specifier().unwrap();
         let decl = self.parse_declarator(iter, defs, &mut None)?;
 
-        // let (tok, pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
         let (tok, pos) = iter.peek().unwrap();
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
         match decl.get_direct_declarator() {
-            DirectDeclarator::FunctionDef(_direct_declarator, params) => {
+            DirectDeclarator::FunctionDef(_direct_declarator, params, _pos2) => {
                 match tok {
                     Token::SemiColon => {  // pre function definition
                         iter.next();  // skip ';'
@@ -1000,7 +1000,6 @@ impl Parser {
 
     #[allow(irrefutable_let_patterns)]
     fn parse_pointer(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Option<Pointer>, ParserError> {
-        // let (tok, pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
         let (tok, pos) = iter.peek().unwrap();
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
 
@@ -1072,7 +1071,6 @@ impl Parser {
     }
 
     fn parse_direct_declarator(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<DirectDeclarator, ParserError> {
-        // let (tok, pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
         let (tok, pos) = iter.peek().unwrap();
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
 
@@ -1080,14 +1078,14 @@ impl Parser {
         match tok {
             Token::Symbol(id) => {
                 iter.next();
-                decl = DirectDeclarator::Symbol(id.to_string());
+                decl = DirectDeclarator::Symbol(id.to_string(), pos.clone());
             },
             Token::ParenLeft => {
                 iter.next();  // skip '('
 
                 let d = self.parse_declarator(iter, defs, labels)?;
                 self.parse_expected_token(iter, Token::ParenRight)?;
-                decl = DirectDeclarator::Enclosed(d);
+                decl = DirectDeclarator::Enclosed(d, pos.clone());
             },
             _ => {
                 // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
@@ -1124,7 +1122,6 @@ impl Parser {
 
         let mut result = decl;
         loop {
-            // let (tok, pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
             let (tok, pos) = iter.peek().unwrap();
             if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
 
@@ -1133,7 +1130,6 @@ impl Parser {
                     // read parameter type list
                     iter.next();  // skip '('
 
-                    // let (next_tok, _pos2) = iter.peek().ok_or(ParserError::illegal_end_of_input(pos.clone()))?;
                     let (next_tok, pos2) = iter.peek().unwrap();
                     if next_tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
                     defs.add_new_function_local();
@@ -1146,7 +1142,7 @@ impl Parser {
                         param_type_list
                     };
 
-                    result = DirectDeclarator::FunctionDef(Box::new(result), param_type_list);
+                    result = DirectDeclarator::FunctionDef(Box::new(result), param_type_list, pos.clone());
                 },
                 Token::BracketLeft => {  // define array
                     iter.next();  // skip '['
@@ -1158,7 +1154,6 @@ impl Parser {
                     self.parse_expected_token(iter, Token::BracketRight)?;  // skip ']'
 
                     loop {
-                        // let (tok2, _pos2) = iter.peek().ok_or(ParserError::illegal_end_of_input(pos.clone()))?;
                         let (tok2, pos2) = iter.peek().unwrap();
                         if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
 
@@ -1173,7 +1168,7 @@ impl Parser {
                         self.parse_expected_token(iter, Token::BracketRight)?;  // skip ']'
                     }
 
-                    result =  DirectDeclarator::ArrayDef(Box::new(result), dimension);
+                    result =  DirectDeclarator::ArrayDef(Box::new(result), dimension, pos.clone());
                 },
                 _ => {
                     break Ok(result);
@@ -2481,12 +2476,13 @@ impl Parser {
     // fn parse_typedef_name(&self, _iter: &mut Peekable<Iter<(Token, Position)>>, _defs: &mut Defines) -> Result<Option<TypeSpecifier>, ParserError> {
     // }
 
-    fn parse_declaration(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<AST>, ParserError> {
+    fn parse_declaration(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>, mut pos: &Position) -> Result<Option<AST>, ParserError> {
         let ds = self.parse_declaration_specifier(iter, defs, labels)?;
         let ds = ds.get_declaration_specifier().unwrap();
 
         // parse init_declarator
         let mut v = Vec::new();
+        let mut cur_pos = pos.clone();
         loop {
             let decl = self.parse_declarator(iter, defs, labels)?;
             let name = decl.get_name();
@@ -2495,9 +2491,9 @@ impl Parser {
                 return Err(ParserError::already_var_defined(iter.peek().unwrap().1.clone(), &name));
             }
 
-            // let (tok, pos) = iter.next().ok_or(ParserError::illegal_end_of_input(None))?;
             let (tok, pos) = iter.next().unwrap();
             if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
+            cur_pos = pos.clone();
 
             match tok {
                 Token::SemiColon => {
@@ -2515,7 +2511,6 @@ impl Parser {
                     let declaration = Declaration::new(decl, Some(Box::new(init_expr)));
                     v.push(declaration);
 
-                    // let (tok3, _pos3) = iter.next().ok_or(ParserError::illegal_end_of_input(None))?;
                     let (tok3, pos3) = iter.next().unwrap();
                     if tok3.is_eof() { return Err(ParserError::illegal_end_of_input(pos3.clone())); }
 
@@ -2536,17 +2531,10 @@ impl Parser {
                     return Err(ParserError::syntax_error(pos.clone()));
                 }
             }
-
-            // check exists next init_declarator
-            // let (tok, pos) = iter.next().ok_or(ParserError::illegal_end_of_input(None))?;
-            // match tok {
-            //
-            //     _ => break;
-            // }
         }
 
         let (ds, declarations) = self.parse_def_var(ds.clone(), v, defs, &iter.peek().unwrap().1)?;
-        let ast = AST::DefVar { specifiers: ds, declarations };
+        let ast = AST::DefVar { specifiers: ds, declarations, pos: cur_pos };
         Ok(Some(ast))
     }
 
@@ -2645,7 +2633,7 @@ impl Parser {
                 // compound statement
                 Token::BraceLeft => {
                     let block = self.parse_compound_statement(iter, defs, labels)?;
-                    Ok(Some(AST::Block(block)))
+                    Ok(Some(AST::Block(block, pos.clone())))
                 },
                 // selection statement
                 Token::If => {
@@ -2666,12 +2654,12 @@ impl Parser {
 
                             // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                             let _else = self.parse_statement(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos2.clone()))?;
-                            Ok(Some(AST::If(Box::new(cond), Box::new(then), Some(Box::new(_else)))))
+                            Ok(Some(AST::If(Box::new(cond), Box::new(then), Some(Box::new(_else)), pos.clone())))
                         }else{
-                            Ok(Some(AST::If(Box::new(cond), Box::new(then), None)))
+                            Ok(Some(AST::If(Box::new(cond), Box::new(then), None, pos.clone())))
                         }
                     }else{
-                        Ok(Some(AST::If(Box::new(cond), Box::new(then), None)))
+                        Ok(Some(AST::If(Box::new(cond), Box::new(then), None, pos.clone())))
                     }
                 },
                 Token::Switch => {
@@ -2688,7 +2676,7 @@ impl Parser {
                     };
                     let switch = Switch::new(cond_expr, stmt);
 
-                    Ok(Some(AST::Switch(switch)))
+                    Ok(Some(AST::Switch(switch, pos.clone())))
                 },
                 // iteration statement
                 Token::While => {
@@ -2715,6 +2703,7 @@ impl Parser {
                         },
                         update_expr: None,
                         post_condition: None,
+                        pos: pos.clone(),
                     }))
                 },
                 Token::Do => {
@@ -2744,6 +2733,7 @@ impl Parser {
                         }else{
                             None
                         },
+                        pos: pos.clone(),
                     }))
                 },
                 Token::For => {
@@ -2753,12 +2743,12 @@ impl Parser {
                 // jump statement
                 Token::Goto => {
                     iter.next();  // skip 'goto'
-                    // let (id, pos2) = iter.next().ok_or(ParserError::illegal_end_of_input(pos.clone()))?;
+
                     let (id, pos2) = iter.next().unwrap();
                     if id.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
 
                     if let Token::Symbol(name) = id {
-                        Ok(Some(AST::Goto(name.to_string())))
+                        Ok(Some(AST::Goto(name.to_string(), pos.clone())))
                     }else{
                         Err(ParserError::no_id_for_goto_statement(pos2.clone()))
                     }
@@ -2767,13 +2757,13 @@ impl Parser {
                     iter.next();  // skip 'continue'
                     self.parse_expected_token(iter, Token::SemiColon)?;  // skip ';'
 
-                    Ok(Some(AST::Continue))
+                    Ok(Some(AST::Continue(pos.clone())))
                 },
                 Token::Break => {
                     iter.next();  // skip 'break'
                     self.parse_expected_token(iter, Token::SemiColon)?;  // skip ';'
 
-                    Ok(Some(AST::Break))
+                    Ok(Some(AST::Break(pos.clone())))
                 },
                 Token::Return => {
                     iter.next();  // skip 'return'
@@ -2795,7 +2785,7 @@ impl Parser {
                 },
                 // labeled-statement
                 Token::Case => {
-                    self.parse_case_labeled_statement(iter, defs, labels)
+                    self.parse_case_labeled_statement(iter, defs, labels, pos)
                 },
                 Token::Default => {
                     self.parse_default_labeled_statement(iter, defs, labels)
@@ -2805,18 +2795,18 @@ impl Parser {
                     if defs.exists_var(id) {
                         self.parse_expression_statement(iter, defs, labels)
                     }else if defs.exists_type(id) {
-                        let decl = self.parse_declaration(iter, defs, labels)?;
+                        let decl = self.parse_declaration(iter, defs, labels, pos)?;
                         Ok(decl)
                     }else{
                         iter.next();
-                        self.parse_labeled_statement(id, iter, defs, labels)
+                        self.parse_labeled_statement(id, iter, defs, labels, pos)
                     }
                 },
                 Token::Auto | Token::Register | Token::Static | Token::Extern | Token::Typedef |
                 Token::Void | Token::Char | Token::Short | Token::Int | Token::Long | Token::Float |
                 Token::Double | Token::Signed | Token::Unsigned | Token::Struct | Token::Enum =>
                 {
-                    self.parse_declaration(iter, defs, labels)
+                    self.parse_declaration(iter, defs, labels, pos)
                 },
                 _ => {
                     self.parse_expression_statement(iter, defs, labels)
@@ -2828,12 +2818,11 @@ impl Parser {
         }
     }
 
-    fn parse_for(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, _pos: &Position, labels: &mut Option<&mut Vec<String>>) -> Result<Option<AST>, ParserError> {
+    fn parse_for(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, pos: &Position, labels: &mut Option<&mut Vec<String>>) -> Result<Option<AST>, ParserError> {
         iter.next();  // skip 'for'
         self.parse_expected_token(iter, Token::ParenLeft)?; // '('
         defs.new_local();
 
-        // let (tok2, _pos2) = iter.peek().ok_or(ParserError::illegal_end_of_input(pos.clone()))?;
         let (tok2, pos2) = iter.peek().unwrap();
         if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
 
@@ -2845,11 +2834,10 @@ impl Parser {
 
         self.parse_expected_token(iter, Token::SemiColon)?; // ';'
 
-        // let (tok2, _pos2) = iter.peek().ok_or(ParserError::illegal_end_of_input(pos.clone()))?;
-        let (tok2, pos2) = iter.peek().unwrap();
-        if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
+        let (tok3, pos3) = iter.peek().unwrap();
+        if tok3.is_eof() { return Err(ParserError::illegal_end_of_input(pos3.clone())); }
 
-        let cond = if *tok2 == Token::SemiColon {
+        let cond = if *tok3 == Token::SemiColon {
             None
         }else{
             self.parse_expression(iter, defs, labels)?
@@ -2857,11 +2845,10 @@ impl Parser {
 
         self.parse_expected_token(iter, Token::SemiColon)?; // ';'
 
-        // let (tok2, _pos2) = iter.peek().ok_or(ParserError::illegal_end_of_input(pos.clone()))?;
-        let (tok2, pos2) = iter.peek().unwrap();
-        if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
+        let (tok4, pos4) = iter.peek().unwrap();
+        if tok4.is_eof() { return Err(ParserError::illegal_end_of_input(pos4.clone())); }
 
-        let step = if *tok2 == Token::ParenRight {
+        let step = if *tok4 == Token::ParenRight {
             None
         }else{
             self.parse_expression(iter, defs, labels)?
@@ -2894,6 +2881,7 @@ impl Parser {
                 None
             },
             post_condition: None,
+            pos: pos.clone(),
         }))
     }
 
@@ -3010,7 +2998,7 @@ impl Parser {
     }
 
 
-    fn parse_labeled_statement(&self, id: &str, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<AST>, ParserError> {
+    fn parse_labeled_statement(&self, id: &str, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>, pos: &Position) -> Result<Option<AST>, ParserError> {
         self.parse_expected_token(iter, Token::Colon)?;
         let stmt = self.parse_statement(iter, defs, labels)?;
 
@@ -3021,13 +3009,13 @@ impl Parser {
         }
 
         if let Some(s) = stmt {
-            Ok(Some(AST::Labeled(id.to_string(), Some(Box::new(s)))))
+            Ok(Some(AST::Labeled(id.to_string(), Some(Box::new(s)), pos.clone())))
         }else{
-            Ok(Some(AST::Labeled(id.to_string(), None)))
+            Ok(Some(AST::Labeled(id.to_string(), None, pos.clone())))
         }
     }
 
-    fn parse_case_labeled_statement(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<AST>, ParserError> {
+    fn parse_case_labeled_statement(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>, pos: &Position) -> Result<Option<AST>, ParserError> {
         self.parse_expected_token(iter, Token::Case)?;
         // let constant_condition = self.parse_constant_expression(iter, defs, labels)?.ok_or(ParserError::no_constant_expr_after_case(iter.peek().unwrap().1.clone()))?;
         let constant_condition = if let Some(cond) = self.parse_constant_expression(iter, defs, labels)? {
@@ -3045,26 +3033,25 @@ impl Parser {
             // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
             return Err(ParserError::syntax_error(iter.peek().unwrap().1.clone()));
         };
-        let case = Case::new(constant_condition, Box::new(stmt));
-        Ok(Some(AST::Case(case)))
+        let case = Case::new(constant_condition, Box::new(stmt), pos.clone());
+        Ok(Some(AST::Case(case, pos.clone())))
     }
 
     fn parse_default_labeled_statement(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<AST>, ParserError> {
-        self.parse_expected_token(iter, Token::Default)?;
+        let pos = self.parse_expected_token(iter, Token::Default)?;
         self.parse_expected_token(iter, Token::Colon)?;
 
-        // let stmt = self.parse_statement(iter, defs, labels)?.ok_or(ParserError::syntax_error(iter.peek().unwrap().1.clone()))?;
         let stmt = if let Some(s) = self.parse_statement(iter, defs, labels)? {
             s
         }else{
             // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
             return Err(ParserError::syntax_error(iter.peek().unwrap().1.clone()))?;
         };
-        Ok(Some(AST::Default(Box::new(stmt))))
+        Ok(Some(AST::Default(Box::new(stmt), pos.clone())))
     }
 
     fn parse_expression_statement(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<AST>, ParserError> {
-        if let Some((tok, _pos)) = iter.peek() {
+        if let Some((tok, pos)) = iter.peek() {
             match tok {
                 Token::SemiColon => {
                     iter.next();
@@ -3074,7 +3061,7 @@ impl Parser {
                     let expr = self.parse_expression(iter, defs, labels)?;
                     self.parse_expected_token(iter, Token::SemiColon)?;
                     if let Some(e) = expr {
-                        Ok(Some(AST::Expr(Box::new(e))))
+                        Ok(Some(AST::Expr(Box::new(e), pos.clone())))
                     }else{
                         Ok(None)
                     }
@@ -3117,6 +3104,7 @@ impl Parser {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Tokenizer;
 
     fn parse_expression_from_str(src: &str) -> Result<Option<ExprAST>, ParserError> {
         let token_list = Tokenizer::tokenize(src).unwrap();
@@ -3627,7 +3615,7 @@ mod tests {
         let ast = parse_external_declaration_from_str(src).unwrap().unwrap();
 
         match ast {
-            AST::FunProto(FunProto {specifiers, declarator, params}) => {
+            AST::FunProto(FunProto {specifiers, declarator, params}, _pos) => {
                 let name = declarator.get_name();
                 let ret_type = specifiers.get_type();
                 assert_eq!(*name, "add".to_string());
@@ -3637,9 +3625,9 @@ mod tests {
                 let sq = SpecifierQualifier::new();
                 let mut defs = Defines::new();
                 let ds_x = DeclarationSpecifier::new(Type::Number(NumberType::Int), sq.clone());
-                let decl_x = Declarator::new(None, DirectDeclarator::Symbol(String::from("x")));
+                let decl_x = Declarator::new(None, DirectDeclarator::Symbol(String::from("x"), Position::new(2, 24)));
                 let ds_y = DeclarationSpecifier::new(Type::Number(NumberType::Int), sq.clone());
-                let decl_y = Declarator::new(None, DirectDeclarator::Symbol(String::from("y")));
+                let decl_y = Declarator::new(None, DirectDeclarator::Symbol(String::from("y"), Position::new(2, 31)));
                 let pos = Position::new(1, 1);
                 assert_eq!(params, Params::from_vec(vec![(ds_x, decl_x), (ds_y, decl_y)], false, &mut defs, &pos)?);
             },
@@ -3659,7 +3647,7 @@ mod tests {
         let ast = parse_external_declaration_from_str(src).unwrap().unwrap();
 
         match ast {
-            AST::Function(Function {specifiers, declarator, params, body, labels: _}) => {
+            AST::Function(Function {specifiers, declarator, params, body, labels: _}, _pos) => {
                 let name = declarator.get_name();
                 let ret_type = specifiers.get_type();
                 assert_eq!(*name, "add".to_string());
@@ -3669,9 +3657,9 @@ mod tests {
                 let sq = SpecifierQualifier::new();
                 let mut defs = Defines::new();
                 let ds_x = DeclarationSpecifier::new(Type::Number(NumberType::Int), sq.clone());
-                let decl_x = Declarator::new(None, DirectDeclarator::Symbol(String::from("x")));
+                let decl_x = Declarator::new(None, DirectDeclarator::Symbol(String::from("x"), Position::new(2, 24)));
                 let ds_y = DeclarationSpecifier::new(Type::Number(NumberType::Int), sq.clone());
-                let decl_y = Declarator::new(None, DirectDeclarator::Symbol(String::from("y")));
+                let decl_y = Declarator::new(None, DirectDeclarator::Symbol(String::from("y"), Position::new(2, 31)));
                 let pos = Position::new(1, 1);
                 assert_eq!(params, Params::from_vec(vec![(ds_x, decl_x), (ds_y, decl_y)], false, &mut defs, &pos)?);
                 assert_eq!(body,
@@ -3709,7 +3697,7 @@ mod tests {
         let ast = parse_external_declaration_from_str(src).unwrap().unwrap();
 
         match ast {
-            AST::Function(Function {specifiers, declarator, params, body, labels: _}) => {
+            AST::Function(Function {specifiers, declarator, params, body, labels: _}, _pos) => {
                 let name = declarator.get_name();
                 let ret_type = specifiers.get_type();
                 assert_eq!(*name, "foo".to_string());
@@ -3724,14 +3712,14 @@ mod tests {
                 let specifier = DeclarationSpecifier::new(Type::Number(NumberType::Int), sq);
 
                 let mut v = Vec::new();
-                let declarator = Declarator::new(None, DirectDeclarator::Symbol(String::from("x")));
+                let declarator = Declarator::new(None, DirectDeclarator::Symbol(String::from("x"), Position::new(3, 20)));
                 let declaration = Declaration::new(declarator, None);
                 v.push(declaration);
-                let declarator = Declarator::new(None, DirectDeclarator::Symbol(String::from("y")));
+                let declarator = Declarator::new(None, DirectDeclarator::Symbol(String::from("y"), Position::new(3, 23)));
                 let init_expr = ExprAST::Int(2, Position::new(3, 27));
                 let declaration = Declaration::new(declarator, Some(Box::new(init_expr)));
                 v.push(declaration);
-                let declarator = Declarator::new(None, DirectDeclarator::Symbol(String::from("z")));
+                let declarator = Declarator::new(None, DirectDeclarator::Symbol(String::from("z"), Position::new(3, 30)));
                 let declaration = Declaration::new(declarator, None);
                 v.push(declaration);
 
@@ -3741,19 +3729,24 @@ mod tests {
                             AST::DefVar{
                                 specifiers: specifier,
                                 declarations: v,
+                                pos: Position::new(1, 1),
                             },
                             AST::Expr(
                                 Box::new(ExprAST::Assign(
                                     Box::new(ExprAST::Symbol(String::from("x"), Position::new(4, 16))),
                                     Box::new(ExprAST::Int(1, Position::new(4, 20))),
                                     Position::new(4, 18)
-                            ))),
+                                )),
+                                Position::new(1, 1),
+                            ),
                             AST::Expr(
                                 Box::new(ExprAST::Assign(
                                     Box::new(ExprAST::Symbol(String::from("z"), Position::new(5, 16))),
                                     Box::new(ExprAST::Int(3, Position::new(5, 20))),
                                     Position::new(5, 18)
-                            ))),
+                                )),
+                                Position::new(1, 1)
+                            ),
                             AST::Return(Some(Box::new(
                                 ExprAST::BinExpr(
                                     BinOp::Add,
@@ -3788,7 +3781,7 @@ mod tests {
         let ast = parse_external_declaration_from_str(src).unwrap().unwrap();
 
         match ast {
-            AST::Function(Function {specifiers, declarator, params, body, labels: _}) => {
+            AST::Function(Function {specifiers, declarator, params, body, labels: _}, _pos) => {
                 let name = declarator.get_name();
                 let ret_type = specifiers.get_type();
                 assert_eq!(*name, "foo".to_string());
@@ -3803,7 +3796,7 @@ mod tests {
                 let specifier = DeclarationSpecifier::new(Type::Number(NumberType::Int), sq);
 
                 let mut v = Vec::new();
-                let declarator = Declarator::new(None, DirectDeclarator::Symbol(String::from("x")));
+                let declarator = Declarator::new(None, DirectDeclarator::Symbol(String::from("x"), Position::new(3, 20)));
                 let declaration = Declaration::new(declarator, None);
                 v.push(declaration);
 
@@ -3812,7 +3805,7 @@ mod tests {
                 assert_eq!(
                     pointer.make_type_to(&typ),
                     Type::Pointer(Pointer::new(false, false), Box::new(typ.clone())));
-                let declarator = Declarator::new(Some(pointer.clone()), DirectDeclarator::Symbol(String::from("y")));
+                let declarator = Declarator::new(Some(pointer.clone()), DirectDeclarator::Symbol(String::from("y"), Position::new(3, 24)));
                 let declaration = Declaration::new(declarator, None);
                 v.push(declaration);
 
@@ -3827,7 +3820,7 @@ mod tests {
                         ))
                     )
                 );
-                let declarator = Declarator::new(Some(handle), DirectDeclarator::Symbol(String::from("z")));
+                let declarator = Declarator::new(Some(handle), DirectDeclarator::Symbol(String::from("z"), Position::new(3, 29)));
                 let declaration = Declaration::new(declarator, None);
                 v.push(declaration);
 
@@ -3837,6 +3830,7 @@ mod tests {
                             AST::DefVar{
                                 specifiers: specifier,
                                 declarations: v,
+                                pos: Position::new(1, 1)
                             }
                         ],
                     }
@@ -3878,7 +3872,7 @@ mod tests {
         //
         // test first statement
         //
-        if let AST::DefineStruct {name: Some(id), fields} = &list[0] {
+        if let AST::DefineStruct {name: Some(id), fields, pos: _} = &list[0] {
             assert_eq!(*id, "date".to_string());
 
             let fields = fields.get_fields().unwrap();
@@ -3914,7 +3908,7 @@ mod tests {
         //
         // test 2nd statement
         //
-        if let AST::TypeDef(name, Type::Struct {name: Some(id), fields}) = &list[1] {
+        if let AST::TypeDef(name, Type::Struct {name: Some(id), fields}, _pos) = &list[1] {
             assert_eq!(*name, "Date".to_string());
             assert_eq!(*id, "date".to_string());
             assert!(fields.has_fields());
@@ -3926,7 +3920,7 @@ mod tests {
         //
         // test 3rd statement
         //
-        if let AST::Function(Function {specifiers, declarator, params, body, labels: _}) = &list[2] {
+        if let AST::Function(Function {specifiers, declarator, params, body, labels: _}, _pos) = &list[2] {
             let name = declarator.get_name();
             let ret_type = specifiers.get_type();
             assert_eq!(*name, "foo".to_string());
@@ -3948,15 +3942,15 @@ mod tests {
             let mut field_list: Vec<StructDeclaration> = Vec::new();
 
             // member 'year'
-            let declarator = StructDeclarator::new(Some(Declarator::new(None, DirectDeclarator::Symbol(String::from("year")))), None);
+            let declarator = StructDeclarator::new(Some(Declarator::new(None, DirectDeclarator::Symbol(String::from("year"), Position::new(3, 20)))), None);
             let declarator_list = vec![declarator];
             field_list.push(StructDeclaration::new(sq.clone(), Some(int_type.clone()), declarator_list));
             // member 'month'
-            let declarator = StructDeclarator::new(Some(Declarator::new(None, DirectDeclarator::Symbol(String::from("month")))), None);
+            let declarator = StructDeclarator::new(Some(Declarator::new(None, DirectDeclarator::Symbol(String::from("month"), Position::new(3, 26)))), None);
             let declarator_list = vec![declarator];
             field_list.push(StructDeclaration::new(sq.clone(), Some(int_type.clone()), declarator_list));
             // member 'day'
-            let declarator = StructDeclarator::new(Some(Declarator::new(None, DirectDeclarator::Symbol(String::from("day")))), None);
+            let declarator = StructDeclarator::new(Some(Declarator::new(None, DirectDeclarator::Symbol(String::from("day"), Position::new(4, 20)))), None);
             let declarator_list = vec![declarator];
             field_list.push(StructDeclaration::new(sq.clone(), Some(int_type.clone()), declarator_list));
 
@@ -3966,7 +3960,7 @@ mod tests {
             let specifier = DeclarationSpecifier::new(type_struct.clone(), sq);
 
             let mut v = Vec::new();
-            let declarator = Declarator::new(None, DirectDeclarator::Symbol(String::from("date")));
+            let declarator = Declarator::new(None, DirectDeclarator::Symbol(String::from("date"), Position::new(2, 19)));
             let declaration = Declaration::new(declarator, None);
             v.push(declaration);
 
@@ -3975,6 +3969,7 @@ mod tests {
                 AST::DefVar{
                     specifiers: specifier,
                     declarations: v,
+                    pos: Position::new(1, 1),
                 }
             );
             // date.year = 2022;
@@ -3991,7 +3986,9 @@ mod tests {
                         )),
                         Box::new(ExprAST::Int(2022, Position::new(12, 28))),
                         Position::new(12, 26)
-                )))
+                    )),
+                    Position::new(1, 1)
+                )
             );
             assert_eq!(
                 list[2],
@@ -4004,7 +4001,9 @@ mod tests {
                         )),
                         Box::new(ExprAST::Int(12, Position::new(13, 29))),
                         Position::new(13, 27)
-                )))
+                    )),
+                    Position::new(1, 1)
+                )
             );
             assert_eq!(
                 list[3],
@@ -4017,11 +4016,13 @@ mod tests {
                         )),
                         Box::new(ExprAST::Int(31, Position::new(14, 27))),
                         Position::new(14, 25)
-                )))
+                    )),
+                    Position::new(1, 1)
+                )
             );
 
             // Date* pointer = &date;
-            if let AST::DefVar { specifiers, declarations: declaration } = &list[4] {
+            if let AST::DefVar { specifiers, declarations: declaration, pos: _ } = &list[4] {
                 let typ = specifiers.get_type();
                 assert_eq!(*typ, type_struct.clone());
 
@@ -4037,7 +4038,7 @@ mod tests {
                     *declarator,
                     Declarator::new(
                         Some(Pointer::new(false, false)),
-                        DirectDeclarator::Symbol(String::from("pointer"))
+                        DirectDeclarator::Symbol(String::from("pointer"), Position::new(16, 22))
                     )
                 );
 
@@ -4072,7 +4073,9 @@ mod tests {
                         )),
                         Box::new(ExprAST::Int(2023, Position::new(17, 32))),
                         Position::new(17, 30)
-                )))
+                    )),
+                    Position::new(1, 1)
+                )
             );
             assert_eq!(
                 list[6],
@@ -4085,7 +4088,9 @@ mod tests {
                         )),
                         Box::new(ExprAST::Int(1, Position::new(18, 33))),
                         Position::new(18, 31)
-                )))
+                    )),
+                    Position::new(1, 1)
+                )
             );
             assert_eq!(
                 list[7],
@@ -4098,7 +4103,9 @@ mod tests {
                         )),
                         Box::new(ExprAST::Int(1, Position::new(19, 31))),
                         Position::new(19, 29)
-                )))
+                    )),
+                    Position::new(1, 1)
+                )
             );
 
         }else{
@@ -4116,7 +4123,7 @@ mod tests {
         let ast = parse_external_declaration_from_str(src).unwrap().unwrap();
 
         match ast {
-            AST::GlobalDefVar { specifiers: DeclarationSpecifier {typ, specifier_qualifier}, declaration } => {
+            AST::GlobalDefVar { specifiers: DeclarationSpecifier {typ, specifier_qualifier}, declaration, pos: _ } => {
                 assert_eq!(typ, Type::Number(NumberType::Int));
                 assert_eq!(specifier_qualifier, SpecifierQualifier::new());
 
@@ -4132,9 +4139,9 @@ mod tests {
                 assert_eq!(direct_decl.get_name(), "ary");
 
                 match direct_decl {
-                    DirectDeclarator::ArrayDef(second_direct_decl, size_list) => {
+                    DirectDeclarator::ArrayDef(second_direct_decl, size_list, _pos) => {
                         assert_eq!(*size_list, vec![Some(ConstExpr::Int(2, Position::new(2, 20))), Some(ConstExpr::Int(3, Position::new(2, 23)))]);
-                        assert_eq!(**second_direct_decl, DirectDeclarator::Symbol("ary".to_string()));
+                        assert_eq!(**second_direct_decl, DirectDeclarator::Symbol("ary".to_string(), Position::new(2, 16)));
                    },
                     _ => panic!("direct_decl: {:?}", direct_decl),
                 }
@@ -4153,7 +4160,7 @@ mod tests {
         let ast = parse_external_declaration_from_str(src).unwrap().unwrap();
 
         match ast {
-            AST::GlobalDefVar { specifiers: DeclarationSpecifier {typ, specifier_qualifier}, declaration } => {
+            AST::GlobalDefVar { specifiers: DeclarationSpecifier {typ, specifier_qualifier}, declaration, pos: _ } => {
                 assert_eq!(typ, Type::Number(NumberType::Int));
                 assert_eq!(specifier_qualifier, SpecifierQualifier::new());
 
@@ -4176,8 +4183,9 @@ mod tests {
                 assert_eq!(direct_decl.get_name(), "x");
 
                 match direct_decl {
-                    DirectDeclarator::Symbol(name) => {
+                    DirectDeclarator::Symbol(name, pos) => {
                         assert_eq!(name, "x");
+                        assert_eq!(*pos, Position::new(2, 16))
                     },
                     _ => panic!("direct_decl: {:?}", direct_decl),
                 }
@@ -4196,7 +4204,7 @@ mod tests {
         let ast = parse_external_declaration_from_str(src).unwrap().unwrap();
 
         match ast {
-            AST::GlobalDefVar { specifiers: DeclarationSpecifier {typ, specifier_qualifier}, declaration } => {
+            AST::GlobalDefVar { specifiers: DeclarationSpecifier {typ, specifier_qualifier}, declaration, pos: _ } => {
                 let int_pointer_type = Type::Pointer(
                     Pointer {
                         is_const: false,

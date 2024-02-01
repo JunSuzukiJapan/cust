@@ -1451,7 +1451,7 @@ impl Caster {
             // Pointer to Pointer
             //
             (Type::Pointer(_, _), Type::Pointer(_, _)) => {
-                let to = TypeUtil::to_basic_type_enum(to_type, ctx)?;
+                let to = TypeUtil::to_basic_type_enum(to_type, ctx, expr.get_position())?;
                 let value = if let Ok(val) = BasicValueEnum::try_from(*value) {
                     val
                 }else{

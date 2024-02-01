@@ -8,8 +8,9 @@ use super::env::{BreakCatcher, ContinueCatcher, TypeOrUnion};
 use super::caster::Caster;
 use super::type_util::TypeUtil;
 #[cfg(test)]
-use crate::parser::{SpecifierQualifier, DirectDeclarator, Declarator, Defines, Param, Position};
+use crate::parser::{SpecifierQualifier, DirectDeclarator, Declarator, Defines, Param};
 use crate::parser::{Switch, Case};
+use crate::Position;
 
 use inkwell::OptimizationLevel;
 use inkwell::builder::Builder;
@@ -81,19 +82,18 @@ impl<'ctx> CodeGen<'ctx> {
     ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
 
         match ast {
-            AST::DefVar{specifiers, declarations} => {
+            AST::DefVar{specifiers, declarations, pos: _} => {
                 self.gen_def_var(specifiers, declarations, env, break_catcher, continue_catcher)?;
                 Ok(None)
             },
-            AST::GlobalDefVar{specifiers, declaration} => {
+            AST::GlobalDefVar{specifiers, declaration, pos} => {
                 let base_type = specifiers.get_type();
 
                 for decl in declaration {
                     let declarator = decl.get_declarator();
                     let typ = declarator.make_type(base_type);
                     let name = declarator.get_name();
-                    let basic_type = TypeUtil::to_basic_type_enum(&typ, self.context)?;
-                    // let ptr = self.module.add_global(basic_type, Some(AddressSpace::Const), name);
+                    let basic_type = TypeUtil::to_basic_type_enum(&typ, self.context, ast.get_position())?;
                     let ptr = self.module.add_global(basic_type, Some(AddressSpace::default()), name);
     
                     match decl.get_init_expr() {
@@ -109,8 +109,8 @@ impl<'ctx> CodeGen<'ctx> {
 
                                 unimplemented!()
                             }else{
-                                let init = self.gen_expr(ast, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
-                                let basic_value = self.try_as_basic_value(&init.get_value())?;
+                                let init = self.gen_expr(ast, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(pos.clone()))?;
+                                let basic_value = self.try_as_basic_value(&init.get_value(), ast.get_position())?;
         
                                 // self.builder.build_store(ptr, basic_value);
                                 ptr.set_initializer(&basic_value);
@@ -124,18 +124,18 @@ impl<'ctx> CodeGen<'ctx> {
 
                 Ok(None)
             },
-            AST::TypeDef(name, typ) => {
-                env.insert_typedef(name, typ, self.context)?;
+            AST::TypeDef(name, typ, pos) => {
+                env.insert_typedef(name, typ, self.context, pos)?;
                 Ok(None)
             },
-            AST::Block(block) => self.gen_block(block, env, break_catcher, continue_catcher),
-            AST::Return(opt_expr, _pos) => {
-                let fun_typ = env.get_current_function_type().ok_or(CodeGenError::return_without_function(None))?;
+            AST::Block(block, _pos) => self.gen_block(block, env, break_catcher, continue_catcher),
+            AST::Return(opt_expr, pos) => {
+                let fun_typ = env.get_current_function_type().ok_or(CodeGenError::return_without_function(pos.clone()))?;
                 let required_ret_type = fun_typ.get_return_type();
 
                 let result: InstructionValue;
                 if let Some(expr) = opt_expr {
-                    let mut real_ret = self.gen_expr(expr, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
+                    let mut real_ret = self.gen_expr(expr, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(expr.get_position().clone()))?;
                     let real_ret_type = real_ret.get_type();
 
                     if required_ret_type != real_ret_type {
@@ -143,41 +143,41 @@ impl<'ctx> CodeGen<'ctx> {
                         real_ret = CompiledValue::new(real_ret.get_type().clone(), casted);
                     }
 
-                    let ret = self.try_as_basic_value(&real_ret.get_value())?;
+                    let ret = self.try_as_basic_value(&real_ret.get_value(), expr.get_position())?;
                     result = self.builder.build_return(Some(&ret))?;
                 }else{
                     if ! required_ret_type.is_void() {
-                        return Err(Box::new(CodeGenError::return_type_mismatch(None, Type::Void, required_ret_type.clone())));
+                        return Err(Box::new(CodeGenError::return_type_mismatch(pos.clone(), Type::Void, required_ret_type.clone())));
                     }
 
                     result = self.builder.build_return(None)?;
                 }
                 Ok(Some(result.as_any_value_enum()))
             },
-            AST::Function(Function {specifiers, declarator, params, body, labels}) => {
+            AST::Function(Function {specifiers, declarator, params, body, labels}, pos) => {
                 let name = declarator.get_name();
                 let sp_type = specifiers.get_type();
                 let ret_type = declarator.make_type(&sp_type);
-                let function = self.gen_code_function(name, &ret_type, params, body, labels, env, break_catcher, continue_catcher)?;
+                let function = self.gen_code_function(name, &ret_type, params, body, labels, env, break_catcher, continue_catcher, pos)?;
                 let fun_type = Self::make_fun_type(&name, &ret_type, params, env)?;
 
                 env.insert_function(&name, fun_type, function);
 
                 Ok(Some(AnyValueEnum::FunctionValue(function)))
             },
-            AST::FunProto(FunProto {specifiers, declarator, params}) => {
+            AST::FunProto(FunProto {specifiers, declarator, params}, pos) => {
                 let name = declarator.get_name();
                 let sp_type = specifiers.get_type();
                 let ret_type = declarator.make_type(&sp_type);
-                let fun_proto = self.gen_code_function_prototype(name, &ret_type, params, env)?;
+                let fun_proto = self.gen_code_function_prototype(name, &ret_type, params, env, pos)?;
                 let fun_type = Self::make_fun_type(&name, &ret_type, params, env)?;
 
                 env.insert_function(&name, fun_type, fun_proto);
 
                 Ok(Some(AnyValueEnum::FunctionValue(fun_proto)))
             },
-            AST::If(condition, then, _else) => {
-                let (_fun_type, func) = env.get_current_function().ok_or(CodeGenError::no_current_function(None))?;
+            AST::If(condition, then, _else, pos) => {
+                let (_fun_type, func) = env.get_current_function().ok_or(CodeGenError::no_current_function(pos.clone()))?;
                 let func = func.clone();
                 let cond_block = self.context.append_basic_block(func, "if.cond");
                 let then_block = self.context.append_basic_block(func, "if.then");
@@ -188,7 +188,7 @@ impl<'ctx> CodeGen<'ctx> {
                 self.builder.position_at_end(cond_block);
 
                 // check condition
-                let cond = self.gen_expr(condition, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::condition_is_not_number(None, condition))?;
+                let cond = self.gen_expr(condition, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::condition_is_not_number((**condition).get_position().clone(), condition))?;
                 let mut comparison = cond.get_value().into_int_value();
                 let i1_type = self.context.bool_type();
                 comparison = self.builder.build_int_cast(comparison, i1_type, "cast to i1")?;  // cast to i1
@@ -229,37 +229,30 @@ impl<'ctx> CodeGen<'ctx> {
 
                 Ok(None)
             },
-            AST::Loop {init_expr, pre_condition, body, update_expr, post_condition} => {
-                self.gen_loop(init_expr, pre_condition, body, update_expr, post_condition, env, break_catcher, continue_catcher)
+            AST::Loop {init_expr, pre_condition, body, update_expr, post_condition, pos} => {
+                self.gen_loop(init_expr, pre_condition, body, update_expr, post_condition, env, break_catcher, continue_catcher, pos)
             },
-            AST::Break => {
-                let break_block = break_catcher.ok_or(CodeGenError::break_not_in_loop_or_switch(None))?.get_block();
+            AST::Break(pos) => {
+                let break_block = break_catcher.ok_or(CodeGenError::break_not_in_loop_or_switch(pos.clone()))?.get_block();
                 self.builder.build_unconditional_branch(*break_block)?;
 
                 Ok(None)
             },
-            AST::Continue => {
-                let continue_block = continue_catcher.ok_or(CodeGenError::continue_not_in_loop(None))?.get_block();
+            AST::Continue(pos) => {
+                let continue_block = continue_catcher.ok_or(CodeGenError::continue_not_in_loop(pos.clone()))?.get_block();
                 self.builder.build_unconditional_branch(*continue_block)?;
 
                 Ok(None)
             },
-            AST::Goto(id) => {
-                let block = env.get_block(id).ok_or(CodeGenError::no_such_a_label(None, id))?;
+            AST::Goto(id, pos) => {
+                let block = env.get_block(id).ok_or(CodeGenError::no_such_a_label(pos.clone(), id))?;
                 self.builder.build_unconditional_branch(*block)?;
 
                 Ok(None)
             },
-            AST::Labeled(id, opt_stmt) => {
-                let block = env.get_block(id).ok_or(CodeGenError::no_such_a_label(None, id))?;
-
-                // if let Some(blk) = env.get_current_function().unwrap().get_last_basic_block() {
-                //     if ! self.last_is_jump_statement(blk) {
-                //         self.builder.build_unconditional_branch(*block);
-                //     }
-                // }
+            AST::Labeled(id, opt_stmt, pos) => {
+                let block = env.get_block(id).ok_or(CodeGenError::no_such_a_label(pos.clone(), id))?;
                 self.builder.build_unconditional_branch(*block)?;
-
                 self.builder.position_at_end(*block);
 
                 if let Some(stmt) = opt_stmt {
@@ -268,43 +261,43 @@ impl<'ctx> CodeGen<'ctx> {
                     Ok(None)
                 }
             },
-            AST::DefineStruct{name, fields} => {
-                self.gen_define_struct(name, fields, env, break_catcher, continue_catcher)?;
+            AST::DefineStruct{name, fields, pos} => {
+                self.gen_define_struct(name, fields, env, break_catcher, continue_catcher, pos)?;
                 Ok(None)
             },
-            AST::DefineUnion { name, fields } => {
-                self.gen_define_union(name, fields, env, break_catcher, continue_catcher)?;
+            AST::DefineUnion { name, fields, pos } => {
+                self.gen_define_union(name, fields, env, break_catcher, continue_catcher, pos)?;
                 Ok(None)
             },
-            AST::DefineEnum { name, fields } => {
-                self.gen_define_enum(name, fields, env, break_catcher, continue_catcher)?;
+            AST::DefineEnum { name, fields, pos } => {
+                self.gen_define_enum(name, fields, env, break_catcher, continue_catcher, pos)?;
                 Ok(None)
             },
-            AST::Impl { name, typ, for_type, functions } => {
-                self.gen_impl(name, typ, for_type, functions, env, break_catcher, continue_catcher)?;
+            AST::Impl { name, typ, for_type, functions, pos } => {
+                self.gen_impl(name, typ, for_type, functions, env, break_catcher, continue_catcher, pos)?;
 
                 Ok(None)
             },
-            AST::Switch(switch) => {
-                self.gen_switch(switch, env, break_catcher, continue_catcher)
+            AST::Switch(switch, pos) => {
+                self.gen_switch(switch, env, break_catcher, continue_catcher, pos)
             },
-            AST::Case(case) => {
+            AST::Case(case, _pos) => {
                 self.gen_case(case, env, break_catcher, continue_catcher)
             },
-            AST::Default(stmt) => {
-                self.gen_default(stmt, env, break_catcher, continue_catcher)
+            AST::Default(stmt, pos) => {
+                self.gen_default(stmt, env, break_catcher, continue_catcher, pos)
             },
-            AST::_self => {
+            AST::_self(pos) => {
                 if let Some((_typ, ptr)) = env.get_self_ptr() {
                     let basic_val = self.builder.build_load(ptr, "get_self")?;
                     let any_val = basic_val.as_any_value_enum();
 
                     Ok(Some(any_val))
                 }else{
-                    Err(Box::new(CodeGenError::no_such_a_variable(None, "self")))
+                    Err(Box::new(CodeGenError::no_such_a_variable(pos.clone(), "self")))
                 }
             },
-            AST::Expr(expr_ast) => {
+            AST::Expr(expr_ast, _pos) => {
                 if let Some(value) = self.gen_expr(expr_ast, env, break_catcher, continue_catcher)? {
                     Ok(Some(value.get_value()))
                 }else{
@@ -402,13 +395,13 @@ impl<'ctx> CodeGen<'ctx> {
                     let any_val = basic_val.as_any_value_enum();
                     let one = TypeUtil::to_llvm_int_type(typ, self.context, pos)?.const_int(1, false);
                     let added = self.builder.build_int_add(any_val.into_int_value(), one, "pre_increment")?;
-                    let (_ptr_type, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(Some(sym_pos.clone()), &name)))?;
+                    let (_ptr_type, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(sym_pos.clone(), &name)))?;
                     let _result = self.builder.build_store(ptr, added);
 
                     Ok(Some(CompiledValue::new(typ.clone(), added.as_any_value_enum())))
     
                 }else{
-                    Err(Box::new(CodeGenError::no_such_a_variable(Some(sym_pos.clone()), name)))
+                    Err(Box::new(CodeGenError::no_such_a_variable(sym_pos.clone(), name)))
                 }
             },
             ExprAST::PreDec(name, sym_pos, pos) => {
@@ -417,13 +410,13 @@ impl<'ctx> CodeGen<'ctx> {
                     let any_val = basic_val.as_any_value_enum();
                     let one = TypeUtil::to_llvm_int_type(typ, self.context, pos)?.const_int(1, false);
                     let subed = self.builder.build_int_sub(any_val.into_int_value(), one, "pre_decrement")?;
-                    let (_ptr_type, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(Some(sym_pos.clone()), &name)))?;
+                    let (_ptr_type, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(sym_pos.clone(), &name)))?;
                     let _result = self.builder.build_store(ptr, subed);
 
                     Ok(Some(CompiledValue::new(typ.clone(), subed.as_any_value_enum())))
     
                 }else{
-                    Err(Box::new(CodeGenError::no_such_a_variable(Some(sym_pos.clone()), name)))
+                    Err(Box::new(CodeGenError::no_such_a_variable(sym_pos.clone(), name)))
                 }
             },
             ExprAST::PostInc(name, sym_pos, pos) => {
@@ -432,13 +425,13 @@ impl<'ctx> CodeGen<'ctx> {
                     let pre_val = basic_val.as_any_value_enum();
                     let one = TypeUtil::to_llvm_int_type(typ, self.context, pos)?.const_int(1, false);
                     let added = self.builder.build_int_add(pre_val.into_int_value(), one, "post_increment")?;
-                    let (_ptr_type, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(Some(sym_pos.clone()), &name)))?;
+                    let (_ptr_type, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(sym_pos.clone(), &name)))?;
                     let _result = self.builder.build_store(ptr, added);
 
                     Ok(Some(CompiledValue::new(typ.clone(), pre_val)))
     
                 }else{
-                    Err(Box::new(CodeGenError::no_such_a_variable(Some(sym_pos.clone()), name)))
+                    Err(Box::new(CodeGenError::no_such_a_variable(sym_pos.clone(), name)))
                 }
             },
             ExprAST::PostDec(name, sym_pos, pos) => {
@@ -447,13 +440,13 @@ impl<'ctx> CodeGen<'ctx> {
                     let pre_val = basic_val.as_any_value_enum();
                     let one = TypeUtil::to_llvm_int_type(typ, self.context, pos)?.const_int(1, false);
                     let subed = self.builder.build_int_sub(pre_val.into_int_value(), one, "post_decrement")?;
-                    let (_ptr_type, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(Some(sym_pos.clone()), &name)))?;
+                    let (_ptr_type, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(sym_pos.clone(), &name)))?;
                     let _result = self.builder.build_store(ptr, subed);
 
                     Ok(Some(CompiledValue::new(typ.clone(), pre_val)))
     
                 }else{
-                    Err(Box::new(CodeGenError::no_such_a_variable(Some(sym_pos.clone()), name)))
+                    Err(Box::new(CodeGenError::no_such_a_variable(sym_pos.clone(), name)))
                 }
             },
             ExprAST::PreIncMemberAccess(boxed_ast, pos) => {
@@ -516,22 +509,22 @@ impl<'ctx> CodeGen<'ctx> {
 
                 Ok(Some(CompiledValue::new(typ.clone(), pre_val.as_any_value_enum())))
             },
-            ExprAST::UnaryMinus(boxed_ast, _pos) => {
-                let code = self.gen_expr(&*boxed_ast, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
+            ExprAST::UnaryMinus(boxed_ast, pos) => {
+                let code = self.gen_expr(&*boxed_ast, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(pos.clone()))?;
 
                 let result = self.builder.build_int_neg(code.get_value().into_int_value(), "neg")?;
                 Ok(Some(CompiledValue::new(code.get_type().clone(), result.as_any_value_enum())))
             },
-            ExprAST::Not(boxed_ast, _pos) => {
-                let value = self.gen_expr(&*boxed_ast, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
+            ExprAST::Not(boxed_ast, pos) => {
+                let value = self.gen_expr(&*boxed_ast, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(pos.clone()))?;
                 let code = value.get_value().into_int_value();
                 let zero = self.context.i32_type().const_int(0, false);
 
                 let result = self.builder.build_int_compare(IntPredicate::EQ, code, zero, "Not")?;
                 Ok(Some(CompiledValue::new(value.get_type().clone(), result.as_any_value_enum())))
             },
-            ExprAST::UnaryTilda(boxed_ast, _pos) => {
-                let value = self.gen_expr(&*boxed_ast, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
+            ExprAST::UnaryTilda(boxed_ast, pos) => {
+                let value = self.gen_expr(&*boxed_ast, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(pos.clone()))?;
                 let code = value.get_value().into_int_value();
                 let all_ones = self.context.i32_type().const_all_ones();
 
@@ -547,8 +540,8 @@ impl<'ctx> CodeGen<'ctx> {
                 let ast = &**boxed_ast;
                 match ast {
                     ExprAST::Symbol(name, pos2) => {
-                        let (typ, ptr) = env.get_ptr(name).ok_or(CodeGenError::no_such_a_variable(Some(pos2.clone()), name))?;
-                        let ptr = PointerValue::try_from(ptr).ok().ok_or(CodeGenError::cannot_get_pointer(Some(pos.clone())))?;
+                        let (typ, ptr) = env.get_ptr(name).ok_or(CodeGenError::no_such_a_variable(pos2.clone(), name))?;
+                        let ptr = PointerValue::try_from(ptr).ok().ok_or(CodeGenError::cannot_get_pointer(pos.clone()))?;
                         let typ = Type::new_pointer_type(typ.clone(), false, false);
 
                         Ok(Some(CompiledValue::new(typ, ptr.into())))
@@ -568,7 +561,7 @@ impl<'ctx> CodeGen<'ctx> {
 
                 Ok(Some(CompiledValue::new(type2, any_val)))
             },
-            ExprAST::Symbol(name, _pos) => {
+            ExprAST::Symbol(name, pos) => {
                 if let Some((typ, ptr)) = env.get_ptr(name) {
                     let basic_val = self.builder.build_load(ptr, name)?;
                     let any_val = basic_val.as_any_value_enum();
@@ -579,21 +572,21 @@ impl<'ctx> CodeGen<'ctx> {
                     Ok(Some(CompiledValue::new(typ.clone(), val.as_any_value_enum())))
     
                 }else{
-                    Err(Box::new(CodeGenError::no_such_a_variable(None, name)))
+                    Err(Box::new(CodeGenError::no_such_a_variable(pos.clone(), name)))
                 }
             },
             ExprAST::Assign(l_value, r_value, _pos) => self.gen_assign(&**l_value, &**r_value, env, break_catcher, continue_catcher),
             ExprAST::OpAssign(op, l_value, r_value, _pos) => self.gen_op_assign(op, &**l_value, &**r_value, env, break_catcher, continue_catcher),
-            ExprAST::CallFunction(fun, args, _pos) => {
+            ExprAST::CallFunction(fun, args, pos) => {
                 let mut v: Vec<BasicMetadataValueEnum> = Vec::new();
                 for expr in args {
-                    let result = self.gen_expr(expr, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
-                    v.push(self.try_as_basic_metadata_value(&result.get_value())?);
+                    let result = self.gen_expr(expr, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(pos.clone()))?;
+                    v.push(self.try_as_basic_metadata_value(&result.get_value(), pos)?);
                 }
 
                 match &**fun {
                     ExprAST::Symbol(name, _pos) => {
-                        self.gen_call_function(name, v, env, break_catcher, continue_catcher)
+                        self.gen_call_function(name, v, env, break_catcher, continue_catcher, pos)
                     },
                     ExprAST::MemberAccess(ast, fun_name, _pos) => {
                         let typ = TypeUtil::get_type(ast, env)?;
@@ -605,7 +598,7 @@ impl<'ctx> CodeGen<'ctx> {
 
                         args.append(&mut v);
 
-                        self.gen_call_function(&method_name, args, env, break_catcher, continue_catcher)
+                        self.gen_call_function(&method_name, args, env, break_catcher, continue_catcher, pos)
 
                     },
                     _ => unimplemented!("'{:?}' in CallFunction.", **fun),
@@ -629,31 +622,31 @@ impl<'ctx> CodeGen<'ctx> {
                 let any_val = basic_val.as_any_value_enum();
                 Ok(Some(CompiledValue::new(typ.get_element_type(pos)?.clone(), any_val)))
             },
-            ExprAST::_self(_pos) => {
+            ExprAST::_self(pos) => {
                 if let Some((typ, ptr)) = env.get_self_ptr() {
                     let basic_val = self.builder.build_load(ptr, "get_self")?;
                     let any_val = basic_val.as_any_value_enum();
 
                     Ok(Some(CompiledValue::new(typ.clone(), any_val)))
                 }else{
-                    Err(Box::new(CodeGenError::no_such_a_variable(None, "self")))
+                    Err(Box::new(CodeGenError::no_such_a_variable(pos.clone(), "self")))
                 }
             },
             ExprAST::UnarySizeOfExpr(expr, pos) => {
                 let typ = TypeUtil::get_type(&**expr, env)?;
-                let llvm_type = TypeUtil::to_llvm_any_type(&typ, self.context)?;
+                let llvm_type = TypeUtil::to_llvm_any_type(&typ, self.context, pos)?;
                 let size = llvm_type.size_of().ok_or(CodeGenError::cannot_get_size_of(typ.clone(), pos.clone()))?;
 
                 Ok(Some(CompiledValue::new(Type::Number(NumberType::Int), size.as_any_value_enum())))
             },
             ExprAST::UnarySizeOfTypeName(typ, pos) => {
-                let llvm_type = TypeUtil::to_llvm_any_type(typ, self.context)?;
+                let llvm_type = TypeUtil::to_llvm_any_type(typ, self.context, pos)?;
                 let size = llvm_type.size_of().ok_or(CodeGenError::cannot_get_size_of(typ.clone(), pos.clone()))?;
 
                 Ok(Some(CompiledValue::new(Type::Number(NumberType::Int), size.as_any_value_enum())))
             },
-            ExprAST::TernaryOperator(condition, then, _else, _pos) => {
-                let (_fun_type, func) = env.get_current_function().ok_or(CodeGenError::no_current_function(None))?;
+            ExprAST::TernaryOperator(condition, then, _else, pos) => {
+                let (_fun_type, func) = env.get_current_function().ok_or(CodeGenError::no_current_function(pos.clone()))?;
                 let func = func.clone();
                 let cond_block = self.context.append_basic_block(func, "ternary.cond");
                 let then_block = self.context.append_basic_block(func, "ternary.then");
@@ -664,7 +657,7 @@ impl<'ctx> CodeGen<'ctx> {
                 self.builder.position_at_end(cond_block);
 
                 // check condition
-                let cond = self.gen_expr(condition, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::condition_is_not_number(None, condition))?;
+                let cond = self.gen_expr(condition, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::condition_is_not_number(condition.get_position().clone(), condition))?;
                 let mut comparison = cond.get_value().into_int_value();
                 let i1_type = self.context.bool_type();
                 comparison = self.builder.build_int_cast(comparison, i1_type, "cast to i1")?;  // cast to i1
@@ -702,7 +695,7 @@ impl<'ctx> CodeGen<'ctx> {
                 self.builder.position_at_end(end_block);
 
                 let typ = then_result.get_type();
-                let llvm_type = TypeUtil::to_basic_type_enum(typ, self.context)?;
+                let llvm_type = TypeUtil::to_basic_type_enum(typ, self.context, then.get_position())?;
                 let phi_value = self.builder.build_phi(llvm_type, "ternary.phi")?;
                 let then_value = if let Ok(val) = BasicValueEnum::try_from(then_result.get_value()) {
                     val
@@ -753,7 +746,7 @@ impl<'ctx> CodeGen<'ctx> {
             let declarator = decl.get_declarator();
             let typ = declarator.make_type(base_type);
             let name = declarator.get_name();
-            let basic_type = env.basic_type_enum_from_type(&typ, self.context)?;
+            let basic_type = env.basic_type_enum_from_type(&typ, self.context, declarator.get_position())?;
             let ptr = self.builder.build_alloca(basic_type, name)?;
             let init_expr = decl.get_init_expr();
 
@@ -767,7 +760,7 @@ impl<'ctx> CodeGen<'ctx> {
 
                         unimplemented!()
                     }else{
-                        let compiled_value = self.gen_expr(&**ast, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
+                        let compiled_value = self.gen_expr(&**ast, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(ast.get_position().clone()))?;
                         let mut init_value = compiled_value.get_value();
                         let init_type = compiled_value.get_type();
 
@@ -775,7 +768,7 @@ impl<'ctx> CodeGen<'ctx> {
                             init_value = self.gen_implicit_cast(&init_value, &init_type, &typ)?;
                         }
 
-                        let basic_value = self.try_as_basic_value(&init_value)?;
+                        let basic_value = self.try_as_basic_value(&init_value, ast.get_position())?;
                         self.builder.build_store(ptr, basic_value)?;
                     }
                 },
@@ -800,13 +793,13 @@ impl<'ctx> CodeGen<'ctx> {
         let init_value_list = if let ExprAST::InitializerList(list, _pos) = init {
             list
         }else{
-            return Err(Box::new(CodeGenError::mismatch_initializer_type(None)));
+            return Err(Box::new(CodeGenError::mismatch_initializer_type(init.get_position().clone())));
         };
 
         let target_len = target_fields.len();
         let init_len = init_value_list.len();
         if target_len < init_len {
-            return  Err(Box::new(CodeGenError::initial_list_is_too_long(None)));
+            return  Err(Box::new(CodeGenError::initial_list_is_too_long(init.get_position().clone())));
         }
 
         if target_len == 0 {
@@ -826,28 +819,28 @@ impl<'ctx> CodeGen<'ctx> {
                     let init_value = &init_value_list[i];
                     let init_type = TypeUtil::get_type(init_value, env)?;
                     if *field_type != init_type {
-                        return Err(Box::new(CodeGenError::mismatch_initializer_type(None)));
+                        return Err(Box::new(CodeGenError::mismatch_initializer_type(init_value.get_position().clone())));
                     }
 
-                    let compiled_val = self.gen_expr(init_value, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::mismatch_initializer_type(None))?;
-                    let value = self.try_as_basic_value(&compiled_val.get_value())?;
+                    let compiled_val = self.gen_expr(init_value, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::mismatch_initializer_type(init_value.get_position().clone()))?;
+                    let value = self.try_as_basic_value(&compiled_val.get_value(), init_value.get_position())?;
                     let _result = self.builder.build_store(ptr, value);
 
                 }else{  // zero clear
-                    let zero_value = self.const_zero(field_type)?;
+                    let zero_value = self.const_zero(field_type, init.get_position())?;
                     let _result = self.builder.build_store(ptr, zero_value);
                 }
 
             }else{
-                return Err(Box::new(CodeGenError::cannot_init_struct_member(None)));
+                return Err(Box::new(CodeGenError::cannot_init_struct_member(init.get_position().clone())));
             }
         }
 
         Ok(None)
     }
 
-    fn const_zero(&self, typ: &Type) -> Result<BasicValueEnum, Box<dyn Error>> {
-        let t = TypeUtil::to_llvm_type(typ, self.context)?;
+    fn const_zero(&self, typ: &Type, pos: &Position) -> Result<BasicValueEnum, Box<dyn Error>> {
+        let t = TypeUtil::to_llvm_type(typ, self.context, pos)?;
         match t {
             BasicMetadataTypeEnum::ArrayType(_) => {
                 unimplemented!()
@@ -868,7 +861,7 @@ impl<'ctx> CodeGen<'ctx> {
                 unimplemented!()
             },
             _ => {
-                Err(Box::new(CodeGenError::cannot_get_zero_value(None)))
+                Err(Box::new(CodeGenError::cannot_get_zero_value(pos.clone())))
             },
         }
     }
@@ -878,7 +871,8 @@ impl<'ctx> CodeGen<'ctx> {
         args: Vec<BasicMetadataValueEnum<'ctx>>,
         env: &mut Env<'ctx>,
         _break_catcher: Option<&'b BreakCatcher>,
-        _continue_catcher: Option<&'c ContinueCatcher>
+        _continue_catcher: Option<&'c ContinueCatcher>,
+        pos: &Position
    ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
         if let Some((fn_typ, function)) = env.get_function(name) {
             let call_site_value = self.builder.build_call(*function, &args, &format!("call_function_{}", name))?;
@@ -893,23 +887,24 @@ impl<'ctx> CodeGen<'ctx> {
             }
 
         }else{
-            return Err(Box::new(CodeGenError::no_such_a_function(None, &name)));
+            return Err(Box::new(CodeGenError::no_such_a_function(pos.clone(), &name)));
         }
     }
 
-    fn str_to_basic_metadata_value_enum(&self, s: &str) -> Result<BasicMetadataValueEnum<'ctx>, Box<dyn Error>> {
+    fn str_to_basic_metadata_value_enum(&self, s: &str, pos: &Position) -> Result<BasicMetadataValueEnum<'ctx>, Box<dyn Error>> {
         let global_str = self.builder.build_global_string_ptr(s, &format!("global_str_{}", s))?.as_any_value_enum();
-        Ok(self.try_as_basic_metadata_value(&global_str)?)
+        Ok(self.try_as_basic_metadata_value(&global_str, pos)?)
     }
 
     pub fn gen_switch<'b, 'c>(&self,
         switch: &'ctx Switch,
         env: &mut Env<'ctx>,
         _break_catcher: Option<&'b BreakCatcher>,
-        continue_catcher: Option<&'c ContinueCatcher>
+        continue_catcher: Option<&'c ContinueCatcher>,
+        pos: &Position
     ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
 
-        let (_fun_type, func) = env.get_current_function().ok_or(CodeGenError::no_current_function(None))?;
+        let (_fun_type, func) = env.get_current_function().ok_or(CodeGenError::no_current_function(pos.clone()))?;
         let func = func.clone();
         let cond_block  = self.context.append_basic_block(func, "switch.cond");
         let end_block  = self.context.append_basic_block(func, "switch.end");
@@ -987,14 +982,14 @@ impl<'ctx> CodeGen<'ctx> {
 
             if case.is_case() {  // case
                 if opt_default.is_some() {
-                    return Err(Box::new(CodeGenError::case_after_default(None)));
+                    return Err(Box::new(CodeGenError::case_after_default(case.get_position().clone())));
                 }
 
                 let case_cond = case.get_cond().unwrap();
                 let value = case_cond.as_i32_value();
                 let i32_type = self.context.i32_type();
                 let case_value = i32_type.const_int(value as u64, true);
-                let real_value = self.try_as_basic_value(&cond_expr.get_value())?.into_int_value();
+                let real_value = self.try_as_basic_value(&cond_expr.get_value(), case_cond.get_position())?.into_int_value();
                 let comparison = self.builder.build_int_compare(IntPredicate::EQ, real_value, case_value, "compare_switch_case")?;
 
 
@@ -1008,7 +1003,7 @@ impl<'ctx> CodeGen<'ctx> {
 
             }else{               // default
                 if opt_default.is_some() {
-                    return Err(Box::new(CodeGenError::already_default_defined(None)));
+                    return Err(Box::new(CodeGenError::already_default_defined(case.get_position().clone())));
                 }
                 opt_default = Some(case);
 
@@ -1039,7 +1034,7 @@ impl<'ctx> CodeGen<'ctx> {
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
 
-        let (_fun_type, func) = env.get_current_function().ok_or(CodeGenError::no_current_function(None))?;
+        let (_fun_type, func) = env.get_current_function().ok_or(CodeGenError::no_current_function(case.get_position().clone()))?;
         let case_block  = self.context.append_basic_block(func.clone(), "switch.case");
 
         self.builder.position_at_end(case_block);
@@ -1049,7 +1044,7 @@ impl<'ctx> CodeGen<'ctx> {
         let code = self.gen_stmt(ast, env, break_catcher, continue_catcher)?;
         let insert_block= self.builder.get_insert_block();
 
-        env.insert_case(const_cond, case_block, code, insert_block);
+        env.insert_case(const_cond, case_block, code, insert_block, case.get_position().clone());
 
         Ok(None)
     }
@@ -1058,17 +1053,18 @@ impl<'ctx> CodeGen<'ctx> {
         stmt: &'ctx AST,
         env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
-        continue_catcher: Option<&'c ContinueCatcher>
+        continue_catcher: Option<&'c ContinueCatcher>,
+        pos: &Position
     ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
 
-        let (_fun_type, func) = env.get_current_function().ok_or(CodeGenError::no_current_function(None))?;
+        let (_fun_type, func) = env.get_current_function().ok_or(CodeGenError::no_current_function(pos.clone()))?;
         let default_block  = self.context.append_basic_block(func.clone(), "switch.default");
 
         self.builder.position_at_end(default_block);
         let code = self.gen_stmt(stmt, env, break_catcher, continue_catcher)?;
         let insert_block= self.builder.get_insert_block();
 
-        env.insert_default(default_block, code, insert_block);
+        env.insert_default(default_block, code, insert_block, pos.clone());
 
         Ok(None)
     }
@@ -1084,9 +1080,10 @@ impl<'ctx> CodeGen<'ctx> {
         args: &[BasicMetadataValueEnum<'ctx>] ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>>
     {
         let mut v = Vec::new();
+        let dummy_pos = Position::new(1, 1);
 
         let fmt_string = self.builder.build_global_string_ptr(fmt, &format!("global_str_{}", fmt))?.as_any_value_enum();
-        v.push(self.try_as_basic_metadata_value(&fmt_string)?);
+        v.push(self.try_as_basic_metadata_value(&fmt_string, &dummy_pos)?);
         for item in args {
             v.push(*item);
         }
@@ -1100,17 +1097,15 @@ impl<'ctx> CodeGen<'ctx> {
             let sq = SpecifierQualifier::new();
             let ds = DeclarationSpecifier { typ: Type::Number(NumberType::Char), specifier_qualifier: sq };
 
-
             let pointer = Pointer::new(false, false);
-            let dd = DirectDeclarator::Symbol("format".to_string());
+            let dd = DirectDeclarator::Symbol("format".to_string(), dummy_pos.clone());
             let decl = Declarator::new(Some(pointer), dd);
 
             let mut defs = Defines::new();
-            let dummy_pos = Position::new(1, 1);
             let param = Param::new(ds, decl, &mut defs, &dummy_pos)?;
             let param_list = vec![param];
             let params = Params::new(param_list, true);
-            let fun_proto = self.gen_code_function_prototype(name, &ret_type, &params, env)?;
+            let fun_proto = self.gen_code_function_prototype(name, &ret_type, &params, env, &dummy_pos)?;
             let fun_type = Self::make_fun_type(&name, &ret_type, &params, env)?;
 
             env.insert_function(&name, fun_type, fun_proto);
@@ -1136,12 +1131,13 @@ impl<'ctx> CodeGen<'ctx> {
         functions: &'ctx Vec<FunOrProto>,
         env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
-        continue_catcher: Option<&'c ContinueCatcher>
+        continue_catcher: Option<&'c ContinueCatcher>,
+        pos: &Position
     ) -> Result<(), Box<dyn Error>> {
         if for_type.is_some() {
             self.gen_impl_for(class_name, typ, for_type, functions, env, break_catcher, continue_catcher)
         }else{
-            self.gen_impl_no_for(class_name, typ, functions, env, break_catcher, continue_catcher)
+            self.gen_impl_no_for(class_name, typ, functions, env, break_catcher, continue_catcher, pos)
         }
     }
 
@@ -1152,13 +1148,14 @@ impl<'ctx> CodeGen<'ctx> {
         functions: &'ctx Vec<FunOrProto>,
         env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
-        continue_catcher: Option<&'c ContinueCatcher>
+        continue_catcher: Option<&'c ContinueCatcher>,
+        pos: &Position
     ) -> Result<(), Box<dyn Error>> {
 
-        let _class = env.get_type(class_name).ok_or(Box::new(CodeGenError::no_such_a_struct(None, class_name)))?;
+        let _class = env.get_type(class_name).ok_or(Box::new(CodeGenError::no_such_a_struct(pos.clone(), class_name)))?;
 
         for function in functions {
-            self.gen_impl_function(class_name, typ, function, env, break_catcher, continue_catcher)?;
+            self.gen_impl_function(class_name, typ, function, env, break_catcher, continue_catcher, pos)?;
         }
 
         Ok(())
@@ -1192,7 +1189,8 @@ impl<'ctx> CodeGen<'ctx> {
         fun_or_proto: &'ctx FunOrProto,
         env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
-        continue_catcher: Option<&'c ContinueCatcher>
+        continue_catcher: Option<&'c ContinueCatcher>,
+        pos: &Position
     ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
 
         let declarator = fun_or_proto.get_declarator();
@@ -1206,10 +1204,10 @@ impl<'ctx> CodeGen<'ctx> {
         let function = if let Some(b) = body {
             // Function
             let labels = fun_or_proto.get_labels().unwrap();
-            self.gen_code_function(&fun_name, &ret_type, params, b, labels, env, break_catcher, continue_catcher)?
+            self.gen_code_function(&fun_name, &ret_type, params, b, labels, env, break_catcher, continue_catcher, pos)?
         }else{
             // Function Prototype
-            self.gen_code_function_prototype(&fun_name, &ret_type, params, env)?
+            self.gen_code_function_prototype(&fun_name, &ret_type, params, env, pos)?
         };
 
         let fun_type = Self::make_fun_type(&fun_name, &ret_type, params, env)?;
@@ -1228,18 +1226,19 @@ impl<'ctx> CodeGen<'ctx> {
         fields: &StructDefinition,
         env: &mut Env<'ctx>,
         _break_catcher: Option<&'b BreakCatcher>,
-        _continue_catcher: Option<&'c ContinueCatcher>
+        _continue_catcher: Option<&'c ContinueCatcher>,
+        pos: &Position
     ) -> Result<Option<AnyTypeEnum<'ctx>>, Box<dyn Error>> {
 
-        let (struct_type, index_map) = Self::struct_from_struct_definition(name, fields, self.context)?;
+        let (struct_type, index_map) = Self::struct_from_struct_definition(name, fields, self.context, pos)?;
         if let Some(id) = name {
-            env.insert_struct(id, &struct_type, index_map)?;
+            env.insert_struct(id, &struct_type, index_map, pos)?;
         }
 
         Ok(Some(struct_type.as_any_type_enum()))
     }
 
-    pub fn struct_from_struct_definition(name: &Option<String>, struct_def: &StructDefinition, ctx: &'ctx Context) -> Result<(StructType<'ctx>, HashMap<String, usize>), Box<dyn Error>> {
+    pub fn struct_from_struct_definition(name: &Option<String>, struct_def: &StructDefinition, ctx: &'ctx Context, pos: &Position) -> Result<(StructType<'ctx>, HashMap<String, usize>), Box<dyn Error>> {
         let mut list: Vec<BasicTypeEnum<'ctx>> = Vec::new();
         let mut packed = false;
         let mut index_map: HashMap<String, usize> = HashMap::new();
@@ -1249,7 +1248,7 @@ impl<'ctx> CodeGen<'ctx> {
             for field in fields {
                 match field {
                     StructField::NormalField { name: _, sq: _, typ } => {
-                        let t = TypeUtil::to_basic_type_enum(typ, ctx)?;
+                        let t = TypeUtil::to_basic_type_enum(typ, ctx, pos)?;
                         list.push(t);
 
                         if let Some(id) = name {
@@ -1259,7 +1258,7 @@ impl<'ctx> CodeGen<'ctx> {
                     StructField::BitField { name, sq: _, typ, bit_size } => {
                         packed = true;
 
-                        Self::bit_size_check(typ, *bit_size)?;
+                        Self::bit_size_check(typ, *bit_size, pos)?;
                         let t = ctx.custom_width_int_type((*bit_size) as u32);
                         list.push(t.as_basic_type_enum());
 
@@ -1282,12 +1281,13 @@ impl<'ctx> CodeGen<'ctx> {
         fields: &StructDefinition,
         env: &mut Env<'ctx>,
         _break_catcher: Option<&'b BreakCatcher>,
-        _continue_catcher: Option<&'c ContinueCatcher>
+        _continue_catcher: Option<&'c ContinueCatcher>,
+        pos: &Position
     ) -> Result<Option<AnyTypeEnum<'ctx>>, Box<dyn Error>> {
 
-        let (type_list, index_map, max_size, max_size_type) = Self::union_from_struct_definition(name, fields, self.context)?;
+        let (type_list, index_map, max_size, max_size_type) = Self::union_from_struct_definition(name, fields, self.context, pos)?;
         if let Some(id) = name {
-            env.insert_union(id, type_list, index_map, max_size, max_size_type)?;
+            env.insert_union(id, type_list, index_map, max_size, max_size_type, pos)?;
         }
 
         if let Some(t) = max_size_type {
@@ -1297,7 +1297,7 @@ impl<'ctx> CodeGen<'ctx> {
         }
     }
 
-    pub fn union_from_struct_definition(_name: &Option<String>, struct_def: &StructDefinition, ctx: &'ctx Context)
+    pub fn union_from_struct_definition(_name: &Option<String>, struct_def: &StructDefinition, ctx: &'ctx Context, pos: &Position)
       -> Result<(Vec<(Type, BasicTypeEnum<'ctx>)>, HashMap<String, usize>, u64, Option<BasicTypeEnum<'ctx>>), Box<dyn Error>>
     {
         let mut list: Vec<(Type, BasicTypeEnum<'ctx>)> = Vec::new();
@@ -1310,7 +1310,7 @@ impl<'ctx> CodeGen<'ctx> {
             for field in fields {
                 match field {
                     StructField::NormalField { name: field_name, sq: _, typ } => {
-                        let t = TypeUtil::to_basic_type_enum(typ, ctx)?;
+                        let t = TypeUtil::to_basic_type_enum(typ, ctx, pos)?;
                         list.push((typ.clone(), t.clone()));
 
                         let size = Self::size_of(&t)?;
@@ -1329,7 +1329,7 @@ impl<'ctx> CodeGen<'ctx> {
                         }
                     },
                     StructField::BitField { name, sq: _, typ, bit_size } => {
-                        Self::bit_size_check(&typ, *bit_size)?;
+                        Self::bit_size_check(&typ, *bit_size, pos)?;
                         let t = ctx.custom_width_int_type((*bit_size) as u32);
                         let t = t.as_basic_type_enum();
 
@@ -1367,13 +1367,14 @@ impl<'ctx> CodeGen<'ctx> {
         enum_def: &EnumDefinition,
         env: &mut Env<'ctx>,
         _break_catcher: Option<&'b BreakCatcher>,
-        _continue_catcher: Option<&'c ContinueCatcher>
+        _continue_catcher: Option<&'c ContinueCatcher>,
+        pos: &Position
     ) -> Result<(), Box<dyn Error>> {
 
         let (enumerator_list, index_map) = self.enum_from_enum_definition(enum_def, env)?;
         if let Some(id) = name {
             let i32_type = self.context.i32_type();
-            env.insert_enum(id, &i32_type, enumerator_list, index_map)?;
+            env.insert_enum(id, &i32_type, enumerator_list, index_map, pos)?;
         }
 
         Ok(())
@@ -1449,66 +1450,66 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(result)
     }
 
-    fn bit_size_check(opt_type: &Option<Type>, size: u64) -> Result<(), CodeGenError> {
+    fn bit_size_check(opt_type: &Option<Type>, size: u64, pos: &Position) -> Result<(), CodeGenError> {
         if let Some(Type::Number(typ)) = opt_type {
             match typ {
                 NumberType::_Bool => {
                     if size > 1 {
-                        return Err(CodeGenError::illegal_bit_size(None, typ, size));
+                        return Err(CodeGenError::illegal_bit_size(pos.clone(), typ, size));
                     }
                 },
                 NumberType::Char => {
                     if size > 8 {
-                        return Err(CodeGenError::illegal_bit_size(None, typ, size));
+                        return Err(CodeGenError::illegal_bit_size(pos.clone(), typ, size));
                     }
                 },
                 NumberType::Short => {
                     if size > 16 {
-                        return Err(CodeGenError::illegal_bit_size(None, typ, size));
+                        return Err(CodeGenError::illegal_bit_size(pos.clone(), typ, size));
                     }
                 },
                 NumberType::Int => {
                     if size > 32 {
-                        return Err(CodeGenError::illegal_bit_size(None, typ, size));
+                        return Err(CodeGenError::illegal_bit_size(pos.clone(), typ, size));
                     }
                 },
                 NumberType::Long => {
                     if size > 64 {
-                        return Err(CodeGenError::illegal_bit_size(None, typ, size));
+                        return Err(CodeGenError::illegal_bit_size(pos.clone(), typ, size));
                     }
                 },
                 NumberType::LongLong => {
                     if size > 128 {
-                        return Err(CodeGenError::illegal_bit_size(None, typ, size));
+                        return Err(CodeGenError::illegal_bit_size(pos.clone(), typ, size));
                     }
                 },
                 NumberType::UnsignedChar => {
                     if size > 8 {
-                        return Err(CodeGenError::illegal_bit_size(None, typ, size));
+                        return Err(CodeGenError::illegal_bit_size(pos.clone(), typ, size));
                     }
                 },
                 NumberType::UnsignedShort => {
                     if size > 16 {
-                        return Err(CodeGenError::illegal_bit_size(None, typ, size));
+                        return Err(CodeGenError::illegal_bit_size(pos.clone(), typ, size));
                     }
                 },
                 NumberType::UnsignedInt => {
                     if size > 32 {
-                        return Err(CodeGenError::illegal_bit_size(None, typ, size));
+                        return Err(CodeGenError::illegal_bit_size(pos.clone(), typ, size));
                     }
                 },
                 NumberType::UnsignedLong => {
                     if size > 64 {
-                        return Err(CodeGenError::illegal_bit_size(None, typ, size));
+                        return Err(CodeGenError::illegal_bit_size(pos.clone(), typ, size));
                     }
                 },
                 NumberType::UnsignedLongLong => {
                     if size > 128 {
-                        return Err(CodeGenError::illegal_bit_size(None, typ, size));
+                        return Err(CodeGenError::illegal_bit_size(pos.clone(), typ, size));
                     }
                 },
                 NumberType::Float | NumberType::Double => {
-                    return Err(CodeGenError::cannot_use_float_for_bitsize(None));
+                    return Err(CodeGenError::cannot_use_float_for_bitsize(pos.clone()));
                 }
             }
         }
@@ -1536,10 +1537,11 @@ impl<'ctx> CodeGen<'ctx> {
         post_condition: &'ctx Option<Box<ExprAST>>,
         env: &mut Env<'ctx>,
         _break_catcher: Option<&'b BreakCatcher>,
-        _continue_catcher: Option<&'c ContinueCatcher>
+        _continue_catcher: Option<&'c ContinueCatcher>,
+        pos: &Position
     ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
 
-        let (_fun_type, func) = env.get_current_function().ok_or(CodeGenError::no_current_function(None))?;
+        let (_fun_type, func) = env.get_current_function().ok_or(CodeGenError::no_current_function(pos.clone()))?;
         let func = func.clone();
         let pre_condition_block = self.context.append_basic_block(func, "loop.pre_condition");
         let start_block = self.context.append_basic_block(func, "loop.start");
@@ -1566,7 +1568,7 @@ impl<'ctx> CodeGen<'ctx> {
         self.builder.position_at_end(pre_condition_block);
 
         if let Some(cond) = pre_condition {
-            let cond = self.gen_expr(cond, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::condition_is_not_number(None, cond))?;
+            let cond = self.gen_expr(cond, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::condition_is_not_number(cond.get_position().clone(), cond))?;
             let comparison = cond.get_value().into_int_value();
             self.builder.build_conditional_branch(comparison, start_block, end_block)?;
         }else{
@@ -1596,7 +1598,7 @@ impl<'ctx> CodeGen<'ctx> {
         // check post condtition
         //
         if let Some(cond) = post_condition {
-            let cond = self.gen_expr(cond, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::condition_is_not_number(None, cond))?;
+            let cond = self.gen_expr(cond, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::condition_is_not_number(cond.get_position().clone(), cond))?;
             let comparison = cond.get_value().into_int_value();
             self.builder.build_conditional_branch(comparison, pre_condition_block, end_block)?;
         }else{
@@ -1617,7 +1619,6 @@ impl<'ctx> CodeGen<'ctx> {
                 unimplemented!()
             }else{  // left_type > right_type
 //                 let value = self.gen_cast(&right.get_value(), &left_type.to_basic_type_enum(self.context)?)?;
-// println!("CAST right type {:?} to {:?}", right_type, left_type);
 //                 Ok((left, CompiledValue::new(Type::Number(right_type.clone()), value)))
                 unimplemented!()
             }
@@ -1628,16 +1629,16 @@ impl<'ctx> CodeGen<'ctx> {
 
     fn gen_bin_expr<'b, 'c>(&self,
          op: &BinOp,
-         left: &ExprAST,
-         right: &ExprAST,
+         left_arg: &ExprAST,
+         right_arg: &ExprAST,
          env: &mut Env<'ctx>,
          break_catcher: Option<&'b BreakCatcher>,
          continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
         match op {
             BinOp::Add => {
-                let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
-                let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
+                let left = self.gen_expr(&left_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(left_arg.get_position().clone()))?;
+                let right = self.gen_expr(&right_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(right_arg.get_position().clone()))?;
                 let (left, right) = self.bin_expr_implicit_cast(left, right)?;
                 let left_type = left.get_type();
                 let left_value = left.get_value();
@@ -1650,12 +1651,12 @@ impl<'ctx> CodeGen<'ctx> {
                     let result = self.builder.build_float_add(left_value.into_float_value(), right_value.into_float_value(), "add_float")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CodeGenError::cannot_add_value(None, left_type)))
+                    Err(Box::new(CodeGenError::cannot_add_value(left_arg.get_position().clone(), left_type)))
                 }
             },
             BinOp::Sub => {
-                let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
-                let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
+                let left = self.gen_expr(&left_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(left_arg.get_position().clone()))?;
+                let right = self.gen_expr(&right_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(right_arg.get_position().clone()))?;
                 let (left, right) = self.bin_expr_implicit_cast(left, right)?;
                 let left_type = left.get_type();
                 let left_value = left.get_value();
@@ -1668,12 +1669,12 @@ impl<'ctx> CodeGen<'ctx> {
                     let result = self.builder.build_float_sub(left_value.into_float_value(), right_value.into_float_value(), "sub_float")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CodeGenError::cannot_sub_value(None, left_type)))
+                    Err(Box::new(CodeGenError::cannot_sub_value(left_arg.get_position().clone(), left_type)))
                 }
             },
             BinOp::Mul => {
-                let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
-                let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
+                let left = self.gen_expr(&left_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(left_arg.get_position().clone()))?;
+                let right = self.gen_expr(&right_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(right_arg.get_position().clone()))?;
                 let (left, right) = self.bin_expr_implicit_cast(left, right)?;
                 let left_type = left.get_type();
                 let left_value = left.get_value();
@@ -1686,12 +1687,12 @@ impl<'ctx> CodeGen<'ctx> {
                     let result = self.builder.build_float_mul(left_value.into_float_value(), right_value.into_float_value(), "mul_float")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CodeGenError::cannot_mul_value(None, left_type)))
+                    Err(Box::new(CodeGenError::cannot_mul_value(left_arg.get_position().clone(), left_type)))
                 }
             },
             BinOp::Div => {
-                let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
-                let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
+                let left = self.gen_expr(&left_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(left_arg.get_position().clone()))?;
+                let right = self.gen_expr(&right_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(right_arg.get_position().clone()))?;
                 let (left, right) = self.bin_expr_implicit_cast(left, right)?;
                 let left_type = left.get_type();
                 let left_value = left.get_value();
@@ -1709,12 +1710,12 @@ impl<'ctx> CodeGen<'ctx> {
                     let result = self.builder.build_float_div(left_value.into_float_value(), right_value.into_float_value(), "div_float")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CodeGenError::cannot_div_value(None, left_type)))
+                    Err(Box::new(CodeGenError::cannot_div_value(left_arg.get_position().clone(), left_type)))
                 }
             },
             BinOp::Mod => {
-                let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
-                let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
+                let left = self.gen_expr(&left_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(left_arg.get_position().clone()))?;
+                let right = self.gen_expr(&right_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(right_arg.get_position().clone()))?;
                 let (left, right) = self.bin_expr_implicit_cast(left, right)?;
                 let left_type = left.get_type();
                 let left_value = left.get_value();
@@ -1732,12 +1733,12 @@ impl<'ctx> CodeGen<'ctx> {
                     let result = self.builder.build_float_rem(left_value.into_float_value(), right_value.into_float_value(), "mod_float")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CodeGenError::cannot_mod_value(None, left_type)))
+                    Err(Box::new(CodeGenError::cannot_mod_value(left_arg.get_position().clone(), left_type)))
                 }
             },
             BinOp::Equal => {
-                let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
-                let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
+                let left = self.gen_expr(&left_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(left_arg.get_position().clone()))?;
+                let right = self.gen_expr(&right_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(right_arg.get_position().clone()))?;
                 let (left, right) = self.bin_expr_implicit_cast(left, right)?;
                 let left_type = left.get_type();
                 let left_value = left.get_value();
@@ -1750,12 +1751,12 @@ impl<'ctx> CodeGen<'ctx> {
                     let result = self.builder.build_float_compare(FloatPredicate::OEQ, left_value.into_float_value(), right_value.into_float_value(), "eq_float")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CodeGenError::cannot_compare_value(None, left_type)))
+                    Err(Box::new(CodeGenError::cannot_compare_value(left_arg.get_position().clone(), left_type)))
                 }
             },
             BinOp::NotEqual => {
-                let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
-                let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
+                let left = self.gen_expr(&left_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(left_arg.get_position().clone()))?;
+                let right = self.gen_expr(&right_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(right_arg.get_position().clone()))?;
                 let (left, right) = self.bin_expr_implicit_cast(left, right)?;
                 let left_type = left.get_type();
                 let left_value = left.get_value();
@@ -1768,12 +1769,12 @@ impl<'ctx> CodeGen<'ctx> {
                     let result = self.builder.build_float_compare(FloatPredicate::ONE, left_value.into_float_value(), right_value.into_float_value(), "not_eq_float")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CodeGenError::cannot_compare_value(None, left_type)))
+                    Err(Box::new(CodeGenError::cannot_compare_value(left_arg.get_position().clone(), left_type)))
                 }
             },
             BinOp::Less => {
-                let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
-                let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
+                let left = self.gen_expr(&left_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(left_arg.get_position().clone()))?;
+                let right = self.gen_expr(&right_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(right_arg.get_position().clone()))?;
                 let (left, right) = self.bin_expr_implicit_cast(left, right)?;
                 let left_type = left.get_type();
                 let left_value = left.get_value();
@@ -1791,12 +1792,12 @@ impl<'ctx> CodeGen<'ctx> {
                     let result = self.builder.build_float_compare(FloatPredicate::OLT, left_value.into_float_value(), right_value.into_float_value(), "less_float")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CodeGenError::cannot_compare_value(None, left_type)))
+                    Err(Box::new(CodeGenError::cannot_compare_value(left_arg.get_position().clone(), left_type)))
                 }
             },
             BinOp::LessEqual => {
-                let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
-                let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
+                let left = self.gen_expr(&left_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(left_arg.get_position().clone()))?;
+                let right = self.gen_expr(&right_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(right_arg.get_position().clone()))?;
                 let (left, right) = self.bin_expr_implicit_cast(left, right)?;
                 let left_type = left.get_type();
                 let left_value = left.get_value();
@@ -1814,12 +1815,12 @@ impl<'ctx> CodeGen<'ctx> {
                     let result = self.builder.build_float_compare(FloatPredicate::OLE, left_value.into_float_value(), right_value.into_float_value(), "less_eq_float")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CodeGenError::cannot_compare_value(None, left_type)))
+                    Err(Box::new(CodeGenError::cannot_compare_value(left_arg.get_position().clone(), left_type)))
                 }
             },
             BinOp::Greater => {
-                let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
-                let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
+                let left = self.gen_expr(&left_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(left_arg.get_position().clone()))?;
+                let right = self.gen_expr(&right_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(right_arg.get_position().clone()))?;
                 let (left, right) = self.bin_expr_implicit_cast(left, right)?;
                 let left_type = left.get_type();
                 let left_value = left.get_value();
@@ -1837,12 +1838,12 @@ impl<'ctx> CodeGen<'ctx> {
                     let result = self.builder.build_float_compare(FloatPredicate::OGT, left_value.into_float_value(), right_value.into_float_value(), "greater_float")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CodeGenError::cannot_compare_value(None, left_type)))
+                    Err(Box::new(CodeGenError::cannot_compare_value(left_arg.get_position().clone(), left_type)))
                 }
             },
             BinOp::GreaterEqual => {
-                let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
-                let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
+                let left = self.gen_expr(&left_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(left_arg.get_position().clone()))?;
+                let right = self.gen_expr(&right_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(right_arg.get_position().clone()))?;
                 let (left, right) = self.bin_expr_implicit_cast(left, right)?;
                 let left_type = left.get_type();
                 let left_value = left.get_value();
@@ -1860,12 +1861,12 @@ impl<'ctx> CodeGen<'ctx> {
                     let result = self.builder.build_float_compare(FloatPredicate::OGE, left_value.into_float_value(), right_value.into_float_value(), "greater_eq_float")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CodeGenError::cannot_compare_value(None, left_type)))
+                    Err(Box::new(CodeGenError::cannot_compare_value(left_arg.get_position().clone(), left_type)))
                 }
             },
             BinOp::And => {
-                let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
-                let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
+                let left = self.gen_expr(&left_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(left_arg.get_position().clone()))?;
+                let right = self.gen_expr(&right_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(right_arg.get_position().clone()))?;
                 let (left, right) = self.bin_expr_implicit_cast(left, right)?;
                 let left_type = left.get_type();
                 let left_value = left.get_value();
@@ -1875,12 +1876,12 @@ impl<'ctx> CodeGen<'ctx> {
                     let result = self.builder.build_and(left_value.into_int_value(), right_value.into_int_value(), "and_int")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CodeGenError::cannot_apply_logical_op_value(None, left_type)))
+                    Err(Box::new(CodeGenError::cannot_apply_logical_op_value(left_arg.get_position().clone(), left_type)))
                 }
             },
             BinOp::Or => {
-                let left = self.gen_expr(&left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
-                let right = self.gen_expr(&right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
+                let left = self.gen_expr(&left_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(left_arg.get_position().clone()))?;
+                let right = self.gen_expr(&right_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(right_arg.get_position().clone()))?;
                 let (left, right) = self.bin_expr_implicit_cast(left, right)?;
                 let left_type = left.get_type();
                 let left_value = left.get_value();
@@ -1890,100 +1891,100 @@ impl<'ctx> CodeGen<'ctx> {
                     let result = self.builder.build_or(left_value.into_int_value(), right_value.into_int_value(), "or_int")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CodeGenError::cannot_apply_logical_op_value(None, left_type)))
+                    Err(Box::new(CodeGenError::cannot_apply_logical_op_value(left_arg.get_position().clone(), left_type)))
                 }
             },
             BinOp::Comma => {
-                let _left = self.gen_expr(&*left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
-                let right = self.gen_expr(&*right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
+                let _left = self.gen_expr(&*left_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(left_arg.get_position().clone()))?;
+                let right = self.gen_expr(&*right_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(right_arg.get_position().clone()))?;
 
                 Ok(Some(right))
             },
             BinOp::ShiftLeft => {
-                let left = self.gen_expr(&*left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
-                let right = self.gen_expr(&*right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
+                let left = self.gen_expr(&*left_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(left_arg.get_position().clone()))?;
+                let right = self.gen_expr(&*right_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(right_arg.get_position().clone()))?;
                 let left_type = left.get_type();
                 let right_type = right.get_type();
                 let left_value = left.get_value();
                 let right_value = right.get_value();
 
                 if ! left_value.is_int_value() {
-                    return Err(Box::new(CodeGenError::not_int_in_shift(None, &left_type)));
+                    return Err(Box::new(CodeGenError::not_int_in_shift(left_arg.get_position().clone(), &left_type)));
                 }
                 if ! right_value.is_int_value() {
-                    return Err(Box::new(CodeGenError::not_int_in_shift(None, &right_type)));
+                    return Err(Box::new(CodeGenError::not_int_in_shift(right_arg.get_position().clone(), &right_type)));
                 }
 
                 let result = self.builder.build_left_shift(left_value.into_int_value(), right_value.into_int_value(), "ShiftLeft")?;
                 Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
             },
             BinOp::ShiftRight => {
-                let left = self.gen_expr(&*left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
-                let right = self.gen_expr(&*right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
+                let left = self.gen_expr(&*left_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(left_arg.get_position().clone()))?;
+                let right = self.gen_expr(&*right_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(right_arg.get_position().clone()))?;
                 let left_type = left.get_type();
                 let right_type = right.get_type();
                 let left_value = left.get_value();
                 let right_value = right.get_value();
 
                 if ! left_value.is_int_value() {
-                    return Err(Box::new(CodeGenError::not_int_in_shift(None, &left_type)));
+                    return Err(Box::new(CodeGenError::not_int_in_shift(left_arg.get_position().clone(), &left_type)));
                 }
                 if ! right_value.is_int_value() {
-                    return Err(Box::new(CodeGenError::not_int_in_shift(None, &right_type)));
+                    return Err(Box::new(CodeGenError::not_int_in_shift(right_arg.get_position().clone(), &right_type)));
                 }
 
                 let result = self.builder.build_right_shift(left_value.into_int_value(), right_value.into_int_value(), left_type.is_signed()?, "ShiftRight")?;
                 Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
             },
             BinOp::BitAnd => {
-                let left = self.gen_expr(&*left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
-                let right = self.gen_expr(&*right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
+                let left = self.gen_expr(&*left_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(left_arg.get_position().clone()))?;
+                let right = self.gen_expr(&*right_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(right_arg.get_position().clone()))?;
                 let left_type = left.get_type();
                 let right_type = right.get_type();
                 let left_value = left.get_value();
                 let right_value = right.get_value();
 
                 if ! left_value.is_int_value() {
-                    return Err(Box::new(CodeGenError::not_int_bit_and(None, &left_type)));
+                    return Err(Box::new(CodeGenError::not_int_bit_and(left_arg.get_position().clone(), &left_type)));
                 }
                 if ! right_value.is_int_value() {
-                    return Err(Box::new(CodeGenError::not_int_bit_and(None, &right_type)));
+                    return Err(Box::new(CodeGenError::not_int_bit_and(right_arg.get_position().clone(), &right_type)));
                 }
 
                 let result = self.builder.build_and(left_value.into_int_value(), right_value.into_int_value(), "BitAnd")?;
                 Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
             },
             BinOp::BitOr => {
-                let left = self.gen_expr(&*left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
-                let right = self.gen_expr(&*right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
+                let left = self.gen_expr(&*left_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(left_arg.get_position().clone()))?;
+                let right = self.gen_expr(&*right_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(right_arg.get_position().clone()))?;
                 let left_type = left.get_type();
                 let right_type = right.get_type();
                 let left_value = left.get_value();
                 let right_value = right.get_value();
 
                 if ! left_value.is_int_value() {
-                    return Err(Box::new(CodeGenError::not_int_bit_or(None, &left_type)));
+                    return Err(Box::new(CodeGenError::not_int_bit_or(left_arg.get_position().clone(), &left_type)));
                 }
                 if ! right_value.is_int_value() {
-                    return Err(Box::new(CodeGenError::not_int_bit_or(None, &right_type)));
+                    return Err(Box::new(CodeGenError::not_int_bit_or(right_arg.get_position().clone(), &right_type)));
                 }
 
                 let result = self.builder.build_and(left_value.into_int_value(), right_value.into_int_value(), "BitOr")?;
                 Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
             },
             BinOp::BitXor => {
-                let left = self.gen_expr(&*left, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
-                let right = self.gen_expr(&*right, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
+                let left = self.gen_expr(&*left_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(left_arg.get_position().clone()))?;
+                let right = self.gen_expr(&*right_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(right_arg.get_position().clone()))?;
                 let left_type = left.get_type();
                 let right_type = right.get_type();
                 let left_value = left.get_value();
                 let right_value = right.get_value();
 
                 if ! left_value.is_int_value() {
-                    return Err(Box::new(CodeGenError::not_int_bit_xor(None, &left_type)));
+                    return Err(Box::new(CodeGenError::not_int_bit_xor(left_arg.get_position().clone(), &left_type)));
                 }
                 if ! right_value.is_int_value() {
-                    return Err(Box::new(CodeGenError::not_int_bit_xor(None, &right_type)));
+                    return Err(Box::new(CodeGenError::not_int_bit_xor(right_arg.get_position().clone(), &right_type)));
                 }
 
                 let result = self.builder.build_xor(left_value.into_int_value(), right_value.into_int_value(), "BitXor")?;
@@ -2000,8 +2001,8 @@ impl<'ctx> CodeGen<'ctx> {
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
-        let compiled_value = self.gen_expr(r_value, env, break_catcher, continue_catcher)?.ok_or(Box::new(CodeGenError::assign_illegal_value(None, r_value)))?;
-        let value = self.try_as_basic_value(&compiled_value.get_value())?;
+        let compiled_value = self.gen_expr(r_value, env, break_catcher, continue_catcher)?.ok_or(Box::new(CodeGenError::assign_illegal_value(r_value.get_position().clone(), r_value)))?;
+        let value = self.try_as_basic_value(&compiled_value.get_value(), l_value.get_position())?;
         let from_type = compiled_value.get_type();
         let (to_type, ptr) = self.get_l_value(l_value, env, break_catcher, continue_catcher)?;
 
@@ -2018,7 +2019,7 @@ impl<'ctx> CodeGen<'ctx> {
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
         let compiled_value = self.gen_bin_expr(op, l_value, r_value, env, break_catcher, continue_catcher)?.ok_or(Box::new(CodeGenError::cannot_calculate(l_value.get_position().clone())))?;
-        let value = self.try_as_basic_value(&compiled_value.get_value())?;
+        let value = self.try_as_basic_value(&compiled_value.get_value(), l_value.get_position())?;
         let from_type = compiled_value.get_type();
         let (to_type, ptr) = self.get_l_value(l_value, env, break_catcher, continue_catcher)?;
 
@@ -2033,8 +2034,8 @@ impl<'ctx> CodeGen<'ctx> {
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<(Type, PointerValue<'ctx>), Box<dyn Error>> {
         match ast {
-            ExprAST::Symbol(name, _pos) => {
-                let (typ, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(None, &name)))?;
+            ExprAST::Symbol(name, pos) => {
+                let (typ, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(pos.clone(), &name)))?;
                 Ok((typ.clone(), ptr))
             },
             ExprAST::UnaryPointerAccess(boxed_ast, pos) => {  // *pointer
@@ -2056,7 +2057,7 @@ impl<'ctx> CodeGen<'ctx> {
 
                 match typ {
                     Type::Struct {name, fields} => {
-                        let index = fields.get_index(member_name).ok_or(CodeGenError::no_such_a_member(Some(pos.clone()), member_name))?;
+                        let index = fields.get_index(member_name).ok_or(CodeGenError::no_such_a_member(pos.clone(), member_name))?;
                         let elem_type = fields.get_type(member_name).unwrap();
                         let msg = if let Some(id) = &name {
                             format!("struct_{}.{}", id, member_name)
@@ -2068,12 +2069,12 @@ impl<'ctx> CodeGen<'ctx> {
                         if let Ok(p) = elem_ptr {
                             Ok((elem_type.clone(), p))
                         }else{
-                            return Err(Box::new(CodeGenError::cannot_access_struct_member(Some(pos.clone()), &member_name)));
+                            return Err(Box::new(CodeGenError::cannot_access_struct_member(pos.clone(), &member_name)));
                         }
                     },
                     Type::Union { name, fields } => {
                         if let Some(id) = name {
-                            let type_or_union = env.get_type(&id).ok_or(CodeGenError::no_such_a_member(Some(pos.clone()), member_name))?;
+                            let type_or_union = env.get_type(&id).ok_or(CodeGenError::no_such_a_member(pos.clone(), member_name))?;
                             match type_or_union {
                                 TypeOrUnion::Union { type_list, index_map, max_size: _, max_size_type: _ } => {
                                     let idx = index_map[member_name];
@@ -2083,11 +2084,11 @@ impl<'ctx> CodeGen<'ctx> {
                                     let p = ptr.const_cast(ptr_type);
                                     Ok((typ.clone(), p))
                                 },
-                                _ => return Err(Box::new(CodeGenError::not_union(Some(pos.clone()), &id))),
+                                _ => return Err(Box::new(CodeGenError::not_union(pos.clone(), &id))),
                             }
                         }else{
-                            let typ = fields.get_type(member_name).ok_or(CodeGenError::no_such_a_member(Some(pos.clone()), member_name))?;
-                            let to_type = TypeUtil::to_basic_type_enum(typ, self.context)?;
+                            let typ = fields.get_type(member_name).ok_or(CodeGenError::no_such_a_member(pos.clone(), member_name))?;
+                            let to_type = TypeUtil::to_basic_type_enum(typ, self.context, pos)?;
                             let ptr_type = to_type.ptr_type(AddressSpace::default());
                             let p = ptr.const_cast(ptr_type);
                             Ok((typ.clone(), p))
@@ -2105,38 +2106,32 @@ impl<'ctx> CodeGen<'ctx> {
 
                 match pointed_type {
                     Type::Struct {fields, ..} => {
-                        let index = fields.get_index(member_name).ok_or(CodeGenError::no_such_a_member(Some(pos.clone()), member_name))?;
+                        let index = fields.get_index(member_name).ok_or(CodeGenError::no_such_a_member(pos.clone(), member_name))?;
                         let elem_ptr = self.builder.build_struct_gep(ptr, index as u32, "struct_member_access");
                         if let Ok(p) = elem_ptr {
                             let typ = fields.get_type(member_name).unwrap();
                             Ok((typ.clone(), p))
                         }else{
-                            return Err(Box::new(CodeGenError::cannot_access_struct_member(Some(pos.clone()), &member_name)));
+                            return Err(Box::new(CodeGenError::cannot_access_struct_member(pos.clone(), &member_name)));
                         }
                     },
                     Type::Union { name, fields } => {
                         if let Some(id) = name {
-                            let type_or_union = env.get_type(&id).ok_or(CodeGenError::no_such_a_member(Some(pos.clone()), member_name))?;
+                            let type_or_union = env.get_type(&id).ok_or(CodeGenError::no_such_a_member(pos.clone(), member_name))?;
                             match type_or_union {
                                 TypeOrUnion::Union { type_list, index_map, max_size: _, max_size_type: _ } => {
                                     let idx = index_map[member_name];
-                                    // let any_type_enum = &type_list[idx];
-                                    // let to_type = BasicTypeEnum::try_from(any_type_enum);
-                                    // if let Err(_err) = &to_type {
-                                    //     return Err(Box::new(CompileError::cannot_convert_to_basic_type_enum(None)));
-                                    // }
-                                    // let ptr_type = to_type.unwrap().ptr_type(AddressSpace::default());
                                     let (typ, to_type) = &type_list[idx];
                                     let ptr_type = to_type.ptr_type(AddressSpace::default());
 
                                     let p = ptr.const_cast(ptr_type);
                                     Ok((typ.clone(), p))
                                 },
-                                _ => return Err(Box::new(CodeGenError::not_union(Some(pos.clone()), &id))),
+                                _ => return Err(Box::new(CodeGenError::not_union(pos.clone(), &id))),
                             }
                         }else{
-                            let typ = fields.get_type(member_name).ok_or(CodeGenError::no_such_a_member(Some(pos.clone()), member_name))?;
-                            let to_type = TypeUtil::to_basic_type_enum(typ, self.context)?;
+                            let typ = fields.get_type(member_name).ok_or(CodeGenError::no_such_a_member(pos.clone(), member_name))?;
+                            let to_type = TypeUtil::to_basic_type_enum(typ, self.context, pos)?;
                             let ptr_type = to_type.ptr_type(AddressSpace::default());
                             let p = ptr.const_cast(ptr_type);
                             Ok((typ.clone(), p))
@@ -2145,11 +2140,11 @@ impl<'ctx> CodeGen<'ctx> {
                     _ => unimplemented!("member access to {:?}", pointed_type),
                 }
             },
-            ExprAST::ArrayAccess(expr, index, _pos) => {
+            ExprAST::ArrayAccess(expr, index, pos) => {
                 let ast = &**expr;
                 let (typ, base_ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
 
-                let value = self.gen_expr(index, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::no_index_value_while_access_array(None))?;
+                let value = self.gen_expr(index, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::no_index_value_while_access_array(pos.clone()))?;
                 let index_val = value.get_value().into_int_value();
 
                 let i32_type = self.context.i32_type();
@@ -2159,8 +2154,8 @@ impl<'ctx> CodeGen<'ctx> {
 
                 Ok((typ.clone(), ptr))
             },
-            ExprAST::_self(_pos) => {
-                let (typ, ptr) = env.get_ptr("self").ok_or(Box::new(CodeGenError::no_such_a_variable(None, "self")))?;
+            ExprAST::_self(pos) => {
+                let (typ, ptr) = env.get_ptr("self").ok_or(Box::new(CodeGenError::no_such_a_variable(pos.clone(), "self")))?;
                 Ok((typ.clone(), ptr))
             },
             ExprAST::_Self(_pos) => {
@@ -2210,14 +2205,14 @@ impl<'ctx> CodeGen<'ctx> {
         ))
     }
 
-    fn to_function(&self, any_val: &AnyValueEnum<'ctx>) -> Result<FunctionValue<'ctx>, CodeGenError> {
+    fn to_function(&self, any_val: &AnyValueEnum<'ctx>, pos: &Position) -> Result<FunctionValue<'ctx>, CodeGenError> {
         match any_val {
             AnyValueEnum::FunctionValue(fun) => Ok(*fun),
-            _ => Err(CodeGenError::cannot_call_not_function(None, any_val)),
+            _ => Err(CodeGenError::cannot_call_not_function(pos.clone(), any_val)),
         }
     }
 
-    fn try_as_basic_metadata_value(&self, any_val: &AnyValueEnum<'ctx>) -> Result<BasicMetadataValueEnum<'ctx>, CodeGenError> {
+    fn try_as_basic_metadata_value(&self, any_val: &AnyValueEnum<'ctx>, pos: &Position) -> Result<BasicMetadataValueEnum<'ctx>, CodeGenError> {
         match any_val {
             AnyValueEnum::ArrayValue(val) => Ok(BasicMetadataValueEnum::ArrayValue(*val)),
             AnyValueEnum::IntValue(val) => Ok(BasicMetadataValueEnum::IntValue(*val)),
@@ -2226,11 +2221,11 @@ impl<'ctx> CodeGen<'ctx> {
             AnyValueEnum::StructValue(val) => Ok(BasicMetadataValueEnum::StructValue(*val)),
             AnyValueEnum::VectorValue(val) => Ok(BasicMetadataValueEnum::VectorValue(*val)),
             // _ => Err(CodeGenError::cannot_convert_anyvalueenum_to_basicmetadatavalueenum(None, any_val)),
-            _ => Err(CodeGenError::cannot_convert_anyvalueenum_to_basicmetadatavalueenum(None)),
+            _ => Err(CodeGenError::cannot_convert_anyvalueenum_to_basicmetadatavalueenum(pos.clone())),
         }
     }
 
-    fn try_as_basic_value(&self, any_val: &AnyValueEnum<'ctx>) -> Result<BasicValueEnum<'ctx>, CodeGenError> {
+    fn try_as_basic_value(&self, any_val: &AnyValueEnum<'ctx>, pos: &Position) -> Result<BasicValueEnum<'ctx>, CodeGenError> {
         match any_val {
             AnyValueEnum::ArrayValue(val) => Ok(BasicValueEnum::ArrayValue(*val)),
             AnyValueEnum::IntValue(val) => Ok(BasicValueEnum::IntValue(*val)),
@@ -2239,11 +2234,11 @@ impl<'ctx> CodeGen<'ctx> {
             AnyValueEnum::StructValue(val) => Ok(BasicValueEnum::StructValue(*val)),
             AnyValueEnum::VectorValue(val) => Ok(BasicValueEnum::VectorValue(*val)),
             // _ => Err(CodeGenError::cannot_convert_anyvalueenum_to_basicvalueenum(None, any_val)),
-            _ => Err(CodeGenError::cannot_convert_anyvalueenum_to_basicvalueenum(None)),
+            _ => Err(CodeGenError::cannot_convert_anyvalueenum_to_basicvalueenum(pos.clone())),
         }
     }
 
-    fn try_as_basic_type(&self, any_type: &AnyTypeEnum<'ctx>) -> Result<BasicTypeEnum<'ctx>, CodeGenError> {
+    fn try_as_basic_type(&self, any_type: &AnyTypeEnum<'ctx>, pos: &Position) -> Result<BasicTypeEnum<'ctx>, CodeGenError> {
         match any_type {
             AnyTypeEnum::ArrayType(val) => Ok(BasicTypeEnum::ArrayType(*val)),
             AnyTypeEnum::IntType(val) => Ok(BasicTypeEnum::IntType(*val)),
@@ -2252,7 +2247,7 @@ impl<'ctx> CodeGen<'ctx> {
             AnyTypeEnum::StructType(val) => Ok(BasicTypeEnum::StructType(*val)),
             AnyTypeEnum::VectorType(val) => Ok(BasicTypeEnum::VectorType(*val)),
             // _ => Err(CodeGenError::cannot_convert_anytypeenum_to_basictypeenum(None, any_type)),
-            _ => Err(CodeGenError::cannot_convert_anytypeenum_to_basictypeenum(None)),
+            _ => Err(CodeGenError::cannot_convert_anytypeenum_to_basictypeenum(pos.clone())),
         }
     }
 
@@ -2260,9 +2255,10 @@ impl<'ctx> CodeGen<'ctx> {
         fn_name: &str,
         ret_type: &Type,
         params: &Params,
-        env: &mut Env<'ctx>
+        env: &mut Env<'ctx>,
+        pos: &Position
     ) -> Result<FunctionValue<'ctx>, Box<dyn Error>> {
-        let fn_type = self.make_function_type(&ret_type, params, env)?;
+        let fn_type = self.make_function_type(&ret_type, params, env, pos)?;
         let function = self.module.add_function(fn_name, fn_type, None);
 
         Ok(function)
@@ -2276,10 +2272,11 @@ impl<'ctx> CodeGen<'ctx> {
         labels: &Vec<String>,
         env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
-        continue_catcher: Option<&'c ContinueCatcher>
+        continue_catcher: Option<&'c ContinueCatcher>,
+        pos: &Position
     ) -> Result<FunctionValue<'ctx>, Box<dyn Error>> {
 
-        let fn_type = self.make_function_type(&ret_type, params, env)?;
+        let fn_type = self.make_function_type(&ret_type, params, env, pos)?;
         let has_variadic = false;
         let cust_fn_type = CustFunctionType::new(Some(fn_name.to_string()), ret_type.clone(), params.get_params_type(), has_variadic);
         // TODO: 同名のプロトタイプが存在しないか確認する。
@@ -2326,7 +2323,7 @@ impl<'ctx> CodeGen<'ctx> {
         for (i, param) in params.get_params().iter().enumerate() {
             let typ = param.get_type();
             let name = param.get_name();
-            let ptr = self.builder.build_alloca(TypeUtil::to_basic_type_enum(&typ, self.context)?, name)?;
+            let ptr = self.builder.build_alloca(TypeUtil::to_basic_type_enum(&typ, self.context, param.get_position())?, name)?;
             let value = function.get_nth_param(i as u32).unwrap();
             self.builder.build_store(ptr, value)?;
             env.insert_local(name, typ.clone(), ptr);
@@ -2350,9 +2347,9 @@ impl<'ctx> CodeGen<'ctx> {
             // 戻り値の型がvoidで、かつ、最後の行がreturn文でないときに、build_returnしておく。
             match last_stmt {
                 Some(AST::Return(None, _)) => Ok(()),  // do nothing
-                Some(AST::Return(Some(expr), _)) => {
+                Some(AST::Return(Some(expr), pos)) => {
                     let typ: Type = TypeUtil::get_type(expr, env)?;
-                    return Err(Box::new(CodeGenError::return_type_mismatch(None, fn_type.get_return_type().clone(), typ)));
+                    return Err(Box::new(CodeGenError::return_type_mismatch(pos.clone(), fn_type.get_return_type().clone(), typ)));
                 },
                 _ => {
                     self.builder.build_return(None)?;
@@ -2364,10 +2361,10 @@ impl<'ctx> CodeGen<'ctx> {
 
             // 最後の文の型をチェックする。
             match last_stmt {
-                Some(AST::Return(None, _)) => {
-                    return Err(Box::new(CodeGenError::no_return_for_type(None, &fn_type.get_return_type())));
+                Some(AST::Return(None, pos)) => {
+                    return Err(Box::new(CodeGenError::no_return_for_type(pos.clone(), &fn_type.get_return_type())));
                 },
-                Some(AST::Return(Some(_expr), _)) => {
+                Some(AST::Return(Some(_expr), _pos)) => {
                     // let expr_type = expr.get_type(env)?.to_basic_type_enum(self.context)?;
                     // if ret_type != expr_type {
                         // return Err(Box::new(CompileError::return_type_mismatch(None, ret_type.clone(), expr_type.clone())));
@@ -2375,10 +2372,10 @@ impl<'ctx> CodeGen<'ctx> {
 
                     Ok(())
                 },
-                Some(AST::If(_cond, _then, _else)) => {
+                Some(AST::If(_cond, _then, _else, pos)) => {
                     let typ = self.calc_ret_type(last_stmt.unwrap(), env)?;
                     if typ.is_void() {
-                        Err(Box::new(CodeGenError::return_type_mismatch(None, ret_type.clone(), Type::Void)))
+                        Err(Box::new(CodeGenError::return_type_mismatch(pos.clone(), ret_type.clone(), Type::Void)))
                     }else{
                         if *ret_type == typ {
                             // 最後の文が、ifのとき、ラベルif.endの後にコードが生成されないのでセグフォが起きることへのケア
@@ -2386,7 +2383,7 @@ impl<'ctx> CodeGen<'ctx> {
 
                             Ok(())
                         }else{
-                            Err(Box::new(CodeGenError::return_type_mismatch(None, ret_type.clone(), typ)))
+                            Err(Box::new(CodeGenError::return_type_mismatch(pos.clone(), ret_type.clone(), typ)))
                         }
 
                     }
@@ -2395,12 +2392,12 @@ impl<'ctx> CodeGen<'ctx> {
                     // if let Some(typ) = self.calc_ret_type(stmt, env)? {
                     let typ = self.calc_ret_type(stmt, env)?;
                     if typ.is_void() {
-                        Err(Box::new(CodeGenError::return_type_mismatch(None, ret_type.clone(), Type::Void)))
+                        Err(Box::new(CodeGenError::return_type_mismatch(stmt.get_position().clone(), ret_type.clone(), Type::Void)))
                     }else{
                         if *ret_type == typ {
                             Ok(())
                         }else{
-                            Err(Box::new(CodeGenError::return_type_mismatch(None, ret_type.clone(), typ)))
+                            Err(Box::new(CodeGenError::return_type_mismatch(stmt.get_position().clone(), ret_type.clone(), typ)))
                         }
                     }
 
@@ -2416,26 +2413,25 @@ impl<'ctx> CodeGen<'ctx> {
     // fn calc_ret_type(&self, stmt: &AST, env: &Env) -> Result<Option<BasicTypeEnum>, Box<dyn Error>> {
     fn calc_ret_type(&self, stmt: &AST, env: &Env) -> Result<Type, Box<dyn Error>> {
         match stmt {
-            AST::Return(None, _) => {
+            AST::Return(None, _pos) => {
                 Ok(Type::Void)
             },
-            AST::Return(Some(expr), _) => {
+            AST::Return(Some(expr), _pos) => {
                 let typ = TypeUtil::get_type(&**expr, env)?;
                 // let expr_type = TypeUtil::to_basic_type_enum(&typ, self.context)?;
                 Ok(typ)
             },
-            AST::If(_cond, if_then, if_else) => {
+            AST::If(_cond, if_then, if_else, pos) => {
                 let then_type = self.calc_ret_type(if_then, env)?;
 
-                // if let Some(typ1) = then_type {
                 if then_type.is_void() {
                     if let Some(else_expr) = if_else {
                         let else_type = self.calc_ret_type(else_expr, env)?;
-                        // if let Some(_typ) = else_type {
+
                         if else_type.is_void() {
                             Ok(Type::Void)
                         }else{
-                            Err(Box::new(CodeGenError::mismatch_type_in_if(None, then_type, else_type)))
+                            Err(Box::new(CodeGenError::mismatch_type_in_if(pos.clone(), then_type, else_type)))
                         }
 
                     }else{
@@ -2446,17 +2442,17 @@ impl<'ctx> CodeGen<'ctx> {
                     if let Some(else_expr) = if_else {
                         let else_type = self.calc_ret_type(else_expr, env)?;
                         if else_type.is_void() {
-                            Err(Box::new(CodeGenError::mismatch_type_in_if(None, then_type, else_type)))
+                            Err(Box::new(CodeGenError::mismatch_type_in_if(pos.clone(), then_type, else_type)))
                         }else{
                             Ok(else_type)
                         }
 
                     }else{
-                        Err(Box::new(CodeGenError::mismatch_type_in_if(None, then_type, Type::Void)))
+                        Err(Box::new(CodeGenError::mismatch_type_in_if(pos.clone(), then_type, Type::Void)))
                     }
                 }
             },
-            AST::Block(blk) => {
+            AST::Block(blk, _pos) => {
                 let mut typ = Type::Void;
 
                 for e in &blk.body {
@@ -2481,8 +2477,8 @@ impl<'ctx> CodeGen<'ctx> {
         }
     }
 
-    fn make_function_type(&self, ret_type: &Type, params: &Params, _env: &Env<'ctx>) -> Result<FunctionType<'ctx>, Box<dyn Error>> {
-        let ret_t = TypeUtil::to_llvm_any_type(ret_type, self.context)?;
+    fn make_function_type(&self, ret_type: &Type, params: &Params, _env: &Env<'ctx>, pos: &Position) -> Result<FunctionType<'ctx>, Box<dyn Error>> {
+        let ret_t = TypeUtil::to_llvm_any_type(ret_type, self.context, pos)?;
         let has_variadic = params.has_variadic();
 
         let mut arg_type_vec = Vec::new();
@@ -2490,7 +2486,7 @@ impl<'ctx> CodeGen<'ctx> {
         if let Some(cust_self) = params.get_self() {
             let typ = cust_self.get_type();
             let typ = Type::new_pointer_type(typ.clone(), false, false);
-            let t = TypeUtil::to_llvm_type(&typ, self.context)?;
+            let t = TypeUtil::to_llvm_type(&typ, self.context, pos)?;
 
             arg_type_vec.push(t);
         }
@@ -2498,7 +2494,7 @@ impl<'ctx> CodeGen<'ctx> {
         for ds in params.get_params() {
             let typ = ds.get_type();
 
-            let t = TypeUtil::to_llvm_type(&typ, self.context)?;
+            let t = TypeUtil::to_llvm_type(&typ, self.context, pos)?;
             arg_type_vec.push(t);
         }
         let params_type = &arg_type_vec;  // get slice
@@ -2528,7 +2524,7 @@ impl<'ctx> CodeGen<'ctx> {
             // AnyTypeEnum::FunctionType(t) => {
             //     Ok(t.fn_type(&params_type, false))
             // },
-            _ => Err(Box::new(CodeGenError::cannot_make_fn_type(None))),
+            _ => Err(Box::new(CodeGenError::cannot_make_fn_type(pos.clone()))),
         }
     }
 }
@@ -2585,7 +2581,7 @@ mod tests {
         gen_prologue(&gen, fn_name, fn_type);
 
         let mut env = Env::new();
-        let value = gen.gen_expr(&ast, &mut env, None, None)?.ok_or(CodeGenError::illegal_end_of_input(None))?;
+        let value = gen.gen_expr(&ast, &mut env, None, None)?.ok_or(CodeGenError::illegal_end_of_input(Position::new(1, 1)))?;
         let result = value.get_value();
         let func = match result {
             AnyValueEnum::IntValue(_) => {

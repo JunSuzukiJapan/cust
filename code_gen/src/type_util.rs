@@ -2,8 +2,6 @@ use crate::parser::{Type, NumberType, Pointer, BinOp, Position};
 use crate::Env;
 use inkwell::context::Context;
 use std::error::Error;
-use std::ops::Add;
-use std::ptr;
 use inkwell::types::{BasicTypeEnum, AnyTypeEnum, BasicType, BasicMetadataTypeEnum, IntType, PointerType};
 use inkwell::AddressSpace;
 use inkwell::types::AnyType;
@@ -28,7 +26,7 @@ impl TypeUtil {
         }
     }
 
-    pub fn to_basic_type_enum<'a>(typ: &Type, ctx: &'a Context) -> Result<BasicTypeEnum<'a>, Box<dyn Error>> {
+    pub fn to_basic_type_enum<'a>(typ: &Type, ctx: &'a Context, pos: &Position) -> Result<BasicTypeEnum<'a>, Box<dyn Error>> {
         match typ {
             Type::Number(NumberType::_Bool)  => Ok(BasicTypeEnum::IntType(ctx.bool_type())),
             Type::Number(NumberType::Char)   => Ok(BasicTypeEnum::IntType(ctx.i8_type())),
@@ -43,7 +41,7 @@ impl TypeUtil {
             Type::Number(NumberType::UnsignedShort)  => Ok(BasicTypeEnum::IntType(ctx.i16_type())),
             // Type::Void   => Ok(BasicTypeEnum::VoidType(ctx.void_type())),
             Type::Pointer(_p, to_type) => {
-                let typ = Self::to_llvm_any_type(typ, ctx)?;
+                let typ = Self::to_llvm_any_type(typ, ctx, pos)?;
 
                 if typ.is_int_type() {
                     // Ok(typ.into_int_type().ptr_type(AddressSpace::default()).into())
@@ -70,12 +68,12 @@ impl TypeUtil {
                 }else if typ.is_struct_type() {
                     Ok(typ.into_struct_type().ptr_type(AddressSpace::default()).into())
                 }else{
-                    Err(Box::new(CodeGenError::illegal_type_for_pointer(None, &to_type)))
+                    Err(Box::new(CodeGenError::illegal_type_for_pointer(pos.clone(), &to_type)))
                 }
 
             },
             Type::Array { name: _, typ: type2, opt_size_list } => {
-                let mut to_type = Self::to_basic_type_enum(type2, ctx)?;
+                let mut to_type = Self::to_basic_type_enum(type2, ctx, pos)?;
 
                 for opt_size in opt_size_list.iter().rev() {
                     let size = if let Some(sz) = opt_size {
@@ -98,18 +96,18 @@ impl TypeUtil {
                 unimplemented!()
             },
             Type::Struct { name, fields } => {
-                let (struct_type, _index_map) = CodeGen::struct_from_struct_definition(name, fields, ctx)?;
+                let (struct_type, _index_map) = CodeGen::struct_from_struct_definition(name, fields, ctx, pos)?;
                 Ok(BasicTypeEnum::StructType(struct_type))
             },
             Type::Union { name, fields } => {
-                let (_union_type, _index_map, _max_size, max_size_type) = CodeGen::union_from_struct_definition(name, fields, ctx)?;
+                let (_union_type, _index_map, _max_size, max_size_type) = CodeGen::union_from_struct_definition(name, fields, ctx, pos)?;
                 if let Some(typ) = max_size_type {
                     Ok(typ)
                 }else{
                     if let Some(id) = name {
-                        Err(Box::new(CodeGenError::union_has_no_field(None, Some(id.to_string()))))
+                        Err(Box::new(CodeGenError::union_has_no_field(pos.clone(), Some(id.to_string()))))
                     }else{
-                        Err(Box::new(CodeGenError::union_has_no_field(None, None)))
+                        Err(Box::new(CodeGenError::union_has_no_field(pos.clone(), None)))
                     }
                 }
             },
@@ -120,17 +118,17 @@ impl TypeUtil {
                 unimplemented!()
             },
             _ => {
-                Err(Box::new(CodeGenError::cannot_convert_to_basic_type(typ.to_string(), None)))
+                Err(Box::new(CodeGenError::cannot_convert_to_basic_type(typ.to_string(), pos.clone())))
             },
         }
     }
 
     #[inline]
-    pub fn to_llvm_type<'a>(typ: &Type, ctx: &'a Context) -> Result<BasicMetadataTypeEnum<'a>, Box<dyn Error>> {
-        Ok(Self::to_basic_type_enum(typ, ctx)?.into())
+    pub fn to_llvm_type<'a>(typ: &Type, ctx: &'a Context, pos: &Position) -> Result<BasicMetadataTypeEnum<'a>, Box<dyn Error>> {
+        Ok(Self::to_basic_type_enum(typ, ctx, pos)?.into())
     }
 
-    pub fn to_llvm_any_type<'a>(typ: &Type, ctx: &'a Context) -> Result<AnyTypeEnum<'a>, Box<dyn Error>> {
+    pub fn to_llvm_any_type<'a>(typ: &Type, ctx: &'a Context, pos: &Position) -> Result<AnyTypeEnum<'a>, Box<dyn Error>> {
         match typ {
             Type::Number(NumberType::Char)   => Ok(AnyTypeEnum::IntType(ctx.i8_type())),
             Type::Number(NumberType::Short)  => Ok(AnyTypeEnum::IntType(ctx.i16_type())),
@@ -149,14 +147,14 @@ impl TypeUtil {
                 }else{
                     None
                 };
-                let (struct_type, _tbl) = CodeGen::struct_from_struct_definition(&name, &fields, ctx)?;
+                let (struct_type, _tbl) = CodeGen::struct_from_struct_definition(&name, &fields, ctx, pos)?;
                 Ok(struct_type.as_any_type_enum())
             },
             Type::Symbol(_name) => {
                 unimplemented!("'{}' to AnyTypeEnum", typ.to_string())
             },
             Type::Pointer(_ptr, typ) => {
-                let ptr_type = Self::make_llvm_ptr_type(typ, ctx)?;
+                let ptr_type = Self::make_llvm_ptr_type(typ, ctx, pos)?;
                 Ok(AnyTypeEnum::PointerType(ptr_type))
             },
             _ => {
@@ -165,7 +163,7 @@ impl TypeUtil {
         }
     }
 
-    fn make_llvm_ptr_type<'a>(typ: &Type, ctx: &'a Context) -> Result<PointerType<'a>, Box<dyn Error>> {
+    fn make_llvm_ptr_type<'a>(typ: &Type, ctx: &'a Context, pos: &Position) -> Result<PointerType<'a>, Box<dyn Error>> {
         match typ {
             Type::Number(NumberType::Char)   => Ok(ctx.i8_type().ptr_type(AddressSpace::default())),
             Type::Number(NumberType::Short)  => Ok(ctx.i16_type().ptr_type(AddressSpace::default())),
@@ -184,11 +182,11 @@ impl TypeUtil {
                 }else{
                     None
                 };
-                let (struct_type, _tbl) = CodeGen::struct_from_struct_definition(&name, &fields, ctx)?;
+                let (struct_type, _tbl) = CodeGen::struct_from_struct_definition(&name, &fields, ctx, pos)?;
                 Ok(struct_type.ptr_type(AddressSpace::default()))
             },
             Type::Pointer(_ptr, typ) => {
-                let ptr_type = Self::make_llvm_ptr_type(typ, ctx)?;
+                let ptr_type = Self::make_llvm_ptr_type(typ, ctx, pos)?;
                 Ok(ptr_type.ptr_type(AddressSpace::default()))
             },
             _ => {
@@ -235,35 +233,35 @@ impl TypeUtil {
                 let typ = Self::get_type(&expr, env)?;
                 Ok(typ)
             },
-            ExprAST::Symbol(name, _pos) => {
-                let typ = env.get_type_by_id(&name).ok_or(CodeGenError::no_such_a_variable(None, &name))?;
+            ExprAST::Symbol(name, pos) => {
+                let typ = env.get_type_by_id(&name).ok_or(CodeGenError::no_such_a_variable(pos.clone(), &name))?;
                 Ok(typ.clone())
             },
-            ExprAST::_Self(_pos) => {
-                let (typ, _expr) = env.get_ptr("Self").ok_or(CodeGenError::access_self_type_without_impl(None))?;
+            ExprAST::_Self(pos) => {
+                let (typ, _expr) = env.get_ptr("Self").ok_or(CodeGenError::access_self_type_without_impl(pos.clone()))?;
                 Ok(typ.clone())
             },
-            ExprAST::_self(_pos) => {
-                let (typ, _expr) = env.get_ptr("self").ok_or(CodeGenError::access_self_without_impl(None))?;
+            ExprAST::_self(pos) => {
+                let (typ, _expr) = env.get_ptr("self").ok_or(CodeGenError::access_self_without_impl(pos.clone()))?;
                 Ok(typ.clone())
             },
             ExprAST::Not(_expr, _pos) => Ok(Type::Number(NumberType::_Bool)),
             // ExprAST::ExpressionPair(_, right, _pos) => TypeUtil::get_type(&right, env),
             ExprAST::Cast(typ, _, _pos) => Ok(typ.clone()),
-            ExprAST::PreInc(name, _sym_pos, _pos) => {
-                let typ = env.get_type_by_id(&name).ok_or(CodeGenError::no_such_a_variable(None, &name))?;
+            ExprAST::PreInc(name, _sym_pos, pos) => {
+                let typ = env.get_type_by_id(&name).ok_or(CodeGenError::no_such_a_variable(pos.clone(), &name))?;
                 Ok(typ.clone())
             },
-            ExprAST::PreDec(name, _sym_pos, _pos) => {
-                let typ = env.get_type_by_id(&name).ok_or(CodeGenError::no_such_a_variable(None, &name))?;
+            ExprAST::PreDec(name, _sym_pos, pos) => {
+                let typ = env.get_type_by_id(&name).ok_or(CodeGenError::no_such_a_variable(pos.clone(), &name))?;
                 Ok(typ.clone())
             },
-            ExprAST::PostInc(name, _sym_pos, _pos) => {
-                let typ = env.get_type_by_id(&name).ok_or(CodeGenError::no_such_a_variable(None, &name))?;
+            ExprAST::PostInc(name, _sym_pos, pos) => {
+                let typ = env.get_type_by_id(&name).ok_or(CodeGenError::no_such_a_variable(pos.clone(), &name))?;
                 Ok(typ.clone())
             },
-            ExprAST::PostDec(name, _sym_pos, _pos) => {
-                let typ = env.get_type_by_id(&name).ok_or(CodeGenError::no_such_a_variable(None, &name))?;
+            ExprAST::PostDec(name, _sym_pos, pos) => {
+                let typ = env.get_type_by_id(&name).ok_or(CodeGenError::no_such_a_variable(pos.clone(), &name))?;
                 Ok(typ.clone())
             },
             ExprAST::PreIncMemberAccess(expr, _pos) => {
@@ -283,11 +281,11 @@ impl TypeUtil {
                 let t = TypeUtil::get_type(ast, env)?;
                 Ok(Type::new_pointer_type(t, false, false))
             },
-            ExprAST::UnaryPointerAccess(boxed_ast, _pos) => {  // *pointer
+            ExprAST::UnaryPointerAccess(boxed_ast, pos) => {  // *pointer
                 let ast = &**boxed_ast;
                 match ast {
                     ExprAST::Symbol(name, pos2) => {
-                        let (typ, _ptr) = env.get_ptr(name).ok_or(CodeGenError::no_such_a_variable(None, name))?;
+                        let (typ, _ptr) = env.get_ptr(name).ok_or(CodeGenError::no_such_a_variable(pos.clone(), name))?;
                         match typ {
                             Type::Pointer(_p, t) => {
                                 Ok(*t.clone())
@@ -298,16 +296,16 @@ impl TypeUtil {
                     _ => unimplemented!(),
                 }
             },
-            ExprAST::MemberAccess(boxed_ast, field_name, _pos) => {
+            ExprAST::MemberAccess(boxed_ast, field_name, pos) => {
                 let ast = &*boxed_ast;
                 let typ = TypeUtil::get_type(ast, env)?;
                 match typ {
                     Type::Struct { name: _, fields } => {
-                        let t = fields.get_type(&field_name).ok_or(CodeGenError::type_has_not_member(None, &field_name))?;
+                        let t = fields.get_type(&field_name).ok_or(CodeGenError::type_has_not_member(pos.clone(), &field_name))?;
                         Ok(t.clone())
                     },
                     Type::Union { name: _, fields } => {
-                        let t = fields.get_type(&field_name).ok_or(CodeGenError::type_has_not_member(None, &field_name))?;
+                        let t = fields.get_type(&field_name).ok_or(CodeGenError::type_has_not_member(pos.clone(), &field_name))?;
                         Ok(t.clone())
                     },
                     Type::Enum { name: _, enum_def: _ } => {
@@ -316,19 +314,19 @@ impl TypeUtil {
 
                         unimplemented!()
                     },
-                    _ => return Err(CodeGenError::type_has_not_member(None, &format!("{:?}", &typ))),
+                    _ => return Err(CodeGenError::type_has_not_member(pos.clone(), &format!("{:?}", &typ))),
                 }
             },
-            ExprAST::PointerAccess(boxed_ast, field_name, _pos) => {
+            ExprAST::PointerAccess(boxed_ast, field_name, pos) => {
                 let ast = &*boxed_ast;
                 let typ = TypeUtil::get_type(ast, env)?;
                 match typ {
                     Type::Struct { name: _, fields } => {
-                        let t = fields.get_type(&field_name).ok_or(CodeGenError::type_has_not_member(None, &field_name))?;
+                        let t = fields.get_type(&field_name).ok_or(CodeGenError::type_has_not_member(pos.clone(), &field_name))?;
                         Ok(t.clone())
                     },
                     Type::Union { name: _, fields } => {
-                        let t = fields.get_type(&field_name).ok_or(CodeGenError::type_has_not_member(None, &field_name))?;
+                        let t = fields.get_type(&field_name).ok_or(CodeGenError::type_has_not_member(pos.clone(), &field_name))?;
                         Ok(t.clone())
                     },
                     Type::Enum { name: _, enum_def: _ } => {
@@ -337,7 +335,7 @@ impl TypeUtil {
 
                         unimplemented!()
                     },
-                    _ => return Err(CodeGenError::type_has_not_member(None, &format!("{:?}", &typ))),
+                    _ => return Err(CodeGenError::type_has_not_member(pos.clone(), &format!("{:?}", &typ))),
                 }
             },
             ExprAST::TernaryOperator(_, e1, _, _pos) => {

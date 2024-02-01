@@ -300,6 +300,11 @@ impl Declarator {
     }
 
     #[inline]
+    pub fn get_position(&self) -> &Position {
+        &self.direct_declarator.get_position()
+    }
+
+    #[inline]
     pub fn get_pointer(&self) -> &Option<Pointer> {
         &self.pointer
     }
@@ -326,29 +331,38 @@ impl Declarator {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum DirectDeclarator {
-    Symbol(String),
-    Enclosed(Declarator),
-    ArrayDef(Box<DirectDeclarator>, Vec<Option<ConstExpr>>),
-    FunctionDef(Box<DirectDeclarator>, Params),
+    Symbol(String, Position),
+    Enclosed(Declarator, Position),
+    ArrayDef(Box<DirectDeclarator>, Vec<Option<ConstExpr>>, Position),
+    FunctionDef(Box<DirectDeclarator>, Params, Position),
 }
 
 impl DirectDeclarator {
     pub fn get_name(&self) -> &str {
         match self {
-            Self::Symbol(id) => &id,
-            Self::Enclosed(decl) => decl.get_name(),
-            Self::ArrayDef(decl, _) => (**decl).get_name(),
-            Self::FunctionDef(decl, _) => (**decl).get_name(),
+            Self::Symbol(id, _pos) => &id,
+            Self::Enclosed(decl, _pos) => decl.get_name(),
+            Self::ArrayDef(decl, _, _pos) => (**decl).get_name(),
+            Self::FunctionDef(decl, _, _pos) => (**decl).get_name(),
         }
     }
 
     pub fn make_array_type(&self, typ: &Type) -> Type {
         match self {
-            Self::ArrayDef(dd, opt_size_list) => {
+            Self::ArrayDef(dd, opt_size_list, _pos) => {
                 let t = dd.make_array_type(typ);
                 Type::Array { name: None, typ: Box::new(t.clone()), opt_size_list: opt_size_list.clone() }
             },
             _ => typ.clone(),
+        }
+    }
+
+    pub fn get_position(&self) -> &Position {
+        match self {
+            Self::ArrayDef(_, _, pos) => pos,
+            Self::Enclosed(_, pos) => pos,
+            Self::FunctionDef(_, _, pos) => pos,
+            Self::Symbol(_, pos) => pos,
         }
     }
 }
@@ -582,13 +596,15 @@ impl FunOrProto {
 pub struct Case {
     cond: ConstExpr,
     stmt: Box<AST>,
+    pos: Position,
 }
 
 impl Case {
-    pub fn new(cond: ConstExpr, stmt: Box<AST>) -> Case {
+    pub fn new(cond: ConstExpr, stmt: Box<AST>, pos: Position) -> Case {
         Case {
             cond,
             stmt,
+            pos,
         }
     }
 
@@ -598,6 +614,10 @@ impl Case {
 
     pub fn get_stmt(&self) -> &AST {
         &&self.stmt
+    }
+
+    pub fn get_position(&self) -> &Position {
+        &self.pos
     }
 }
 
@@ -1070,72 +1090,79 @@ impl ExprAST {
 #[allow(non_camel_case_types)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum AST {
-    TypeDef(String, Type),
+    TypeDef(String, Type, Position),
     DefineStruct {
         name: Option<String>,
         fields: StructDefinition,
+        pos: Position,
     },
     DefineUnion {
         name: Option<String>,
         fields: StructDefinition,
+        pos: Position,
     },
     DefineEnum {
         name: Option<String>,
         fields: EnumDefinition,
+        pos: Position,
     },
     Impl {
         name: String,
         typ: Type,
         for_type: Option<String>,
         functions: Vec<FunOrProto>,
+        pos: Position,
     },
     DefVar {
         specifiers: DeclarationSpecifier,
         declarations: Vec<Declaration>,
+        pos: Position,
     },
     GlobalDefVar {
         specifiers: DeclarationSpecifier,
         declaration: Vec<Declaration>,
+        pos: Position,
     },
-    Function(Function),
-    FunProto(FunProto),
-    Block(Block),
-    Expr(Box<ExprAST>),
+    Function(Function, Position),
+    FunProto(FunProto, Position),
+    Block(Block, Position),
+    Expr(Box<ExprAST>, Position),
     Return(Option<Box<ExprAST>>, Position),
-    Labeled(String, Option<Box<AST>>),
-    Case(Case),
-    Default(Box<AST>),
-    Switch(Switch),
-    If(Box<ExprAST>, Box<AST>, Option<Box<AST>>),
+    Labeled(String, Option<Box<AST>>, Position),
+    Case(Case, Position),
+    Default(Box<AST>, Position),
+    Switch(Switch, Position),
+    If(Box<ExprAST>, Box<AST>, Option<Box<AST>>, Position),
     Loop {
         init_expr: Option<Box<ExprAST>>,
         pre_condition: Option<Box<ExprAST>>,
         body: Option<Box<AST>>,
         update_expr: Option<Box<ExprAST>>,
         post_condition: Option<Box<ExprAST>>,
+        pos: Position,
     },
-    Break,
-    Continue,
-    Goto(String),
-    _Self,
-    _self,
+    Break(Position),
+    Continue(Position),
+    Goto(String, Position),
+    _Self(Position),
+    _self(Position),
 }
 
 impl AST {
-    pub fn new_impl(impl_name: &str, impl_type: Type, for_something: Option<String>, functions: Vec<FunOrProto>) -> AST {
-        AST::Impl { name: impl_name.to_string(), typ: impl_type, for_type: for_something, functions: functions }
+    pub fn new_impl(impl_name: &str, impl_type: Type, for_something: Option<String>, functions: Vec<FunOrProto>, pos: &Position) -> AST {
+        AST::Impl { name: impl_name.to_string(), typ: impl_type, for_type: for_something, functions: functions, pos: pos.clone() }
     }
 
     pub fn is_block(&self) -> bool {
         match self {
-            AST::Block(_) => true,
+            AST::Block(_, _pos) => true,
             _ => false,
         }
     }
 
     pub fn get_block(&self, pos: &Position) -> Result<&Block, ParserError> {
         match self {
-            AST::Block(blk) => Ok(blk),
+            AST::Block(blk, _pos) => Ok(blk),
             _ => Err(ParserError::cannot_get_block(pos.clone())),
         }
     }
@@ -1149,23 +1176,51 @@ impl AST {
 
     pub fn get_def_var(&self, pos: &Position) -> Result<(&DeclarationSpecifier, &Vec<Declaration>), ParserError> {
         match self {
-            AST::DefVar{specifiers, declarations: declaration} => {
+            AST::DefVar{specifiers, declarations: declaration, pos: _} => {
                 Ok((specifiers, declaration))
             },
             _ => Err(ParserError::not_defvar_when_get(pos.clone())),
         }
     }
+
+    pub fn get_position(&self) -> &Position {
+        match self {
+            AST::Block(_, pos) => pos,
+            AST::Break(pos) => pos,
+            AST::Case(_, pos) => pos,
+            AST::Continue(pos) => pos,
+            AST::DefVar { specifiers: _, declarations: _, pos } => pos,
+            AST::Default(_, pos) => pos,
+            AST::DefineEnum { name: _, fields: _, pos } => pos,
+            AST::DefineStruct { name: _, fields: _, pos } => pos,
+            AST::DefineUnion { name: _, fields: _, pos } => pos,
+            AST::Expr(_, pos) => pos,
+            AST::FunProto(_, pos) => pos,
+            AST::Function(_, pos) => pos,
+            AST::GlobalDefVar { specifiers: _, declaration: _, pos } => pos,
+            AST::Goto(_, pos) => pos,
+            AST::If(_, _, _, pos) => pos,
+            AST::Impl { name: _, typ: _, for_type: _, functions: _, pos } => pos,
+            AST::Labeled(_, _, pos) => pos,
+            AST::Loop { init_expr: _, pre_condition: _, body: _, update_expr: _, post_condition: _, pos } => pos,
+            AST::Return(_, pos) => pos,
+            AST::Switch(_, pos) => pos,
+            AST::_Self(pos) => pos,
+            AST::_self(pos) => pos,
+            AST::TypeDef(_, _, pos) => pos,
+        }
+    }
  }
 
  #[derive(Debug, Clone, PartialEq)]
- pub struct Param (DeclarationSpecifier, Declarator);
+ pub struct Param (DeclarationSpecifier, Declarator, Position);
 
  impl Param {
     pub fn new(ds: DeclarationSpecifier, decl: Declarator, defs: &mut Defines, pos: &Position) -> Result<Param, ParserError> {
         let typ = ds.get_type();
         let name = decl.get_name();
         defs.set_var(name, typ, None, pos)?;
-        Ok(Param(ds, decl))
+        Ok(Param(ds, decl, pos.clone()))
     }
 
     pub fn get_type(&self) -> Type {
@@ -1175,6 +1230,11 @@ impl AST {
 
     pub fn get_name(&self) -> &str {
         self.1.get_name()
+    }
+
+    #[inline]
+    pub fn get_position(&self) -> &Position {
+        &self.2
     }
  }
 
