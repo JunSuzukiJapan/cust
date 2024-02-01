@@ -139,7 +139,7 @@ impl<'ctx> CodeGen<'ctx> {
                     let real_ret_type = real_ret.get_type();
 
                     if required_ret_type != real_ret_type {
-                        let casted = self.gen_implicit_cast(&real_ret.get_value(), &real_ret_type, &required_ret_type)?;
+                        let casted = self.gen_implicit_cast(&real_ret.get_value(), &real_ret_type, &required_ret_type, expr.get_position())?;
                         real_ret = CompiledValue::new(real_ret.get_type().clone(), casted);
                     }
 
@@ -761,7 +761,7 @@ impl<'ctx> CodeGen<'ctx> {
                         let init_type = compiled_value.get_type();
 
                         if typ != *init_type {
-                            init_value = self.gen_implicit_cast(&init_value, &init_type, &typ)?;
+                            init_value = self.gen_implicit_cast(&init_value, &init_type, &typ, ast.get_position())?;
                         }
 
                         let basic_value = self.try_as_basic_value(&init_value, ast.get_position())?;
@@ -1065,8 +1065,8 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(None)
     }
 
-    fn gen_implicit_cast(&self, value: &AnyValueEnum<'ctx>, from_type: &Type, to_type: &Type) -> Result<AnyValueEnum<'ctx>, Box<dyn Error>> {
-        Caster::gen_implicit_cast(&self.builder, &self.context, value, from_type, to_type)
+    fn gen_implicit_cast(&self, value: &AnyValueEnum<'ctx>, from_type: &Type, to_type: &Type, pos: &Position) -> Result<AnyValueEnum<'ctx>, Box<dyn Error>> {
+        Caster::gen_implicit_cast(&self.builder, &self.context, value, from_type, to_type, pos)
     }
 
     #[cfg(test)]

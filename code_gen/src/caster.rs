@@ -7,12 +7,13 @@ use inkwell::values::{AnyValueEnum, AnyValue, BasicValueEnum};
 use parser::{NumberType, ExprAST};
 use super::type_util::TypeUtil;
 use super::CodeGenError;
+use crate::Position;
 use std::error::Error;
 
 pub struct Caster;
 
 impl Caster {
-    pub fn gen_implicit_cast<'ctx>(builder: &Builder<'ctx>, ctx: &'ctx Context, value: &AnyValueEnum<'ctx>, from_type: &Type, to_type: &Type) -> Result<AnyValueEnum<'ctx>, Box<dyn Error>> {
+    pub fn gen_implicit_cast<'ctx>(builder: &Builder<'ctx>, ctx: &'ctx Context, value: &AnyValueEnum<'ctx>, from_type: &Type, to_type: &Type, pos: &Position) -> Result<AnyValueEnum<'ctx>, Box<dyn Error>> {
         match (from_type, to_type) {
             //
             // same types
@@ -725,16 +726,11 @@ impl Caster {
                 let result = value.into_int_value().const_signed_to_float(f64_type);
                 Ok(result.as_any_value_enum())
             },
-
-
-
-            _ => unimplemented!("from type: '{}', to type: '{}'", from_type, to_type),
+            _ => Err(Box::new(CodeGenError::cannot_implicit_cast(from_type.clone(), to_type.clone(), pos.clone())))
         }
     }
 
     pub fn gen_cast<'ctx>(builder: &Builder<'ctx>, ctx: &'ctx Context, value: &AnyValueEnum<'ctx>, from_type: &Type, to_type: &Type, expr: &ExprAST) -> Result<AnyValueEnum<'ctx>, Box<dyn Error>> {
-
-
         match (from_type, to_type) {
             //
             // same types
@@ -1461,10 +1457,7 @@ impl Caster {
 
                 Ok(result.as_any_value_enum())
             },
-
-
-
-            _ => unimplemented!("from type: '{}', to type: '{}'", from_type, to_type),
+            _ => Err(Box::new(CodeGenError::cannot_cast(from_type.clone(), to_type.clone(), expr.get_position().clone()))),
         }
     }
         

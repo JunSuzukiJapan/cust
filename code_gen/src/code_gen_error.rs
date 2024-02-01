@@ -83,6 +83,8 @@ pub enum CodeGenError {
     CannotConvertToBasicValue(ExprAST, Position),
     CannotConvertToBasicType(String, Position),
     NotFunction(String, Position),
+    CannotImplicitCast(Type, Type, Position),
+    CannotCast(Type, Type, Position),
 }
 
 impl CodeGenError {
@@ -354,6 +356,14 @@ impl CodeGenError {
 
     pub fn not_function(name: &str, pos: Position) -> Self {
         Self::NotFunction(name.to_string(), pos)
+    }
+
+    pub fn cannot_implicit_cast(from_type: Type, to_type: Type, pos: Position) -> Self {
+        Self::CannotImplicitCast(from_type, to_type, pos)
+    }
+
+    pub fn cannot_cast(from_type: Type, to_type: Type, pos: Position) -> Self {
+        Self::CannotImplicitCast(from_type, to_type, pos)
     }
 }
 
