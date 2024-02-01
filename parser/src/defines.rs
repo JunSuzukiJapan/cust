@@ -361,10 +361,8 @@ impl Defines {
 
                     if let Some(obj) = map.get(name) {
                         match obj {
-                            DefineType::Enum {..} => {
-            
-            
-                                unimplemented!()
+                            DefineType::Enum {enum_type} => {
+                                return Some(enum_type);
                             },
                             DefineType::Struct {struct_type} => {
                                 return Some(&struct_type);
@@ -388,10 +386,8 @@ impl Defines {
         // check globals
         if let Some(obj) = self.global_maps.type_map.get(name) {
             match obj {
-                DefineType::Enum {..} => {
-
-
-                    unimplemented!()
+                DefineType::Enum {enum_type} => {
+                    Some(enum_type)
                 },
                 DefineType::Struct {struct_type} => {
                     Some(&struct_type)
@@ -424,10 +420,8 @@ impl Defines {
 
                     if let Some(obj) = map.get(name) {
                         match obj {
-                            DefineType::Enum {..} => {
-            
-            
-                                unimplemented!()
+                            DefineType::Enum {enum_type} => {
+                                return Some(&enum_type);
                             },
                             DefineType::Struct {struct_type} => {
                                 return Some(&struct_type);
@@ -442,10 +436,8 @@ impl Defines {
         // check globals
         if let Some(obj) = self.global_maps.struct_map.get(name) {
             match obj {
-                DefineType::Enum {..} => {
-
-
-                    unimplemented!()
+                DefineType::Enum {enum_type} => {
+                    Some(&enum_type)
                 },
                 DefineType::Struct {struct_type} => {
                     Some(&struct_type)

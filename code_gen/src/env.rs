@@ -427,12 +427,7 @@ impl<'ctx> Env<'ctx> {
                 }
             },
             Type::Enum { name: _, enum_def: _ } => {
-
-
-
-
-
-                unimplemented!()
+                Ok(BasicTypeEnum::IntType(ctx.i32_type()))
             },
             _ => {
                 Ok(TypeUtil::to_basic_type_enum(typ, ctx, pos)?)
