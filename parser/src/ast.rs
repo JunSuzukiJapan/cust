@@ -913,18 +913,30 @@ impl ExprAST {
                         }
                     },
                     BinOp::And => {
+                        let e1 = left.to_const(defs, pos)?;
+                        let e2 = right.to_const(defs, pos)?;
+                        let const2 = ConstExpr::Int(2, pos.clone());
+                        let e3 = ((e1 % const2.clone()) & (e2 % const2))?;
+                        let flag = e3 != ConstExpr::Int(0, pos.clone());
 
-
-
-
-                        unimplemented!()
+                        if flag {
+                            Ok(ConstExpr::Int(1, pos.clone()))
+                        }else{
+                            Ok(ConstExpr::Int(0, pos.clone()))
+                        }
                     },
                     BinOp::Or => {
+                        let e1 = left.to_const(defs, pos)?;
+                        let e2 = right.to_const(defs, pos)?;
+                        let const2 = ConstExpr::Int(2, pos.clone());
+                        let e3 = ((e1 % const2.clone()) | (e2 % const2))?;
+                        let flag = e3 != ConstExpr::Int(0, pos.clone());
 
-
-
-
-                        unimplemented!()
+                        if flag {
+                            Ok(ConstExpr::Int(1, pos.clone()))
+                        }else{
+                            Ok(ConstExpr::Int(0, pos.clone()))
+                        }
                     },
                 }
             },
