@@ -644,136 +644,6 @@ impl Type {
         }
     }
 
-    // pub fn to_basic_type_enum<'a>(&self, ctx: &'a Context) -> Result<BasicTypeEnum<'a>, ParserError> {
-    //     match self {
-    //         Type::Number(NumberType::_Bool)  => Ok(BasicTypeEnum::IntType(ctx.bool_type())),
-    //         Type::Number(NumberType::Char)   => Ok(BasicTypeEnum::IntType(ctx.i8_type())),
-    //         Type::Number(NumberType::Double) => Ok(BasicTypeEnum::FloatType(ctx.f128_type())),
-    //         Type::Number(NumberType::Float)  => Ok(BasicTypeEnum::FloatType(ctx.f64_type())),
-    //         Type::Number(NumberType::Int)    => Ok(BasicTypeEnum::IntType(ctx.i32_type())),
-    //         Type::Number(NumberType::Long)  => Ok(BasicTypeEnum::IntType(ctx.i64_type())),
-    //         Type::Number(NumberType::Short)  => Ok(BasicTypeEnum::IntType(ctx.i16_type())),
-    //         Type::Number(NumberType::UnsignedChar)   => Ok(BasicTypeEnum::IntType(ctx.i8_type())),
-    //         Type::Number(NumberType::UnsignedInt)    => Ok(BasicTypeEnum::IntType(ctx.i32_type())),
-    //         Type::Number(NumberType::UnsignedLong)  => Ok(BasicTypeEnum::IntType(ctx.i64_type())),
-    //         Type::Number(NumberType::UnsignedShort)  => Ok(BasicTypeEnum::IntType(ctx.i16_type())),
-    //         // Type::Void   => Ok(BasicTypeEnum::VoidType(ctx.void_type())),
-    //         Type::Pointer(_p, to_type) => {
-    //             let typ = to_type.to_llvm_type(ctx)?;
-
-    //             if typ.is_int_type() {
-    //                 Ok(typ.into_int_type().ptr_type(AddressSpace::Generic).into())
-    //             }else if typ.is_float_type() {
-    //                 Ok(typ.into_float_type().ptr_type(AddressSpace::Generic).into())
-    //             }else if typ.is_pointer_type() {
-    //                 Ok(typ.into_pointer_type().ptr_type(AddressSpace::Generic).into())
-    //             }else if typ.is_array_type() {
-
-
-
-
-    //                 unimplemented!()
-    //             }else if typ.is_vector_type() {
-
-
-
-
-
-    //                 unimplemented!()
-    //             }else if typ.is_struct_type() {
-    //                 Ok(typ.into_struct_type().ptr_type(AddressSpace::Generic).into())
-    //             }else{
-    //                 Err(ParserError::illegal_type_for_pointer(None, &to_type))
-    //             }
-
-    //         },
-    //         Type::Array { name: _, typ, opt_size_list } => {
-    //             let mut to_type = typ.to_basic_type_enum(ctx)?;
-
-    //             for opt_size in opt_size_list.iter().rev() {
-    //                 let size = if let Some(sz) = opt_size {
-    //                     sz.to_usize()?
-    //                 }else{
-    //                     0
-    //                 };
-
-    //                 to_type = to_type.array_type(size as u32).as_basic_type_enum();
-    //             }
-
-    //             Ok(to_type)
-    //         },
-    //         Type::Symbol(_name) => {
-
-
-
-
-
-    //             unimplemented!()
-    //         },
-    //         Type::Struct { name, fields } => {
-    //             let (struct_type, _index_map) = CodeGen::struct_from_struct_definition(name, fields, ctx)?;
-    //             Ok(BasicTypeEnum::StructType(struct_type))
-    //         },
-    //         Type::Union { name, fields } => {
-    //             let (_union_type, _index_map, _max_size, max_size_type) = CodeGen::union_from_struct_definition(name, fields, ctx)?;
-    //             if let Some(typ) = max_size_type {
-    //                 Ok(typ)
-    //             }else{
-    //                 if let Some(id) = name {
-    //                     Err(ParserError::union_has_no_field(None, Some(id)))
-    //                 }else{
-    //                     Err(ParserError::union_has_no_field(None, None))
-    //                 }
-    //             }
-    //         },
-    //         Type::Enum { name, enum_def } => {
-
-
-
-    //             unimplemented!()
-    //         },
-    //         _ => {
-    //             Err(ParserError::no_such_a_type(None, &self.to_string()))
-    //         },
-    //     }
-    // }
-
-
-    // pub fn to_llvm_type<'a>(&self, ctx: &'a Context) -> Result<BasicMetadataTypeEnum<'a>, ParserError> {
-    //     Ok(self.to_basic_type_enum(ctx)?.into())
-    // }
-
-    // pub fn to_llvm_any_type<'a>(&self, ctx: &'a Context) -> Result<AnyTypeEnum<'a>, ParserError> {
-    //     match self {
-    //         Type::Number(NumberType::Char)   => Ok(AnyTypeEnum::IntType(ctx.i8_type())),
-    //         Type::Number(NumberType::Short)  => Ok(AnyTypeEnum::IntType(ctx.i16_type())),
-    //         Type::Number(NumberType::Int)    => Ok(AnyTypeEnum::IntType(ctx.i32_type())),
-    //         Type::Number(NumberType::Long)   => Ok(AnyTypeEnum::IntType(ctx.i64_type())),
-    //         Type::Number(NumberType::Float)  => Ok(AnyTypeEnum::FloatType(ctx.f64_type())),
-    //         Type::Number(NumberType::Double) => Ok(AnyTypeEnum::FloatType(ctx.f128_type())),
-    //         Type::Number(NumberType::UnsignedChar)   => Ok(AnyTypeEnum::IntType(ctx.i8_type())),
-    //         Type::Number(NumberType::UnsignedShort)  => Ok(AnyTypeEnum::IntType(ctx.i16_type())),
-    //         Type::Number(NumberType::UnsignedInt)    => Ok(AnyTypeEnum::IntType(ctx.i32_type())),
-    //         Type::Number(NumberType::UnsignedLong)   => Ok(AnyTypeEnum::IntType(ctx.i64_type())),
-    //         Type::Void   => Ok(AnyTypeEnum::VoidType(ctx.void_type())),
-    //         Type::Struct { name, fields } => {
-    //             let name = if let Some(id) = name {
-    //                 Some(id.clone())
-    //             }else{
-    //                 None
-    //             };
-    //             let (struct_type, _tbl) = CodeGen::struct_from_struct_definition(&name, &fields, ctx)?;
-    //             Ok(struct_type.as_any_type_enum())
-    //         },
-    //         Type::Symbol(_name) => {
-    //             unimplemented!("'{}' to AnyTypeEnum", &self.to_string())
-    //         },
-    //         _ => {
-    //             unimplemented!("'{}' to AnyTypeEnum", &self.to_string())
-    //         },
-    //     }
-    // }
-
     pub fn get_type_name(&self) -> String {
         match self {
             Type::Number(NumberType::_Bool)  => String::from("_Bool"),
@@ -807,66 +677,6 @@ impl Type {
             _ => false,
         }
     }
-
-    // pub fn size_of(&self, ctx: &Context, defs: &Defines) -> Option<u64> {
-    //     match self {
-    //         Type::Number(num_type) => {
-    //             match num_type {
-    //                 NumberType::_Bool => Some(1),
-    //                 NumberType::Char => Some(1),
-    //                 NumberType::UnsignedChar => Some(1),
-    //                 NumberType::Short => Some(2),
-    //                 NumberType::UnsignedShort => Some(2),
-    //                 NumberType::Int => Some(4),
-    //                 NumberType::UnsignedInt => Some(4),
-    //                 NumberType::Long => Some(8),
-    //                 NumberType::UnsignedLong => Some(8),
-    //                 NumberType::LongLong => Some(16),
-    //                 NumberType::UnsignedLongLong => Some(16),
-    //                 NumberType::Float => {
-    //                     let f32_type = ctx.f32_type();
-    //                     let f32_type_size = f32_type.size_of();
-    //                     let opt_size = f32_type_size.get_zero_extended_constant();
-    //                     opt_size
-    //                 },
-    //                 NumberType::Double => {
-    //                     let f64_type = ctx.f64_type();
-    //                     let f64_type_size = f64_type.size_of();
-    //                     let opt_size = f64_type_size.get_zero_extended_constant();
-    //                     opt_size
-    //                 },
-    //             }
-    //         },
-    //         Type::Pointer(_pointer, typ) => {
-    //             let some_type = typ.to_basic_type_enum(ctx);
-    //             if let Ok(t) = some_type {
-    //                 let ptr_type = t.ptr_type(AddressSpace::Generic);
-    //                 let ptr_basic_type_size = ptr_type.size_of();
-    //                 let opt_size = ptr_basic_type_size.get_zero_extended_constant();
-    //                 opt_size
-    //             }else{
-    //                 None
-    //             }
-    //         },
-    //         Type::Symbol(name) => {
-    //             if let Some(typ) = defs.get_type(name) {
-    //                 typ.size_of(ctx, defs)
-    //             }else{
-    //                 None
-    //             }
-    //         },
-    //         Type::Struct { name: _, fields } => {
-    //             if let Ok(size) = fields.try_size_of(ctx, defs) {
-    //                 Some(size)
-    //             }else{
-    //                 None
-    //             }
-    //         },
-    //         Type::Function {..} => None,
-
-    //         _ => unimplemented!(),
-    //     }
-    // }
 
     pub fn peel_off_pointer(&self) -> Option<Type> {
         match self {
@@ -917,11 +727,12 @@ impl fmt::Display for Type {
                 };
                 write!(f, "union {}", name)
             },
-            Type::Enum { name: _, enum_def: _} => {
-
-
-
-                unimplemented!()
+            Type::Enum { name, enum_def: _} => {
+                if let Some(s) = name {
+                    write!(f, "Enum {}", s)
+                }else{
+                    write!(f, "Enum <no name>")
+                }
             },
             Type::Array { name, typ: _, opt_size_list } => {
                 if let Some(id) = name {

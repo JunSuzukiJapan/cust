@@ -581,19 +581,6 @@ impl Tokenizer {
                         self.next_char(ctx);  // skip 'x'
                         return self.tokenize_digit_sub(ctx, 16, start_pos);
                     },
-                    // '.' => {  // float, double or member access
-                    //     self.next_char(ctx);  // skip '.'
-                    //     let ch3 = if let Some(c) = ctx.chars.peek() {
-                    //         c
-                    //     }else{
-                    //         return Ok(Some((Token::DoubleLiteral(0 as f64), start_pos)));
-                    //     };
-                    //     if ch3.is_digit(10) {
-                    //         return self.tokenize_float(ctx, 0, start_pos);
-                    //     }else{
-                    //         unimplemented!()
-                    //     }
-                    // },
                     _ => {    // Octal
                         if ch2.is_digit(8) {
                             return self.tokenize_digit_sub(ctx, 8, start_pos);

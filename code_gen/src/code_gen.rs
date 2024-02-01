@@ -718,9 +718,6 @@ impl<'ctx> CodeGen<'ctx> {
                 let result = Caster::gen_cast(&self.builder, self.context, &value, &from, to_type, &**expr)?;
                 Ok(Some(CompiledValue::new(to_type.clone(), result)))
             },
-            // ExprAST::ExpressionPair(_left_expr, _right_expr, _pos) => {
-            //     unimplemented!()
-            // },
             ExprAST::_Self(_) => {
                 // never reached, maybe
                 unimplemented!()
@@ -729,7 +726,6 @@ impl<'ctx> CodeGen<'ctx> {
                 // never reached, maybe
                 unimplemented!()
             },
-            // _ => unimplemented!("ast: {:?}", expr_ast),
         }
     }
 
@@ -1990,7 +1986,6 @@ impl<'ctx> CodeGen<'ctx> {
                 let result = self.builder.build_xor(left_value.into_int_value(), right_value.into_int_value(), "BitXor")?;
                 Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
             },
-            // _ => unimplemented!("BinExpr op: {:?}", op),
         }
     }
 
