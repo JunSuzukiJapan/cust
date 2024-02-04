@@ -3,7 +3,7 @@ use crate::{ConstExpr, ExprAST, SpecifierQualifier, TypeOrVariadic, NumberType};
 use crate::Type;
 use crate::Position;
 use super::TokenizerError;
-use std::fmt;
+use std::fmt::{self, write};
 use std::error::Error;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -63,6 +63,7 @@ pub enum ParserError {
     NoIdAfterForWhileParsingImpl(Position, Token),
     NotSymbolWhileParsingImpl(Position),
     NoSuchAType{pos: Position, name: String},
+    UndefindSymbol(Position, String),
 }
 
 impl ParserError {
@@ -260,6 +261,10 @@ impl ParserError {
     pub fn no_such_a_type(pos: Position, name: &str) -> ParserError {
         ParserError::NoSuchAType { pos: pos, name: name.to_string() }
     }
+
+    pub fn undefined_symbol(pos: Position, name: &str) -> ParserError {
+        Self::UndefindSymbol(pos, name.to_string())
+    }
 }
 
 impl From<TokenizerError> for ParserError {
@@ -321,6 +326,7 @@ impl fmt::Display for ParserError {
             Self::NoIdAfterForWhileParsingImpl(_pos, _tok) => write!(f, "no id after for while parsing impl"),
             Self::NotSymbolWhileParsingImpl(_pos) => write!(f, "not symbol while parsing impl"),
             Self::NoSuchAType{pos: _, name} => write!(f, "no such a type '{}'", name),
+            Self::UndefindSymbol(pos, name) => write!(f, "undefined symbol '{}'", name),
         }
     }
 }

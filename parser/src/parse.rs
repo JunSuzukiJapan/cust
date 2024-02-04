@@ -2476,7 +2476,7 @@ impl Parser {
     // fn parse_typedef_name(&self, _iter: &mut Peekable<Iter<(Token, Position)>>, _defs: &mut Defines) -> Result<Option<TypeSpecifier>, ParserError> {
     // }
 
-    fn parse_declaration(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>, mut pos: &Position) -> Result<Option<AST>, ParserError> {
+    fn parse_declaration(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>, pos: &Position) -> Result<Option<AST>, ParserError> {
         let ds = self.parse_declaration_specifier(iter, defs, labels)?;
         let ds = ds.get_declaration_specifier().unwrap();
 
@@ -2998,7 +2998,7 @@ impl Parser {
 
 
     fn parse_labeled_statement(&self, id: &str, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>, pos: &Position) -> Result<Option<AST>, ParserError> {
-        self.parse_expected_token(iter, Token::Colon)?;
+        self.parse_expected_token(iter, Token::Colon).or(Err(ParserError::undefined_symbol(pos.clone(), id)))?;
         let stmt = self.parse_statement(iter, defs, labels)?;
 
         if let Some(v) = labels {
@@ -3016,7 +3016,6 @@ impl Parser {
 
     fn parse_case_labeled_statement(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>, pos: &Position) -> Result<Option<AST>, ParserError> {
         self.parse_expected_token(iter, Token::Case)?;
-        // let constant_condition = self.parse_constant_expression(iter, defs, labels)?.ok_or(ParserError::no_constant_expr_after_case(iter.peek().unwrap().1.clone()))?;
         let constant_condition = if let Some(cond) = self.parse_constant_expression(iter, defs, labels)? {
             cond
         }else{
@@ -3025,7 +3024,6 @@ impl Parser {
 
         self.parse_expected_token(iter, Token::Colon)?;
 
-        // let stmt = self.parse_statement(iter, defs, labels)?.ok_or(ParserError::syntax_error(iter.peek().unwrap().1.clone()))?;
         let stmt = if let Some(s) = self.parse_statement(iter, defs, labels)? {
             s
         }else{

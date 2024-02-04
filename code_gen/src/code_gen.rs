@@ -304,10 +304,11 @@ impl<'ctx> CodeGen<'ctx> {
                     Ok(None)
                 }
             },
+            AST::_Self(pos) => {
 
 
-
-            _ => unimplemented!("ast: {:?}", ast),
+                unimplemented!()
+            },
         }
     }
 
