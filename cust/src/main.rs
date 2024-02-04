@@ -556,6 +556,8 @@ END: ;
     ";
 */
     let src = "
+        int printf(char* format, ...);
+
         void test(){
             int (i) = 1;
             int (*foo) = &i;
