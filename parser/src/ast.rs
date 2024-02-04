@@ -353,6 +353,9 @@ impl DirectDeclarator {
                 let t = dd.make_array_type(typ);
                 Type::Array { name: None, typ: Box::new(t.clone()), opt_size_list: opt_size_list.clone() }
             },
+            Self::Enclosed(decl, _pos) => {
+                decl.make_type(typ)
+            },
             _ => typ.clone(),
         }
     }

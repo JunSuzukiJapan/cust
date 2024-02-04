@@ -430,7 +430,7 @@ END: ;
             printf(\"%d\\\n\", Saturday);
         }
     ";
-*/
+
     let src = "
         int printf(char* format, ...);
         typedef unsigned char bool;
@@ -554,6 +554,18 @@ END: ;
             return *ptr;
         }
     ";
+*/
+    let src = "
+        void test(){
+            int (i) = 1;
+            int (*foo) = &i;
+            int (*(*bar)) = &foo;
+            int *(*(*(zot)));
+
+            printf(\"*foo = %d\\\n\", *foo);
+        }
+    ";
+
     // tokenize
     let tokenized = Tokenizer::tokenize(src).unwrap();
     // parse
@@ -573,14 +585,13 @@ END: ;
     gen.module.print_to_stderr();
 
     println!("<<get llvm function>>");
-    // let f: JitFunction<FuncType_void_void> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
-    let f: JitFunction<FuncType_i32_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
+    let f: JitFunction<FuncType_void_void> = unsafe { gen.execution_engine.get_function("test").unwrap() };
+    // let f: JitFunction<FuncType_i32_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
     // let f: JitFunction<NoArgFunc> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
     println!("<<call llvm function>>");
-    // let _result = unsafe { f.call() };
-    // unsafe { f.call() };
-    let result = unsafe { f.call(1) };
-    println!("result: {result}");
+    let _result = unsafe { f.call() };
+    // let result = unsafe { f.call(1) };
+    // println!("result: {result}");
     println!("<<end call llvm function>>");
 
     println!("<<all end>>");
