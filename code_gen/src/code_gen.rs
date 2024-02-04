@@ -3729,4 +3729,35 @@ mod tests {
         assert_eq!(3, result);
 
         Ok(())
-    }}
+    }
+
+    #[test]
+    fn code_gen_parened_define() -> Result<(), Box<dyn Error>> {
+        // parse
+        let src = "
+            void test(){
+                int (i) = 1;
+                int (*foo) = &i;
+                int (*(*bar)) = &foo;
+                int *(*(*(zot)));
+            }
+        ";
+
+        // parse
+        let asts = parse_from_str(src).unwrap();
+
+        // code gen
+        let context = Context::create();
+        let gen = CodeGen::try_new(&context, "test run").unwrap();
+
+        let mut env = Env::new();
+        for i in 0..asts.len() {
+            let _any_value = gen.gen_stmt(&asts[i], &mut env, None, None)?;
+        }
+
+        let f: JitFunction<FuncType_void_void> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
+        let _result = unsafe { f.call() };
+
+        Ok(())
+    }
+}
