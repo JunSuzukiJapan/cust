@@ -305,9 +305,7 @@ impl<'ctx> CodeGen<'ctx> {
                 }
             },
             AST::_Self(pos) => {
-
-
-                unimplemented!()
+                Err(Box::new(CodeGenError::self_is_not_statement(pos.clone())))
             },
         }
     }
@@ -537,19 +535,13 @@ impl<'ctx> CodeGen<'ctx> {
                 self.gen_def_var(specifiers, declarations, env, break_catcher, continue_catcher)?;
                 Ok(None)
             },
-            ExprAST::UnaryGetAddress(boxed_ast, pos) => {
+            ExprAST::UnaryGetAddress(boxed_ast, pos) => {  // &var
                 let ast = &**boxed_ast;
-                match ast {
-                    ExprAST::Symbol(name, pos2) => {
-                        let (typ, ptr) = env.get_ptr(name).ok_or(CodeGenError::no_such_a_variable(pos2.clone(), name))?;
-                        let ptr = PointerValue::try_from(ptr).ok().ok_or(CodeGenError::cannot_get_pointer(pos.clone()))?;
-                        let typ = Type::new_pointer_type(typ.clone(), false, false);
+                let (typ, ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
+                let ptr = PointerValue::try_from(ptr).ok().ok_or(CodeGenError::cannot_get_pointer(pos.clone()))?;
+                let typ = Type::new_pointer_type(typ.clone(), false, false);
 
-                        Ok(Some(CompiledValue::new(typ, ptr.into())))
-                    },
-
-                    _ => unimplemented!(),
-                }
+                Ok(Some(CompiledValue::new(typ, ptr.into())))
             },
             ExprAST::UnaryPointerAccess(boxed_ast, pos) => {  // *pointer
                 let ast = &**boxed_ast;

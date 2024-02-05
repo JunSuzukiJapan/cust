@@ -138,9 +138,11 @@ impl TypeUtil {
                 Ok(AnyTypeEnum::PointerType(ptr_type))
             },
             Type::Symbol(_name) => {
+                // maybe unreached
                 unimplemented!("'{}' to AnyTypeEnum", typ.to_string())
             },
             _ => {
+                // maybe unreached
                 unimplemented!("'{}' to AnyTypeEnum", typ.to_string())
             },
         }
@@ -173,7 +175,7 @@ impl TypeUtil {
                 Ok(ptr_type.ptr_type(AddressSpace::default()))
             },
             _ => {
-                unimplemented!("'{}' can't make ptr type", typ.to_string())
+                Err(Box::new(CodeGenError::cannot_make_pointer_type(typ.clone(), pos.clone())))
             },
         }
     }
@@ -275,7 +277,7 @@ impl TypeUtil {
                     _ => Err(CodeGenError::not_pointer(pos.clone(), &typ)),
                 }
             },
-            ExprAST::MemberAccess(boxed_ast, field_name, pos) => {
+            ExprAST::MemberAccess(boxed_ast, field_name, pos) => {  // some_var.field
                 let ast = &*boxed_ast;
                 let typ = TypeUtil::get_type(ast, env)?;
                 match typ {
@@ -286,17 +288,11 @@ impl TypeUtil {
                     Type::Union { name: _, fields } => {
                         let t = fields.get_type(&field_name).ok_or(CodeGenError::type_has_not_member(pos.clone(), &field_name))?;
                         Ok(t.clone())
-                    },
-                    Type::Enum { name: _, enum_def: _ } => {
-
-
-
-                        unimplemented!()
                     },
                     _ => return Err(CodeGenError::type_has_not_member(pos.clone(), &format!("{:?}", &typ))),
                 }
             },
-            ExprAST::PointerAccess(boxed_ast, field_name, pos) => {
+            ExprAST::PointerAccess(boxed_ast, field_name, pos) => {  // some_var->field
                 let ast = &*boxed_ast;
                 let typ = TypeUtil::get_type(ast, env)?;
                 match typ {
@@ -307,12 +303,6 @@ impl TypeUtil {
                     Type::Union { name: _, fields } => {
                         let t = fields.get_type(&field_name).ok_or(CodeGenError::type_has_not_member(pos.clone(), &field_name))?;
                         Ok(t.clone())
-                    },
-                    Type::Enum { name: _, enum_def: _ } => {
-
-
-
-                        unimplemented!()
                     },
                     _ => return Err(CodeGenError::type_has_not_member(pos.clone(), &format!("{:?}", &typ))),
                 }
@@ -346,17 +336,11 @@ impl TypeUtil {
                 Ok(f_type.get_return_type().clone())
             },
             ExprAST::InitializerList(_, _pos) => {
-
-
-
-
-
+                // maybe unreached??
                 unimplemented!()
             },
             ExprAST::DefVar { specifiers: _, declarations: _, pos: _ } => {
-
-
-
+                // maybe unreached???
                 unimplemented!()
             },
          }

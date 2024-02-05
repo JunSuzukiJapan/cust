@@ -69,6 +69,7 @@ pub enum CodeGenError {
         then_type: Type,
         else_type: Type,
     },
+    CannotMakePointerType(Type, Position),
     CannotMakeFnType(Position),
     AccessSelfTypeWithoutImpl(Position),
     AccessSelfWithoutImpl(Position),
@@ -85,6 +86,7 @@ pub enum CodeGenError {
     NotFunction(String, Position),
     CannotImplicitCast(Type, Type, Position),
     CannotCast(Type, Type, Position),
+    SelfIsNotStatement(Position),
 }
 
 impl CodeGenError {
@@ -364,6 +366,14 @@ impl CodeGenError {
 
     pub fn cannot_cast(from_type: Type, to_type: Type, pos: Position) -> Self {
         Self::CannotImplicitCast(from_type, to_type, pos)
+    }
+
+    pub fn cannot_make_pointer_type(typ: Type, pos: Position) -> Self {
+        Self::CannotMakePointerType(typ, pos)
+    }
+
+    pub fn self_is_not_statement(pos: Position) -> Self {
+        Self::SelfIsNotStatement(pos)
     }
 }
 
