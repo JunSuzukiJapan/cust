@@ -87,6 +87,8 @@ pub enum CodeGenError {
     CannotImplicitCast(Type, Type, Position),
     CannotCast(Type, Type, Position),
     SelfIsNotStatement(Position),
+    SelfHasNotLeftValue(Position),
+    HasNotLeftValue(String, Position),
 }
 
 impl CodeGenError {
@@ -374,6 +376,14 @@ impl CodeGenError {
 
     pub fn self_is_not_statement(pos: Position) -> Self {
         Self::SelfIsNotStatement(pos)
+    }
+
+    pub fn self_has_not_l_value(pos: Position) -> Self {
+        Self::SelfHasNotLeftValue(pos)
+    }
+
+    pub fn has_not_l_value(name: String, pos: Position) -> Self {
+        Self::HasNotLeftValue(name, pos)
     }
 }
 

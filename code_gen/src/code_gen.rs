@@ -578,10 +578,10 @@ impl<'ctx> CodeGen<'ctx> {
                 }
 
                 match &**fun {
-                    ExprAST::Symbol(name, _pos) => {
+                    ExprAST::Symbol(name, _pos2) => {
                         self.gen_call_function(name, v, env, break_catcher, continue_catcher, pos)
                     },
-                    ExprAST::MemberAccess(ast, fun_name, _pos) => {
+                    ExprAST::MemberAccess(ast, fun_name, _pos2) => {
                         let typ = TypeUtil::get_type(ast, env)?;
                         let (_t, obj) = self.get_l_value(&**ast, env, break_catcher, continue_catcher)?;
                         let class_name = typ.get_type_name();
@@ -594,7 +594,9 @@ impl<'ctx> CodeGen<'ctx> {
                         self.gen_call_function(&method_name, args, env, break_catcher, continue_catcher, pos)
 
                     },
-                    _ => unimplemented!("'{:?}' in CallFunction.", **fun),
+                    _ => {
+                        Err(Box::new(CodeGenError::not_function(&format!("{:?}", fun), pos.clone())))
+                    }
                 }
             },
             ExprAST::MemberAccess(_boxed_ast, field_name, _pos) => {
@@ -2146,15 +2148,12 @@ impl<'ctx> CodeGen<'ctx> {
                 let (typ, ptr) = env.get_ptr("self").ok_or(Box::new(CodeGenError::no_such_a_variable(pos.clone(), "self")))?;
                 Ok((typ.clone(), ptr))
             },
-            ExprAST::_Self(_pos) => {
-
-
-
-                unimplemented!()
+            ExprAST::_Self(pos) => {
+                Err(Box::new(CodeGenError::self_has_not_l_value(pos.clone())))
             },
-
-
-            _ => unimplemented!("get_l_value from {:?}", ast),
+            _ => {
+                Err(Box::new(CodeGenError::has_not_l_value(format!("{:?}", ast), ast.get_position().clone())))
+            }
         }
     }
 
