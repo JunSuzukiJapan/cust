@@ -53,24 +53,14 @@ impl TypeUtil {
                     // Ok(typ.into_pointer_type().ptr_type(AddressSpace::default()).into())
                     Ok(typ.into_pointer_type().into())
                 }else if typ.is_array_type() {
-
-
-
-
-                    unimplemented!()
+                    Ok(typ.into_array_type().into())
                 }else if typ.is_vector_type() {
-
-
-
-
-
-                    unimplemented!()
+                    Ok(typ.into_vector_type().into())
                 }else if typ.is_struct_type() {
                     Ok(typ.into_struct_type().ptr_type(AddressSpace::default()).into())
                 }else{
                     Err(Box::new(CodeGenError::illegal_type_for_pointer(pos.clone(), &to_type)))
                 }
-
             },
             Type::Array { name: _, typ: type2, opt_size_list } => {
                 let mut to_type = Self::to_basic_type_enum(type2, ctx, pos)?;
@@ -86,14 +76,6 @@ impl TypeUtil {
                 }
 
                 Ok(to_type)
-            },
-            Type::Symbol(_name) => {
-
-
-
-
-
-                unimplemented!()
             },
             Type::Struct { name, fields } => {
                 let (struct_type, _index_map) = CodeGen::struct_from_struct_definition(name, fields, ctx, pos)?;
@@ -112,10 +94,11 @@ impl TypeUtil {
                 }
             },
             Type::Enum { name: _, enum_def: _ } => {
+                Ok(BasicTypeEnum::IntType(ctx.i32_type()))
+            },
+            Type::Symbol(_name) => {
+                Err(Box::new(CodeGenError::cannot_convert_to_basic_type(typ.to_string(), pos.clone())))
 
-
-
-                unimplemented!()
             },
             _ => {
                 Err(Box::new(CodeGenError::cannot_convert_to_basic_type(typ.to_string(), pos.clone())))
@@ -150,12 +133,12 @@ impl TypeUtil {
                 let (struct_type, _tbl) = CodeGen::struct_from_struct_definition(&name, &fields, ctx, pos)?;
                 Ok(struct_type.as_any_type_enum())
             },
-            Type::Symbol(_name) => {
-                unimplemented!("'{}' to AnyTypeEnum", typ.to_string())
-            },
             Type::Pointer(_ptr, typ) => {
                 let ptr_type = Self::make_llvm_ptr_type(typ, ctx, pos)?;
                 Ok(AnyTypeEnum::PointerType(ptr_type))
+            },
+            Type::Symbol(_name) => {
+                unimplemented!("'{}' to AnyTypeEnum", typ.to_string())
             },
             _ => {
                 unimplemented!("'{}' to AnyTypeEnum", typ.to_string())
