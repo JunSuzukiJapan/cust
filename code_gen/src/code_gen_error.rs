@@ -89,6 +89,7 @@ pub enum CodeGenError {
     SelfIsNotStatement(Position),
     SelfHasNotLeftValue(Position),
     HasNotLeftValue(String, Position),
+    HasNotMember(String, Position),
 }
 
 impl CodeGenError {
@@ -384,6 +385,10 @@ impl CodeGenError {
 
     pub fn has_not_l_value(name: String, pos: Position) -> Self {
         Self::HasNotLeftValue(name, pos)
+    }
+
+    pub fn has_not_member(name: String, pos: Position) -> Self {
+        Self::HasNotMember(name, pos)
     }
 }
 

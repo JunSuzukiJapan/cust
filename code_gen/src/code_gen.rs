@@ -98,11 +98,9 @@ impl<'ctx> CodeGen<'ctx> {
     
                     match decl.get_init_expr() {
                         Some(ast) => {
-                            if typ.is_struct() {
+                            if let Type::Struct { fields, .. } = &typ {
+                                self.gen_struct_init(&fields, ptr.as_pointer_value(), &**ast, env, break_catcher, continue_catcher)?;
 
-
-
-                                unimplemented!()
                             }else if typ.is_array() {
 
 
@@ -2040,7 +2038,7 @@ impl<'ctx> CodeGen<'ctx> {
                     Err(Box::new(CodeGenError::not_pointer(pos.clone(), &typ)))
                 }
             },
-            ExprAST::MemberAccess(expr, member_name, pos) => {
+            ExprAST::MemberAccess(expr, member_name, pos) => {  // struct_or_union.member
                 let ast = &**expr;
                 let (_typ, ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
                 let typ = TypeUtil::get_type(ast, env)?;
@@ -2084,10 +2082,10 @@ impl<'ctx> CodeGen<'ctx> {
                             Ok((typ.clone(), p))
                         }
                     },
-                    _ => unimplemented!("member access to {:?}", typ),
+                    _ => Err(Box::new(CodeGenError::has_not_member(typ.to_string(), pos.clone())))
                 }
             },
-            ExprAST::PointerAccess(expr, member_name, pos) => {
+            ExprAST::PointerAccess(expr, member_name, pos) => {  // ptr->member
                 let ast = &**expr;
                 let (_typ, ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
                 let ptr = self.builder.build_load(ptr, "get_pointer")?.into_pointer_value();
@@ -2127,7 +2125,7 @@ impl<'ctx> CodeGen<'ctx> {
                             Ok((typ.clone(), p))
                         }
                     },
-                    _ => unimplemented!("member access to {:?}", pointed_type),
+                    _ => Err(Box::new(CodeGenError::has_not_member(pointed_type.to_string(), pos.clone())))
                 }
             },
             ExprAST::ArrayAccess(expr, index, pos) => {
@@ -3319,6 +3317,80 @@ mod tests {
                 pointer->year = 2023;
                 pointer->month = 1;
                 pointer->day = 1;
+
+                return date.year + pointer->month + pointer->day;
+            }
+        ";
+
+        // parse
+        let asts = parse_from_str(src).unwrap();
+
+        // code gen
+        let context = Context::create();
+        let gen = CodeGen::try_new(&context, "test run").unwrap();
+
+        let mut env = Env::new();
+
+        for i in 0..asts.len() {
+            let _any_value = gen.gen_stmt(&asts[i], &mut env, None, None).unwrap();
+        }
+
+        let f: JitFunction<FuncType_void_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
+        assert_eq!(unsafe { f.call() }, 2025);
+
+        Ok(())
+    }
+
+    #[test]
+    fn code_gen_struct_init() -> Result<(), CodeGenError> {
+        let src = "
+            struct date {
+                int year, month;
+                int day;
+            };
+
+            typedef struct date Date;
+
+            int test() {
+                Date date = {2023, 1, 1};
+                Date* pointer = &date;
+
+                return date.year + pointer->month + pointer->day;
+            }
+        ";
+
+        // parse
+        let asts = parse_from_str(src).unwrap();
+
+        // code gen
+        let context = Context::create();
+        let gen = CodeGen::try_new(&context, "test run").unwrap();
+
+        let mut env = Env::new();
+
+        for i in 0..asts.len() {
+            let _any_value = gen.gen_stmt(&asts[i], &mut env, None, None).unwrap();
+        }
+
+        let f: JitFunction<FuncType_void_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
+        assert_eq!(unsafe { f.call() }, 2025);
+
+        Ok(())
+    }
+
+    #[test]
+    fn code_gen_global_struct_init() -> Result<(), CodeGenError> {
+        let src = "
+            struct date {
+                int year, month;
+                int day;
+            };
+
+            typedef struct date Date;
+            Date date = {2023, 1, 1};
+
+            int test() {
+                Date* pointer = &date;
 
                 return date.year + pointer->month + pointer->day;
             }
