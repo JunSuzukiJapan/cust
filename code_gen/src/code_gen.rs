@@ -3444,18 +3444,23 @@ mod tests {
     #[test]
     fn code_gen_global_struct_init() -> Result<(), CodeGenError> {
         let src = "
+            int i = 1;
+
             struct date {
                 int year, month;
                 int day;
             };
 
             typedef struct date Date;
-            Date date = {2023, 1, 1};
+            Date date = {2023, 3, 3};
 
             int test() {
                 Date* pointer = &date;
+                Date date2 = {2023, 1, 1};
 
-                return date.year + pointer->month + pointer->day;
+                i = 2;
+
+                return i + date.year + date2.month + pointer->day;
             }
         ";
 
@@ -3473,7 +3478,7 @@ mod tests {
         }
 
         let f: JitFunction<FuncType_void_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
-        assert_eq!(unsafe { f.call() }, 2025);
+        assert_eq!(unsafe { f.call() }, 2029);
 
         Ok(())
     }
