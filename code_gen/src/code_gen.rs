@@ -852,12 +852,13 @@ impl<'ctx> CodeGen<'ctx> {
         }
         // target_len > 0
 
+        let mut vec = Vec::new();
         let fields = target_fields.get_fields().unwrap();
         for i in 0..target_len {
             let field = &fields[i];
 
-            let target_field_ptr = self.builder.build_struct_gep(target_struct_ptr, i as u32, "init_struct_member");
-            if let Ok(ptr) = target_field_ptr {
+            // let target_field_ptr = self.builder.build_struct_gep(target_struct_ptr, i as u32, "init_struct_member");
+            // if let Ok(ptr) = target_field_ptr {
                 let field_type = field.get_type().unwrap();
 
                 if init_len > i {
@@ -869,17 +870,23 @@ impl<'ctx> CodeGen<'ctx> {
 
                     let compiled_val = self.gen_expr(init_value, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::mismatch_initializer_type(init_value.get_position().clone()))?;
                     let value = self.try_as_basic_value(&compiled_val.get_value(), init_value.get_position())?;
-                    let _result = self.builder.build_store(ptr, value);
+                    // let _result = self.builder.build_store(ptr, value);
+                    vec.push(value);
 
                 }else{  // zero clear
                     let zero_value = self.const_zero(field_type, init.get_position())?;
-                    let _result = self.builder.build_store(ptr, zero_value);
+                    // let _result = self.builder.build_store(ptr, zero_value);
+                    vec.push(zero_value);
                 }
 
-            }else{
-                return Err(Box::new(CodeGenError::cannot_init_struct_member(init.get_position().clone())));
-            }
+            // }else{
+            //     return Err(Box::new(CodeGenError::cannot_init_struct_member(init.get_position().clone())));
+            // }
         }
+
+        let values = self.context.const_struct(&vec, false);
+        // target_struct_ptr.set_initializer(&values.as_basic_value_enum());
+        let _result = self.builder.build_store(target_struct_ptr, values.as_basic_value_enum());
 
         Ok(None)
     }

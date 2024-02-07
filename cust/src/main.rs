@@ -578,14 +578,15 @@ END: ;
         };
 
         typedef struct date Date;
-        Date date = {2023, 1, 1};
+        Date date = {2023, 3, 3};
 
         int test() {
             Date* pointer = &date;
+            Date date2 = {2023, 1, 1};
 
             i = 2;
 
-            return i + date.year + pointer->month + pointer->day;
+            return i + date.year + date2.month + pointer->day;
         }
     ";
     // tokenize
