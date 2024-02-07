@@ -20,16 +20,6 @@ impl Parser {
         Parser
     }
 
-    // pub fn parse_from_str(&self, input: &str) -> Result<Vec<AST>, ParserError> {
-    //     let tokenizer = Tokenizer::new();
-    //     let token_list = Tokenizer::tokenize(input)?;
-    //     let mut iter = token_list.iter().peekable();
-    //     let parser = Parser::new();
-    //     let mut defs = Defines::new();
-
-    //     parser.parse_translation_unit(&mut iter, &mut defs)
-    // }
-
     pub fn parse(input: Vec<(Token, Position)>) -> Result<Vec<AST>, ParserError> {
         let mut iter = input.iter().peekable();
         let parser = Parser::new();
@@ -37,16 +27,6 @@ impl Parser {
 
         parser.parse_translation_unit(&mut iter, &mut defs)
     }
-
-    // fn parse_external_declaration_from_str(src: &str) -> Result<Option<AST>, ParserError> {
-    //     let tokenizer = Tokenizer::new();
-    //     let token_list = Tokenizer::tokenize(src).unwrap();
-    //     let mut iter = token_list.iter().peekable();
-    //     let parser = Parser::new();
-    //     let mut defs = Defines::new();
-    //     let mut v = Vec::new();
-    //     parser.parse_external_declaration(&mut iter, &mut defs, &mut Some(&mut v))
-    // }
 
     fn parse_translation_unit(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Vec<AST>, ParserError> {
         let mut declarations = Vec::new();
@@ -71,7 +51,7 @@ impl Parser {
 
     fn make_global_def_var(&self, ds: DeclarationSpecifier, declarations: Vec<Declaration>, defs: &mut Defines, pos: &Position) -> Result<AST, ParserError> {
         let typ = ds.get_type();
-
+println!("make_global_def_var");
         for declaration in &declarations {
             let decl = declaration.get_declarator();
             let name = decl.get_name();
@@ -157,7 +137,7 @@ impl Parser {
                     return Ok(Some(AST::DefineEnum {name: name.clone(), fields: enum_def.clone(), pos: pos.clone()}));
                 }
                 _ => {
-                    // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                    println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                     return Err(ParserError::syntax_error(pos.clone()));
                 },
             }
@@ -183,7 +163,7 @@ impl Parser {
 
     fn process_declarator(&self, decl: Declarator, ds: &DeclarationSpecifier, tok: &Token, pos: &Position, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) ->  Result<Option<AST>, ParserError> {
         match decl.get_direct_declarator() {
-            DirectDeclarator::Symbol(_id, _pos2) => {
+            DirectDeclarator::Symbol(id, _pos2) => {
                 match tok {
                     Token::SemiColon => {
                         iter.next();  // skip ';'
@@ -195,14 +175,14 @@ impl Parser {
                         iter.next();  // skip '='
 
                         let mut labels = Vec::new();
-                        let init_expr = self.parse_expression(iter, defs, &mut Some(&mut labels))?.ok_or(ParserError::need_expr(pos.clone()))?;
+                        let init_expr = self.parse_initializer(iter, defs, &mut Some(&mut labels))?;
                         self.parse_expected_token(iter, Token::SemiColon)?;
                         let declaration = Declaration::new(decl, Some(Box::new(init_expr)));
 
                         Ok(Some(self.make_global_def_var(ds.clone(), vec![declaration], defs, pos)?))
                     },
                     _ => {
-                        // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                        println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                         Err(ParserError::syntax_error(pos.clone()))
                     },
                 }
@@ -222,14 +202,13 @@ impl Parser {
                         iter.next();  // skip '='
 
                         let mut labels = Vec::new();
-                        // let init_expr = self.parse_expression_statement(iter, defs, &mut Some(&mut labels))?.ok_or(ParserError::need_expr(pos.clone()))?;
                         let init_expr = self.parse_expression(iter, defs, &mut Some(&mut labels))?.ok_or(ParserError::need_expr(pos.clone()))?;
                         self.parse_expected_token(iter, Token::SemiColon)?;
                         let declaration = Declaration::new(decl.clone(), Some(Box::new(init_expr)));
                         Ok(Some(self.make_global_def_array(ds.clone(), vec![declaration], opt_const_expr_list, defs, pos)?))
                     },
                     _ => {
-                        // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                        println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                         Err(ParserError::syntax_error(pos.clone()))
                     },
                 }
@@ -273,7 +252,7 @@ impl Parser {
                     },
                     _ => {
                         defs.remove_function_local();
-                        // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                        println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                         Err(ParserError::syntax_error(pos.clone()))
                     },
                 }
@@ -286,13 +265,12 @@ impl Parser {
         let (tok, pos) = iter.peek().unwrap();
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
         if *tok != Token::Impl {
-            // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+            println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
             return Err(ParserError::syntax_error(pos.clone()));
         }
 
         iter.next();  // skip 'impl'
 
-        // let (tok, pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
         let (tok, pos) = iter.peek().unwrap();
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
         let impl_name = match tok {
@@ -347,18 +325,16 @@ impl Parser {
     }
 
     fn parse_impl_functions(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Vec<FunOrProto>, ParserError> {
-        // let (tok, pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
         let (tok, pos) = iter.peek().unwrap();
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
         if *tok != Token::BraceLeft {
-            // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+            println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
             return Err(ParserError::syntax_error(pos.clone()));
         }
         iter.next();  // skip '{'
 
         let mut list = Vec::new();
         loop {
-            // let (tok, _pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
             let (tok, pos) = iter.peek().unwrap();
             if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
             if *tok == Token::BraceRight {
@@ -418,7 +394,7 @@ impl Parser {
                     },
                     _ => {
                         defs.remove_function_local();
-                        // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                        println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                         Err(ParserError::syntax_error(pos.clone()))
                     },
                 }
@@ -579,7 +555,7 @@ impl Parser {
                                 self.parse_expected_token(iter, Token::BraceRight)?;
                             },
                             _ => {
-                                // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                                println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                                 return Err(ParserError::syntax_error(pos2.clone()));
                             }
                         }
@@ -644,7 +620,7 @@ impl Parser {
                                 self.parse_expected_token(iter, Token::BraceRight)?;
                             },
                             _ => {
-                                // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                                println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                                 return Err(ParserError::syntax_error(pos2.clone()));
                             }
                         }
@@ -706,7 +682,7 @@ impl Parser {
                                 self.parse_expected_token(iter, Token::BraceRight)?;
                             },
                             _ => {
-                                // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                                println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                                 return Err(ParserError::syntax_error(pos2.clone()));
                             }
                         }
@@ -1088,7 +1064,7 @@ impl Parser {
                 decl = DirectDeclarator::Enclosed(d, pos.clone());
             },
             _ => {
-                // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                 return Err(ParserError::syntax_error(pos.clone()))
             }
         }
@@ -1097,7 +1073,6 @@ impl Parser {
     }
 
     fn parse_direct_declarator_sub(&self, decl: DirectDeclarator, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<DirectDeclarator, ParserError> {
-        // let (tok, pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
         let (tok, pos) = iter.peek().unwrap();
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
         let cust_self;
@@ -1105,11 +1080,10 @@ impl Parser {
             Token::Mul => {  // '*'
                 iter.next();  // skip '*'
 
-                // let (tok2, pos2) = iter.peek().ok_or(ParserError::illegal_end_of_input(pos.clone()))?;
                 let (tok2, pos2) = iter.peek().unwrap();
                 if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
                 if *tok2 != Token::_self {
-                    // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                    println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                     return Err(ParserError::syntax_error(pos2.clone()));
                 }
 
@@ -1191,11 +1165,11 @@ impl Parser {
                 if *tok == Token::Question {
                     iter.next();  // skip '?'
 
-                    // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                    println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                     let then_expr = self.parse_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
 
                     self.parse_expected_token(iter, Token::Colon)?;
-                    // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                    println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                     let else_expr = self.parse_conditional_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
 
                     Ok(Some(ExprAST::TernaryOperator(Box::new(expr), Box::new(then_expr), Box::new(else_expr), pos.clone())))
@@ -1248,7 +1222,7 @@ impl Parser {
                                 result = Some(ExprAST::BinExpr(BinOp::from_token(&op, pos)?, Box::new(ast.clone()), Box::new(right), pos.clone()));
                             }
                         }else{
-                            // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                            println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                             return Err(ParserError::syntax_error(pos.clone()));
                         }
                     },
@@ -1299,7 +1273,7 @@ impl Parser {
                                 result = Some(ExprAST::BinExpr(BinOp::from_token(&op, pos)?, Box::new(ast.clone()), Box::new(right), pos.clone()));
                             }
                         }else{
-                            // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                            println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                             return Err(ParserError::syntax_error(pos.clone()));
                         }
                     },
@@ -1350,7 +1324,7 @@ impl Parser {
                                 result = Some(ExprAST::BinExpr(BinOp::from_token(&op, pos)?, Box::new(ast.clone()), Box::new(right), pos.clone()));
                             }
                         }else{
-                            // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                            println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                             return Err(ParserError::syntax_error(pos.clone()));
                         }
                     },
@@ -1400,7 +1374,7 @@ impl Parser {
                                 result = Some(ExprAST::BinExpr(BinOp::from_token(&op, pos)?, Box::new(ast.clone()), Box::new(right), pos.clone()));
                             }
                         }else{
-                            // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                            println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                             return Err(ParserError::syntax_error(pos.clone()));
                         }
                     },
@@ -1451,7 +1425,7 @@ impl Parser {
                                 result = Some(ExprAST::BinExpr(BinOp::from_token(&op, pos)?, Box::new(ast.clone()), Box::new(right), pos.clone()));
                             }
                         }else{
-                            // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                            println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                             return Err(ParserError::syntax_error(pos.clone()));
                         }
                     },
@@ -1501,7 +1475,7 @@ impl Parser {
                                 result = Some(ExprAST::BinExpr(BinOp::from_token(&op, pos)?, Box::new(ast.clone()), Box::new(right), pos.clone()));
                             }
                         }else{
-                            // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                            println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                             return Err(ParserError::syntax_error(pos.clone()));
                         }
                     },
@@ -1551,7 +1525,7 @@ impl Parser {
                                 result = Some(ExprAST::BinExpr(BinOp::from_token(&op, pos)?, Box::new(ast.clone()), Box::new(right), pos.clone()));
                             }
                         }else{
-                            // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                            println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                             return Err(ParserError::syntax_error(pos.clone()));
                         }
                     },
@@ -1601,7 +1575,7 @@ impl Parser {
                                 result = Some(ExprAST::BinExpr(BinOp::from_token(&op, pos)?, Box::new(ast.clone()), Box::new(right), pos.clone()));
                             }
                         }else{
-                            // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                            println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                             return Err(ParserError::syntax_error(pos.clone()));
                         }
                     },
@@ -1651,7 +1625,7 @@ impl Parser {
                                 result = Some(ExprAST::BinExpr(BinOp::from_token(&op, pos)?, Box::new(ast.clone()), Box::new(right), pos.clone()));
                             }
                         }else{
-                            // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                            println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                             return Err(ParserError::syntax_error(pos.clone()));
                         }
                     },
@@ -1700,7 +1674,7 @@ impl Parser {
                                 result = Some(ExprAST::BinExpr(BinOp::from_token(&op, pos)?, Box::new(ast.clone()), Box::new(right), pos.clone()));
                             }
                         }else{
-                            // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                            println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                             return Err(ParserError::syntax_error(pos.clone()));
                         }
                     },
@@ -1726,14 +1700,6 @@ impl Parser {
 
             if *tok == Token::ParenLeft {
                 iter.next();  // skip '('
-                // let (_sq, type_or_variadic, _opt_abstract_decl) = self.parse_type_name(iter, defs, labels)?;
-                // let cast_type = type_or_variadic.get_type().ok_or(ParserError::no_type_defined(pos.clone()))?;
-                // self.parse_expected_token(iter, Token::ParenRight)?;
-
-                // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                // let expr = self.parse_cast_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
-
-                // Ok(Some(ExprAST::Cast(cast_type.clone(), Box::new(expr), pos.clone())))
                 self.parse_cast_expression_sub(iter, pos, defs, labels)
             }else{
                 Ok(None)
@@ -1754,7 +1720,7 @@ impl Parser {
         let cast_type = type_or_variadic.get_type().ok_or(ParserError::no_type_defined(pos.clone()))?;
         self.parse_expected_token(iter, Token::ParenRight)?;
 
-        // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+        println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
         let expr = self.parse_cast_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
 
         let cast_type = self.calc_type(&cast_type, &opt_abstract_decl);
@@ -1767,7 +1733,6 @@ impl Parser {
             Ok(Some(ast))
 
         }else{
-            // let (tok, pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
             let (tok, pos) = iter.peek().unwrap();
             if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
 
@@ -1775,7 +1740,7 @@ impl Parser {
                 Token::Inc => {
                     iter.next();  // skip '++'
 
-                    // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                    println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                     let expr = self.parse_unary_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
 
                     if expr.is_symbol() {
@@ -1786,14 +1751,14 @@ impl Parser {
                         let inc = ExprAST::PreIncMemberAccess(Box::new(expr.clone()), pos.clone());
                         Ok(Some(inc))
                     }else{
-                        // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                        println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                         Err(ParserError::syntax_error(pos.clone()))
                     }
                },
                 Token::Dec => {
                     iter.next();  // skip '--'
 
-                    // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                    println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                     let expr = self.parse_unary_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
 
                     if expr.is_symbol() {
@@ -1805,7 +1770,7 @@ impl Parser {
                         let inc = ExprAST::PreDecMemberAccess(Box::new(expr.clone()), pos.clone());
                         Ok(Some(inc))
                     }else{
-                        // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                        println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                         Err(ParserError::syntax_error(pos.clone()))
                     }
 
@@ -1868,7 +1833,7 @@ impl Parser {
                     Ok(None)
                 },
                 _ => {
-                    // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                    println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                     Err(ParserError::syntax_error(pos.clone()))
                 },
             }
@@ -1931,7 +1896,7 @@ impl Parser {
                             }else if ast.is_member_access() {
                                 ast = ExprAST::PostIncMemberAccess(Box::new(ast.clone()), pos.clone());
                             }else{
-                                // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                                println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                                 return Err(ParserError::syntax_error(pos.clone()));
                             }
                         },
@@ -1944,7 +1909,7 @@ impl Parser {
                             }else if ast.is_member_access() {
                                 ast = ExprAST::PostDecMemberAccess(Box::new(ast.clone()), pos.clone());
                             }else{
-                                // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                                println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                                 return Err(ParserError::syntax_error(pos.clone()));
                             }
                         },
@@ -2138,7 +2103,7 @@ impl Parser {
                                 result = Some(ExprAST::BinExpr(BinOp::Comma, Box::new(ast.clone()), Box::new(right), pos.clone()));
                             }
                         }else{
-                            // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                            println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                             return Err(ParserError::syntax_error(pos.clone()));
                         }
                     },
@@ -2158,11 +2123,11 @@ impl Parser {
                 match tok {
                     Token::Question => {
                         iter.next();  // skip '?'
-                        // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                        println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                         let then_expr = self.parse_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
 
                         self.parse_expected_token(iter, Token::Colon)?;
-                        // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                        println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                         let else_expr = self.parse_conditional_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
     
                         return Ok(Some(ExprAST::TernaryOperator(Box::new(ast), Box::new(then_expr), Box::new(else_expr), pos.clone())));
@@ -2200,70 +2165,70 @@ impl Parser {
                     },
                     Token::AddAssign => {
                         iter.next(); // skip '+='
-                        // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                        println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                         let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
 
                         result = ExprAST::OpAssign(BinOp::Add, Box::new(result.clone()), Box::new(r_value), pos.clone());
                     },
                     Token::SubAssign => {
                         iter.next(); // skip '-='
-                        // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                        println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                         let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
 
                         result = ExprAST::OpAssign(BinOp::Sub, Box::new(result.clone()), Box::new(r_value), pos.clone());
                     },
                     Token::MulAssign => {
                         iter.next(); // skip '*='
-                        // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                        println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                         let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
 
                         result = ExprAST::OpAssign(BinOp::Mul, Box::new(result.clone()), Box::new(r_value), pos.clone());
                     },
                     Token::DivAssign => {
                         iter.next(); // skip '/='
-                        // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                        println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                         let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
 
                         result = ExprAST::OpAssign(BinOp::Div, Box::new(result.clone()), Box::new(r_value), pos.clone());
                     },
                     Token::ModAssign => {
                         iter.next(); // skip '%='
-                        // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                        println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                         let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
 
                         result = ExprAST::OpAssign(BinOp::Mod, Box::new(result.clone()), Box::new(r_value), pos.clone());
                     },
                     Token::ShiftLeftAssign => {
                         iter.next(); // skip '%='
-                        // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                        println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                         let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
 
                         result = ExprAST::OpAssign(BinOp::ShiftLeft, Box::new(result.clone()), Box::new(r_value), pos.clone());
                     },
                     Token::ShiftRightAssign => {
                         iter.next(); // skip '%='
-                        // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                        println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                         let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
 
                         result = ExprAST::OpAssign(BinOp::ShiftRight, Box::new(result.clone()), Box::new(r_value), pos.clone());
                     },
                     Token::BitAndAssign => {
                         iter.next(); // skip '%='
-                        // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                        println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                         let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
 
                         result = ExprAST::OpAssign(BinOp::BitAnd, Box::new(result.clone()), Box::new(r_value), pos.clone());
                     },
                     Token::BitOrAssign => {
                         iter.next(); // skip '%='
-                        // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                        println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                         let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
 
                         result = ExprAST::OpAssign(BinOp::BitOr, Box::new(result.clone()), Box::new(r_value), pos.clone());
                     },
                     Token::BitXorAssign => {
                         iter.next(); // skip '%='
-                        // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                        println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                         let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
 
                         result = ExprAST::OpAssign(BinOp::BitXor, Box::new(result.clone()), Box::new(r_value), pos.clone());
@@ -2313,14 +2278,13 @@ impl Parser {
                 Token::Comma => {
                     iter.next();  // skip ','
 
-                    // let (tok2, _pos2) = iter.next().ok_or(ParserError::illegal_end_of_input(pos.clone()))?;
                     let (tok2, pos2) = iter.next().unwrap();
                     if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
 
                     if *tok2 == Token::TripleDot {
                         has_variadic = true;
                     }else{
-                        // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                        println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                         return Err(ParserError::syntax_error(pos.clone()));
                     }
                 },
@@ -2354,7 +2318,6 @@ impl Parser {
                 let decl = self.parse_declarator(iter, defs, &mut None)?;
                 list.push(Param::new(ds, decl, defs, &iter.peek().unwrap().1)?);
         
-                // let (tok, pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
                 let (tok, pos) = iter.peek().unwrap();
                 if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
 
@@ -2364,7 +2327,7 @@ impl Parser {
                     },
                     Token::ParenRight => (),  // do nothing
                     _ => {
-                        // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                        println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                         return Err(ParserError::syntax_error(pos.clone()));
                     }
                 }
@@ -2526,7 +2489,7 @@ impl Parser {
                     }
                 },
                 _ => {
-                    // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                    println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                     return Err(ParserError::syntax_error(pos.clone()));
                 }
             }
@@ -2541,7 +2504,6 @@ impl Parser {
     // }
 
     fn parse_initializer(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<ExprAST, ParserError> {
-        // let (tok, pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
         let (tok, pos) = iter.peek().unwrap();
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
 
@@ -2639,19 +2601,19 @@ impl Parser {
                     iter.next();  // skip 'if'
                     self.parse_expected_token(iter, Token::ParenLeft)?;  // skip '('
 
-                    // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                    println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                     let cond = self.parse_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
 
                     self.parse_expected_token(iter, Token::ParenRight)?;  // skip ')'
 
-                    // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                    println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                     let then = self.parse_statement(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
 
                     if let Some((tok2, pos2)) = iter.peek() {
                         if *tok2 == Token::Else {
                             iter.next();  // skip 'else'
 
-                            // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                            println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                             let _else = self.parse_statement(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos2.clone()))?;
                             Ok(Some(AST::If(Box::new(cond), Box::new(then), Some(Box::new(_else)), pos.clone())))
                         }else{
@@ -2933,7 +2895,7 @@ impl Parser {
             Token::Assign => {
                 iter.next();  // skip '='
 
-                // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                 let expr = self.parse_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
                 let declaration = Declaration::new(decl, Some(Box::new(expr)));
                 let (ds, declarations) = self.parse_def_var(ds.clone(), vec![declaration], defs, pos)?;
@@ -2941,7 +2903,7 @@ impl Parser {
                 Ok(Some(ast))
             },
             _ => {
-                // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                 Err(ParserError::syntax_error(pos.clone()))
             },
         }
@@ -2982,7 +2944,7 @@ impl Parser {
                                 result = Some(ExprAST::BinExpr(BinOp::Comma, Box::new(ast.clone()), Box::new(right), ast.get_position().clone()));
                             }
                         }else{
-                            // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                            println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                             return Err(ParserError::syntax_error(pos.clone()));
                         }
                     },
@@ -3027,7 +2989,7 @@ impl Parser {
         let stmt = if let Some(s) = self.parse_statement(iter, defs, labels)? {
             s
         }else{
-            // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+            println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
             return Err(ParserError::syntax_error(iter.peek().unwrap().1.clone()));
         };
         let case = Case::new(constant_condition, Box::new(stmt), pos.clone());
@@ -3041,7 +3003,7 @@ impl Parser {
         let stmt = if let Some(s) = self.parse_statement(iter, defs, labels)? {
             s
         }else{
-            // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+            println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
             return Err(ParserError::syntax_error(iter.peek().unwrap().1.clone()))?;
         };
         Ok(Some(AST::Default(Box::new(stmt), pos.clone())))

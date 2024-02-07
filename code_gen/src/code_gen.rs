@@ -17,7 +17,7 @@ use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::execution_engine::ExecutionEngine;
 use inkwell::module::Module;
-use inkwell::values::{BasicValueEnum, BasicMetadataValueEnum, AnyValueEnum, AnyValue, FunctionValue, InstructionOpcode, PointerValue, InstructionValue, BasicValue, IntValue};
+use inkwell::values::{AnyValue, AnyValueEnum, BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, GlobalValue, InstructionOpcode, InstructionValue, IntValue, PointerValue};
 use inkwell::types::{BasicTypeEnum, AnyTypeEnum, FunctionType, BasicType, BasicMetadataTypeEnum};
 use inkwell::basic_block::BasicBlock;
 use inkwell::{IntPredicate, FloatPredicate};
@@ -99,7 +99,7 @@ impl<'ctx> CodeGen<'ctx> {
                     match decl.get_init_expr() {
                         Some(ast) => {
                             if let Type::Struct { fields, .. } = &typ {
-                                self.gen_struct_init(&fields, ptr.as_pointer_value(), &**ast, env, break_catcher, continue_catcher)?;
+                                self.gen_global_struct_init(&fields, ptr, &**ast, env, break_catcher, continue_catcher)?;
 
                             }else if typ.is_array() {
 
@@ -110,7 +110,6 @@ impl<'ctx> CodeGen<'ctx> {
                                 let init = self.gen_expr(ast, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(pos.clone()))?;
                                 let basic_value = self.try_as_basic_value(&init.get_value(), ast.get_position())?;
         
-                                // self.builder.build_store(ptr, basic_value);
                                 ptr.set_initializer(&basic_value);
                             }
                         },
@@ -768,6 +767,63 @@ impl<'ctx> CodeGen<'ctx> {
         }
 
         Ok(())
+    }
+
+    pub fn gen_global_struct_init<'b, 'c>(&self,
+        target_fields: &StructDefinition,
+        target_struct_ptr: GlobalValue<'ctx>,
+        init: &ExprAST,
+        env: &mut Env<'ctx>,
+        break_catcher: Option<&'b BreakCatcher>,
+        continue_catcher: Option<&'c ContinueCatcher>
+    ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
+
+        let init_value_list = if let ExprAST::InitializerList(list, _pos) = init {
+            list
+        }else{
+            return Err(Box::new(CodeGenError::mismatch_initializer_type(init.get_position().clone())));
+        };
+
+        let target_len = target_fields.len();
+        let init_len = init_value_list.len();
+        if target_len < init_len {
+            return  Err(Box::new(CodeGenError::initial_list_is_too_long(init.get_position().clone())));
+        }
+
+        if target_len == 0 {
+            return Ok(None);
+        }
+        // target_len > 0
+
+        let mut vec = Vec::new();
+        let fields = target_fields.get_fields().unwrap();
+        for i in 0..target_len {
+            let field = &fields[i];
+            let field_type = field.get_type().unwrap();
+
+            if init_len > i {
+                let init_value = &init_value_list[i];
+                let init_type = TypeUtil::get_type(init_value, env)?;
+                if *field_type != init_type {
+                    return Err(Box::new(CodeGenError::mismatch_initializer_type(init_value.get_position().clone())));
+                }
+
+                let compiled_val = self.gen_expr(init_value, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::mismatch_initializer_type(init_value.get_position().clone()))?;
+                let value = self.try_as_basic_value(&compiled_val.get_value(), init_value.get_position())?;
+                // let _result = self.builder.build_store(ptr, value);
+                vec.push(value);
+
+            }else{  // zero clear
+                let zero_value = self.const_zero(field_type, init.get_position())?;
+                // let _result = self.builder.build_store(ptr, zero_value);
+                vec.push(zero_value);
+            }
+        }
+
+        let values = self.context.const_struct(&vec, false);
+        target_struct_ptr.set_initializer(&values.as_basic_value_enum());
+
+        Ok(None)
     }
 
     pub fn gen_struct_init<'b, 'c>(&self,
