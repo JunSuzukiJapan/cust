@@ -98,19 +98,19 @@ impl<'ctx> CodeGen<'ctx> {
     
                     match decl.get_init_expr() {
                         Some(ast) => {
-                            if let Type::Struct { fields, .. } = &typ {
-                                self.gen_global_struct_init(&fields, ptr, &**ast, env, break_catcher, continue_catcher)?;
-
-                            }else if typ.is_array() {
-
-
-
-                                unimplemented!()
-                            }else{
-                                let init = self.gen_expr(ast, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(pos.clone()))?;
-                                let basic_value = self.try_as_basic_value(&init.get_value(), ast.get_position())?;
-        
-                                ptr.set_initializer(&basic_value);
+                            match &typ {
+                                Type::Struct { fields, .. } => {
+                                    self.gen_global_struct_init(&fields, ptr, &**ast, env, break_catcher, continue_catcher)?;
+                                },
+                                Type::Array { name: _, typ, opt_size_list } => {
+                                    unimplemented!()
+                                },
+                                _ => {
+                                    let init = self.gen_expr(ast, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(pos.clone()))?;
+                                    let basic_value = self.try_as_basic_value(&init.get_value(), ast.get_position())?;
+            
+                                    ptr.set_initializer(&basic_value);
+                                }
                             }
                         },
                         None => (),  // do nothing
@@ -744,7 +744,13 @@ impl<'ctx> CodeGen<'ctx> {
                         Type::Struct { fields, .. } => {
                             self.gen_struct_init(&fields, ptr, &**ast, env, break_catcher, continue_catcher)?;
                         },
-                        Type::Array { name, typ, opt_size_list } => {
+                        Type::Array { name: _, typ, opt_size_list } => {
+
+
+
+
+
+
                             unimplemented!()
                         },
                         _ => {
