@@ -10,7 +10,7 @@ use crate::Position;
 // use inkwell::types::{BasicTypeEnum, BasicMetadataTypeEnum, AnyTypeEnum, AnyType};
 // use inkwell::types::BasicType;
 use std::cmp::Ordering;
-use std::fmt;
+use std::fmt::{self, write};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -28,26 +28,9 @@ pub enum NumberType {
     UnsignedLongLong,
     Float,
     Double,
-    // Pointer(Box<NumberType>),
 }
 
 impl NumberType {
-    // pub fn to_basic_type_enum<'ctx>(&self, ctx: &'ctx Context) -> Result<BasicTypeEnum<'ctx>, ParserError> {
-    //     match self {
-    //         NumberType::Char   => Ok(BasicTypeEnum::IntType(ctx.i8_type())),
-    //         NumberType::Short  => Ok(BasicTypeEnum::IntType(ctx.i16_type())),
-    //         NumberType::Int    => Ok(BasicTypeEnum::IntType(ctx.i32_type())),
-    //         NumberType::Long   => Ok(BasicTypeEnum::IntType(ctx.i64_type())),
-    //         NumberType::Float  => Ok(BasicTypeEnum::FloatType(ctx.f64_type())),
-    //         NumberType::Double => Ok(BasicTypeEnum::FloatType(ctx.f128_type())),
-    //         NumberType::UnsignedChar   => Ok(BasicTypeEnum::IntType(ctx.i8_type())),
-    //         NumberType::UnsignedShort  => Ok(BasicTypeEnum::IntType(ctx.i16_type())),
-    //         NumberType::UnsignedInt    => Ok(BasicTypeEnum::IntType(ctx.i32_type())),
-    //         NumberType::UnsignedLong   => Ok(BasicTypeEnum::IntType(ctx.i64_type())),
-    //         _ => Err(ParserError::cannot_convert_to_basic_type_enum(None)),
-    //     }
-    // }
-
     pub fn to_unsigned(&self, pos: &Position) -> Result<NumberType, ParserError> {
         match self {
             NumberType::Char => {
@@ -161,6 +144,26 @@ impl PartialOrd for NumberType {
             (NumberType::Double, NumberType::Double)          => Some(Ordering::Equal),
 
             (_, _) => None,
+        }
+    }
+}
+
+impl fmt::Display for NumberType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::_Bool => write!(f, "bool"),
+            Self::Char => write!(f, "char"),
+            Self::Short => write!(f, "short int"),
+            Self::Int => write!(f, "int"),
+            Self::Long => write!(f, "long int"),
+            Self::LongLong => write!(f, "long long int"),
+            Self::UnsignedChar => write!(f, "unsigned char"),
+            Self::UnsignedShort => write!(f, "unsigned short"),
+            Self::UnsignedInt => write!(f, "unsigned int"),
+            Self::UnsignedLong => write!(f, "unsigned long int"),
+            Self::UnsignedLongLong => write!(f, "unsigned long long int"),
+            Self::Float => write!(f, "float"),
+            Self::Double => write!(f, "double"),
         }
     }
 }

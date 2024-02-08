@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use crate::parser::{AST, ExprAST, BinOp, Type, Pointer, Block, Params, StructDefinition, StructField, NumberType, Function, FunProto, FunOrProto, EnumDefinition, Enumerator};
-use crate::parser::{Declaration, DeclarationSpecifier, CustFunctionType};
+use crate::parser::{Declaration, DeclarationSpecifier, CustFunctionType, ConstExpr};
 use super::{CompiledValue, CodeGenError};
 use super::Env;
 use super::env::{BreakCatcher, ContinueCatcher, TypeOrUnion};
@@ -745,13 +745,7 @@ impl<'ctx> CodeGen<'ctx> {
                             self.gen_struct_init(&fields, ptr, &**ast, env, break_catcher, continue_catcher)?;
                         },
                         Type::Array { name: _, typ, opt_size_list } => {
-
-
-
-
-
-
-                            unimplemented!()
+                            self.gen_array_init(&opt_size_list, ptr, &**ast, env, break_catcher, continue_catcher)?;
                         },
                         _ => {
                             let compiled_value = self.gen_expr(&**ast, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(ast.get_position().clone()))?;
@@ -896,6 +890,20 @@ impl<'ctx> CodeGen<'ctx> {
         let _result = self.builder.build_store(target_struct_ptr, values.as_basic_value_enum());
 
         Ok(None)
+    }
+
+    pub fn gen_array_init<'b, 'c>(&self,
+        opt_size_list: &Vec<Option<ConstExpr>>,
+        target_array_ptr: PointerValue<'ctx>,
+        init: &ExprAST,
+        env: &mut Env<'ctx>,
+        break_catcher: Option<&'b BreakCatcher>,
+        continue_catcher: Option<&'c ContinueCatcher>
+    ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
+
+
+
+        unimplemented!()
     }
 
     fn const_zero(&self, typ: &Type, pos: &Position) -> Result<BasicValueEnum, Box<dyn Error>> {

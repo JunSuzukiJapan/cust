@@ -402,10 +402,241 @@ impl fmt::Display for CodeGenError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::ParserError(err) => err.fmt(f),
-
-
-
-            _ => unimplemented!(),
+            Self::ConditionIsNotNumber(_pos, expr_ast) => {
+                write!(f, "condition {:?} is not a number", expr_ast)
+            },
+            Self::AlreadyTypeDefinedInStruct(_pos, id) => {
+                write!(f, "already type defined in struct. {id}")
+            },
+            Self::AlreadyTypeDefinedInUnion(_pos, id) => {
+                write!(f, "already type defined in union. {id}")
+            },
+            Self::AlreadyTypeDefinedInTypedef(_pos, _typ, id) => {
+                write!(f, "already type defined {id}")
+            },
+            Self::UnionHasNoField(_pos, opt_id) => {
+                if let Some(id) = opt_id {
+                    write!(f, "union {id} has no field")
+                }else{
+                    write!(f, "union has no field")
+                }
+            },
+            Self::MismatchTypeUnionFields(_pos, opt_id) => {
+                if let Some(id) = opt_id {
+                    write!(f, "mismatch type union fields {id}")
+                }else{
+                    write!(f, "mismatch type union fields")
+                }
+            },
+            Self::MismatchTypeStructFields(_pos, opt_id) => {
+                if let Some(id) = opt_id {
+                    write!(f, "mismatch type struct fields. {id}")
+                }else{
+                    write!(f, "mismatch type struct fields")
+                }
+            },
+            Self::NoSuchAType(_pos, id) => {
+                write!(f, "no such a type '{id}'")
+            },
+            Self::CannotConvertToGlobalValue(_pos) => {
+                write!(f, "cannot convert to global value")
+            },
+            Self::CannotConvertToLocalPointer(_pos) => {
+                write!(f, "cannot convert to local pointer")
+            },
+            Self::IllegalTypeForPointer(_pos, typ) => {
+                write!(f, "illegal type for pointer")
+            },
+            Self::IllegalEndOfInput(_pos) => {
+                write!(f, "illegal end of input")
+            },
+            Self::ReturnWithoutFunction(_pos) => {
+                write!(f, "return without function")
+            },
+            Self::ReturnTypeMismatch {
+                    pos: _,
+                    real_type,
+                    required_type,
+                } =>
+            {
+                write!(f, "return type mismatch required '{required_type}', but '{real_type}'")
+            },
+            Self::NoCurrentFunction(_pos) => {
+                write!(f, "no current function")
+            },
+            Self::BreakNotInLoopOrSwitch(_pos) => {
+                write!(f, "break not in loop or switch")
+            },
+            Self::ContinueNotInLoop(_pos) => {
+                write!(f, "continue not in loop")
+            },
+            Self::NoSuchALabel(_pos, id) => {
+                write!(f, "no such a label '{id}'")
+            },
+            Self::NoSuchAVariable(_pos, id) => {
+                write!(f, "no such a variable '{id}'")
+            },
+            Self::NoSuchAFunction(_pos, id) => {
+                write!(f, "no such a function '{id}'")
+            },
+            Self::NoSuchAStruct(_pos, id) => {
+                write!(f, "no such a struct '{id}'")
+            },
+            Self::CannotGetPointer(_pos) => {
+                write!(f, "cannot get pointer")
+            },
+            Self::MismatchInitializerType(_pos) => {
+                write!(f, "mismatch initializer type")
+            },
+            Self::InitialListIsTooLong(_pos) => {
+                write!(f, "initial list is too long")
+            },
+            Self::CannotInitStructMember(_pos) => {
+                write!(f, "cannot init struct member")
+            },
+            Self::CannotGetZeroValue(_pos) => {
+                write!(f, "cannot get zero value")
+            },
+            Self::CaseAfterDefault(_pos) => {
+                write!(f, "case after default")
+            },
+            Self::AlreadyDefaultDefined(_pos) => {
+                write!(f, "already default defined")
+            },
+            Self::IllegalBitSize {
+                pos: _,
+                typ,
+                size: _,
+            } => {
+                write!(f, "illegal bit size for type {typ}")
+            },
+            Self::CannotAddValue(_pos, typ) => {
+                write!(f, "cannot add for type {typ}")
+            },
+            Self::CannotSubValue(_pos, typ) => {
+                write!(f, "cannot sub for type {typ}")
+            },
+            Self::CannotMulValue(_pos, typ) => {
+                write!(f, "cannot mul for type {typ}")
+            },
+            Self::CannotDivValue(_pos, typ) => {
+                write!(f, "cannot div for type {typ}")
+            },
+            Self::CannotModValue(_pos, typ) => {
+                write!(f, "cannot mod for type {typ}")
+            },
+            Self::CannotCompareValue(_pos, typ) => {
+                write!(f, "cannot compare value for type {typ}")
+            },
+            Self::CannotApplyLogicalOpValue(_pos, typ) => {
+                write!(f, "cannot apply logical op value for type {typ}")
+            },
+            Self::CannotCalculate(_pos) => {
+                write!(f, "cannot calculate")
+            },
+            Self::NotIntInShift(_pos, typ) => {
+                write!(f, "type {typ} cannot shift")
+            },
+            Self::NotIntBitAnd(_pos, typ) => {
+                write!(f, "type {typ} cannot bit-and")
+            },
+            Self::NotIntBitOr(_pos, typ) => {
+                write!(f, "type {typ} cannot bit-or")
+            },
+            Self::NotIntBitXor(_pos, typ) => {
+                write!(f, "type {typ} cannot bit-xor")
+            },
+            Self::AssignIllegalValue(_pos, expr_ast) => {
+                write!(f, "assign illegal value {:?}", expr_ast)
+            },
+            Self::NoSuchAMember(_pos, id) => {
+                write!(f, "no such a member '{id}'")
+            },
+            Self::CannotAccessStructMember(_pos, id) => {
+                write!(f, "{id} cannot access struct member")
+            },
+            Self::NotUnion(_pos, id) => {
+                write!(f, "{id} is not union")
+            },
+            Self::NoIndexValueWhileAccessArray(_pos) => {
+                write!(f, "no index value while access array")
+            },
+            Self::CannotCallNotFunction(_pos) => {
+                write!(f, "cannot call non-function")
+            },
+            Self::NoReturnForType(_pos, typ) => {
+                write!(f, "no return for type {typ}")
+            },
+            Self::MismatchTypeInIf {
+                pos: _,
+                then_type,
+                else_type,
+            } => {
+                write!(f, "mismatch type if if-statement. then type is {then_type}, else type is {else_type}")
+            },
+            Self::CannotMakePointerType(typ, _pos) => {
+                write!(f, "{typ} cannot make pointer type")
+            },
+            Self::CannotMakeFnType(_pos) => {
+                write!(f, "cannot make FnType")
+            },
+            Self::AccessSelfTypeWithoutImpl(_pos) => {
+                write!(f, "access Self type without impl")
+            },
+            Self::AccessSelfWithoutImpl(_pos) => {
+                write!(f, "access self without impl")
+            },
+            Self::NotPointer(_pos, typ) => {
+                write!(f, "{typ} is not pointer")
+            },
+            Self::TypeHasNotMember(_pos, id) => {
+                write!(f, "type {id} has not member")
+            },
+            Self::CannotUseFloatForBitsize(_pos) => {
+                write!(f, "cannot use float for bitsize")
+            },
+            Self::CannotConvertAnyvalueenumToBasicmetadatavalueenum(_pos) => {
+                write!(f, "cannot convert anyvalueenum to basicmetadatavalueenum")
+            },
+            Self::CannotConvertAnyvalueenumToBasicvalueenum(_pos) => {
+                write!(f, "cannot convert anyvalueenum to basicvalueenum")
+            },
+            Self::CannotConvertAnytypeenumToBasictypeenum(_pos) => {
+                write!(f, "cannot convert anytypeenum to basictypeenum")
+            },
+            Self::NotIntType(typ, _pos) => {
+                write!(f, "{typ} is not int type")
+            },
+            Self::CannotGetSizeOf(typ, _pos) => {
+                write!(f, "cannot get size of {typ}")
+            },
+            Self::CannotConvertToBasicValue(expr_ast, _pos) => {
+                write!(f, "{:?} cannot convert to basic value", expr_ast)
+            },
+            Self::CannotConvertToBasicType(id, _pos) => {
+                write!(f, "{id} cannot convert to basic type")
+            },
+            Self::NotFunction(id, _pos) => {
+                write!(f, "{id} is not function")
+            },
+            Self::CannotImplicitCast(typ1, typ2, _pos) => {
+                write!(f, "cannot implicit cast from {typ1} to {typ2}")
+            },
+            Self::CannotCast(typ1, typ2, _pos) => {
+                write!(f, "cannot cast from {typ1} to {typ2}")
+            },
+            Self::SelfIsNotStatement(_pos) => {
+                write!(f, "Self is not statement")
+            },
+            Self::SelfHasNotLeftValue(_pos) => {
+                write!(f, "Self has not left value")
+            },
+            Self::HasNotLeftValue(id, _pos) => {
+                write!(f, "{id} has not left value")
+            },
+            Self::HasNotMember(id, _pos) => {
+                write!(f, "{id} has not member")
+            },
         }
         
     }
