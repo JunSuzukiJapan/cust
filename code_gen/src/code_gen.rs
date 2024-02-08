@@ -340,7 +340,7 @@ impl<'ctx> CodeGen<'ctx> {
                 // let result = i128_type.const_int(*num as u128, true);
                 // let result = i128_type.const_int_arbitrary_precision(words);
                 // Ok(Some(CompiledValue::new(Type::Number(NumberType::LongLong), result.as_any_value_enum())))
-                unimplemented!()
+                unimplemented!()  // long long
             },
             ExprAST::UChar(num, _pos) => {
                 let i8_type = self.context.i8_type();
@@ -367,7 +367,7 @@ impl<'ctx> CodeGen<'ctx> {
                 // let result = i128_type.const_int(*num as u128, false);
                 // let result = i128_type.const_int_arbitrary_precision(words);
                 // Ok(Some(CompiledValue::new(Type::Number(NumberType::LongLong), result.as_any_value_enum())))
-                unimplemented!()
+                unimplemented!()  // long long
             },
             ExprAST::Float(num, _pos) => {
                 let f32_type = self.context.f32_type();
@@ -712,11 +712,11 @@ impl<'ctx> CodeGen<'ctx> {
             },
             ExprAST::_Self(_) => {
                 // never reached, maybe
-                unimplemented!()
+                unimplemented!()  // _Self
             },
             ExprAST::InitializerList(_ast_list, _pos) => {
                 // never reached, maybe
-                unimplemented!()
+                unimplemented!()  // InitializerList
             },
         }
     }
@@ -740,24 +740,25 @@ impl<'ctx> CodeGen<'ctx> {
 
             match init_expr {
                 Some(ast) => {
-                    if let Type::Struct { fields, .. } = &typ {
-                        self.gen_struct_init(&fields, ptr, &**ast, env, break_catcher, continue_catcher)?;
+                    match &typ {
+                        Type::Struct { fields, .. } => {
+                            self.gen_struct_init(&fields, ptr, &**ast, env, break_catcher, continue_catcher)?;
+                        },
+                        Type::Array { name, typ, opt_size_list } => {
+                            unimplemented!()
+                        },
+                        _ => {
+                            let compiled_value = self.gen_expr(&**ast, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(ast.get_position().clone()))?;
+                            let mut init_value = compiled_value.get_value();
+                            let init_type = compiled_value.get_type();
 
-                    }else if typ.is_array() {
+                            if typ != *init_type {
+                                init_value = self.gen_implicit_cast(&init_value, &init_type, &typ, ast.get_position())?;
+                            }
 
-
-                        unimplemented!()
-                    }else{
-                        let compiled_value = self.gen_expr(&**ast, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(ast.get_position().clone()))?;
-                        let mut init_value = compiled_value.get_value();
-                        let init_type = compiled_value.get_type();
-
-                        if typ != *init_type {
-                            init_value = self.gen_implicit_cast(&init_value, &init_type, &typ, ast.get_position())?;
+                            let basic_value = self.try_as_basic_value(&init_value, ast.get_position())?;
+                            self.builder.build_store(ptr, basic_value)?;
                         }
-
-                        let basic_value = self.try_as_basic_value(&init_value, ast.get_position())?;
-                        self.builder.build_store(ptr, basic_value)?;
                     }
                 },
                 None => (),  // do nothing
@@ -2640,7 +2641,7 @@ mod tests {
                 let value = result.into_float_value();
                 gen_epilogue(&gen, fn_name, Some(&value)).ok_or(format!("Unable to JIT compile `{}`", input))?
             },
-            _ => unimplemented!(),
+            _ => unimplemented!(),  // No plans to support
         };
 
         unsafe {
