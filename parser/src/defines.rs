@@ -1,4 +1,6 @@
-use super::{ParserError, ExprAST, Type, ConstExpr, DeclarationSpecifier, Declarator, Params};
+use crate::ast::Initializer;
+
+use super::{ParserError, Type, ConstExpr, DeclarationSpecifier, Declarator, Params};
 use super::{StructDefinition, EnumDefinition, Position};
 
 use std::collections::HashMap;
@@ -8,7 +10,7 @@ enum DefineVar {
     Variable {
         name: String,
         typ: Type,
-        init_expr: Option<ExprAST>,
+        init_expr: Option<Initializer>,
     },
     Const {
         name: String,
@@ -24,7 +26,7 @@ enum DefineVar {
 }
 
 impl DefineVar {
-    pub fn new_var(name: &str, typ: &Type, init_expr: Option<ExprAST>) -> DefineVar {
+    pub fn new_var(name: &str, typ: &Type, init_expr: Option<Initializer>) -> DefineVar {
         DefineVar::Variable {
             name: name.to_string(),
             typ: typ.clone(),
@@ -206,7 +208,7 @@ impl Defines {
         Ok(())
     }
 
-    pub fn set_var(&mut self, name: &str, typ: &Type, init_expr: Option<ExprAST>, pos: &Position) -> Result<(), ParserError> {
+    pub fn set_var(&mut self, name: &str, typ: &Type, init_expr: Option<Initializer>, pos: &Position) -> Result<(), ParserError> {
         if self.cannot_define_var(name) {
             return Err(ParserError::already_var_defined(pos.clone(), name));
         }

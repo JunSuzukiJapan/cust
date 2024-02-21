@@ -10,7 +10,7 @@ use crate::Position;
 // use inkwell::types::{BasicTypeEnum, BasicMetadataTypeEnum, AnyTypeEnum, AnyType};
 // use inkwell::types::BasicType;
 use std::cmp::Ordering;
-use std::fmt::{self, write};
+use std::fmt;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -511,7 +511,7 @@ pub enum Type {
     Array {
         name: Option<String>,
         typ: Box<Type>,
-        opt_size_list: Vec<Option<ConstExpr>>,
+        size_list: Vec<ConstExpr>,
     },
     Enum {
         name: Option<String>,
@@ -737,19 +737,15 @@ impl fmt::Display for Type {
                     write!(f, "Enum <no name>")
                 }
             },
-            Type::Array { name, typ: _, opt_size_list } => {
+            Type::Array { name, typ: _, size_list } => {
                 if let Some(id) = name {
                     write!(f, "array {}", id)?
                 }else{
                     write!(f, "array <no_name>")?
                 }
 
-                for opt_size in opt_size_list {
-                    if let Some(size) = opt_size {
-                        write!(f, "[{:?}]", size)?
-                    }else{
-                        write!(f, "[]")?
-                    }
+                for size in size_list {
+                    write!(f, "[{:?}]", size)?
                 }
 
                 Ok(())

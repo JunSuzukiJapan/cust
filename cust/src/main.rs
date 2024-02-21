@@ -568,7 +568,7 @@ END: ;
             printf(\"*foo = %d\\\n\", *foo);
         }
     ";
-*/
+
     let src = "
         int i = 1;
 
@@ -589,6 +589,17 @@ END: ;
             return i + date.year + date2.month + pointer->day;
         }
     ";
+*/
+    let src = "
+        int printf(char* format, ...);
+
+        int test() {
+            int num[3] = {1, 2, 3};
+
+            return num[0] + num[1] + num[2];
+        }
+    ";
+
     // tokenize
     let tokenized = Tokenizer::tokenize(src).unwrap();
     // parse

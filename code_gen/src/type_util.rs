@@ -5,7 +5,7 @@ use std::error::Error;
 use inkwell::types::{BasicTypeEnum, AnyTypeEnum, BasicType, BasicMetadataTypeEnum, IntType, PointerType};
 use inkwell::AddressSpace;
 use inkwell::types::AnyType;
-use parser::ExprAST;
+use parser::{ExprAST, Initializer};
 use super::{CodeGen, CodeGenError};
 
 pub struct TypeUtil;
@@ -62,16 +62,11 @@ impl TypeUtil {
                     Err(Box::new(CodeGenError::illegal_type_for_pointer(pos.clone(), &to_type)))
                 }
             },
-            Type::Array { name: _, typ: type2, opt_size_list } => {
+            Type::Array { name: _, typ: type2, size_list } => {
                 let mut to_type = Self::to_basic_type_enum(type2, ctx, pos)?;
 
-                for opt_size in opt_size_list.iter().rev() {
-                    let size = if let Some(sz) = opt_size {
-                        sz.to_usize()?
-                    }else{
-                        0
-                    };
-
+                for sz in size_list.iter().rev() {
+                    let size = sz.to_usize()?;
                     to_type = to_type.array_type(size as u32).as_basic_type_enum();
                 }
 
@@ -335,15 +330,19 @@ impl TypeUtil {
 
                 Ok(f_type.get_return_type().clone())
             },
-            ExprAST::InitializerList(_, _pos) => {
-                // maybe unreached??
-                unimplemented!()
-            },
+            // ExprAST::InitializerList(_, _pos) => {
+            //     // maybe unreached??
+            //     unimplemented!()
+            // },
             ExprAST::DefVar { specifiers: _, declarations: _, pos: _ } => {
                 // maybe unreached???
                 unimplemented!()
             },
          }
+    }
+
+    pub fn get_initializer_type(init: &Initializer, env: &Env) -> Result<Type, CodeGenError> {
+        unimplemented!()
     }
 
 }

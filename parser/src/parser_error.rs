@@ -3,7 +3,7 @@ use crate::{ConstExpr, ExprAST, SpecifierQualifier, TypeOrVariadic, NumberType};
 use crate::Type;
 use crate::Position;
 use super::TokenizerError;
-use std::fmt::{self, write};
+use std::fmt;
 use std::error::Error;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -64,6 +64,8 @@ pub enum ParserError {
     NotSymbolWhileParsingImpl(Position),
     NoSuchAType{pos: Position, name: String},
     UndefindSymbol(Position, String),
+    ArrayNeedExplicitSizeOrInitializer(Position),
+    ArrayNeedArrayInitializer(Position),
 }
 
 impl ParserError {
@@ -265,6 +267,14 @@ impl ParserError {
     pub fn undefined_symbol(pos: Position, name: &str) -> ParserError {
         Self::UndefindSymbol(pos, name.to_string())
     }
+
+    pub fn array_need_explicit_size_or_initializer(pos: Position) -> ParserError {
+        Self::ArrayNeedExplicitSizeOrInitializer(pos)
+    }
+
+    pub fn array_need_array_initializer(pos: Position) -> ParserError {
+        Self::ArrayNeedArrayInitializer(pos)
+    }
 }
 
 impl From<TokenizerError> for ParserError {
@@ -326,7 +336,9 @@ impl fmt::Display for ParserError {
             Self::NoIdAfterForWhileParsingImpl(_pos, _tok) => write!(f, "no id after for while parsing impl"),
             Self::NotSymbolWhileParsingImpl(_pos) => write!(f, "not symbol while parsing impl"),
             Self::NoSuchAType{pos: _, name} => write!(f, "no such a type '{}'", name),
-            Self::UndefindSymbol(pos, name) => write!(f, "undefined symbol '{}'", name),
+            Self::UndefindSymbol(_pos, name) => write!(f, "undefined symbol '{}'", name),
+            Self::ArrayNeedExplicitSizeOrInitializer(_pos) => write!(f, "array need explicit size or initializer"),
+            Self::ArrayNeedArrayInitializer(_pos) => write!(f, "array need array initializer")
         }
     }
 }

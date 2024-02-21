@@ -2,7 +2,7 @@
 
 use super::{Position, Token};
 use super::ParserError;
-use super::ast::{AST, ExprAST, Block, Param, Params, BinOp, TypeQualifier, DeclarationSpecifier, SpecifierQualifier, Declarator, DirectDeclarator};
+use super::ast::{AST, ExprAST, Block, Param, Params, BinOp, TypeQualifier, DeclarationSpecifier, SpecifierQualifier, Declarator, DirectDeclarator, Initializer};
 use super::ast::{DeclarationSpecifierOrVariadic, Declaration, StructDeclaration, StructDeclarator, AbstractDeclarator, DirectAbstractDeclarator};
 use super::ConstExpr;
 use super::types::*;
@@ -51,7 +51,7 @@ impl Parser {
 
     fn make_global_def_var(&self, ds: DeclarationSpecifier, declarations: Vec<Declaration>, defs: &mut Defines, pos: &Position) -> Result<AST, ParserError> {
         let typ = ds.get_type();
-println!("make_global_def_var");
+
         for declaration in &declarations {
             let decl = declaration.get_declarator();
             let name = decl.get_name();
@@ -70,13 +70,13 @@ println!("make_global_def_var");
         })
     }
 
-    fn make_global_def_array(&self, ds: DeclarationSpecifier, declarations: Vec<Declaration>, opt_size_list: &Vec<Option<ConstExpr>>, defs: &mut Defines, pos: &Position) -> Result<AST, ParserError> {
+    fn make_global_def_array(&self, ds: DeclarationSpecifier, declarations: Vec<Declaration>, size_list: &Vec<ConstExpr>, defs: &mut Defines, pos: &Position) -> Result<AST, ParserError> {
         let typ = ds.get_type();
 
         for declaration in &declarations {
             let decl = declaration.get_declarator();
             let name = decl.get_name();
-            let array_type = Type::Array { name: Some(name.to_string()), typ: Box::new(typ.clone()), opt_size_list: opt_size_list.clone() };
+            let array_type = Type::Array { name: Some(name.to_string()), typ: Box::new(typ.clone()), size_list: size_list.clone() };
             let init = if let Some(expr) = declaration.get_init_expr() {
                 Some((**expr).clone())
             }else{
@@ -190,22 +190,49 @@ println!("make_global_def_var");
             DirectDeclarator::Enclosed(decl2, pos2) => {
                 self.process_declarator(decl2.clone(), ds, tok, pos2, iter, defs)
             },
-            DirectDeclarator::ArrayDef(_direct_declarator, opt_const_expr_list, _pos2) => {
+            DirectDeclarator::ArrayDef(_direct_declarator, const_expr_list, _init, _pos2) => {
                 match tok {
                     Token::SemiColon => {
                         iter.next();  // skip ';'
 
                         let declaration = Declaration::new(decl.clone(), None);
-                        Ok(Some(self.make_global_def_array(ds.clone(), vec![declaration], opt_const_expr_list, defs, pos)?))
+
+                        // if let Some(size_list) = const_expr_list {
+                        //     Ok(Some(self.make_global_def_array(ds.clone(), vec![declaration], size_list, defs, pos)?))
+                        // }else{
+                        //     Err(ParserError::array_need_explicit_size_or_initializer(pos.clone()))
+                        // }
+                        Ok(Some(self.make_global_def_array(ds.clone(), vec![declaration], const_expr_list, defs, pos)?))
+
                     },
                     Token::Assign => {
-                        iter.next();  // skip '='
+                        panic!("unreachable")
+                        // iter.next();  // skip '='
 
-                        let mut labels = Vec::new();
-                        let init_expr = self.parse_expression(iter, defs, &mut Some(&mut labels))?.ok_or(ParserError::need_expr(pos.clone()))?;
-                        self.parse_expected_token(iter, Token::SemiColon)?;
-                        let declaration = Declaration::new(decl.clone(), Some(Box::new(init_expr)));
-                        Ok(Some(self.make_global_def_array(ds.clone(), vec![declaration], opt_const_expr_list, defs, pos)?))
+                        // let mut labels = Vec::new();
+                        // let init_expr = self.parse_initializer(iter, defs, &mut Some(&mut labels))?;
+                        // self.parse_expected_token(iter, Token::SemiColon)?;
+                        // let declaration = Declaration::new(decl.clone(), Some(Box::new(init_expr)));
+
+                        // let size_list = if let Some(vec) = const_expr_list {
+                        //     vec
+                        // } else {
+                        //     match &init_expr {
+                        //         Initializer::Array(list, _pos) => {
+                        //             let mut v = Vec::new();
+
+                        //             for item in list {
+
+                        //             }
+
+
+                        //             unimplemented!()
+                        //         },
+                        //         _ => Err(ParserError::array_need_array_initializer(pos.clone())),
+                        //     }
+                        // };
+
+                        // Ok(Some(self.make_global_def_array(ds.clone(), vec![declaration], size_list, defs, pos)?))
                     },
                     _ => {
                         println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
@@ -1118,31 +1145,57 @@ println!("make_global_def_var");
 
                     result = DirectDeclarator::FunctionDef(Box::new(result), param_type_list, pos.clone());
                 },
-                Token::BracketLeft => {  // define array
+                Token::BracketLeft => {  // when '[', define array
                     iter.next();  // skip '['
 
-                    let mut dimension = Vec::new();
+                    let mut opt_dimension = Vec::new();
 
                     let opt_const_expr = self.parse_constant_expression(iter, defs, labels)?;
-                    dimension.push(opt_const_expr);
+                    opt_dimension.push(opt_const_expr);
                     self.parse_expected_token(iter, Token::BracketRight)?;  // skip ']'
 
                     loop {
                         let (tok2, pos2) = iter.peek().unwrap();
                         if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
 
-                        if *tok2 != Token::BracketLeft {
+                        if *tok2 != Token::BracketLeft {  // not '['
                             break;
                         }
 
                         iter.next();  // skip '['
 
                         let opt_const_expr = self.parse_constant_expression(iter, defs, labels)?;
-                        dimension.push(opt_const_expr);
+                        opt_dimension.push(opt_const_expr);
                         self.parse_expected_token(iter, Token::BracketRight)?;  // skip ']'
                     }
 
-                    result =  DirectDeclarator::ArrayDef(Box::new(result), dimension, pos.clone());
+                    let mut dimension = Vec::new();
+                    let initializer_list;
+                    if let Some((tok3, _pos3)) = iter.peek() {
+                        if *tok3 == Token::Assign {
+                            iter.next();  // skip '='
+                            initializer_list = Some(self.parse_array_initializer(&mut opt_dimension, iter, defs, labels)?);
+
+                            for item in opt_dimension {
+                                dimension.push(item.unwrap())
+                            }
+
+                        }else{
+                            initializer_list = None;
+
+                            for item in opt_dimension {
+                                if let Some(const_expr) = item {
+                                    dimension.push(const_expr);
+                                }else{
+                                    return Err(ParserError::array_need_explicit_size_or_initializer(pos.clone()));
+                                }
+                            }
+                        }
+                    } else {
+                        initializer_list = None;
+                    }
+
+                    result =  DirectDeclarator::ArrayDef(Box::new(result), dimension, initializer_list, pos.clone());
                 },
                 _ => {
                     break Ok(result);
@@ -2503,7 +2556,7 @@ println!("make_global_def_var");
     // fn parse_init_declarator(&self, _typ: &Type, _iter: &mut Peekable<Iter<(Token, Position)>>, _defs: &mut Defines, _labels: &mut Option<&mut Vec<String>>) -> Result<Option<AST>, ParserError> {
     // }
 
-    fn parse_initializer(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<ExprAST, ParserError> {
+    fn parse_initializer(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Initializer, ParserError> {
         let (tok, pos) = iter.peek().unwrap();
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
 
@@ -2512,19 +2565,19 @@ println!("make_global_def_var");
             iter.next();  // skip '{'
             init_expr = self.parse_initializer_list(pos, iter, defs, labels)?;
         }else{
-            init_expr = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::need_expr(pos.clone()))?;
+            let expr = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::need_expr(pos.clone()))?;
+            init_expr = Initializer::Simple(expr, pos.clone());
         }
         Ok(init_expr)
     }
 
-    fn parse_initializer_list(&self, start_pos: &Position, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<ExprAST, ParserError> {
-        let mut list: Vec<ExprAST> = Vec::new();
+    fn parse_initializer_list(&self, start_pos: &Position, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Initializer, ParserError> {
+        let mut list: Vec<Box<Initializer>> = Vec::new();
 
         loop {
             let initializer = self.parse_initializer(iter, defs, labels)?;
-            list.push(initializer);
+            list.push(Box::new(initializer));
 
-            // let (tok2, pos2) = iter.next().ok_or(ParserError::illegal_end_of_input(None))?;
             let (tok2, pos2) = iter.next().unwrap();
             if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
 
@@ -2533,7 +2586,6 @@ println!("make_global_def_var");
                     break;
                 },
                 Token::Comma => {
-                    // let (tok3, _pos3) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
                     let (tok3, pos3) = iter.peek().unwrap();
                     if tok3.is_eof() { return Err(ParserError::illegal_end_of_input(pos3.clone())); }
 
@@ -2548,7 +2600,18 @@ println!("make_global_def_var");
             }
         }
 
-        Ok(ExprAST::InitializerList(list, start_pos.clone()))
+        Ok(Initializer::ArrayOrStruct(list, start_pos.clone()))
+    }
+
+    fn parse_array_initializer(&self, dimension: &mut Vec<Option<ConstExpr>>, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Initializer, ParserError> {
+
+
+
+
+
+
+
+        unimplemented!("parse_array_initializer")
     }
 
     fn parse_compound_statement(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Block, ParserError> {
@@ -2557,7 +2620,6 @@ println!("make_global_def_var");
 
         let mut body = Vec::new();
         loop {
-            // let (tok, _pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
             let (tok, pos) = iter.peek().unwrap();
             if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
 
@@ -2895,8 +2957,8 @@ println!("make_global_def_var");
             Token::Assign => {
                 iter.next();  // skip '='
 
-                println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                let expr = self.parse_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
+                // let expr = self.parse_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
+                let expr = self.parse_initializer(iter, defs, labels)?;
                 let declaration = Declaration::new(decl, Some(Box::new(expr)));
                 let (ds, declarations) = self.parse_def_var(ds.clone(), vec![declaration], defs, pos)?;
                 let ast = ExprAST::DefVar { specifiers: ds, declarations: declarations, pos: start_pos.clone() };

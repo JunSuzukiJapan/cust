@@ -333,7 +333,7 @@ impl Declarator {
 pub enum DirectDeclarator {
     Symbol(String, Position),
     Enclosed(Declarator, Position),
-    ArrayDef(Box<DirectDeclarator>, Vec<Option<ConstExpr>>, Position),
+    ArrayDef(Box<DirectDeclarator>, Vec<ConstExpr>, Option<Initializer>, Position),
     FunctionDef(Box<DirectDeclarator>, Params, Position),
 }
 
@@ -342,16 +342,16 @@ impl DirectDeclarator {
         match self {
             Self::Symbol(id, _pos) => &id,
             Self::Enclosed(decl, _pos) => decl.get_name(),
-            Self::ArrayDef(decl, _, _pos) => (**decl).get_name(),
+            Self::ArrayDef(decl, _, _, _pos) => (**decl).get_name(),
             Self::FunctionDef(decl, _, _pos) => (**decl).get_name(),
         }
     }
 
     pub fn make_array_type(&self, typ: &Type) -> Type {
         match self {
-            Self::ArrayDef(dd, opt_size_list, _pos) => {
+            Self::ArrayDef(dd, size_list, _, _pos) => {
                 let t = dd.make_array_type(typ);
-                Type::Array { name: None, typ: Box::new(t.clone()), opt_size_list: opt_size_list.clone() }
+                Type::Array { name: None, typ: Box::new(t.clone()), size_list: size_list.clone() }
             },
             Self::Enclosed(decl, _pos) => {
                 decl.make_type(typ)
@@ -362,7 +362,7 @@ impl DirectDeclarator {
 
     pub fn get_position(&self) -> &Position {
         match self {
-            Self::ArrayDef(_, _, pos) => pos,
+            Self::ArrayDef(_, _, _, pos) => pos,
             Self::Enclosed(_, pos) => pos,
             Self::FunctionDef(_, _, pos) => pos,
             Self::Symbol(_, pos) => pos,
@@ -373,11 +373,11 @@ impl DirectDeclarator {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Declaration {
     declarator: Declarator,
-    init_expr: Option<Box<ExprAST>>,
+    init_expr: Option<Box<Initializer>>,
 }
 
 impl Declaration {
-    pub fn new(decl: Declarator, init: Option<Box<ExprAST>>) -> Declaration {
+    pub fn new(decl: Declarator, init: Option<Box<Initializer>>) -> Declaration {
         Declaration {
             declarator: decl,
             init_expr: init,
@@ -390,7 +390,7 @@ impl Declaration {
     }
 
     #[inline]
-    pub fn get_init_expr(&self) -> &Option<Box<ExprAST>> {
+    pub fn get_init_expr(&self) -> &Option<Box<Initializer>> {
         &self.init_expr
     }
 }
@@ -659,6 +659,22 @@ impl Switch {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum Initializer {
+    Simple(ExprAST, Position),
+    ArrayOrStruct(Vec<Box<Initializer>>, Position),
+    // Struct(Vec<Box<Initializer>>, Position),
+}
+
+impl Initializer {
+    pub fn get_position(&self) -> &Position {
+        match self {
+            Self::ArrayOrStruct(_, pos) => pos,
+            Self::Simple(_, pos) => pos,
+        }
+    }
+}
+
 #[allow(non_camel_case_types)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum ExprAST {
@@ -701,7 +717,7 @@ pub enum ExprAST {
     TernaryOperator(Box<ExprAST>, Box<ExprAST>, Box<ExprAST>, Position),
     ArrayAccess(Box<ExprAST>, Box<ExprAST>, Position),
     CallFunction(Box<ExprAST>, Vec<ExprAST>, Position),
-    InitializerList(Vec<ExprAST>, Position),
+    // InitializerList(Vec<ExprAST>, Position),
     DefVar {
         specifiers: DeclarationSpecifier,
         declarations: Vec<Declaration>,
@@ -763,7 +779,7 @@ impl ExprAST {
             ExprAST::MemberAccess(_boxed_ast, _field_name, pos) => pos,
             ExprAST::PointerAccess(_boxed_ast, _field_name, pos) => pos,
             ExprAST::TernaryOperator(_, _e1, _, pos) => pos,
-            ExprAST::InitializerList(_, pos) => pos,
+            // ExprAST::InitializerList(_, pos) => pos,
             ExprAST::CallFunction(_, _, pos) => pos,
             ExprAST::DefVar { specifiers: _, declarations: _, pos } => pos,
 
