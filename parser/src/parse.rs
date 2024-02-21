@@ -4195,7 +4195,7 @@ mod tests {
                         Box::new(ExprAST::Int(1, Position::new(2, 21))),
                         Box::new(ExprAST::Int(1, Position::new(2, 25))),
                         Position::new(2, 23)
-                    ), Position::new(2, 23))))
+                    ), Position::new(2, 20))))
                 );
 
                 let declarator = decl.get_declarator();

@@ -723,12 +723,18 @@ impl<'ctx> CodeGen<'ctx> {
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
+        match init {
+            Initializer::Simple(expr, _pos) => self.gen_expr(expr, env, break_catcher, continue_catcher),
+            Initializer::ArrayOrStruct(list, _pos) => {
 
 
 
 
 
-        unimplemented!()
+
+                unimplemented!()
+            }
+        }
     }
 
     fn gen_def_var<'b, 'c>(&self,
