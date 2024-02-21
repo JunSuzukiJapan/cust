@@ -3738,7 +3738,7 @@ mod tests {
                 v.push(declaration);
                 let declarator = Declarator::new(None, DirectDeclarator::Symbol(String::from("y"), Position::new(3, 23)));
                 let init_expr = ExprAST::Int(2, Position::new(3, 27));
-                let declaration = Declaration::new(declarator, Some(Box::new(init_expr)));
+                let declaration = Declaration::new(declarator, Some(Box::new(Initializer::Simple(init_expr, Position::new(3, 27)))));
                 v.push(declaration);
                 let declarator = Declarator::new(None, DirectDeclarator::Symbol(String::from("z"), Position::new(3, 30)));
                 let declaration = Declaration::new(declarator, None);
@@ -4066,10 +4066,10 @@ mod tests {
                 if let Some(expr) = declaration[0].get_init_expr() {
                     assert_eq!(
                         **expr,
-                        ExprAST::UnaryGetAddress(
+                        Initializer::Simple(ExprAST::UnaryGetAddress(
                             Box::new(ExprAST::Symbol(String::from("date"), Position::new(16, 33))),
                             Position::new(16, 32)
-                        )
+                        ), Position::new(16, 32))
                     );
 
                 }else{
@@ -4160,8 +4160,8 @@ mod tests {
                 assert_eq!(direct_decl.get_name(), "ary");
 
                 match direct_decl {
-                    DirectDeclarator::ArrayDef(second_direct_decl, size_list, _pos) => {
-                        assert_eq!(*size_list, vec![Some(ConstExpr::Int(2, Position::new(2, 20))), Some(ConstExpr::Int(3, Position::new(2, 23)))]);
+                    DirectDeclarator::ArrayDef(second_direct_decl, size_list, opt_init, _pos) => {
+                        assert_eq!(*size_list, vec![ConstExpr::Int(2, Position::new(2, 20)), ConstExpr::Int(3, Position::new(2, 23))]);
                         assert_eq!(**second_direct_decl, DirectDeclarator::Symbol("ary".to_string(), Position::new(2, 16)));
                    },
                     _ => panic!("direct_decl: {:?}", direct_decl),
@@ -4190,12 +4190,12 @@ mod tests {
 
                 let init_expr = decl.get_init_expr();
                 assert_eq!(*init_expr,
-                    Some(Box::new(ExprAST::BinExpr(
+                    Some(Box::new(Initializer::Simple(ExprAST::BinExpr(
                         BinOp::Add,
                         Box::new(ExprAST::Int(1, Position::new(2, 21))),
                         Box::new(ExprAST::Int(1, Position::new(2, 25))),
                         Position::new(2, 23)
-                    )))
+                    ), Position::new(2, 23))))
                 );
 
                 let declarator = decl.get_declarator();
@@ -4249,14 +4249,14 @@ mod tests {
 
                 let init_expr = decl.get_init_expr();
                 assert_eq!(*init_expr,
-                    Some(Box::new(ExprAST::Cast(
+                    Some(Box::new(Initializer::Simple(ExprAST::Cast(
                         int_pointer_type,
                         Box::new(ExprAST::CallFunction(
                             Box::new(ExprAST::Symbol("malloc".to_string(), Position::new(2, 29))),
                             vec![ExprAST::Int(1, Position::new(2, 36))], Position::new(2, 35))
                         ),
                         Position::new(2, 23)
-                    )))
+                    ), Position::new(2, 23))))
                 );
 
                 Ok(())

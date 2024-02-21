@@ -3897,7 +3897,7 @@ mod tests {
             let _any_value = gen.gen_stmt(&asts[i], &mut env, None, None)?;
         }
 
-        let dummy: Result<JitFunction<FuncType_void_void>, inkwell::execution_engine::FunctionLookupError> = unsafe { gen.execution_engine.get_function("test") };
+        let _dummy: Result<JitFunction<FuncType_void_void>, inkwell::execution_engine::FunctionLookupError> = unsafe { gen.execution_engine.get_function("test") };
         let f: JitFunction<FuncType_void_void> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
         let _result = unsafe { f.call() };
 
