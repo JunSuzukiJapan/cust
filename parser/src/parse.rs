@@ -2604,6 +2604,9 @@ impl Parser {
     }
 
     fn parse_array_initializer(&self, dimension: &mut Vec<Option<ConstExpr>>, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Initializer, ParserError> {
+        let (tok, pos) = iter.next().unwrap();
+        if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
+        if *tok != Token::BraceLeft { return Err(ParserError::not_l_brace_parsing_array_initializer(tok.clone(), pos.clone())) }
 
 
 

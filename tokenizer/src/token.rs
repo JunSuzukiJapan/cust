@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+use std::fmt;
+
 #[allow(non_camel_case_types)]
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
@@ -163,19 +165,140 @@ impl Token {
     }
 }
 
-impl ToString for Token {
-    fn to_string(&self) -> String {
+impl fmt::Display for Token {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Token::_Bool  => String::from("_Bool"),
-            Token::Char   => String::from("char"),
-            Token::Double => String::from("double"),
-            Token::Float  => String::from("float"),
-            Token::Int    => String::from("int"),
-            Token::Long   => String::from("long"),
-            Token::Short  => String::from("short"),
-            Token::Void   => String::from("void"),
-            Token::Symbol(name) => name.to_string(),
-            _ => String::from("no such a type"),
+            Token::EndOfInput => write!(f, "<end of input>"),
+            //
+            // Literal
+            //
+            Token::CharLiteral(ch) => write!(f, "char literal '{}'", ch),
+            Token::IntLiteral(i) => write!(f, "int literal '{}'", i),
+            Token::UIntLiteral(i) => write!(f, "unsigned int literal '{}'", i),
+            Token::LongLiteral(i) => write!(f, "long literal '{}'", i),
+            Token::ULongLiteral(i) => write!(f, "unsigned long literal '{}'", i),
+            Token::LongLongLiteral(i) => write!(f, "long long literal '{}'", i),
+            Token::ULongLongLiteral(i) => write!(f, "unsigned long long literal '{}'", i),
+            Token::StringLiteral(s) => write!(f, "string literal \"{}\"", s),
+            Token::DoubleLiteral(d) => write!(f, "double literal '{}'", d),
+            //
+            // Symbol
+            //
+            Token::Symbol(s) => write!(f, "symbol '{}'", s),
+            //
+            // Operators
+            //
+            Token::Add => write!(f, "+"),
+            Token::Sub => write!(f, "-"),
+            Token::Mul => write!(f, "*"),
+            Token::Div => write!(f, "/"),
+            Token::Mod => write!(f, "%"),
+        
+            Token::Inc => write!(f, "++"),
+            Token::Dec => write!(f, "--"),
+        
+            Token::Assign => write!(f, "="),
+            Token::AddAssign => write!(f, "+="),
+            Token::SubAssign => write!(f, "-="),
+            Token::MulAssign => write!(f, "*="),
+            Token::DivAssign => write!(f, "/="),
+            Token::ModAssign => write!(f, "%="),
+        
+            Token::And => write!(f, "&&"),
+            Token::Or => write!(f, "||"),
+            Token::Not => write!(f, "!"),
+        
+            Token::BitAnd => write!(f, "&"),
+            Token::BitAndAssign => write!(f, "&="),
+            Token::BitOr => write!(f, "|"),
+            Token::BitOrAssign => write!(f, "|="),
+            Token::BitXor => write!(f, "^"),
+            Token::BitXorAssign => write!(f, "^="),
+            Token::ShiftLeft => write!(f, "<<"),
+            Token::ShiftLeftAssign => write!(f, "<<="),
+            Token::ShiftRight => write!(f, ">>"),
+            Token::ShiftRightAssign => write!(f, ">>="),
+        
+            Token::Tilda => write!(f, "~"),
+            Token::Question => write!(f, "?"),
+        
+            Token::Less => write!(f, "<"),
+            Token::LessEqual => write!(f, "<="),
+            Token::Greater => write!(f, ">"),
+            Token::GreaterEqual => write!(f, ">="),
+            Token::Equal => write!(f, "=="),
+            Token::NotEqual => write!(f, "!="),
+        
+            Token::Colon => write!(f, ":"),         // ':'
+            Token::SemiColon => write!(f, ";"),     // ';'
+            Token::Dot => write!(f, "."),           // '.'
+            Token::TripleDot => write!(f, "..."),    // '...'
+            Token::Comma => write!(f, ","),         // ','
+            Token::ParenLeft => write!(f, "("),     // '('
+            Token::ParenRight => write!(f, ")"),    // ')'
+            Token::BraceLeft => write!(f, "{{"),     // '{'
+            Token::BraceRight => write!(f, "}}"),    // '}'
+            Token::BracketLeft => write!(f, "["),   // '['
+            Token::BracketRight => write!(f, "]"),  // ']'
+        
+            Token::MemberSelection => write!(f, "->"),  // '->'
+        
+            //
+            // Keywords
+            //
+            Token::Auto => write!(f, "auto"),
+            Token::Break => write!(f, "break"),
+            Token::Case => write!(f, "case"),
+            Token::Char => write!(f, "char"),
+            Token::Const => write!(f, "const"),
+            Token::Continue => write!(f, "continue"),
+            Token::Default => write!(f, "default"),
+            Token::Do => write!(f, "do"),
+            Token::Double => write!(f, "double"),
+            Token::Else => write!(f, "else"),
+            Token::Enum => write!(f, "enum"),
+            Token::Extern => write!(f, "extern"),
+            Token::Float => write!(f, "float"),
+            Token::For => write!(f, "for"),
+            Token::Goto => write!(f, "goto"),
+            Token::If => write!(f, "if"),
+            Token::Inline => write!(f, "inline"),
+            Token::Int => write!(f, "int"),
+            Token::Long => write!(f, "long"),
+            Token::Register => write!(f, "register"),
+            Token::Restrict => write!(f, "restrict"),
+            Token::Return => write!(f, "return"),
+            Token::Short => write!(f, "short"),
+            Token::Signed => write!(f, "signed"),
+            Token::Sizeof => write!(f, "sizeof"),
+            Token::Static => write!(f, "static"),
+            Token::Struct => write!(f, "struct"),
+            Token::Switch => write!(f, "switch"),
+            Token::Typedef => write!(f, "typedef"),
+            Token::Union => write!(f, "union"),
+            Token::Unsigned => write!(f, "unsigned"),
+            Token::Void => write!(f, "void"),
+            Token::Volatile => write!(f, "volatile"),
+            Token::While => write!(f, "while"),
+            Token::_Alignas => write!(f, "_alignas"),
+            Token::_Alignof => write!(f, "_alignof"),
+            Token::_Atomic => write!(f, "_atomic"),
+            Token::_Bool => write!(f, "_bool"),
+            Token::_Complex => write!(f, "_complex"),
+            Token::_Generic => write!(f, "_generic"),
+            Token::_Imaginary => write!(f, "_imaginary"),
+            Token::_Noreturn => write!(f, "_noreturn"),
+            Token::_Static_assert => write!(f, "_static_assert"),
+            Token::_Thread_local => write!(f, "_thread_local"),
+        
+            // CUST
+            Token::Trait => write!(f, "trait"),
+            Token::Impl => write!(f, "impl"),
+            Token::_Self => write!(f, "Self"),
+            Token::_self => write!(f, "self"),
+            Token::Dyn => write!(f, "dyn"),
+            Token::Let => write!(f, "let"),
+            Token::Match => write!(f, "match"),
         }
     }
 }

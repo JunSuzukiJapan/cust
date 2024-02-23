@@ -66,6 +66,7 @@ pub enum ParserError {
     UndefindSymbol(Position, String),
     ArrayNeedExplicitSizeOrInitializer(Position),
     ArrayNeedArrayInitializer(Position),
+    NotLBraceParsingArrayInitializer(Token, Position),
 }
 
 impl ParserError {
@@ -275,6 +276,10 @@ impl ParserError {
     pub fn array_need_array_initializer(pos: Position) -> ParserError {
         Self::ArrayNeedArrayInitializer(pos)
     }
+
+    pub fn not_l_brace_parsing_array_initializer(tok: Token, pos: Position) -> ParserError {
+        ParserError::NotLBraceParsingArrayInitializer(tok, pos)
+    }
 }
 
 impl From<TokenizerError> for ParserError {
@@ -338,7 +343,8 @@ impl fmt::Display for ParserError {
             Self::NoSuchAType{pos: _, name} => write!(f, "no such a type '{}'", name),
             Self::UndefindSymbol(_pos, name) => write!(f, "undefined symbol '{}'", name),
             Self::ArrayNeedExplicitSizeOrInitializer(_pos) => write!(f, "array need explicit size or initializer"),
-            Self::ArrayNeedArrayInitializer(_pos) => write!(f, "array need array initializer")
+            Self::ArrayNeedArrayInitializer(_pos) => write!(f, "array need array initializer"),
+            Self::NotLBraceParsingArrayInitializer(tok, _pos) => write!(f, "need '{{', but '{}'", tok),
         }
     }
 }
