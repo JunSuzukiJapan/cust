@@ -96,7 +96,7 @@ impl BinOp {
             Token::BitAnd => Ok(BinOp::BitAnd),
             Token::BitOr => Ok(BinOp::BitOr),
             Token::BitXor => Ok(BinOp::BitXor),
-            _ => Err(ParserError::no_such_a_operator(pos.clone(), token_type.clone())),
+            _ => Err(ParserError::no_such_a_operator(token_type.clone(), pos.clone())),
         }
     }
 }
@@ -732,7 +732,7 @@ impl ExprAST {
         match self {
             ExprAST::Char(_, _) | ExprAST::Int(_, _) | ExprAST::Short(_, _) | ExprAST::Long(_, _) => Ok(true),
             ExprAST::UChar(_, _) | ExprAST::UInt(_, _) | ExprAST::UShort(_, _) | ExprAST::ULong(_, _) => Ok(false),
-            _ => Err(ParserError::not_number(self.get_position().clone(), self)),
+            _ => Err(ParserError::not_number(self, self.get_position().clone())),
         }
     }
 
@@ -967,7 +967,7 @@ impl ExprAST {
             // ExprAST::ExpressionPair(_, right, _) => right.to_const(defs, pos),
 
 
-            _ => Err(ParserError::is_not_constant(pos.clone(), self)),
+            _ => Err(ParserError::is_not_constant(self, pos.clone())),
         }
     }
 

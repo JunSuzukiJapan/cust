@@ -27,7 +27,7 @@ impl ConstExpr {
             Self::Int(num, _pos) => Ok(*num as u64),
 
 
-            _ => Err(ParserError::cannot_convert_to_usize(self.get_position().clone(), self)),
+            _ => Err(ParserError::cannot_convert_to_usize(self, self.get_position().clone())),
         }
     }
 
@@ -123,27 +123,27 @@ macro_rules! op_expand_without_float {
             (Self::Int(n1, pos), Self::Unsigned(n2, _pos2)) => Ok(ConstExpr::Int(n1 $op (n2 as i64), pos)),
             (Self::Int(n1, pos), Self::LongLong(n2, _pos2)) => Ok(ConstExpr::LongLong((n1 as i128) $op n2, pos)),
             (Self::Int(n1, pos), Self::ULongLong(n2, _pos2)) => Ok(ConstExpr::LongLong((n1 as i128) $op (n2 as i128), pos)),
-            (Self::Int(_n1, pos), Self::Double(_n2, _pos)) => Err(ParserError::cannot_apply_operator_to_float(pos.clone(), str_from_op!($op))),
+            (Self::Int(_n1, pos), Self::Double(_n2, _pos)) => Err(ParserError::cannot_apply_operator_to_float(str_from_op!($op), pos.clone())),
 
             (Self::Unsigned(n1, pos), Self::Int(n2, _pos2)) => Ok(ConstExpr::Int((n1 as i64) $op n2, pos)),
             (Self::Unsigned(n1, pos), Self::Unsigned(n2, _pos2)) => Ok(ConstExpr::Unsigned(n1 $op n2, pos)),
             (Self::Unsigned(n1, pos), Self::LongLong(n2, _pos2)) => Ok(ConstExpr::LongLong((n1 as i128) $op n2, pos)),
             (Self::Unsigned(n1, pos), Self::ULongLong(n2, _pos2)) => Ok(ConstExpr::ULongLong((n1 as u128) $op n2, pos)),
-            (Self::Unsigned(_n1, pos), Self::Double(_n2, _pos2)) => Err(ParserError::cannot_apply_operator_to_float(pos.clone(), str_from_op!($op))),
+            (Self::Unsigned(_n1, pos), Self::Double(_n2, _pos2)) => Err(ParserError::cannot_apply_operator_to_float(str_from_op!($op), pos.clone())),
 
             (Self::LongLong(n1, pos), Self::Int(n2, _pos2)) => Ok(ConstExpr::LongLong(n1 $op (n2 as i128), pos)),
             (Self::LongLong(n1, pos), Self::Unsigned(n2, _pos2)) => Ok(ConstExpr::LongLong(n1 $op (n2 as i128), pos)),
             (Self::LongLong(n1, pos), Self::LongLong(n2, _pos2)) => Ok(ConstExpr::LongLong(n1 $op n2, pos)),
             (Self::LongLong(n1, pos), Self::ULongLong(n2, _pos2)) => Ok(ConstExpr::LongLong(n1 $op (n2 as i128), pos)),
-            (Self::LongLong(_n1, pos), Self::Double(_n2, _pos2)) => Err(ParserError::cannot_apply_operator_to_float(pos.clone(), str_from_op!($op))),
+            (Self::LongLong(_n1, pos), Self::Double(_n2, _pos2)) => Err(ParserError::cannot_apply_operator_to_float(str_from_op!($op), pos.clone())),
 
             (Self::ULongLong(n1, pos), Self::Int(n2, _pos2)) => Ok(ConstExpr::LongLong((n1 as i128) $op (n2 as i128), pos)),
             (Self::ULongLong(n1, pos), Self::Unsigned(n2, _pos2)) => Ok(ConstExpr::ULongLong(n1 $op (n2 as u128), pos)),
             (Self::ULongLong(n1, pos), Self::LongLong(n2, _pos2)) => Ok(ConstExpr::LongLong((n1 as i128) $op n2, pos)),
             (Self::ULongLong(n1, pos), Self::ULongLong(n2, _pos2)) => Ok(ConstExpr::ULongLong(n1 $op n2, pos)),
-            (Self::ULongLong(_n1, pos), Self::Double(_n2, _pos2)) => Err(ParserError::cannot_apply_operator_to_float(pos.clone(), str_from_op!($op))),
+            (Self::ULongLong(_n1, pos), Self::Double(_n2, _pos2)) => Err(ParserError::cannot_apply_operator_to_float(str_from_op!($op), pos.clone())),
 
-            (Self::Double(_n1, pos), _) =>  Err(ParserError::cannot_apply_operator_to_float(pos.clone(), str_from_op!($op))),
+            (Self::Double(_n1, pos), _) =>  Err(ParserError::cannot_apply_operator_to_float(str_from_op!($op), pos.clone())),
         }
     )
 }

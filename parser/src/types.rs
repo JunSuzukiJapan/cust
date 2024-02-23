@@ -49,7 +49,7 @@ impl NumberType {
                 Ok(NumberType::UnsignedLongLong)
             },
             NumberType::Float | NumberType::Double | NumberType::_Bool => {
-                Err(ParserError::cannot_to_be_unsigned(pos.clone(), self))
+                Err(ParserError::cannot_to_be_unsigned(self, pos.clone()))
             },
             _ => Ok(self.clone())
         }
@@ -565,7 +565,7 @@ impl Type {
         if let Type::Pointer(_pointer, to_type) = self {
             Ok(&**to_type)
         }else{
-            Err(ParserError::not_pointer(pos.clone(), self))
+            Err(ParserError::not_pointer(self, pos.clone()))
         }
     }
 
@@ -573,7 +573,7 @@ impl Type {
         if let Type::Array { typ, .. } = self {
             Ok(&**typ)
         }else{
-            Err(ParserError::not_array(pos.clone(), self))
+            Err(ParserError::not_array(self, pos.clone()))
         }
     }
 
@@ -581,7 +581,7 @@ impl Type {
         if let Type::Function(fun_type) = self {
             Ok(&fun_type.ret_type)
         }else{
-            Err(ParserError::not_function(pos.clone(), self))
+            Err(ParserError::not_function(self, pos.clone()))
         }
     }
 
@@ -624,14 +624,14 @@ impl Type {
     pub fn get_number_type(&self, pos: &Position) -> Result<&NumberType, ParserError> {
         match self {
             Type::Number(nt) => Ok(nt),
-            _ => Err(ParserError::not_number_type(pos.clone(), self)),
+            _ => Err(ParserError::not_number_type(self, pos.clone())),
         }
     }
 
     pub fn get_function_type(&self, pos: &Position) -> Result<&CustFunctionType, ParserError> {
         match self {
             Type::Function(fun_type) => Ok(fun_type),
-            _ => Err(ParserError::not_function(pos.clone(), self))
+            _ => Err(ParserError::not_function(self, pos.clone()))
         }
     }
 
@@ -643,7 +643,7 @@ impl Type {
             Type::Pointer(p, typ) => {
                 Ok(Type::Pointer(p.clone(), Box::new(typ.to_unsigned(pos)?)))
             },
-            _ => Err(ParserError::not_number_type_to_be_unsigned(pos.clone(), self)),
+            _ => Err(ParserError::not_number_type_to_be_unsigned(self, pos.clone())),
         }
     }
 

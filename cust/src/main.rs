@@ -596,6 +596,9 @@ END: ;
         int test() {
             int num[3] = {1, 2, 3};
 
+            printf(\"num[0] = %d\\\n\", num[0]);
+            printf(\"num[1] = %d\\\n\", num[1]);
+            printf(\"num[2] = %d\\\n\", num[2]);
             return num[0] + num[1] + num[2];
         }
     ";

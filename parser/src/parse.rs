@@ -309,7 +309,7 @@ impl Parser {
                 return Err(ParserError::not_symbol_while_parsing_impl(pos.clone()));
             },
         };
-        let impl_type = defs.get_type(impl_name).ok_or(ParserError::no_such_a_type(pos.clone(), impl_name))?.clone();
+        let impl_type = defs.get_type(impl_name).ok_or(ParserError::no_such_a_type(impl_name, pos.clone()))?.clone();
         defs.set_self_type(&impl_type)?;
 
         let (tok, pos) = iter.peek().unwrap();
@@ -332,16 +332,16 @@ impl Parser {
                         if tok3.is_eof() { return Err(ParserError::illegal_end_of_input(pos3.clone())); }
 
                         if *tok3 != Token::BraceLeft {
-                            return Err(ParserError::not_brace_left_or_for_while_parsing_impl(pos.clone(), tok));
+                            return Err(ParserError::not_brace_left_or_for_while_parsing_impl(tok, pos.clone()));
                         }
                     },
                     _ => {
-                        return Err(ParserError::no_id_after_for_while_parsing_impl(pos2.clone(), tok2));
+                        return Err(ParserError::no_id_after_for_while_parsing_impl(tok2, pos2.clone()));
                     }
                 }
             },
             _ => {
-                return Err(ParserError::not_brace_left_or_for_while_parsing_impl(pos.clone(), tok));
+                return Err(ParserError::not_brace_left_or_for_while_parsing_impl(tok, pos.clone()));
             }
         }
 
@@ -721,7 +721,7 @@ impl Parser {
                         }
                         if let Some((typ, _pos)) = &opt_type {
                             if ! typ.can_sign() {
-                                return Err(ParserError::not_number_signed(pos.clone(), &typ));
+                                return Err(ParserError::not_number_signed(&typ, pos.clone()));
                             }
                         }
                         opt_signed = Some((true, pos.clone()));
@@ -733,7 +733,7 @@ impl Parser {
                         }
                         if let Some((typ, _pos)) = &opt_type {
                             if ! typ.can_sign() {
-                                return Err(ParserError::not_number_unsigned(pos.clone(), &typ));
+                                return Err(ParserError::not_number_unsigned(&typ, pos.clone()));
                             }
                         }
                         opt_unsigned = Some((true, pos.clone()));
@@ -741,21 +741,21 @@ impl Parser {
                     Token::Void => {
                         iter.next();
                         if let Some((pre_type, pre_pos)) = &opt_type {
-                            return Err(ParserError::already_type_defined(pos.clone(), &Type::Void, &pre_type, &pre_pos));
+                            return Err(ParserError::already_type_defined(&Type::Void, pos.clone(), &pre_type, &pre_pos));
                         }
                         opt_type = Some((Type::Void, pos.clone()));
                     },
                     Token::_Bool => {
                         iter.next();
                         if let Some((pre_type, pre_pos)) = &opt_type {
-                            return Err(ParserError::already_type_defined(pos.clone(), &Type::Number(NumberType::_Bool), &pre_type, &pre_pos));
+                            return Err(ParserError::already_type_defined(&Type::Number(NumberType::_Bool), pos.clone(), &pre_type, &pre_pos));
                         }
                         opt_type = Some((Type::Number(NumberType::_Bool), pos.clone()));
                     }
                     Token::Char => {
                         iter.next();
                         if let Some((pre_type, pre_pos)) = &opt_type {
-                            return Err(ParserError::already_type_defined(pos.clone(), &Type::Number(NumberType::Char), &pre_type, &pre_pos));
+                            return Err(ParserError::already_type_defined(&Type::Number(NumberType::Char), pos.clone(), &pre_type, &pre_pos));
                         }
                         opt_type = Some((Type::Number(NumberType::Char), pos.clone()));
                     },
@@ -768,7 +768,7 @@ impl Parser {
                                     continue;
                                 },
                                 _ => {
-                                    return Err(ParserError::already_type_defined(pos.clone(), &Type::Number(NumberType::Short), &pre_type, &pre_pos));
+                                    return Err(ParserError::already_type_defined(&Type::Number(NumberType::Short), pos.clone(), &pre_type, &pre_pos));
                                 },
                             }
                         }
@@ -782,7 +782,7 @@ impl Parser {
                                     continue;
                                 },
                                 _ => {
-                                    return Err(ParserError::already_type_defined(pos.clone(), &Type::Number(NumberType::Int), &pre_type, &pre_pos));
+                                    return Err(ParserError::already_type_defined(&Type::Number(NumberType::Int), pos.clone(), &pre_type, &pre_pos));
                                 },
                             }
                         }
@@ -801,7 +801,7 @@ impl Parser {
                                     continue;
                                 },
                                 _ => {
-                                    return Err(ParserError::already_type_defined(pos.clone(), &Type::Number(NumberType::Long), &pre_type, &pre_pos));
+                                    return Err(ParserError::already_type_defined(&Type::Number(NumberType::Long), pos.clone(), &pre_type, &pre_pos));
                                 },
                             }
                         }
@@ -810,14 +810,14 @@ impl Parser {
                     Token::Float => {
                         iter.next();
                         if let Some((pre_type, pre_pos)) = &opt_type {
-                            return Err(ParserError::already_type_defined(pos.clone(), &Type::Number(NumberType::Float), &pre_type, &pre_pos));
+                            return Err(ParserError::already_type_defined(&Type::Number(NumberType::Float), pos.clone(), &pre_type, &pre_pos));
                         }
                         opt_type = Some((Type::Number(NumberType::Float), pos.clone()));
                     },
                     Token::Double => {
                         iter.next();
                         if let Some((pre_type, pre_pos)) = &opt_type {
-                            return Err(ParserError::already_type_defined(pos.clone(), &Type::Number(NumberType::Double), &pre_type, &pre_pos));
+                            return Err(ParserError::already_type_defined(&Type::Number(NumberType::Double), pos.clone(), &pre_type, &pre_pos));
                         }
                         opt_type = Some((Type::Number(NumberType::Double), pos.clone()));
                     },
@@ -874,7 +874,7 @@ impl Parser {
         //        check variadic parameter
         //
         if sq.auto || sq.register || sq.static_ || sq.extern_ || sq.typedef || type_or_variadic.is_variadic() {
-            return Err(ParserError::syntax_error_while_parsing_struct(pos.clone(), &sq, &type_or_variadic));
+            return Err(ParserError::syntax_error_while_parsing_struct(&sq, &type_or_variadic, pos.clone()));
         }
 
         let typ = type_or_variadic.get_type().unwrap();
@@ -984,7 +984,7 @@ impl Parser {
                     enumerator = Enumerator::new(name, value);
                 },
                 _ => {
-                    return Err(ParserError::should_be(pos2.clone(), vec![Token::BraceRight, Token::Assign], tok2));
+                    return Err(ParserError::should_be(vec![Token::BraceRight, Token::Assign], tok2, pos2.clone()));
                 }
             }
 
@@ -2503,7 +2503,7 @@ impl Parser {
             let decl = self.parse_declarator(iter, defs, labels)?;
             let name = decl.get_name();
             if defs.exists_var(&name) {
-                return Err(ParserError::already_var_defined(iter.peek().unwrap().1.clone(), &name));
+                return Err(ParserError::already_var_defined(&name, iter.peek().unwrap().1.clone()));
             }
 
             let (tok, pos) = iter.next().unwrap();
@@ -2612,9 +2612,35 @@ impl Parser {
 
 
 
+        let mut list: Vec<Box<Initializer>> = Vec::new();
 
+        loop {
+            let initializer = self.parse_initializer(iter, defs, labels)?;
+            list.push(Box::new(initializer));
 
-        unimplemented!("parse_array_initializer")
+            let (tok2, pos2) = iter.next().unwrap();
+            if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
+
+            match tok2 {
+                Token::BraceRight => {
+                    break;
+                },
+                Token::Comma => {
+                    let (tok3, pos3) = iter.peek().unwrap();
+                    if tok3.is_eof() { return Err(ParserError::illegal_end_of_input(pos3.clone())); }
+
+                    if *tok3 == Token::BraceRight {
+                        iter.next();  // skip '}'
+                        break;
+                    }
+                },
+                _ => {
+                    return Err(ParserError::need_brace_right_or_comma_when_parsing_initializer_list(pos2.clone()));
+                }
+            }
+        }
+
+        Ok(Initializer::ArrayOrStruct(list, pos.clone()))
     }
 
     fn parse_compound_statement(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Block, ParserError> {
@@ -3025,7 +3051,7 @@ impl Parser {
 
 
     fn parse_labeled_statement(&self, id: &str, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>, pos: &Position) -> Result<Option<AST>, ParserError> {
-        self.parse_expected_token(iter, Token::Colon).or(Err(ParserError::undefined_symbol(pos.clone(), id)))?;
+        self.parse_expected_token(iter, Token::Colon).or(Err(ParserError::undefined_symbol(id, pos.clone())))?;
         let stmt = self.parse_statement(iter, defs, labels)?;
 
         if let Some(v) = labels {
@@ -3120,7 +3146,7 @@ impl Parser {
         if *tok == expected {
             Ok(pos.clone())
         }else{
-            Err(ParserError::without_expected_token(pos.clone(), expected.clone(), tok.clone()))
+            Err(ParserError::without_expected_token(expected.clone(), tok.clone(), pos.clone()))
         }
     }
 }

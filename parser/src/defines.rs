@@ -165,7 +165,7 @@ impl Defines {
 
     pub fn set_enum(&mut self, name: &str, enum_def: EnumDefinition, pos: &Position) -> Result<(), ParserError> {
         if self.exists_type(name) {
-            return Err(ParserError::already_var_defined(pos.clone(), name));
+            return Err(ParserError::already_var_defined(name, pos.clone()));
         }
 
         if self.local_maps.last().unwrap().len() > 0 {
@@ -180,7 +180,7 @@ impl Defines {
 
     pub fn set_struct(&mut self, name: &str, struct_def: StructDefinition, pos: &Position) -> Result<(), ParserError> {
         if self.exists_type(name) {
-            return Err(ParserError::already_var_defined(pos.clone(), name));
+            return Err(ParserError::already_var_defined(name, pos.clone()));
         }
 
         if self.local_maps.last().unwrap().len() > 0 {
@@ -195,7 +195,7 @@ impl Defines {
 
     pub fn set_union(&mut self, name: &str, struct_def: StructDefinition, pos: &Position) -> Result<(), ParserError> {
         if self.exists_type(name) {
-            return Err(ParserError::already_var_defined(pos.clone(), name));
+            return Err(ParserError::already_var_defined(name, pos.clone()));
         }
 
         if self.local_maps.last().unwrap().len() > 0 {
@@ -210,7 +210,7 @@ impl Defines {
 
     pub fn set_var(&mut self, name: &str, typ: &Type, init_expr: Option<Initializer>, pos: &Position) -> Result<(), ParserError> {
         if self.cannot_define_var(name) {
-            return Err(ParserError::already_var_defined(pos.clone(), name));
+            return Err(ParserError::already_var_defined(name, pos.clone()));
         }
 
         if self.local_maps.last().unwrap().len() > 0 {
@@ -224,7 +224,7 @@ impl Defines {
 
     pub fn set_const(&mut self, name: &str, typ: &Type, init_expr: ConstExpr, pos: &Position) -> Result<(), ParserError> {
         if self.cannot_define_var(name) {
-            return Err(ParserError::already_var_defined(pos.clone(), name));
+            return Err(ParserError::already_var_defined(name, pos.clone()));
         }
 
         if self.local_maps.last().unwrap().len() > 0 {
@@ -256,13 +256,13 @@ impl Defines {
     // #[allow(mutable_borrow_reservation_conflict)]
     pub fn set_typedef(&mut self, typedef_name: &str, typ: &Type, pos: &Position) -> Result<(), ParserError> {
         if self.exists_type(typedef_name) {
-            return Err(ParserError::already_type_defined_in_env(pos.clone(), typedef_name));
+            return Err(ParserError::already_type_defined_in_env(typedef_name, pos.clone()));
         }
 
         if let Type::Struct { name, fields } = typ {
             if let Some(id) = name {
                 if ! fields.has_fields() {
-                    let t = &self.get_struct_type(id).ok_or(ParserError::no_such_a_struct(pos.clone(), id))?;
+                    let t = &self.get_struct_type(id).ok_or(ParserError::no_such_a_struct(id, pos.clone()))?;
                     let def_type = DefineType::new_typedef(typedef_name, t);
                     if self.local_maps.last().unwrap().len() > 0 {
                         self.local_maps.last_mut().unwrap().last_mut().unwrap().type_map.insert(typedef_name.to_string(), def_type);
@@ -286,7 +286,7 @@ impl Defines {
 
     pub fn set_function(&mut self, name: &str, specifiers: DeclarationSpecifier, declarator: Declarator, params: Params, pos: &Position) -> Result<(), ParserError> {
         if self.exists_type(name) {
-            return Err(ParserError::already_type_defined_in_env(pos.clone(), name));
+            return Err(ParserError::already_type_defined_in_env(name, pos.clone()));
         }
 
         if self.local_maps.last().unwrap().len() > 0 {
@@ -301,16 +301,16 @@ impl Defines {
     pub fn get_const(&self, name: &str, pos: &Position) -> Result<ConstExpr, ParserError> {
         let item;
         if self.local_maps.last().unwrap().len() > 0 {
-            item = self.local_maps.last().unwrap().last().unwrap().def_map.get(name).ok_or(ParserError::no_such_a_constant(pos.clone(), name))?;
+            item = self.local_maps.last().unwrap().last().unwrap().def_map.get(name).ok_or(ParserError::no_such_a_constant(name, pos.clone()))?;
         }else{
-            item = self.global_maps.def_map.get(name).ok_or(ParserError::no_such_a_constant(pos.clone(), name))?;
+            item = self.global_maps.def_map.get(name).ok_or(ParserError::no_such_a_constant(name, pos.clone()))?;
         }
 
         match item {
             DefineVar::Const{init_expr, ..} => {
                 Ok(init_expr.clone())
             },
-            _ => Err(ParserError::no_such_a_constant(pos.clone(), name)),
+            _ => Err(ParserError::no_such_a_constant(name, pos.clone())),
         }
     }
 
