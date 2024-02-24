@@ -100,7 +100,7 @@ impl<'ctx> CodeGen<'ctx> {
                         Some(initializer) => {
                             match &typ {
                                 Type::Struct { fields, .. } => {
-                                    self.gen_global_struct_init(&fields, ptr, &**initializer, env, break_catcher, continue_catcher)?;
+                                    self.gen_global_struct_init(&fields, ptr, &*initializer, env, break_catcher, continue_catcher)?;
                                 },
                                 Type::Array { name: _, typ, size_list } => {
                                     unimplemented!()
@@ -758,21 +758,21 @@ impl<'ctx> CodeGen<'ctx> {
                 Some(const_expr) => {
                     match &typ {
                         Type::Struct { fields, .. } => {
-                            self.gen_struct_init(&fields, ptr, &**const_expr, env, break_catcher, continue_catcher)?;
+                            self.gen_struct_init(&fields, ptr, &*const_expr, env, break_catcher, continue_catcher)?;
                         },
                         Type::Array { name: _, typ, size_list } => {
-                            self.gen_array_init(&size_list, ptr, &**const_expr, env, break_catcher, continue_catcher)?;
+                            self.gen_array_init(&size_list, ptr, &*const_expr, env, break_catcher, continue_catcher)?;
                         },
                         _ => {
-                            let compiled_value = self.gen_const_expr(&**const_expr, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(const_expr.get_position().clone()))?;
+                            let compiled_value = self.gen_const_expr(&*const_expr, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(const_expr.get_position().clone()))?;
                             let mut init_value = compiled_value.get_value();
                             let init_type = compiled_value.get_type();
 
                             if typ != *init_type {
-                                init_value = self.gen_implicit_cast(&init_value, &init_type, &typ, (**const_expr).get_position())?;
+                                init_value = self.gen_implicit_cast(&init_value, &init_type, &typ, (*const_expr).get_position())?;
                             }
 
-                            let basic_value = self.try_as_basic_value(&init_value, (**const_expr).get_position())?;
+                            let basic_value = self.try_as_basic_value(&init_value, (*const_expr).get_position())?;
                             self.builder.build_store(ptr, basic_value)?;
                         }
                     }

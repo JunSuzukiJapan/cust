@@ -333,7 +333,7 @@ impl Declarator {
 pub enum DirectDeclarator {
     Symbol(String, Position),
     Enclosed(Declarator, Position),
-    ArrayDef(Box<DirectDeclarator>, Vec<ConstExpr>, Option<Initializer>, Position),
+    ArrayDef(Box<DirectDeclarator>, Vec<ConstExpr>, Position),
     FunctionDef(Box<DirectDeclarator>, Params, Position),
 }
 
@@ -342,14 +342,14 @@ impl DirectDeclarator {
         match self {
             Self::Symbol(id, _pos) => &id,
             Self::Enclosed(decl, _pos) => decl.get_name(),
-            Self::ArrayDef(decl, _, _, _pos) => (**decl).get_name(),
+            Self::ArrayDef(decl, _, _pos) => (**decl).get_name(),
             Self::FunctionDef(decl, _, _pos) => (**decl).get_name(),
         }
     }
 
     pub fn make_array_type(&self, typ: &Type) -> Type {
         match self {
-            Self::ArrayDef(dd, size_list, _, _pos) => {
+            Self::ArrayDef(dd, size_list, _pos) => {
                 let t = dd.make_array_type(typ);
                 Type::Array { name: None, typ: Box::new(t.clone()), size_list: size_list.clone() }
             },
@@ -362,7 +362,7 @@ impl DirectDeclarator {
 
     pub fn get_position(&self) -> &Position {
         match self {
-            Self::ArrayDef(_, _, _, pos) => pos,
+            Self::ArrayDef(_, _, pos) => pos,
             Self::Enclosed(_, pos) => pos,
             Self::FunctionDef(_, _, pos) => pos,
             Self::Symbol(_, pos) => pos,
@@ -373,11 +373,11 @@ impl DirectDeclarator {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Declaration {
     declarator: Declarator,
-    init_expr: Option<Box<Initializer>>,
+    init_expr: Option<Initializer>,
 }
 
 impl Declaration {
-    pub fn new(decl: Declarator, init: Option<Box<Initializer>>) -> Declaration {
+    pub fn new(decl: Declarator, init: Option<Initializer>) -> Declaration {
         Declaration {
             declarator: decl,
             init_expr: init,
@@ -390,7 +390,7 @@ impl Declaration {
     }
 
     #[inline]
-    pub fn get_init_expr(&self) -> &Option<Box<Initializer>> {
+    pub fn get_init_expr(&self) -> &Option<Initializer> {
         &self.init_expr
     }
 }

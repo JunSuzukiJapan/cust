@@ -56,7 +56,7 @@ impl Parser {
             let decl = declaration.get_declarator();
             let name = decl.get_name();
             let init = if let Some(expr) = declaration.get_init_expr() {
-                Some((**expr).clone())
+                Some((*expr).clone())
             }else{
                 None
             };
@@ -78,7 +78,7 @@ impl Parser {
             let name = decl.get_name();
             let array_type = Type::Array { name: Some(name.to_string()), typ: Box::new(typ.clone()), size_list: size_list.clone() };
             let init = if let Some(expr) = declaration.get_init_expr() {
-                Some((**expr).clone())
+                Some((*expr).clone())
             }else{
                 None
             };
@@ -99,7 +99,7 @@ impl Parser {
             let decl = declaration.get_declarator();
             let name = decl.get_name();
             let init = if let Some(expr) = declaration.get_init_expr() {
-                Some((**expr).clone())
+                Some((*expr).clone())
             }else{
                 None
             };
@@ -143,7 +143,7 @@ impl Parser {
             }
         }
 
-        let decl = self.parse_declarator(iter, defs, &mut None)?;
+        let (decl, opt_initializer) = self.parse_declarator(iter, defs, &mut None)?;
 
         if ds.is_typedef() {
             self.parse_expected_token(iter, Token::SemiColon)?;  // skip ';'
@@ -157,17 +157,17 @@ impl Parser {
             let (tok, pos) = iter.peek().unwrap();
             if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
     
-            self.process_declarator(decl, ds, tok, pos, iter, defs)
+            self.process_declarator(decl, opt_initializer, ds, tok, pos, iter, defs)
         }
     }
 
-    fn process_declarator(&self, decl: Declarator, ds: &DeclarationSpecifier, tok: &Token, pos: &Position, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) ->  Result<Option<AST>, ParserError> {
+    fn process_declarator(&self, decl: Declarator, opt_initializer: Option<Initializer>, ds: &DeclarationSpecifier, tok: &Token, pos: &Position, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) ->  Result<Option<AST>, ParserError> {
         match decl.get_direct_declarator() {
             DirectDeclarator::Symbol(id, _pos2) => {
                 match tok {
                     Token::SemiColon => {
                         iter.next();  // skip ';'
-                        let declaration = Declaration::new(decl, None);
+                        let declaration = Declaration::new(decl, opt_initializer);
 
                         Ok(Some(self.make_global_def_var(ds.clone(), vec![declaration], defs, pos)?))
                     },
@@ -177,7 +177,7 @@ impl Parser {
                         let mut labels = Vec::new();
                         let init_expr = self.parse_initializer(iter, defs, &mut Some(&mut labels))?;
                         self.parse_expected_token(iter, Token::SemiColon)?;
-                        let declaration = Declaration::new(decl, Some(Box::new(init_expr)));
+                        let declaration = Declaration::new(decl, Some(init_expr));
 
                         Ok(Some(self.make_global_def_var(ds.clone(), vec![declaration], defs, pos)?))
                     },
@@ -188,14 +188,14 @@ impl Parser {
                 }
             },
             DirectDeclarator::Enclosed(decl2, pos2) => {
-                self.process_declarator(decl2.clone(), ds, tok, pos2, iter, defs)
+                self.process_declarator(decl2.clone(), opt_initializer, ds, tok, pos2, iter, defs)
             },
-            DirectDeclarator::ArrayDef(_direct_declarator, const_expr_list, _init, _pos2) => {
+            DirectDeclarator::ArrayDef(_direct_declarator, const_expr_list, _pos2) => {
                 match tok {
                     Token::SemiColon => {
                         iter.next();  // skip ';'
 
-                        let declaration = Declaration::new(decl.clone(), None);
+                        let declaration = Declaration::new(decl.clone(), opt_initializer);
 
                         // if let Some(size_list) = const_expr_list {
                         //     Ok(Some(self.make_global_def_array(ds.clone(), vec![declaration], size_list, defs, pos)?))
@@ -381,7 +381,7 @@ impl Parser {
 
         let ds = self.parse_declaration_specifier(iter, defs, labels)?;
         let ds = ds.get_declaration_specifier().unwrap();
-        let decl = self.parse_declarator(iter, defs, &mut None)?;
+        let (decl, _initializer) = self.parse_declarator(iter, defs, &mut None)?;
 
         let (tok, pos) = iter.peek().unwrap();
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
@@ -917,7 +917,7 @@ impl Parser {
             Ok(StructDeclarator::new(None, Some(const_expr)))
 
         }else{
-            let decl = self.parse_declarator(iter, defs, labels)?;
+            let (decl, _initializer) = self.parse_declarator(iter, defs, labels)?;
 
             // let (tok, pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
             let (tok, pos) = iter.peek().unwrap();
@@ -995,10 +995,10 @@ impl Parser {
         Ok(list)
     }
 
-    fn parse_declarator(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Declarator, ParserError> {
+    fn parse_declarator(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<(Declarator, Option<Initializer>), ParserError> {
         let opt_pointer = self.parse_pointer(iter, defs)?;
-        let direct = self.parse_direct_declarator(iter, defs, labels)?;
-        Ok(Declarator::new(opt_pointer, direct))
+        let (direct, initializer) = self.parse_direct_declarator(iter, defs, labels)?;
+        Ok((Declarator::new(opt_pointer, direct), initializer))
     }
 
     #[allow(irrefutable_let_patterns)]
@@ -1073,7 +1073,7 @@ impl Parser {
         }
     }
 
-    fn parse_direct_declarator(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<DirectDeclarator, ParserError> {
+    fn parse_direct_declarator(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<(DirectDeclarator, Option<Initializer>), ParserError> {
         let (tok, pos) = iter.peek().unwrap();
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
 
@@ -1086,7 +1086,7 @@ impl Parser {
             Token::ParenLeft => {
                 iter.next();  // skip '('
 
-                let d = self.parse_declarator(iter, defs, labels)?;
+                let (d, _initializer) = self.parse_declarator(iter, defs, labels)?;
                 self.parse_expected_token(iter, Token::ParenRight)?;
                 decl = DirectDeclarator::Enclosed(d, pos.clone());
             },
@@ -1099,7 +1099,7 @@ impl Parser {
         self.parse_direct_declarator_sub(decl, iter, defs, labels)
     }
 
-    fn parse_direct_declarator_sub(&self, decl: DirectDeclarator, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<DirectDeclarator, ParserError> {
+    fn parse_direct_declarator_sub(&self, decl: DirectDeclarator, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<(DirectDeclarator, Option<Initializer>), ParserError> {
         let (tok, pos) = iter.peek().unwrap();
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
         let cust_self;
@@ -1122,6 +1122,7 @@ impl Parser {
         }
 
         let mut result = decl;
+        let mut initializer = None;
         loop {
             let (tok, pos) = iter.peek().unwrap();
             if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
@@ -1170,19 +1171,16 @@ impl Parser {
                     }
 
                     let mut dimension = Vec::new();
-                    let initializer_list;
                     if let Some((tok3, _pos3)) = iter.peek() {
                         if *tok3 == Token::Assign {
                             iter.next();  // skip '='
-                            initializer_list = Some(self.parse_array_initializer(&mut opt_dimension, iter, defs, labels)?);
+                            initializer = Some(self.parse_array_initializer(&mut opt_dimension, iter, defs, labels)?);
 
                             for item in opt_dimension {
                                 dimension.push(item.unwrap())
                             }
 
                         }else{
-                            initializer_list = None;
-
                             for item in opt_dimension {
                                 if let Some(const_expr) = item {
                                     dimension.push(const_expr);
@@ -1191,14 +1189,12 @@ impl Parser {
                                 }
                             }
                         }
-                    } else {
-                        initializer_list = None;
                     }
-
-                    result =  DirectDeclarator::ArrayDef(Box::new(result), dimension, initializer_list, pos.clone());
+println!("initializer: {:?}", initializer);
+                    result =  DirectDeclarator::ArrayDef(Box::new(result), dimension, pos.clone());
                 },
                 _ => {
-                    break Ok(result);
+                    break Ok((result, initializer));
                 },
             }
         }
@@ -2368,7 +2364,7 @@ impl Parser {
 
         match ds_or_variadic {
             DeclarationSpecifierOrVariadic::DS(ds) => {
-                let decl = self.parse_declarator(iter, defs, &mut None)?;
+                let (decl, _initializer) = self.parse_declarator(iter, defs, &mut None)?;
                 list.push(Param::new(ds, decl, defs, &iter.peek().unwrap().1)?);
         
                 let (tok, pos) = iter.peek().unwrap();
@@ -2404,7 +2400,7 @@ impl Parser {
                         let ds_or_variadic = self.parse_declaration_specifier(iter, defs, labels)?;
                         match ds_or_variadic {
                             DeclarationSpecifierOrVariadic::DS(ds) => {
-                                let decl2 = self.parse_declarator(iter, defs, &mut None)?;
+                                let (decl2, _initializer2) = self.parse_declarator(iter, defs, &mut None)?;
                                 list.push(Param::new(ds, decl2, defs, pos)?);
                             },
                             DeclarationSpecifierOrVariadic::Variadic => {
@@ -2500,7 +2496,7 @@ impl Parser {
         let mut v = Vec::new();
         let mut cur_pos = pos.clone();
         loop {
-            let decl = self.parse_declarator(iter, defs, labels)?;
+            let (decl, opt_initializer) = self.parse_declarator(iter, defs, labels)?;
             let name = decl.get_name();
             if defs.exists_var(&name) {
                 return Err(ParserError::already_var_defined(&name, iter.peek().unwrap().1.clone()));
@@ -2512,18 +2508,18 @@ impl Parser {
 
             match tok {
                 Token::SemiColon => {
-                    let declaration = Declaration::new(decl, None);
+                    let declaration = Declaration::new(decl, opt_initializer);
                     v.push(declaration);
                     break;
                 },
                 Token::Comma => {
-                    let declaration = Declaration::new(decl, None);
+                    let declaration = Declaration::new(decl, opt_initializer);
                     v.push(declaration);
                     continue;
                 },
                 Token::Assign => {
                     let init_expr = self.parse_initializer(iter, defs, labels)?;
-                    let declaration = Declaration::new(decl, Some(Box::new(init_expr)));
+                    let declaration = Declaration::new(decl, Some(init_expr));
                     v.push(declaration);
 
                     let (tok3, pos3) = iter.next().unwrap();
@@ -2609,7 +2605,7 @@ impl Parser {
         if *tok != Token::BraceLeft { return Err(ParserError::not_l_brace_parsing_array_initializer(tok.clone(), pos.clone())) }
 
 
-
+println!("parse_array_initializer");
 
 
         let mut list: Vec<Box<Initializer>> = Vec::new();
@@ -2639,7 +2635,7 @@ impl Parser {
                 }
             }
         }
-
+println!("  list: {:?}", list);
         Ok(Initializer::ArrayOrStruct(list, pos.clone()))
     }
 
@@ -2969,7 +2965,7 @@ impl Parser {
     pub fn parse_simple_declaration(&self, start_pos: &Position, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ExprAST>, ParserError> {
         let ds = self.parse_declaration_specifier(iter, defs, labels)?;
         let ds = ds.get_declaration_specifier().unwrap();
-        let decl = self.parse_declarator(iter, defs, labels)?;
+        let (decl, _opt_initializer) = self.parse_declarator(iter, defs, labels)?;
         // let name = decl.get_name();
 
         // let (tok, pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
@@ -2988,7 +2984,7 @@ impl Parser {
 
                 // let expr = self.parse_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
                 let expr = self.parse_initializer(iter, defs, labels)?;
-                let declaration = Declaration::new(decl, Some(Box::new(expr)));
+                let declaration = Declaration::new(decl, Some(expr));
                 let (ds, declarations) = self.parse_def_var(ds.clone(), vec![declaration], defs, pos)?;
                 let ast = ExprAST::DefVar { specifiers: ds, declarations: declarations, pos: start_pos.clone() };
                 Ok(Some(ast))
@@ -4189,7 +4185,7 @@ mod tests {
                 assert_eq!(direct_decl.get_name(), "ary");
 
                 match direct_decl {
-                    DirectDeclarator::ArrayDef(second_direct_decl, size_list, opt_init, _pos) => {
+                    DirectDeclarator::ArrayDef(second_direct_decl, size_list, _pos) => {
                         assert_eq!(*size_list, vec![ConstExpr::Int(2, Position::new(2, 20)), ConstExpr::Int(3, Position::new(2, 23))]);
                         assert_eq!(**second_direct_decl, DirectDeclarator::Symbol("ary".to_string(), Position::new(2, 16)));
                    },
