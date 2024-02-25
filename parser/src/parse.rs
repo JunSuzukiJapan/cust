@@ -1174,7 +1174,7 @@ impl Parser {
                     if let Some((tok3, _pos3)) = iter.peek() {
                         if *tok3 == Token::Assign {
                             iter.next();  // skip '='
-                            initializer = Some(self.parse_array_initializer(&mut opt_dimension, iter, defs, labels)?);
+                            initializer = Some(self.parse_array_initializer(&mut opt_dimension, 0, iter, defs, labels)?);
 
                             for item in opt_dimension {
                                 dimension.push(item.unwrap())
@@ -2599,7 +2599,7 @@ println!("initializer: {:?}", initializer);
         Ok(Initializer::ArrayOrStruct(list, start_pos.clone()))
     }
 
-    fn parse_array_initializer(&self, dimension: &mut Vec<Option<ConstExpr>>, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Initializer, ParserError> {
+    fn parse_array_initializer(&self, dimension: &mut Vec<Option<ConstExpr>>, index: u32, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Initializer, ParserError> {
         let (tok, pos) = iter.next().unwrap();
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
         if *tok != Token::BraceLeft { return Err(ParserError::not_l_brace_parsing_array_initializer(tok.clone(), pos.clone())) }

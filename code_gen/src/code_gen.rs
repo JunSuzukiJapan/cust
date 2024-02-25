@@ -761,7 +761,7 @@ impl<'ctx> CodeGen<'ctx> {
                             self.gen_struct_init(&fields, ptr, &*const_expr, env, break_catcher, continue_catcher)?;
                         },
                         Type::Array { name: _, typ, size_list } => {
-                            self.gen_array_init(&size_list, ptr, &*const_expr, env, break_catcher, continue_catcher)?;
+                            self.gen_array_init(&size_list, ptr, typ, &*const_expr, env, break_catcher, continue_catcher)?;
                         },
                         _ => {
                             let compiled_value = self.gen_const_expr(&*const_expr, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(const_expr.get_position().clone()))?;
@@ -867,42 +867,38 @@ impl<'ctx> CodeGen<'ctx> {
         if target_len == 0 {
             return Ok(None);
         }
-        // target_len > 0
 
+        //
+        // target_len > 0
+        //
         let mut vec = Vec::new();
         let fields = target_fields.get_fields().unwrap();
         for i in 0..target_len {
             let field = &fields[i];
 
-            // let target_field_ptr = self.builder.build_struct_gep(target_struct_ptr, i as u32, "init_struct_member");
-            // if let Ok(ptr) = target_field_ptr {
-                let field_type = field.get_type().unwrap();
+            let field_type = field.get_type().unwrap();
 
-                if init_len > i {
-                    let init_value = &init_value_list[i];
-                    let init_type = TypeUtil::get_initializer_type(init_value, env)?;
-                    if *field_type != init_type {
-                        return Err(Box::new(CodeGenError::mismatch_initializer_type(init_value.get_position().clone())));
-                    }
-
-                    let compiled_val = self.gen_const_expr(init_value, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::mismatch_initializer_type(init_value.get_position().clone()))?;
-                    let value = self.try_as_basic_value(&compiled_val.get_value(), init_value.get_position())?;
-                    // let _result = self.builder.build_store(ptr, value);
-                    vec.push(value);
-
-                }else{  // zero clear
-                    let zero_value = self.const_zero(field_type, init.get_position())?;
-                    // let _result = self.builder.build_store(ptr, zero_value);
-                    vec.push(zero_value);
+            if init_len > i {
+                let init_value = &init_value_list[i];
+                let init_type = TypeUtil::get_initializer_type(init_value, env)?;
+                if *field_type != init_type {
+                    return Err(Box::new(CodeGenError::mismatch_initializer_type(init_value.get_position().clone())));
                 }
 
-            // }else{
-            //     return Err(Box::new(CodeGenError::cannot_init_struct_member(init.get_position().clone())));
-            // }
+                let compiled_val = self.gen_const_expr(init_value, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::mismatch_initializer_type(init_value.get_position().clone()))?;
+                let value = self.try_as_basic_value(&compiled_val.get_value(), init_value.get_position())?;
+                // let _result = self.builder.build_store(ptr, value);
+                vec.push(value);
+
+            }else{  // zero clear
+                let zero_value = self.const_zero(field_type, init.get_position())?;
+                // let _result = self.builder.build_store(ptr, zero_value);
+                vec.push(zero_value);
+            }
+
         }
 
         let values = self.context.const_struct(&vec, false);
-        // target_struct_ptr.set_initializer(&values.as_basic_value_enum());
         let _result = self.builder.build_store(target_struct_ptr, values.as_basic_value_enum());
 
         Ok(None)
@@ -911,6 +907,7 @@ impl<'ctx> CodeGen<'ctx> {
     pub fn gen_array_init<'b, 'c>(&self,
         opt_size_list: &Vec<ConstExpr>,
         target_array_ptr: PointerValue<'ctx>,
+        target_type: &Type,
         init: &Initializer,
         env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
@@ -923,57 +920,57 @@ impl<'ctx> CodeGen<'ctx> {
             return Err(Box::new(CodeGenError::mismatch_initializer_type(init.get_position().clone())));
         };
 
-        unimplemented!()
+        let init_len = init_value_list.len();
+        if init_len == 0 {
+            return Ok(None);
+        }
+
+        //
+        // init_len > 0
+        //
+        let mut vec = Vec::new();
+        for i in 0..init_len {
+            let init_value = &init_value_list[i];
+            let init_type = TypeUtil::get_initializer_type(init_value, env)?;
+            if *target_type != init_type {
+                return Err(Box::new(CodeGenError::mismatch_initializer_type(init_value.get_position().clone())));
+            }
+
+            let compiled_val = self.gen_initializer(init_value, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::mismatch_initializer_type(init_value.get_position().clone()))?;
+            let value = self.try_as_basic_value(&compiled_val.get_value(), init_value.get_position())?;
+
+            vec.push(value);
+        }
 
 
-        // let target_len = target_fields.len();
-        // let init_len = init_value_list.len();
-        // if target_len < init_len {
-        //     return  Err(Box::new(CodeGenError::initial_list_is_too_long(init.get_position().clone())));
-        // }
 
-        // if target_len == 0 {
-        //     return Ok(None);
-        // }
-        // // target_len > 0
+        let values = self.context.const_struct(&vec, false);
 
-        // let mut vec = Vec::new();
-        // let fields = target_fields.get_fields().unwrap();
-        // for i in 0..target_len {
-        //     let field = &fields[i];
 
-        //     // let target_field_ptr = self.builder.build_struct_gep(target_struct_ptr, i as u32, "init_struct_member");
-        //     // if let Ok(ptr) = target_field_ptr {
-        //         let field_type = field.get_type().unwrap();
 
-        //         if init_len > i {
-        //             let init_value = &init_value_list[i];
-        //             let init_type = TypeUtil::get_type(init_value, env)?;
-        //             if *field_type != init_type {
-        //                 return Err(Box::new(CodeGenError::mismatch_initializer_type(init_value.get_position().clone())));
-        //             }
+        let _result = self.builder.build_store(target_array_ptr, values.as_basic_value_enum());
 
-        //             let compiled_val = self.gen_expr(init_value, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::mismatch_initializer_type(init_value.get_position().clone()))?;
-        //             let value = self.try_as_basic_value(&compiled_val.get_value(), init_value.get_position())?;
-        //             // let _result = self.builder.build_store(ptr, value);
-        //             vec.push(value);
+        Ok(None)
+    }
 
-        //         }else{  // zero clear
-        //             let zero_value = self.const_zero(field_type, init.get_position())?;
-        //             // let _result = self.builder.build_store(ptr, zero_value);
-        //             vec.push(zero_value);
-        //         }
+    pub fn gen_initializer<'b, 'c>(&self,
+        init: &Initializer,
+        env: &mut Env<'ctx>,
+        break_catcher: Option<&'b BreakCatcher>,
+        continue_catcher: Option<&'c ContinueCatcher>
+    ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
+        match init {
+            Initializer::Simple(expr, _pos) => self.gen_expr(expr, env, break_catcher, continue_catcher),
+            Initializer::ArrayOrStruct(_init, _pos) => {
 
-        //     // }else{
-        //     //     return Err(Box::new(CodeGenError::cannot_init_struct_member(init.get_position().clone())));
-        //     // }
-        // }
 
-        // let values = self.context.const_struct(&vec, false);
-        // // target_struct_ptr.set_initializer(&values.as_basic_value_enum());
-        // let _result = self.builder.build_store(target_struct_ptr, values.as_basic_value_enum());
 
-        // Ok(None)
+
+
+
+                unimplemented!()
+            }
+        }
     }
 
     fn const_zero(&self, typ: &Type, pos: &Position) -> Result<BasicValueEnum, Box<dyn Error>> {
