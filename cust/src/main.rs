@@ -589,7 +589,7 @@ END: ;
             return i + date.year + date2.month + pointer->day;
         }
     ";
-*/
+
     let src = "
         int printf(char* format, ...);
 
@@ -602,7 +602,23 @@ END: ;
             return num[0] + num[1] + num[2];
         }
     ";
+*/
+    let src = "
+        int printf(char* format, ...);
 
+        int test() {
+            int num[2][3] = {{1, 2, 3},
+                             {4, 5, 6}};
+
+            for(int i = 0; i < 2; i++){
+                for(int j = 0; j < 3; j++){
+                    printf(\"num[%d][%d] = %d\\\n\", i, j, num[i][j]);
+                }
+            }
+
+            return num[0] + num[1] + num[2];
+        }
+    ";
     // tokenize
     let tokenized = Tokenizer::tokenize(src).unwrap();
     // parse

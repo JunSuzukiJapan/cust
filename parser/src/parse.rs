@@ -2600,18 +2600,21 @@ println!("initializer: {:?}", initializer);
     }
 
     fn parse_array_initializer(&self, dimension: &mut Vec<Option<ConstExpr>>, index: u32, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Initializer, ParserError> {
-        let (tok, pos) = iter.next().unwrap();
+        let (tok, pos) = iter.next().unwrap();  // skip '{'
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
         if *tok != Token::BraceLeft { return Err(ParserError::not_l_brace_parsing_array_initializer(tok.clone(), pos.clone())) }
 
-
-println!("parse_array_initializer");
-
-
+        let dim_len = dimension.len();
         let mut list: Vec<Box<Initializer>> = Vec::new();
-
         loop {
-            let initializer = self.parse_initializer(iter, defs, labels)?;
+            let initializer;
+println!("index: {index}, dim_len: {dim_len}");
+            if index < dim_len as u32 - 1 {
+                initializer = self.parse_array_initializer(dimension, index + 1, iter, defs, labels)?;
+            }else{
+                initializer = self.parse_initializer(iter, defs, labels)?;
+            }
+
             list.push(Box::new(initializer));
 
             let (tok2, pos2) = iter.next().unwrap();
@@ -2631,6 +2634,7 @@ println!("parse_array_initializer");
                     }
                 },
                 _ => {
+println!("  tok2: {:?}", tok2);
                     return Err(ParserError::need_brace_right_or_comma_when_parsing_initializer_list(pos2.clone()));
                 }
             }
