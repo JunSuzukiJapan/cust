@@ -3974,4 +3974,34 @@ mod tests {
 
         Ok(())
     }
+
+    #[test]
+    fn code_gen_init_array1() -> Result<(), Box<dyn Error>> {
+        // parse
+        let src = "
+            int test(){
+                int num[3] = {1, 2, 3};
+
+                return num[0] + num[1] + num[2];
+            }
+        ";
+
+        // parse
+        let asts = parse_from_str(src).unwrap();
+
+        // code gen
+        let context = Context::create();
+        let gen = CodeGen::try_new(&context, "test run").unwrap();
+
+        let mut env = Env::new();
+        for i in 0..asts.len() {
+            let _any_value = gen.gen_stmt(&asts[i], &mut env, None, None)?;
+        }
+
+        let f: JitFunction<FuncType_void_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
+        let result = unsafe { f.call() };
+        assert_eq!(6, result);
+
+        Ok(())
+    }
 }
