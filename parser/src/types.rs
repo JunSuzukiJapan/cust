@@ -258,7 +258,7 @@ pub enum StructField {
         name: Option<String>,
         sq: SpecifierQualifier,
         typ: Option<Type>,
-        bit_size: u64,
+        bit_size: usize,
     },
 }
 
@@ -271,7 +271,7 @@ impl StructField {
         }
     }
 
-    pub fn new_bit_field(name: Option<String>, typ: Option<Type>, sq: SpecifierQualifier, bit_size: u64) -> StructField {
+    pub fn new_bit_field(name: Option<String>, typ: Option<Type>, sq: SpecifierQualifier, bit_size: usize) -> StructField {
         StructField::BitField {
             name: name,
             typ: typ,
@@ -511,7 +511,7 @@ pub enum Type {
     Array {
         name: Option<String>,
         typ: Box<Type>,
-        size_list: Vec<ConstExpr>,
+        size_list: Vec<usize>,
     },
     Enum {
         name: Option<String>,

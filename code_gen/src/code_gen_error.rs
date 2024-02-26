@@ -43,7 +43,7 @@ pub enum CodeGenError {
     IllegalBitSize {
         pos: Position,
         typ: NumberType,
-        size: u64,
+        size: usize,
     },
     CannotAddValue(Position, Type),
     CannotSubValue(Position, Type),
@@ -219,7 +219,7 @@ impl CodeGenError {
         Self::AlreadyDefaultDefined(pos)
     }
 
-    pub fn illegal_bit_size(pos: Position, typ: &NumberType, size: u64) -> Self {
+    pub fn illegal_bit_size(pos: Position, typ: &NumberType, size: usize) -> Self {
         Self::IllegalBitSize { pos: pos, typ: typ.clone(), size: size }
     }
 

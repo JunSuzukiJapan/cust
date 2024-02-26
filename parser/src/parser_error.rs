@@ -67,6 +67,7 @@ pub enum ParserError {
     ArrayNeedExplicitSizeOrInitializer(Position),
     ArrayNeedArrayInitializer(Position),
     NotLBraceParsingArrayInitializer(Token, Position),
+    ArrayLengthMismatch(usize, usize, Position),
 }
 
 impl ParserError {
@@ -280,6 +281,10 @@ impl ParserError {
     pub fn not_l_brace_parsing_array_initializer(tok: Token, pos: Position) -> ParserError {
         ParserError::NotLBraceParsingArrayInitializer(tok, pos)
     }
+
+    pub fn array_length_mismatch(required_len: usize, real_len: usize, pos: Position) -> ParserError {
+        ParserError::ArrayLengthMismatch(required_len, real_len, pos)
+    }
 }
 
 impl From<TokenizerError> for ParserError {
@@ -345,6 +350,7 @@ impl fmt::Display for ParserError {
             Self::ArrayNeedExplicitSizeOrInitializer(_pos) => write!(f, "array need explicit size or initializer"),
             Self::ArrayNeedArrayInitializer(_pos) => write!(f, "array need array initializer"),
             Self::NotLBraceParsingArrayInitializer(tok, _pos) => write!(f, "need '{{', but '{}'", tok),
+            Self::ArrayLengthMismatch(required_len, real_len, _pos) => write!(f, "mismatch array length. required {required_len}, but {real_len}"),
         }
     }
 }

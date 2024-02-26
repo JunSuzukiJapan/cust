@@ -914,7 +914,7 @@ impl<'ctx> CodeGen<'ctx> {
     }
 
     pub fn gen_array_init<'b, 'c>(&self,
-        opt_size_list: &Vec<ConstExpr>,
+        opt_size_list: &Vec<usize>,
         target_array_ptr: PointerValue<'ctx>,
         target_type: &Type,
         init: &Initializer,
@@ -1602,7 +1602,7 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(result)
     }
 
-    fn bit_size_check(opt_type: &Option<Type>, size: u64, pos: &Position) -> Result<(), CodeGenError> {
+    fn bit_size_check(opt_type: &Option<Type>, size: usize, pos: &Position) -> Result<(), CodeGenError> {
         if let Some(Type::Number(typ)) = opt_type {
             match typ {
                 NumberType::_Bool => {

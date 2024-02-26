@@ -22,10 +22,12 @@ impl ConstExpr {
         }
     }
 
-    pub fn to_usize(&self) -> Result<u64, ParserError> {
+    pub fn to_usize(&self) -> Result<usize, ParserError> {
         match self {
-            Self::Int(num, _pos) => Ok(*num as u64),
-
+            Self::Int(num, _pos) => Ok(*num as usize),
+            Self::Unsigned(num, _pos) => Ok(*num as usize),
+            Self::LongLong(num, _pos) => Ok(*num as usize),
+            Self::ULongLong(num, _pos) => Ok(*num as usize),
 
             _ => Err(ParserError::cannot_convert_to_usize(self, self.get_position().clone())),
         }

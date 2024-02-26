@@ -70,7 +70,7 @@ impl Parser {
         })
     }
 
-    fn make_global_def_array(&self, ds: DeclarationSpecifier, declarations: Vec<Declaration>, size_list: &Vec<ConstExpr>, defs: &mut Defines, pos: &Position) -> Result<AST, ParserError> {
+    fn make_global_def_array(&self, ds: DeclarationSpecifier, declarations: Vec<Declaration>, size_list: &Vec<usize>, defs: &mut Defines, pos: &Position) -> Result<AST, ParserError> {
         let typ = ds.get_type();
 
         for declaration in &declarations {
@@ -190,7 +190,7 @@ impl Parser {
             DirectDeclarator::Enclosed(decl2, pos2) => {
                 self.process_declarator(decl2.clone(), opt_initializer, ds, tok, pos2, iter, defs)
             },
-            DirectDeclarator::ArrayDef(_direct_declarator, const_expr_list, _pos2) => {
+            DirectDeclarator::ArrayDef(_direct_declarator, opt_usize_list, _pos2) => {
                 match tok {
                     Token::SemiColon => {
                         iter.next();  // skip ';'
@@ -202,7 +202,7 @@ impl Parser {
                         // }else{
                         //     Err(ParserError::array_need_explicit_size_or_initializer(pos.clone()))
                         // }
-                        Ok(Some(self.make_global_def_array(ds.clone(), vec![declaration], const_expr_list, defs, pos)?))
+                        Ok(Some(self.make_global_def_array(ds.clone(), vec![declaration], opt_usize_list, defs, pos)?))
 
                     },
                     Token::Assign => {
@@ -1149,10 +1149,14 @@ impl Parser {
                 Token::BracketLeft => {  // when '[', define array
                     iter.next();  // skip '['
 
-                    let mut opt_dimension = Vec::new();
+                    let mut opt_dimension: Vec<Option<usize>> = Vec::new();
 
                     let opt_const_expr = self.parse_constant_expression(iter, defs, labels)?;
-                    opt_dimension.push(opt_const_expr);
+                    if let Some(const_expr) = opt_const_expr {
+                        opt_dimension.push(Some(const_expr.to_usize()?));
+                    }else{
+                        opt_dimension.push(None);
+                    }
                     self.parse_expected_token(iter, Token::BracketRight)?;  // skip ']'
 
                     loop {
@@ -1166,7 +1170,11 @@ impl Parser {
                         iter.next();  // skip '['
 
                         let opt_const_expr = self.parse_constant_expression(iter, defs, labels)?;
-                        opt_dimension.push(opt_const_expr);
+                        if let Some(const_expr) = opt_const_expr {
+                            opt_dimension.push(Some(const_expr.to_usize()?));
+                        }else{
+                            opt_dimension.push(None);
+                        }
                         self.parse_expected_token(iter, Token::BracketRight)?;  // skip ']'
                     }
 
@@ -1190,7 +1198,7 @@ impl Parser {
                             }
                         }
                     }
-println!("initializer: {:?}", initializer);
+
                     result =  DirectDeclarator::ArrayDef(Box::new(result), dimension, pos.clone());
                 },
                 _ => {
@@ -2599,7 +2607,7 @@ println!("initializer: {:?}", initializer);
         Ok(Initializer::Struct(list, start_pos.clone()))
     }
 
-    fn parse_array_initializer(&self, dimension: &mut Vec<Option<ConstExpr>>, index: u32, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Initializer, ParserError> {
+    fn parse_array_initializer(&self, dimension: &mut Vec<Option<usize>>, index: usize, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Initializer, ParserError> {
         let (tok, pos) = iter.next().unwrap();  // skip '{'
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
         if *tok != Token::BraceLeft { return Err(ParserError::not_l_brace_parsing_array_initializer(tok.clone(), pos.clone())) }
@@ -2608,8 +2616,7 @@ println!("initializer: {:?}", initializer);
         let mut list: Vec<Box<Initializer>> = Vec::new();
         loop {
             let initializer;
-println!("index: {index}, dim_len: {dim_len}");
-            if index < dim_len as u32 - 1 {
+            if index < dim_len - 1 {
                 initializer = self.parse_array_initializer(dimension, index + 1, iter, defs, labels)?;
             }else{
                 initializer = self.parse_initializer(iter, defs, labels)?;
@@ -2634,12 +2641,22 @@ println!("index: {index}, dim_len: {dim_len}");
                     }
                 },
                 _ => {
-println!("  tok2: {:?}", tok2);
                     return Err(ParserError::need_brace_right_or_comma_when_parsing_initializer_list(pos2.clone()));
                 }
             }
         }
-println!("  list: {:?}", list);
+
+        let opt_len = dimension[index];
+        if opt_len.is_none() {
+            dimension[index] = Some(list.len());
+        }else{
+            let required_len = opt_len.unwrap();
+            let real_len = list.len();
+            if required_len != real_len {
+                return Err(ParserError::array_length_mismatch(required_len, real_len, pos.clone()));
+            }
+        }
+
         Ok(Initializer::Array(list, pos.clone()))
     }
 
@@ -4190,7 +4207,7 @@ mod tests {
 
                 match direct_decl {
                     DirectDeclarator::ArrayDef(second_direct_decl, size_list, _pos) => {
-                        assert_eq!(*size_list, vec![ConstExpr::Int(2, Position::new(2, 20)), ConstExpr::Int(3, Position::new(2, 23))]);
+                        assert_eq!(*size_list, vec![2, 3]);
                         assert_eq!(**second_direct_decl, DirectDeclarator::Symbol("ary".to_string(), Position::new(2, 16)));
                    },
                     _ => panic!("direct_decl: {:?}", direct_decl),

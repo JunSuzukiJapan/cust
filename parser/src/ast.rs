@@ -333,7 +333,7 @@ impl Declarator {
 pub enum DirectDeclarator {
     Symbol(String, Position),
     Enclosed(Declarator, Position),
-    ArrayDef(Box<DirectDeclarator>, Vec<ConstExpr>, Position),
+    ArrayDef(Box<DirectDeclarator>, Vec<usize>, Position),
     FunctionDef(Box<DirectDeclarator>, Params, Position),
 }
 
@@ -398,7 +398,7 @@ impl Declaration {
 #[derive(Debug, Clone, PartialEq)]
 pub struct StructDeclarator {
     declarator: Option<Declarator>,
-    opt_bit_size: Option<u64>,
+    opt_bit_size: Option<usize>,
 }
 
 impl StructDeclarator {
@@ -430,7 +430,7 @@ impl StructDeclarator {
     }
 
     #[inline]
-    pub fn get_bit_size(&self) -> &Option<u64> {
+    pub fn get_bit_size(&self) -> &Option<usize> {
         &self.opt_bit_size
     }
 }

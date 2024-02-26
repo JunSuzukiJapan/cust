@@ -65,9 +65,8 @@ impl TypeUtil {
             Type::Array { name: _, typ: type2, size_list } => {
                 let mut to_type = Self::to_basic_type_enum(type2, ctx, pos)?;
 
-                for sz in size_list.iter().rev() {
-                    let size = sz.to_usize()?;
-                    to_type = to_type.array_type(size as u32).as_basic_type_enum();
+                for size in size_list.iter().rev() {
+                    to_type = to_type.array_type(*size as u32).as_basic_type_enum();
                 }
 
                 Ok(to_type)
@@ -330,10 +329,6 @@ impl TypeUtil {
 
                 Ok(f_type.get_return_type().clone())
             },
-            // ExprAST::InitializerList(_, _pos) => {
-            //     // maybe unreached??
-            //     unimplemented!()
-            // },
             ExprAST::DefVar { specifiers: _, declarations: _, pos: _ } => {
                 // maybe unreached???
                 unimplemented!()
@@ -345,6 +340,12 @@ impl TypeUtil {
         match init {
             Initializer::Simple(expr, _pos) => TypeUtil::get_type(expr, env),
             Initializer::Array(_init, _pos) => {
+
+
+
+
+
+
                 unimplemented!()
             },
             Initializer::Struct(_init, _pos) => {
