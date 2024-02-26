@@ -2596,7 +2596,7 @@ println!("initializer: {:?}", initializer);
             }
         }
 
-        Ok(Initializer::ArrayOrStruct(list, start_pos.clone()))
+        Ok(Initializer::Struct(list, start_pos.clone()))
     }
 
     fn parse_array_initializer(&self, dimension: &mut Vec<Option<ConstExpr>>, index: u32, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Initializer, ParserError> {
@@ -2640,7 +2640,7 @@ println!("  tok2: {:?}", tok2);
             }
         }
 println!("  list: {:?}", list);
-        Ok(Initializer::ArrayOrStruct(list, pos.clone()))
+        Ok(Initializer::Array(list, pos.clone()))
     }
 
     fn parse_compound_statement(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Block, ParserError> {

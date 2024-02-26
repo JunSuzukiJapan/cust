@@ -662,14 +662,15 @@ impl Switch {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Initializer {
     Simple(ExprAST, Position),
-    ArrayOrStruct(Vec<Box<Initializer>>, Position),
-    // Struct(Vec<Box<Initializer>>, Position),
+    Array(Vec<Box<Initializer>>, Position),
+    Struct(Vec<Box<Initializer>>, Position),
 }
 
 impl Initializer {
     pub fn get_position(&self) -> &Position {
         match self {
-            Self::ArrayOrStruct(_, pos) => pos,
+            Self::Array(_, pos) => pos,
+            Self::Struct(_, pos) => pos,
             Self::Simple(_, pos) => pos,
         }
     }
