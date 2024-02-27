@@ -725,7 +725,7 @@ impl<'ctx> CodeGen<'ctx> {
     ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
         match init {
             Initializer::Simple(expr, _pos) => self.gen_expr(expr, env, break_catcher, continue_catcher),
-            Initializer::Array(list, _pos) => {
+            Initializer::Array(list, _typ, _pos) => {
 
 
 
@@ -734,7 +734,7 @@ impl<'ctx> CodeGen<'ctx> {
 
                 unimplemented!()
             },
-            Initializer::Struct(list, _pos) => {
+            Initializer::Struct(list, _typ, _pos) => {
 
 
 
@@ -804,7 +804,7 @@ impl<'ctx> CodeGen<'ctx> {
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
 
-        let init_value_list = if let Initializer::Struct(list, _pos) = init {
+        let init_value_list = if let Initializer::Struct(list, _typ, _pos) = init {
             list
         }else{
             return Err(Box::new(CodeGenError::mismatch_initializer_type(init.get_position().clone())));
@@ -861,7 +861,7 @@ impl<'ctx> CodeGen<'ctx> {
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
 
-        let init_value_list = if let Initializer::Struct(list, _pos) = init {
+        let init_value_list = if let Initializer::Struct(list, _typ, _pos) = init {
             list
         }else{
             return Err(Box::new(CodeGenError::mismatch_initializer_type(init.get_position().clone())));
@@ -923,7 +923,7 @@ impl<'ctx> CodeGen<'ctx> {
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
 
-        let init_value_list = if let Initializer::Array(list, _pos) = init {
+        let init_value_list = if let Initializer::Array(list, _typ, _pos) = init {
             list
         }else{
             return Err(Box::new(CodeGenError::mismatch_initializer_type(init.get_position().clone())));
@@ -940,6 +940,7 @@ impl<'ctx> CodeGen<'ctx> {
         let mut vec = Vec::new();
         for i in 0..init_len {
             let init_value = &init_value_list[i];
+println!("target_type: {:?}", target_type);
             let init_type = TypeUtil::get_initializer_type(init_value, env)?;
             if *target_type != init_type {
                 return Err(Box::new(CodeGenError::mismatch_initializer_type(init_value.get_position().clone())));
@@ -970,7 +971,7 @@ impl<'ctx> CodeGen<'ctx> {
     ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
         match init {
             Initializer::Simple(expr, _pos) => self.gen_expr(expr, env, break_catcher, continue_catcher),
-            Initializer::Array(_init, _pos) => {
+            Initializer::Array(_init, _typ, _pos) => {
 
 
 
@@ -979,7 +980,7 @@ impl<'ctx> CodeGen<'ctx> {
 
                 unimplemented!()
             },
-            Initializer::Struct(_init, _pos) => {
+            Initializer::Struct(_init, _typ, _pos) => {
 
 
 

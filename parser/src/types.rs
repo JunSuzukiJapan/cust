@@ -2,7 +2,7 @@
 
 // use crate::compiler::CodeGen;
 
-use super::{ParserError, StructDeclaration, SpecifierQualifier, ConstExpr};
+use super::{ParserError, StructDeclaration, SpecifierQualifier};
 use crate::Position;
 
 // use inkwell::AddressSpace;
@@ -558,6 +558,13 @@ impl Type {
         match self {
             Type::Struct {..} => true,
             _ => false,
+        }
+    }
+
+    pub fn get_struct_fields(&self) -> Option<&Vec<StructField>> {
+        match self {
+            Type::Struct {fields, ..} => fields.get_fields(),
+            _ => None,
         }
     }
 

@@ -68,6 +68,8 @@ pub enum ParserError {
     ArrayNeedArrayInitializer(Position),
     NotLBraceParsingArrayInitializer(Token, Position),
     ArrayLengthMismatch(usize, usize, Position),
+    NotStructTypeWhenParsingStructInitializer(Position),
+    NoTypeWhileParsingStructInitializer(Position),
 }
 
 impl ParserError {
@@ -285,6 +287,14 @@ impl ParserError {
     pub fn array_length_mismatch(required_len: usize, real_len: usize, pos: Position) -> ParserError {
         ParserError::ArrayLengthMismatch(required_len, real_len, pos)
     }
+
+    pub fn not_struct_type_when_parsing_struct_initializer(pos: Position) -> ParserError {
+        ParserError::NotStructTypeWhenParsingStructInitializer(pos)
+    }
+
+    pub fn no_type_while_parsing_struct_initializer(pos: Position) -> ParserError {
+        ParserError::NoTypeWhileParsingStructInitializer(pos)
+    }
 }
 
 impl From<TokenizerError> for ParserError {
@@ -351,6 +361,8 @@ impl fmt::Display for ParserError {
             Self::ArrayNeedArrayInitializer(_pos) => write!(f, "array need array initializer"),
             Self::NotLBraceParsingArrayInitializer(tok, _pos) => write!(f, "need '{{', but '{}'", tok),
             Self::ArrayLengthMismatch(required_len, real_len, _pos) => write!(f, "mismatch array length. required {required_len}, but {real_len}"),
+            Self::NotStructTypeWhenParsingStructInitializer(_pos) => write!(f, "not struct type when parsing struct initializer"),
+            Self::NoTypeWhileParsingStructInitializer(_pos) => write!(f, "no type while parsing struct initializer"),
         }
     }
 }
