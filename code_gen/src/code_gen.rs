@@ -103,7 +103,7 @@ impl<'ctx> CodeGen<'ctx> {
                                     self.gen_global_struct_init(&fields, ptr, &*initializer, env, break_catcher, continue_catcher)?;
                                 },
                                 Type::Array { name: _, typ, size_list } => {
-                                    unimplemented!()
+                                    self.gen_global_array_init(size_list, ptr, typ, &*initializer, env, break_catcher, continue_catcher)?;
                                 },
                                 _ => {
                                     let init = self.gen_const_expr(initializer, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(pos.clone()))?;
@@ -836,12 +836,10 @@ impl<'ctx> CodeGen<'ctx> {
 
                 let compiled_val = self.gen_const_expr(init_value, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::mismatch_initializer_type(init_value.get_position().clone()))?;
                 let value = self.try_as_basic_value(&compiled_val.get_value(), init_value.get_position())?;
-                // let _result = self.builder.build_store(ptr, value);
                 vec.push(value);
 
             }else{  // zero clear
                 let zero_value = self.const_zero(field_type, init.get_position())?;
-                // let _result = self.builder.build_store(ptr, zero_value);
                 vec.push(zero_value);
             }
         }
@@ -896,12 +894,10 @@ impl<'ctx> CodeGen<'ctx> {
 
                 let compiled_val = self.gen_const_expr(init_value, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::mismatch_initializer_type(init_value.get_position().clone()))?;
                 let value = self.try_as_basic_value(&compiled_val.get_value(), init_value.get_position())?;
-                // let _result = self.builder.build_store(ptr, value);
                 vec.push(value);
 
             }else{  // zero clear
                 let zero_value = self.const_zero(field_type, init.get_position())?;
-                // let _result = self.builder.build_store(ptr, zero_value);
                 vec.push(zero_value);
             }
 
@@ -913,8 +909,52 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(None)
     }
 
+    pub fn gen_global_array_init<'b, 'c>(&self,
+        size_list: &Vec<usize>,
+        target_array_ptr: GlobalValue<'ctx>,
+        target_type: &Type,
+        init: &Initializer,
+        env: &mut Env<'ctx>,
+        break_catcher: Option<&'b BreakCatcher>,
+        continue_catcher: Option<&'c ContinueCatcher>
+    ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
+
+        let init_value_list = if let Initializer::Array(list, _typ, _pos) = init {
+            list
+        }else{
+            return Err(Box::new(CodeGenError::mismatch_initializer_type(init.get_position().clone())));
+        };
+
+        let init_len = init_value_list.len();
+        if init_len == 0 {
+            return Ok(None);
+        }
+
+        //
+        // init_len > 0
+        //
+        let mut vec = Vec::new();
+        for i in 0..init_len {
+            let init_value = &init_value_list[i];
+            let init_type = TypeUtil::get_initializer_type(init_value, env)?;
+            if *target_type != init_type {
+                return Err(Box::new(CodeGenError::mismatch_initializer_type(init_value.get_position().clone())));
+            }
+
+            let any_val = self.gen_initializer(init_value, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::mismatch_initializer_type(init_value.get_position().clone()))?;
+            let value = self.try_as_basic_value(&any_val, init_value.get_position())?;
+
+            vec.push(value);
+        }
+
+        let values = self.context.const_struct(&vec, false);
+        target_array_ptr.set_initializer(&values.as_basic_value_enum());
+
+        Ok(None)
+    }
+
     pub fn gen_array_init<'b, 'c>(&self,
-        opt_size_list: &Vec<usize>,
+        size_list: &Vec<usize>,
         target_array_ptr: PointerValue<'ctx>,
         target_type: &Type,
         init: &Initializer,
@@ -953,7 +993,7 @@ impl<'ctx> CodeGen<'ctx> {
 
         let values = self.context.const_struct(&vec, false);
         let _result = self.builder.build_store(target_array_ptr, values.as_basic_value_enum());
-println!("_result: {:?}", _result);
+
         Ok(None)
     }
 
