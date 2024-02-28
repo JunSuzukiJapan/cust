@@ -4027,4 +4027,44 @@ mod tests {
 
         Ok(())
     }
+
+    #[test]
+    fn code_gen_init_array2() -> Result<(), Box<dyn Error>> {
+        // parse
+        let src = "
+            int printf(char* format, ...);
+
+            int test() {
+                int num[2][3] = {{1, 2, 3},
+                                {4, 5, 6}};
+
+                for(int i = 0; i < 2; i++){
+                    for(int j = 0; j < 3; j++){
+                        printf(\"num[%d][%d] = %d\\\n\", i, j, num[i][j]);
+                    }
+                }
+
+                return num[0][0] + num[0][1] + num[0][2]
+                    + num[1][0] + num[1][1] + num[1][2];
+            }
+        ";
+
+        // parse
+        let asts = parse_from_str(src).unwrap();
+
+        // code gen
+        let context = Context::create();
+        let gen = CodeGen::try_new(&context, "test run").unwrap();
+
+        let mut env = Env::new();
+        for i in 0..asts.len() {
+            let _any_value = gen.gen_stmt(&asts[i], &mut env, None, None)?;
+        }
+
+        let f: JitFunction<FuncType_void_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
+        let result = unsafe { f.call() };
+        assert_eq!(21, result);
+
+        Ok(())
+    }
 }
