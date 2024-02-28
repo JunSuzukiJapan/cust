@@ -616,7 +616,8 @@ END: ;
                 }
             }
 
-            return num[0] + num[1] + num[2];
+            return num[0][0] + num[0][1] + num[0][2]
+                 + num[1][0] + num[1][1] + num[1][2];
         }
     ";
     // tokenize

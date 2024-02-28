@@ -45,11 +45,11 @@ pub enum CodeGenError {
         typ: NumberType,
         size: usize,
     },
-    CannotAddValue(Position, Type),
-    CannotSubValue(Position, Type),
-    CannotMulValue(Position, Type),
-    CannotDivValue(Position, Type),
-    CannotModValue(Position, Type),
+    CannotAddValue(Position, Type, Type),
+    CannotSubValue(Position, Type, Type),
+    CannotMulValue(Position, Type, Type),
+    CannotDivValue(Position, Type, Type),
+    CannotModValue(Position, Type, Type),
     CannotCompareValue(Position, Type),
     CannotApplyLogicalOpValue(Position, Type),
     CannotCalculate(Position),
@@ -223,24 +223,24 @@ impl CodeGenError {
         Self::IllegalBitSize { pos: pos, typ: typ.clone(), size: size }
     }
 
-    pub fn cannot_add_value(pos: Position, typ: &Type) -> Self {
-        Self::CannotAddValue(pos, typ.clone())
+    pub fn cannot_add_value(pos: Position, left_type: &Type, right_type: &Type) -> Self {
+        Self::CannotAddValue(pos, left_type.clone(), right_type.clone())
     }
 
-    pub fn cannot_sub_value(pos: Position, typ: &Type) -> Self {
-        Self::CannotSubValue(pos, typ.clone())
+    pub fn cannot_sub_value(pos: Position, left_type: &Type, right_type: &Type,) -> Self {
+        Self::CannotSubValue(pos, left_type.clone(), right_type.clone())
     }
 
-    pub fn cannot_mul_value(pos: Position, typ: &Type) -> Self {
-        Self::CannotMulValue(pos, typ.clone())
+    pub fn cannot_mul_value(pos: Position, left_type: &Type, right_type: &Type) -> Self {
+        Self::CannotMulValue(pos, left_type.clone(), right_type.clone())
     }
 
-    pub fn cannot_div_value(pos: Position, typ: &Type) -> Self {
-        Self::CannotDivValue(pos, typ.clone())
+    pub fn cannot_div_value(pos: Position, left_type: &Type, right_type: &Type) -> Self {
+        Self::CannotDivValue(pos, left_type.clone(), right_type.clone())
     }
 
-    pub fn cannot_mod_value(pos: Position, typ: &Type) -> Self {
-        Self::CannotModValue(pos, typ.clone())
+    pub fn cannot_mod_value(pos: Position, left_type: &Type, right_type: &Type) -> Self {
+        Self::CannotModValue(pos, left_type.clone(), right_type.clone())
     }
 
     pub fn cannot_compare_value(pos: Position, typ: &Type) -> Self {
@@ -510,20 +510,20 @@ impl fmt::Display for CodeGenError {
             } => {
                 write!(f, "illegal bit size for type {typ}")
             },
-            Self::CannotAddValue(_pos, typ) => {
-                write!(f, "cannot add for type {typ}")
+            Self::CannotAddValue(_pos, l_type, r_type) => {
+                write!(f, "cannot add. type {l_type} and {r_type}")
             },
-            Self::CannotSubValue(_pos, typ) => {
-                write!(f, "cannot sub for type {typ}")
+            Self::CannotSubValue(_pos, l_type, r_type) => {
+                write!(f, "cannot sub. type {l_type} and {r_type}")
             },
-            Self::CannotMulValue(_pos, typ) => {
-                write!(f, "cannot mul for type {typ}")
+            Self::CannotMulValue(_pos, l_type, r_type) => {
+                write!(f, "cannot mul. type {l_type} and {r_type}")
             },
-            Self::CannotDivValue(_pos, typ) => {
-                write!(f, "cannot div for type {typ}")
+            Self::CannotDivValue(_pos, l_type, r_type) => {
+                write!(f, "cannot div. type {l_type} and {r_type}")
             },
-            Self::CannotModValue(_pos, typ) => {
-                write!(f, "cannot mod for type {typ}")
+            Self::CannotModValue(_pos, l_type, r_type) => {
+                write!(f, "cannot mod. type {l_type} by {r_type}")
             },
             Self::CannotCompareValue(_pos, typ) => {
                 write!(f, "cannot compare value for type {typ}")

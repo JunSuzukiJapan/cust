@@ -940,26 +940,20 @@ impl<'ctx> CodeGen<'ctx> {
         let mut vec = Vec::new();
         for i in 0..init_len {
             let init_value = &init_value_list[i];
-println!("target_type: {:?}", target_type);
             let init_type = TypeUtil::get_initializer_type(init_value, env)?;
             if *target_type != init_type {
                 return Err(Box::new(CodeGenError::mismatch_initializer_type(init_value.get_position().clone())));
             }
 
-            let compiled_val = self.gen_initializer(init_value, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::mismatch_initializer_type(init_value.get_position().clone()))?;
-            let value = self.try_as_basic_value(&compiled_val.get_value(), init_value.get_position())?;
+            let any_val = self.gen_initializer(init_value, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::mismatch_initializer_type(init_value.get_position().clone()))?;
+            let value = self.try_as_basic_value(&any_val, init_value.get_position())?;
 
             vec.push(value);
         }
 
-
-
         let values = self.context.const_struct(&vec, false);
-
-
-
         let _result = self.builder.build_store(target_array_ptr, values.as_basic_value_enum());
-
+println!("_result: {:?}", _result);
         Ok(None)
     }
 
@@ -968,17 +962,27 @@ println!("target_type: {:?}", target_type);
         env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
-    ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
+    ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
         match init {
-            Initializer::Simple(expr, _pos) => self.gen_expr(expr, env, break_catcher, continue_catcher),
-            Initializer::Array(_init, _typ, _pos) => {
+            Initializer::Simple(expr, _pos) => {
+                if let Some(v) = self.gen_expr(expr, env, break_catcher, continue_catcher)? {
+                    Ok(Some(v.get_value()))
+                }else{
+                    Ok(None)
+                }
+            },
+            Initializer::Array(vec_init, _typ, _pos) => {
+                let mut list = Vec::new();
+                for init_value in vec_init {
+                    let compiled_val = self.gen_initializer(init_value, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::mismatch_initializer_type(init_value.get_position().clone()))?;
+                    let value = self.try_as_basic_value(&compiled_val, init_value.get_position())?;
 
+                    list.push(value);
+                }
 
-
-
-
-
-                unimplemented!()
+                let values = self.context.const_struct(&list, false);
+                let any_val = values.as_any_value_enum();
+                Ok(Some(any_val))
             },
             Initializer::Struct(_init, _typ, _pos) => {
 
@@ -1804,7 +1808,7 @@ println!("target_type: {:?}", target_type);
                     let result = self.builder.build_float_add(left_value.into_float_value(), right_value.into_float_value(), "add_float")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CodeGenError::cannot_add_value(left_arg.get_position().clone(), left_type)))
+                    Err(Box::new(CodeGenError::cannot_add_value(left_arg.get_position().clone(), left_type, right.get_type())))
                 }
             },
             BinOp::Sub => {
@@ -1822,7 +1826,7 @@ println!("target_type: {:?}", target_type);
                     let result = self.builder.build_float_sub(left_value.into_float_value(), right_value.into_float_value(), "sub_float")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CodeGenError::cannot_sub_value(left_arg.get_position().clone(), left_type)))
+                    Err(Box::new(CodeGenError::cannot_sub_value(left_arg.get_position().clone(), left_type, right.get_type())))
                 }
             },
             BinOp::Mul => {
@@ -1840,7 +1844,7 @@ println!("target_type: {:?}", target_type);
                     let result = self.builder.build_float_mul(left_value.into_float_value(), right_value.into_float_value(), "mul_float")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CodeGenError::cannot_mul_value(left_arg.get_position().clone(), left_type)))
+                    Err(Box::new(CodeGenError::cannot_mul_value(left_arg.get_position().clone(), left_type, right.get_type())))
                 }
             },
             BinOp::Div => {
@@ -1863,7 +1867,7 @@ println!("target_type: {:?}", target_type);
                     let result = self.builder.build_float_div(left_value.into_float_value(), right_value.into_float_value(), "div_float")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CodeGenError::cannot_div_value(left_arg.get_position().clone(), left_type)))
+                    Err(Box::new(CodeGenError::cannot_div_value(left_arg.get_position().clone(), left_type, right.get_type())))
                 }
             },
             BinOp::Mod => {
@@ -1886,7 +1890,7 @@ println!("target_type: {:?}", target_type);
                     let result = self.builder.build_float_rem(left_value.into_float_value(), right_value.into_float_value(), "mod_float")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CodeGenError::cannot_mod_value(left_arg.get_position().clone(), left_type)))
+                    Err(Box::new(CodeGenError::cannot_mod_value(left_arg.get_position().clone(), left_type, right.get_type())))
                 }
             },
             BinOp::Equal => {

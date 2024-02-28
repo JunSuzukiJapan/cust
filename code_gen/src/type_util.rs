@@ -339,18 +339,8 @@ impl TypeUtil {
     pub fn get_initializer_type(init: &Initializer, env: &Env) -> Result<Type, CodeGenError> {
         match init {
             Initializer::Simple(expr, _pos) => TypeUtil::get_type(expr, env),
-            Initializer::Array(_init, _typ, _pos) => {
-
-
-
-
-
-
-                unimplemented!()
-            },
-            Initializer::Struct(_init, _typ, _pos) => {
-                unimplemented!()
-            }
+            Initializer::Array(_init, typ, _pos) => Ok(typ.clone()),
+            Initializer::Struct(_init, typ, _pos) => Ok(typ.clone()),
         }
     }
 
