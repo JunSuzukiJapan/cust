@@ -4034,7 +4034,7 @@ mod tests {
         let src = "
             int test() {
                 int num[2][3] = {{1, 2, 3},
-                                {4, 5, 6}};
+                                 {4, 5, 6}};
 
                 return num[0][0] + num[0][1] + num[0][2]
                     + num[1][0] + num[1][1] + num[1][2];
