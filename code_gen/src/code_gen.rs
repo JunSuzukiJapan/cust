@@ -17,7 +17,7 @@ use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::execution_engine::ExecutionEngine;
 use inkwell::module::Module;
-use inkwell::values::{AnyValue, AnyValueEnum, BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, GlobalValue, InstructionOpcode, InstructionValue, IntValue, PointerValue};
+use inkwell::values::{AnyValue, AnyValueEnum, BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, GlobalValue, InstructionOpcode, InstructionValue, IntValue, PointerValue, StructValue};
 use inkwell::types::{BasicTypeEnum, AnyTypeEnum, FunctionType, BasicType, BasicMetadataTypeEnum};
 use inkwell::basic_block::BasicBlock;
 use inkwell::{IntPredicate, FloatPredicate};
@@ -909,6 +909,38 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(None)
     }
 
+    pub fn make_array_init_value<'b, 'c>(&self,
+        size_list: &Vec<usize>,
+        target_type: &Type,
+        init_value_list: &Vec<Box<Initializer>>,
+        env: &mut Env<'ctx>,
+        break_catcher: Option<&'b BreakCatcher>,
+        continue_catcher: Option<&'c ContinueCatcher>
+    ) -> Result<StructValue<'ctx>, Box<dyn Error>> {
+
+        let init_len = init_value_list.len();
+
+        //
+        // init_len > 0
+        //
+        let mut vec = Vec::new();
+        for i in 0..init_len {
+            let init_value = &init_value_list[i];
+            let init_type = TypeUtil::get_initializer_type(init_value, env)?;
+            if *target_type != init_type {
+                return Err(Box::new(CodeGenError::mismatch_initializer_type(init_value.get_position().clone())));
+            }
+
+            let any_val = self.gen_initializer(init_value, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::mismatch_initializer_type(init_value.get_position().clone()))?;
+            let value = self.try_as_basic_value(&any_val, init_value.get_position())?;
+
+            vec.push(value);
+        }
+
+        let values = self.context.const_struct(&vec, false);
+        Ok(values)
+    }
+
     pub fn gen_global_array_init<'b, 'c>(&self,
         size_list: &Vec<usize>,
         target_array_ptr: GlobalValue<'ctx>,
@@ -930,24 +962,7 @@ impl<'ctx> CodeGen<'ctx> {
             return Ok(None);
         }
 
-        //
-        // init_len > 0
-        //
-        let mut vec = Vec::new();
-        for i in 0..init_len {
-            let init_value = &init_value_list[i];
-            let init_type = TypeUtil::get_initializer_type(init_value, env)?;
-            if *target_type != init_type {
-                return Err(Box::new(CodeGenError::mismatch_initializer_type(init_value.get_position().clone())));
-            }
-
-            let any_val = self.gen_initializer(init_value, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::mismatch_initializer_type(init_value.get_position().clone()))?;
-            let value = self.try_as_basic_value(&any_val, init_value.get_position())?;
-
-            vec.push(value);
-        }
-
-        let values = self.context.const_struct(&vec, false);
+        let values = self.make_array_init_value(size_list, target_type, init_value_list, env, break_catcher, continue_catcher)?;
         target_array_ptr.set_initializer(&values.as_basic_value_enum());
 
         Ok(None)
@@ -974,24 +989,7 @@ impl<'ctx> CodeGen<'ctx> {
             return Ok(None);
         }
 
-        //
-        // init_len > 0
-        //
-        let mut vec = Vec::new();
-        for i in 0..init_len {
-            let init_value = &init_value_list[i];
-            let init_type = TypeUtil::get_initializer_type(init_value, env)?;
-            if *target_type != init_type {
-                return Err(Box::new(CodeGenError::mismatch_initializer_type(init_value.get_position().clone())));
-            }
-
-            let any_val = self.gen_initializer(init_value, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::mismatch_initializer_type(init_value.get_position().clone()))?;
-            let value = self.try_as_basic_value(&any_val, init_value.get_position())?;
-
-            vec.push(value);
-        }
-
-        let values = self.context.const_struct(&vec, false);
+        let values = self.make_array_init_value(size_list, target_type, init_value_list, env, break_catcher, continue_catcher)?;
         let _result = self.builder.build_store(target_array_ptr, values.as_basic_value_enum());
 
         Ok(None)
