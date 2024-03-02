@@ -90,6 +90,7 @@ pub enum CodeGenError {
     SelfHasNotLeftValue(Position),
     HasNotLeftValue(String, Position),
     HasNotMember(String, Position),
+    NotArray(ExprAST, Position),
 }
 
 impl CodeGenError {
@@ -390,6 +391,10 @@ impl CodeGenError {
     pub fn has_not_member(name: String, pos: Position) -> Self {
         Self::HasNotMember(name, pos)
     }
+
+    pub fn not_array(expr: ExprAST, pos: Position) -> Self {
+        Self::NotArray(expr, pos)
+    }
 }
 
 impl From<ParserError> for CodeGenError {
@@ -637,6 +642,9 @@ impl fmt::Display for CodeGenError {
             Self::HasNotMember(id, _pos) => {
                 write!(f, "{id} has not member")
             },
+            Self::NotArray(expr, _pos) => {
+                write!(f, "{:?} is not array", expr)
+            }
         }
         
     }

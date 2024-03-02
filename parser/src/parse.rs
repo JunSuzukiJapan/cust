@@ -1906,8 +1906,18 @@ impl Parser {
                         Token::BracketLeft => {
                             iter.next();  // skip '['
                             let expr = self.parse_expression(iter, defs, labels)?.ok_or(ParserError::no_expr_while_access_array(pos.clone()))?;
-                            self.parse_expected_token(iter, Token::BracketRight)?;
-                            ast = ExprAST::ArrayAccess(Box::new(ast), Box::new(expr), pos.clone());
+                            self.parse_expected_token(iter, Token::BracketRight)?;  // check ']'
+                            match ast {
+                                ExprAST::ArrayAccess(box_ast, expr_list, pos) => {
+                                    let mut list = expr_list.clone();
+                                    list.push(Box::new(expr));
+
+                                    ast = ExprAST::ArrayAccess(box_ast, list, pos.clone());
+                                },
+                                _ => {
+                                    ast = ExprAST::ArrayAccess(Box::new(ast), vec![Box::new(expr)], pos.clone());
+                                }
+                            }
                         },
                         Token::ParenLeft => {
                             iter.next();  // skip '('

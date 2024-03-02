@@ -208,9 +208,34 @@ impl TypeUtil {
             // ExprAST::UnaryNot(expr) => expr.get_type(env),
             ExprAST::UnarySizeOfExpr(_expr, _pos) => Ok(Type::Number(NumberType::Int)),
             ExprAST::UnarySizeOfTypeName(_typ, _pos) => Ok(Type::Number(NumberType::Int)),
-            ExprAST::ArrayAccess(expr, _index, _pos) => {
+            ExprAST::ArrayAccess(expr, index, pos) => {
+println!("ArrayAccess. expr: {:?}\n", expr);
                 let typ = Self::get_type(&expr, env)?;
-                Ok(typ)
+println!(" ** typ: {:?}\n", typ);
+                if let Type::Array { name, typ, size_list } = typ {
+                    let len = size_list.len();
+println!(" -- typ: {:?}\n", typ);
+
+                    let mut index = 0;
+                    let mut typ: &Type = &*typ;
+                    loop {
+                        if len - index <= 0 {
+
+
+
+                            return Ok(typ.clone());
+                        }
+
+
+
+
+
+                        index += 1;
+                    }
+
+                }else{
+                    return Err(CodeGenError::not_array(*expr.clone(), pos.clone()));
+                }
             },
             ExprAST::Symbol(name, pos) => {
                 let typ = env.get_type_by_id(&name).ok_or(CodeGenError::no_such_a_variable(pos.clone(), &name))?;

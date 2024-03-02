@@ -716,7 +716,7 @@ pub enum ExprAST {
     MemberAccess(Box<ExprAST>, String, Position),
     PointerAccess(Box<ExprAST>, String, Position),
     TernaryOperator(Box<ExprAST>, Box<ExprAST>, Box<ExprAST>, Position),
-    ArrayAccess(Box<ExprAST>, Box<ExprAST>, Position),
+    ArrayAccess(Box<ExprAST>, Vec<Box<ExprAST>>, Position),
     CallFunction(Box<ExprAST>, Vec<ExprAST>, Position),
     // InitializerList(Vec<ExprAST>, Position),
     DefVar {

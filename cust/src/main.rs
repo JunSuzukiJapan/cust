@@ -602,7 +602,7 @@ END: ;
             return num[0] + num[1] + num[2];
         }
     ";
-*/
+
     let src = "
         int printf(char* format, ...);
 
@@ -620,6 +620,62 @@ END: ;
                  + num[1][0] + num[1][1] + num[1][2];
         }
     ";
+*/
+
+    let src = "
+        int printf(char* format, ...);
+
+        struct date {
+            int year, month;
+            int day;
+        };
+        typedef struct date Date;
+
+        Date days[2][3] = {{{2024, 1, 1},
+                            {2024, 1, 2},
+                            {2024, 1, 3}
+                           },
+                           {{2024, 2, 1},
+                            {2024, 2, 2},
+                            {2024, 2, 3}
+                           }
+                          };
+
+        int test() {
+            for(int i = 0; i < 2; i++){
+                for(int j = 0; j < 3; j++){
+                    printf(\"days[%d][%d].year = %d\\\n\", i, j, days[i][j].year);
+                    printf(\"days[%d][%d].month = %d\\\n\", i, j, days[i][j].month);
+                    printf(\"days[%d][%d].day = %d\\\n\", i, j, days[i][j].day);
+                }
+            }
+
+            return days[0][0].year + days[0][1].month + days[0][2].day
+                 + days[1][0].year + days[1][1].month + days[1][2].day;
+        }
+    ";
+/*
+    let src = "
+        typedef struct date {
+            int year, month;
+            int day;
+        } Date;
+    ";
+    let src = 
+        int num[2][2] = {{1, 2}, {3, 4}};
+
+        int* ptr = num[0];
+        printf("%d\n", *ptr);
+        
+        ptr = num;
+        printf("%d\n", *ptr);
+
+        int* ptr2 = num[1];
+        printf("%d\n", *ptr2);
+    ";
+
+*/
+
     // tokenize
     let tokenized = Tokenizer::tokenize(src).unwrap();
     // parse

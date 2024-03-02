@@ -1020,14 +1020,18 @@ impl<'ctx> CodeGen<'ctx> {
                 let any_val = values.as_any_value_enum();
                 Ok(Some(any_val))
             },
-            Initializer::Struct(_init, _typ, _pos) => {
+            Initializer::Struct(vec_init, _typ, _pos) => {
+                let mut list = Vec::new();
+                for init_value in vec_init {
+                    let compiled_val = self.gen_initializer(init_value, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::mismatch_initializer_type(init_value.get_position().clone()))?;
+                    let value = self.try_as_basic_value(&compiled_val, init_value.get_position())?;
 
+                    list.push(value);
+                }
 
-
-
-
-
-                unimplemented!()
+                let values = self.context.const_struct(&list, false);
+                let any_val = values.as_any_value_enum();
+                Ok(Some(any_val))
             }
         }
     }
@@ -1035,9 +1039,6 @@ impl<'ctx> CodeGen<'ctx> {
     fn const_zero(&self, typ: &Type, pos: &Position) -> Result<BasicValueEnum, Box<dyn Error>> {
         let t = TypeUtil::to_llvm_type(typ, self.context, pos)?;
         match t {
-            BasicMetadataTypeEnum::ArrayType(_) => {
-                unimplemented!()
-            },
             BasicMetadataTypeEnum::FloatType(t) => {
                 Ok(t.const_zero().as_basic_value_enum())
             },
@@ -1051,6 +1052,9 @@ impl<'ctx> CodeGen<'ctx> {
                 unimplemented!()
             },
             BasicMetadataTypeEnum::VectorType(_) => {
+                unimplemented!()
+            },
+            BasicMetadataTypeEnum::ArrayType(_) => {
                 unimplemented!()
             },
             _ => {
@@ -2246,7 +2250,7 @@ impl<'ctx> CodeGen<'ctx> {
                 let ast = &**expr;
                 let (_typ, ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
                 let typ = TypeUtil::get_type(ast, env)?;
-
+println!("typ: {:?}", typ);
                 match typ {
                     Type::Struct {name, fields} => {
                         let index = fields.get_index(member_name).ok_or(CodeGenError::no_such_a_member(pos.clone(), member_name))?;
@@ -2332,17 +2336,20 @@ impl<'ctx> CodeGen<'ctx> {
                     _ => Err(Box::new(CodeGenError::has_not_member(pointed_type.to_string(), pos.clone())))
                 }
             },
-            ExprAST::ArrayAccess(expr, index, pos) => {
+            ExprAST::ArrayAccess(expr, index_list, pos) => {
                 let ast = &**expr;
                 let (typ, base_ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
 
-                let value = self.gen_expr(index, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::no_index_value_while_access_array(pos.clone()))?;
-                let index_val = value.get_value().into_int_value();
+                let mut ptr = base_ptr;
+                for index in index_list {
+                    let value = self.gen_expr(index, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::no_index_value_while_access_array(pos.clone()))?;
+                    let index_val = value.get_value().into_int_value();
 
-                let i32_type = self.context.i32_type();
-                let const_zero = i32_type.const_zero();
-                let index_list = [const_zero, index_val];
-                let ptr = unsafe { base_ptr.const_in_bounds_gep(&index_list) };
+                    let i32_type = self.context.i32_type();
+                    let const_zero = i32_type.const_zero();
+                    let index_list = [const_zero, index_val];
+                    ptr = unsafe { ptr.const_in_bounds_gep(&index_list) };
+                }
 
                 Ok((typ.clone(), ptr))
             },
