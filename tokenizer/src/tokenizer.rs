@@ -847,7 +847,6 @@ mod tests {
 
     #[test]
     fn tokenize_digit() {
-        let tokenizer = Tokenizer::new();
         let result = Tokenizer::tokenize("123 0");
         match result {
             Ok(v) => {
@@ -871,7 +870,6 @@ mod tests {
 
     #[test]
     fn tokenize_char() {
-        let tokenizer = Tokenizer::new();
         let src = "'a' '錆' '\\\\'";
         let result = Tokenizer::tokenize(src);
         match result {
@@ -900,7 +898,6 @@ mod tests {
 
     #[test]
     fn tokenize_float() {
-        let tokenizer = Tokenizer::new();
         let result = Tokenizer::tokenize("3.14 12345e2 12345e-3 123.45e3 123.45e-1");
         match result {
             Ok(v) => {
@@ -948,7 +945,6 @@ mod tests {
 
     #[test]
     fn tokenize_string() {
-        let tokenizer = Tokenizer::new();
         let src = "\"Hello, world!\" \"こんにちは、世界。\" \"\\\"文字列\\\"\"";
         let result = Tokenizer::tokenize(src);
         match result {
@@ -977,7 +973,6 @@ mod tests {
 
     #[test]
     fn tokenize_operator_add() {
-        let tokenizer = Tokenizer::new();
         let src = "+ += ++";
         let result = Tokenizer::tokenize(src);
         match result {
@@ -1006,7 +1001,6 @@ mod tests {
 
     #[test]
     fn tokenize_operator_sub() {
-        let tokenizer = Tokenizer::new();
         let src = "- -= --";
         let result = Tokenizer::tokenize(src);
         match result {
@@ -1035,7 +1029,6 @@ mod tests {
 
     #[test]
     fn tokenize_operator_mul() {
-        let tokenizer = Tokenizer::new();
         let src = "* *=";
         let result = Tokenizer::tokenize(src);
         match result {
@@ -1060,7 +1053,6 @@ mod tests {
 
     #[test]
     fn tokenize_operator_div() {
-        let tokenizer = Tokenizer::new();
         let src = "/ /=";
         let result = Tokenizer::tokenize(src);
         match result {
@@ -1085,7 +1077,6 @@ mod tests {
 
     #[test]
     fn tokenize_operator_mod() {
-        let tokenizer = Tokenizer::new();
         let src = "% %=";
         let result = Tokenizer::tokenize(src);
         match result {
@@ -1110,7 +1101,6 @@ mod tests {
 
     #[test]
     fn tokenize_operator_less() {
-        let tokenizer = Tokenizer::new();
         let src = "< <= <<";
         let result = Tokenizer::tokenize(src);
         match result {
@@ -1139,7 +1129,6 @@ mod tests {
 
     #[test]
     fn tokenize_operator_greater() {
-        let tokenizer = Tokenizer::new();
         let src = "> >= >>";
         let result = Tokenizer::tokenize(src);
         match result {
@@ -1168,7 +1157,6 @@ mod tests {
 
     #[test]
     fn tokenize_operator_assign() {
-        let tokenizer = Tokenizer::new();
         let src = "= ==";
         let result = Tokenizer::tokenize(src);
         match result {
@@ -1193,7 +1181,6 @@ mod tests {
 
     #[test]
     fn tokenize_operator_not() {
-        let tokenizer = Tokenizer::new();
         let src = "! !=";
         let result = Tokenizer::tokenize(src);
         match result {
@@ -1218,7 +1205,6 @@ mod tests {
 
     #[test]
     fn tokenize_operator_and() {
-        let tokenizer = Tokenizer::new();
         let src = "& &= &&";
         let result = Tokenizer::tokenize(src);
         match result {
@@ -1247,7 +1233,6 @@ mod tests {
 
     #[test]
     fn tokenize_operator_or() {
-        let tokenizer = Tokenizer::new();
         let src = "| |= ||";
         let result = Tokenizer::tokenize(src);
         match result {
@@ -1276,7 +1261,6 @@ mod tests {
 
     #[test]
     fn tokenize_operator_xor() {
-        let tokenizer = Tokenizer::new();
         let src = "^ ^=";
         let result = Tokenizer::tokenize(src);
         match result {
@@ -1301,7 +1285,6 @@ mod tests {
 
     #[test]
     fn tokenize_operator_tilda() {
-        let tokenizer = Tokenizer::new();
         let src = "~";
         let result = Tokenizer::tokenize(src);
         match result {
@@ -1322,7 +1305,6 @@ mod tests {
 
     #[test]
     fn tokenize_operator_question() {
-        let tokenizer = Tokenizer::new();
         let src = "?";
         let result = Tokenizer::tokenize(src);
         match result {
@@ -1343,7 +1325,6 @@ mod tests {
 
     #[test]
     fn tokenize_operator_others() {
-        let tokenizer = Tokenizer::new();
         let src = ": ; . -> () {} []";
         let result = Tokenizer::tokenize(src);
         match result {
@@ -1400,7 +1381,6 @@ mod tests {
 
     #[test]
     fn tokenize_keywords() {
-        let tokenizer = Tokenizer::new();
         let src = "int x = 0;";
         let result = Tokenizer::tokenize(src);
         match result {

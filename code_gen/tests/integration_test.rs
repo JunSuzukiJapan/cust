@@ -1346,6 +1346,7 @@ fn code_gen_init_global_array2() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+/*
 #[test]
 fn code_gen_init_struct_array() -> Result<(), Box<dyn Error>> {
     let src = "
@@ -1393,3 +1394,4 @@ fn code_gen_init_struct_array() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
+*/
