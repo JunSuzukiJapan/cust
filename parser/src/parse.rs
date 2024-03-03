@@ -1179,7 +1179,7 @@ impl Parser {
                     }
 
                     let mut dimension = Vec::new();
-                    if let Some((tok3, pos3)) = iter.peek() {
+                    if let Some((tok3, _pos3)) = iter.peek() {
                         if *tok3 == Token::Assign {
                             iter.next();  // skip '='
 
@@ -1774,7 +1774,7 @@ impl Parser {
     }
 
     fn parse_cast_expression_sub(&self, iter: &mut Peekable<Iter<(Token, Position)>>, pos: &Position, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ExprAST>, ParserError> {
-        let (sq, type_or_variadic, opt_abstract_decl) = self.parse_type_name(iter, defs, labels)?;
+        let (_sq, type_or_variadic, opt_abstract_decl) = self.parse_type_name(iter, defs, labels)?;
         let cast_type = type_or_variadic.get_type().ok_or(ParserError::no_type_defined(pos.clone()))?;
         self.parse_expected_token(iter, Token::ParenRight)?;
 
@@ -1911,7 +1911,7 @@ impl Parser {
                                 ExprAST::ArrayAccess(box_ast, expr_list, pos) => {
                                     let mut list = expr_list.clone();
                                     list.push(Box::new(expr));
-
+println!("array access. list: {:?}", list);
                                     ast = ExprAST::ArrayAccess(box_ast, list, pos.clone());
                                 },
                                 _ => {
@@ -2018,7 +2018,7 @@ impl Parser {
     }
 
     fn try_parse_type(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> bool {
-        if let Some((tok, pos)) = iter.peek() {
+        if let Some((tok, _pos)) = iter.peek() {
             // int, etc   struct enum
             if tok.is_type() {  // int, etc
                 true
@@ -2507,14 +2507,14 @@ impl Parser {
     // fn parse_typedef_name(&self, _iter: &mut Peekable<Iter<(Token, Position)>>, _defs: &mut Defines) -> Result<Option<TypeSpecifier>, ParserError> {
     // }
 
-    fn parse_declaration(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>, pos: &Position) -> Result<Option<AST>, ParserError> {
+    fn parse_declaration(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>, _pos: &Position) -> Result<Option<AST>, ParserError> {
         let ds = self.parse_declaration_specifier(iter, defs, labels)?;
         let ds = ds.get_declaration_specifier().unwrap();
         let typ = ds.get_type();
 
         // parse init_declarator
         let mut v = Vec::new();
-        let mut cur_pos = pos.clone();
+        let mut cur_pos;
         loop {
             let (decl, opt_initializer) = self.parse_declarator(typ, iter, defs, labels)?;
             let name = decl.get_name();

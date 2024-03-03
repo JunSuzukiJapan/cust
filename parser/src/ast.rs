@@ -478,8 +478,8 @@ impl AbstractDeclarator {
         }
     }
 
-    pub fn calc_type(&self, mut typ: &Type) -> Type {
-        if let Some(ptr) = &self.pointer {
+    pub fn calc_type(&self, typ: &Type) -> Type {
+        if let Some(_ptr) = &self.pointer {
             let t = Type::Pointer(Pointer::default(), Box::new(typ.clone()));
             if let Some(d_a_d) = &self.direct_abstract_declarator {
                 d_a_d.calc_type(&t)

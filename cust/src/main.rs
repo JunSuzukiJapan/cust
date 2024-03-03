@@ -650,8 +650,12 @@ END: ;
                 }
             }
 
-            return days[0][0].year + days[0][1].month + days[0][2].day
-                 + days[1][0].year + days[1][1].month + days[1][2].day;
+            return days[0][0].year + days[0][0].month + days[0][0].day
+                 + days[0][1].year + days[0][1].month + days[0][1].day
+                 + days[0][2].year + days[0][2].month + days[0][2].day
+                 + days[1][0].year + days[1][0].month + days[1][0].day
+                 + days[1][1].year + days[1][1].month + days[1][1].day
+                 + days[1][2].year + days[1][2].month + days[1][2].day;
         }
     ";
 /*
@@ -702,6 +706,7 @@ END: ;
     println!("<<call llvm function>>");
     let result = unsafe { f.call() };
     // let result = unsafe { f.call(1) };
+    assert_eq!(result, 12165);
     println!("result: {result}");
     println!("<<end call llvm function>>");
 

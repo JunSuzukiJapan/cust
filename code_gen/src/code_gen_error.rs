@@ -91,6 +91,7 @@ pub enum CodeGenError {
     HasNotLeftValue(String, Position),
     HasNotMember(String, Position),
     NotArray(ExprAST, Position),
+    ArrayIndexIsTooLong(Position),
 }
 
 impl CodeGenError {
@@ -395,6 +396,10 @@ impl CodeGenError {
     pub fn not_array(expr: ExprAST, pos: Position) -> Self {
         Self::NotArray(expr, pos)
     }
+
+    pub fn array_index_is_too_long(pos: Position) -> Self {
+        Self::ArrayIndexIsTooLong(pos)
+    }
 }
 
 impl From<ParserError> for CodeGenError {
@@ -449,7 +454,7 @@ impl fmt::Display for CodeGenError {
             Self::CannotConvertToLocalPointer(_pos) => {
                 write!(f, "cannot convert to local pointer")
             },
-            Self::IllegalTypeForPointer(_pos, typ) => {
+            Self::IllegalTypeForPointer(_pos, _typ) => {
                 write!(f, "illegal type for pointer")
             },
             Self::IllegalEndOfInput(_pos) => {
@@ -644,6 +649,9 @@ impl fmt::Display for CodeGenError {
             },
             Self::NotArray(expr, _pos) => {
                 write!(f, "{:?} is not array", expr)
+            },
+            Self::ArrayIndexIsTooLong(_pos) => {
+                write!(f, "array index is too long")
             }
         }
         

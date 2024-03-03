@@ -208,29 +208,24 @@ impl TypeUtil {
             // ExprAST::UnaryNot(expr) => expr.get_type(env),
             ExprAST::UnarySizeOfExpr(_expr, _pos) => Ok(Type::Number(NumberType::Int)),
             ExprAST::UnarySizeOfTypeName(_typ, _pos) => Ok(Type::Number(NumberType::Int)),
-            ExprAST::ArrayAccess(expr, index, pos) => {
+            ExprAST::ArrayAccess(expr, index_list, pos) => {
 println!("ArrayAccess. expr: {:?}\n", expr);
                 let typ = Self::get_type(&expr, env)?;
-println!(" ** typ: {:?}\n", typ);
-                if let Type::Array { name, typ, size_list } = typ {
+                if let Type::Array { name: _, typ: item_type, size_list } = typ {
+                    let index_len = index_list.len();
                     let len = size_list.len();
-println!(" -- typ: {:?}\n", typ);
 
-                    let mut index = 0;
-                    let mut typ: &Type = &*typ;
-                    loop {
-                        if len - index <= 0 {
+                    if len == index_len {
+                        return Ok(*item_type.clone());
 
+                    } if len > index_len {
+                        return Err(CodeGenError::array_index_is_too_long(pos.clone()))
 
-
-                            return Ok(typ.clone());
-                        }
-
-
-
-
-
-                        index += 1;
+                    }else{  // len < index_len
+                        let sz_list: Vec<usize> = size_list[len..].to_vec();
+                        let ret_type = Type::Array { name: None, typ: item_type.clone(), size_list: sz_list };
+println!("  ret_type: {:?}", ret_type);
+                        Ok(ret_type)
                     }
 
                 }else{
