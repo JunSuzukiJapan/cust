@@ -551,20 +551,6 @@ impl<'ctx> CodeGen<'ctx> {
 
                 Ok(Some(CompiledValue::new(type2, any_val)))
             },
-            ExprAST::Symbol(name, pos) => {
-                if let Some((typ, ptr)) = env.get_ptr(name) {
-                    let basic_val = self.builder.build_load(ptr, name)?;
-                    let any_val = basic_val.as_any_value_enum();
-
-                    Ok(Some(CompiledValue::new(typ.clone(), any_val)))
-
-                }else if let Some((typ, val)) = env.get_value(name) {
-                    Ok(Some(CompiledValue::new(typ.clone(), val.as_any_value_enum())))
-    
-                }else{
-                    Err(Box::new(CodeGenError::no_such_a_variable(pos.clone(), name)))
-                }
-            },
             ExprAST::Assign(l_value, r_value, _pos) => self.gen_assign(&**l_value, &**r_value, env, break_catcher, continue_catcher),
             ExprAST::OpAssign(op, l_value, r_value, _pos) => self.gen_op_assign(op, &**l_value, &**r_value, env, break_catcher, continue_catcher),
             ExprAST::CallFunction(fun, args, pos) => {
@@ -622,6 +608,37 @@ println!("**typ: {:?}", typ);
                     let basic_val = self.builder.build_load(ptr, "get_value_from_array")?;
                     let any_val = basic_val.as_any_value_enum();
                     Ok(Some(CompiledValue::new(typ, any_val)))
+                }
+            },
+            ExprAST::Symbol(name, pos) => {
+                if let Some((typ, ptr)) = env.get_ptr(name) {
+                    // let basic_val = self.builder.build_load(ptr, name)?;
+                    // let any_val = basic_val.as_any_value_enum();
+                    // Ok(Some(CompiledValue::new(typ.clone(), any_val)))
+
+                    if let Type::Array { typ, .. } = typ {
+                        let any_val = ptr.as_any_value_enum();
+                        let t = Type::new_pointer_type(*typ.clone(), false, false);
+                        Ok(Some(CompiledValue::new(t, any_val)))
+    
+                    }else{
+                        let basic_val = self.builder.build_load(ptr, name)?;
+                        let any_val = basic_val.as_any_value_enum();
+                        Ok(Some(CompiledValue::new(typ.clone(), any_val)))
+                    }
+
+                }else if let Some((typ, val)) = env.get_value(name) {
+                    if let Type::Array { typ, .. } = typ {
+                        let any_val = val.as_any_value_enum();
+                        let t = Type::new_pointer_type(*typ.clone(), false, false);
+                        Ok(Some(CompiledValue::new(t, any_val)))
+    
+                    }else{
+                        Ok(Some(CompiledValue::new(typ.clone(), val.as_any_value_enum())))
+                    }
+    
+                }else{
+                    Err(Box::new(CodeGenError::no_such_a_variable(pos.clone(), name)))
                 }
             },
             ExprAST::_self(pos) => {

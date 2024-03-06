@@ -667,24 +667,26 @@ END: ;
         } Date;
     ";
 */
-/*
+
     let src = "
         int printf(char* format, ...);
 
-        int test() {
+        void test() {
             int num[2][2] = {{1, 2}, {3, 4}};
 
-            int* ptr = num[0];
-            printf(\"%d\\\n\", *ptr);
+            int* ptr;
             
+            ptr = num[0];
+            printf(\"num[0]. %d\\\n\", *ptr);
+
             ptr = num;
-            printf(\"%d\\\n\", *ptr);
+            printf(\"num. %d\\\n\", *ptr);
 
             int* ptr2 = num[1];
-            printf(\"%d\\\n\", *ptr2);
+            printf(\"num[1]. %d\\\n\", *ptr2);
         }
     ";
-*/
+/*
     let src = "
         int printf(char* format, ...);
 
@@ -697,6 +699,20 @@ END: ;
             return *ptr;
         }
     ";
+
+    let src = "
+        int printf(char* format, ...);
+
+        int num[2][2] = {{1, 2}, {3, 4}};
+
+        int test() {
+            int* ptr = num[0];
+            printf(\"%d\\\n\", *ptr);
+
+            return ptr[0] + ptr[1] + ptr[2] + ptr[3];
+        }
+    ";
+*/
 
     // tokenize
     let tokenized = Tokenizer::tokenize(src).unwrap();
@@ -724,7 +740,7 @@ END: ;
     println!("<<call llvm function>>");
     let result = unsafe { f.call() };
     // let result = unsafe { f.call(1) };
-    assert_eq!(result, 1);
+    // assert_eq!(result, 1);
     println!("result: {result}");
     println!("<<end call llvm function>>");
 
