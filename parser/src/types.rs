@@ -554,6 +554,34 @@ impl Type {
         }
     }
 
+    pub fn is_array(&self) -> bool {
+        match self {
+            Type::Array {..} => true,
+            _ => false,
+        }
+    }
+
+    pub fn get_array_dimension(&self) -> &Vec<usize> {
+        match self {
+            Type::Array { size_list, .. } => size_list,
+            _ => panic!("not array when get array dimension"),
+        }
+    }
+
+    pub fn get_array_item_type(&self) -> &Type {
+        match self {
+            Type::Array { typ, .. } => &*typ,
+            _ => panic!("not array when get array item type"),
+        }
+    }
+
+    pub fn get_array_name(&self) -> &Option<String> {
+        match self {
+            Type::Array { name, .. } => name,
+            _ => panic!("not array when get array name"),
+        }
+    }
+
     pub fn is_struct(&self) -> bool {
         match self {
             Type::Struct {..} => true,
@@ -608,13 +636,6 @@ impl Type {
             Type::Number(NumberType::Long) => Ok(true),
             Type::Number(NumberType::LongLong) => Ok(true),
             _ => Ok(false)
-        }
-    }
-
-    pub fn is_array(&self) -> bool {
-        match self {
-            Type::Array {..} => true,
-            _ => false,
         }
     }
 

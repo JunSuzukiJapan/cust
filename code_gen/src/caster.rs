@@ -726,6 +726,12 @@ impl Caster {
                 let result = value.into_int_value().const_signed_to_float(f64_type);
                 Ok(result.as_any_value_enum())
             },
+            // (Type::Array { typ, .. }, Type::Pointer(_pointer, boxed_type)) => {
+            //     let ptr_type = TypeUtil::make_llvm_ptr_type(&*boxed_type, ctx, pos)?;
+            //     let ptr_value = value.into_pointer_value();
+            //     let result = builder.build_pointer_cast(ptr_value, ptr_type, "cast_from_array_to_pointer")?;
+            //     Ok(result.as_any_value_enum())
+            // },
             _ => Err(Box::new(CodeGenError::cannot_implicit_cast(from_type.clone(), to_type.clone(), pos.clone())))
         }
     }

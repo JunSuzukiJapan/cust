@@ -451,6 +451,7 @@ impl Parser {
         let mut opt_signed: Option<(bool, Position)> = None;
         let mut opt_unsigned: Option<(bool, Position)> = None;
         let mut opt_type: Option<(Type, Position)> = None;
+        let mut opt_name: Option<String> = None;
 
         loop {
             if let Some((tok, pos)) = iter.peek() {
@@ -507,6 +508,7 @@ impl Parser {
                             break;
                         }
 
+                        opt_name = Some(name.to_string());
                         if let Some(t) = defs.get_type(name) {
                             iter.next();  // skip Symbol
                             opt_type = Some((t.clone(), pos.clone()));
@@ -832,11 +834,11 @@ impl Parser {
             }
         }
 
-        // let (typ, pos) = opt_type.ok_or(ParserError::no_type_defined(iter.peek().unwrap().1.clone()))?;
         let (typ, pos) = if let Some((typ, pos)) = opt_type {
             (typ, pos)
         }else{
-            return Err(ParserError::no_type_defined(iter.peek().unwrap().1.clone()));
+println!("opt_name: {:?}", opt_name);
+            return Err(ParserError::no_type_defined(opt_name, iter.peek().unwrap().1.clone()));
         };
         let typ = if let Some((true, _)) = opt_unsigned {
             typ.to_unsigned(&pos)?
@@ -1775,7 +1777,7 @@ impl Parser {
 
     fn parse_cast_expression_sub(&self, iter: &mut Peekable<Iter<(Token, Position)>>, pos: &Position, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ExprAST>, ParserError> {
         let (_sq, type_or_variadic, opt_abstract_decl) = self.parse_type_name(iter, defs, labels)?;
-        let cast_type = type_or_variadic.get_type().ok_or(ParserError::no_type_defined(pos.clone()))?;
+        let cast_type = type_or_variadic.get_type().ok_or(ParserError::no_type_defined(None, pos.clone()))?;
         self.parse_expected_token(iter, Token::ParenRight)?;
 
         println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
@@ -1883,7 +1885,7 @@ impl Parser {
                         Ok(Some(ExprAST::UnarySizeOfExpr(Box::new(expr), pos.clone())))
                     }else{
                         let (_sq, type_or_variadic, _opt_abstract_decl) = self.parse_type_name(iter, defs, labels)?;
-                        let type_name = type_or_variadic.get_type().ok_or(ParserError::no_type_defined(pos.clone()))?;
+                        let type_name = type_or_variadic.get_type().ok_or(ParserError::no_type_defined(None, pos.clone()))?;
                         Ok(Some(ExprAST::UnarySizeOfTypeName(type_name.clone(), pos.clone())))
                     }
                 },

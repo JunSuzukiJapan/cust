@@ -5,8 +5,8 @@ extern crate tokenizer;
 extern crate parser;
 extern crate code_gen;
 
-use parser::{Parser, AST, ExprAST, Tokenizer, ParserError, Defines};
-use code_gen::{CodeGen, Env, CodeGenError};
+use parser::{Parser, ExprAST, Tokenizer, ParserError, Defines};
+use code_gen::{CodeGen, Env};
 
 // use inkwell::AddressSpace;
 use inkwell::context::Context;
@@ -621,7 +621,7 @@ END: ;
         }
     ";
 */
-
+/*
     let src = "
         int printf(char* format, ...);
 
@@ -658,6 +658,7 @@ END: ;
                  + days[1][2].year + days[1][2].month + days[1][2].day;
         }
     ";
+*/
 /*
     let src = "
         typedef struct date {
@@ -665,20 +666,37 @@ END: ;
             int day;
         } Date;
     ";
-    let src = 
+*/
+/*
+    let src = "
+        int printf(char* format, ...);
+
+        int test() {
+            int num[2][2] = {{1, 2}, {3, 4}};
+
+            int* ptr = num[0];
+            printf(\"%d\\\n\", *ptr);
+            
+            ptr = num;
+            printf(\"%d\\\n\", *ptr);
+
+            int* ptr2 = num[1];
+            printf(\"%d\\\n\", *ptr2);
+        }
+    ";
+*/
+    let src = "
+        int printf(char* format, ...);
+
         int num[2][2] = {{1, 2}, {3, 4}};
 
-        int* ptr = num[0];
-        printf("%d\n", *ptr);
-        
-        ptr = num;
-        printf("%d\n", *ptr);
+        int test() {
+            int* ptr = num[0];
+            printf(\"%d\\\n\", *ptr);
 
-        int* ptr2 = num[1];
-        printf("%d\n", *ptr2);
+            return *ptr;
+        }
     ";
-
-*/
 
     // tokenize
     let tokenized = Tokenizer::tokenize(src).unwrap();
@@ -706,7 +724,7 @@ END: ;
     println!("<<call llvm function>>");
     let result = unsafe { f.call() };
     // let result = unsafe { f.call(1) };
-    assert_eq!(result, 12165);
+    assert_eq!(result, 1);
     println!("result: {result}");
     println!("<<end call llvm function>>");
 

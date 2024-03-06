@@ -609,11 +609,20 @@ impl<'ctx> CodeGen<'ctx> {
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
             ExprAST::ArrayAccess(_boxed_ast, _index, pos) => {
-println!("code_gen. ArrayAccess");
+println!("code_gen. ArrayAccess. index: {:?}", _index);
                 let (typ, ptr) = self.get_l_value(expr_ast, env, break_catcher, continue_catcher)?;
-                let basic_val = self.builder.build_load(ptr, "get_value_from_array")?;
-                let any_val = basic_val.as_any_value_enum();
-                Ok(Some(CompiledValue::new(typ.get_element_type(pos)?.clone(), any_val)))
+println!("**typ: {:?}", typ);
+
+                if let Type::Array { typ, .. } = typ {
+                    let any_val = ptr.as_any_value_enum();
+                    let t = Type::new_pointer_type(*typ.clone(), false, false);
+                    Ok(Some(CompiledValue::new(t, any_val)))
+
+                }else{
+                    let basic_val = self.builder.build_load(ptr, "get_value_from_array")?;
+                    let any_val = basic_val.as_any_value_enum();
+                    Ok(Some(CompiledValue::new(typ, any_val)))
+                }
             },
             ExprAST::_self(pos) => {
                 if let Some((typ, ptr)) = env.get_self_ptr() {
@@ -724,6 +733,7 @@ println!("code_gen. ArrayAccess");
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
+println!("gen_cost_expr. init: {:?}", init);
         match init {
             Initializer::Simple(expr, _pos) => self.gen_expr(expr, env, break_catcher, continue_catcher),
             Initializer::Array(_list, _typ, _pos) => {
@@ -779,6 +789,11 @@ println!("code_gen. ArrayAccess");
                             let init_type = compiled_value.get_type();
 
                             if typ != *init_type {
+println!("declarator: {:?}", declarator);
+println!("typ: {:?}", typ);
+println!("const_expr: {:?}", const_expr);
+println!("compiled_value: {:?}", compiled_value);
+println!("init_type: {:?}", init_type);
                                 init_value = self.gen_implicit_cast(&init_value, &init_type, &typ, (*const_expr).get_position())?;
                             }
 
@@ -2341,7 +2356,31 @@ println!("code_gen. ArrayAccess");
 println!("expr: {:?}", expr);
 println!("index_list: {:?}", index_list);
                 let ast = &**expr;
-                let (typ, base_ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
+                let (expr_type, base_ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
+
+                if ! expr_type.is_array() {
+                    return Err(Box::new(CodeGenError::not_array(ast.clone(), pos.clone())));
+                }
+                let array_dim = expr_type.get_array_dimension();
+                let array_dim_len = array_dim.len();
+
+                let index_len = index_list.len();
+                if index_len > array_dim_len {
+                    return Err(Box::new(CodeGenError::array_index_is_too_long(pos.clone())));
+                }
+
+                let item_type = expr_type.get_array_item_type();
+                let result_type;
+                if index_len == array_dim_len {
+                    result_type = item_type.clone();
+                }else{  // index_len < array_dim_len
+                    let vec = array_dim[index_len..].to_vec();
+                    result_type = Type::Array{
+                        name: expr_type.get_array_name().clone(),
+                        typ: Box::new(item_type.clone()),
+                        size_list: vec,
+                    };
+                }
 
                 let mut ptr = base_ptr;
                 for index in index_list {
@@ -2354,7 +2393,10 @@ println!("index_list: {:?}", index_list);
                     ptr = unsafe { ptr.const_in_bounds_gep(&index_list) };
                 }
 
-                Ok((typ.clone(), ptr))
+println!("[[typ: {:?}", expr_type);
+println!("item_type: {:?}", item_type);
+
+                Ok((result_type, ptr))
             },
             ExprAST::_self(pos) => {
                 let (typ, ptr) = env.get_ptr("self").ok_or(Box::new(CodeGenError::no_such_a_variable(pos.clone(), "self")))?;

@@ -22,7 +22,7 @@ pub enum ParserError {
     WithoutExpectedToken{expected_token: Token, real_token: Token, pos: Position},
     NoSuchAOperator{token_type: Token, pos: Position},
     NeedExpr(Position),
-    NoTypeDefined(Position),
+    NoTypeDefined(Option<String>, Position),
     NoExprWhileAccessArray(Position),
     NoIdAfterDot(Position),
     NoIdAfterArrow(Position),
@@ -120,8 +120,8 @@ impl ParserError {
         ParserError::NeedExpr(pos)
     }
 
-    pub fn no_type_defined(pos: Position) -> ParserError {
-        ParserError::NoTypeDefined(pos)
+    pub fn no_type_defined(opt_name: Option<String>, pos: Position) -> ParserError {
+        ParserError::NoTypeDefined(opt_name, pos)
     }
 
     pub fn no_expr_while_access_array(pos: Position) -> ParserError {
@@ -320,7 +320,13 @@ impl fmt::Display for ParserError {
             Self::WithoutExpectedToken{expected_token: _, real_token: _, pos: _} => write!(f, "without expected token"),
             Self::NoSuchAOperator{token_type: _, pos: _} => write!(f, "no such a operator"),
             Self::NeedExpr(_pos) => write!(f, "need expr"),
-            Self::NoTypeDefined(_pos) => write!(f, "no type defined"),
+            Self::NoTypeDefined(opt_name, _pos) => {
+                if let Some(name) = opt_name {
+                    write!(f, "no type defined. '{}'", name)
+                }else{
+                    write!(f, "no type defined")
+                }
+            },
             Self::NoExprWhileAccessArray(_pos) => write!(f, "no expr while access array"),
             Self::NoIdAfterDot(_pos) => write!(f, "no id after dot"),
             Self::NoIdAfterArrow(_pos) => write!(f, "no id after arrow"),

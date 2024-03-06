@@ -142,7 +142,7 @@ impl TypeUtil {
         }
     }
 
-    fn make_llvm_ptr_type<'a>(typ: &Type, ctx: &'a Context, pos: &Position) -> Result<PointerType<'a>, Box<dyn Error>> {
+    pub fn make_llvm_ptr_type<'a>(typ: &Type, ctx: &'a Context, pos: &Position) -> Result<PointerType<'a>, Box<dyn Error>> {
         match typ {
             Type::Number(NumberType::Char)   => Ok(ctx.i8_type().ptr_type(AddressSpace::default())),
             Type::Number(NumberType::Short)  => Ok(ctx.i16_type().ptr_type(AddressSpace::default())),
@@ -209,7 +209,6 @@ impl TypeUtil {
             ExprAST::UnarySizeOfExpr(_expr, _pos) => Ok(Type::Number(NumberType::Int)),
             ExprAST::UnarySizeOfTypeName(_typ, _pos) => Ok(Type::Number(NumberType::Int)),
             ExprAST::ArrayAccess(expr, index_list, pos) => {
-println!("ArrayAccess. expr: {:?}\n", expr);
                 let typ = Self::get_type(&expr, env)?;
                 if let Type::Array { name: _, typ: item_type, size_list } = typ {
                     let index_len = index_list.len();
@@ -222,10 +221,12 @@ println!("ArrayAccess. expr: {:?}\n", expr);
                         return Err(CodeGenError::array_index_is_too_long(pos.clone()))
 
                     }else{  // len < index_len
-                        let sz_list: Vec<usize> = size_list[len..].to_vec();
-                        let ret_type = Type::Array { name: None, typ: item_type.clone(), size_list: sz_list };
-println!("  ret_type: {:?}", ret_type);
-                        Ok(ret_type)
+                        // let sz_list: Vec<usize> = size_list[len..].to_vec();
+                        // let ret_type = Type::Array { name: None, typ: item_type.clone(), size_list: sz_list };
+                        // Ok(ret_type)
+
+                        let t = Type::new_pointer_type(*item_type.clone(), false, false);
+                        Ok(t)
                     }
 
                 }else{
