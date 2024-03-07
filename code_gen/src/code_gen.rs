@@ -594,13 +594,12 @@ impl<'ctx> CodeGen<'ctx> {
                 let any_val = basic_val.as_any_value_enum();
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
-            ExprAST::ArrayAccess(_boxed_ast, _index, pos) => {
-println!("code_gen. ArrayAccess. index: {:?}", _index);
+            ExprAST::ArrayAccess(boxed_ast, _index, pos) => {
                 let (typ, ptr) = self.get_l_value(expr_ast, env, break_catcher, continue_catcher)?;
-println!("**typ: {:?}", typ);
-
+println!("gen_expr. ArrayAccess. ptr: {:?}", ptr);
                 if let Type::Array { typ, .. } = typ {
                     let any_val = ptr.as_any_value_enum();
+println!("  any_val: {:?}", any_val);
                     let t = Type::new_pointer_type(*typ.clone(), false, false);
                     Ok(Some(CompiledValue::new(t, any_val)))
 
@@ -617,6 +616,7 @@ println!("**typ: {:?}", typ);
                     // Ok(Some(CompiledValue::new(typ.clone(), any_val)))
 
                     if let Type::Array { typ, .. } = typ {
+println!("symbol is array. ptr: {:?}", ptr);
                         let any_val = ptr.as_any_value_enum();
                         let t = Type::new_pointer_type(*typ.clone(), false, false);
                         Ok(Some(CompiledValue::new(t, any_val)))
@@ -2374,14 +2374,40 @@ println!("expr: {:?}", expr);
 println!("index_list: {:?}", index_list);
                 let ast = &**expr;
                 let (expr_type, base_ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
+                let index_len = index_list.len();
 
+println!("expr_type: {:?}", expr_type);
+                //
+                // when Pointer
+                //
+                if let Type::Pointer(_, elem_type) = &expr_type {
+                    if index_len > 1 {
+                        return Err(Box::new(CodeGenError::array_index_is_too_long(pos.clone())));
+                    }
+
+                    let value = self.gen_expr(&index_list[0], env, break_catcher, continue_catcher)?.ok_or(CodeGenError::no_index_value_while_access_array(pos.clone()))?;
+                    let index_val = value.get_value().into_int_value();
+                    let i32_type = self.context.i32_type();
+                    // let const_zero = i32_type.const_zero();
+                    // let index_list = [const_zero, index_val];
+                    let index_list = [index_val];
+println!("index_list: {:?}", index_list);
+println!("base_ptr: {:?}", base_ptr);
+                    let ptr = self.builder.build_load(base_ptr, "load_ptr")?.into_pointer_value();
+                    let ptr = unsafe { ptr.const_in_bounds_gep(&index_list) };
+println!("ret");
+                    return Ok((*elem_type.clone(), ptr));
+                }
+
+                //
+                // when Array
+                //
                 if ! expr_type.is_array() {
                     return Err(Box::new(CodeGenError::not_array(ast.clone(), pos.clone())));
                 }
                 let array_dim = expr_type.get_array_dimension();
                 let array_dim_len = array_dim.len();
 
-                let index_len = index_list.len();
                 if index_len > array_dim_len {
                     return Err(Box::new(CodeGenError::array_index_is_too_long(pos.clone())));
                 }

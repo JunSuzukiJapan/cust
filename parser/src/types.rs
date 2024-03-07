@@ -547,6 +547,7 @@ impl Type {
         Type::Enum { name: name, enum_def: enum_def }
     }
 
+    #[inline]
     pub fn is_void(&self) -> bool {
         match self {
             Type::Void => true,
@@ -554,9 +555,18 @@ impl Type {
         }
     }
 
+    #[inline]
     pub fn is_array(&self) -> bool {
         match self {
             Type::Array {..} => true,
+            _ => false,
+        }
+    }
+
+    #[inline]
+    pub fn is_pointer(&self) -> bool {
+        match self {
+            Type::Pointer(_, _) => true,
             _ => false,
         }
     }

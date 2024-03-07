@@ -661,14 +661,6 @@ END: ;
 */
 /*
     let src = "
-        typedef struct date {
-            int year, month;
-            int day;
-        } Date;
-    ";
-*/
-
-    let src = "
         int printf(char* format, ...);
 
         void test() {
@@ -686,7 +678,7 @@ END: ;
             printf(\"num[1]. %d\\\n\", *ptr2);
         }
     ";
-/*
+
     let src = "
         int printf(char* format, ...);
 
@@ -699,7 +691,7 @@ END: ;
             return *ptr;
         }
     ";
-
+*/
     let src = "
         int printf(char* format, ...);
 
@@ -711,6 +703,13 @@ END: ;
 
             return ptr[0] + ptr[1] + ptr[2] + ptr[3];
         }
+    ";
+/*
+    let src = "
+        typedef struct date {
+            int year, month;
+            int day;
+        } Date;
     ";
 */
 
