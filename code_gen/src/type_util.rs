@@ -209,9 +209,10 @@ impl TypeUtil {
             ExprAST::UnarySizeOfExpr(_expr, _pos) => Ok(Type::Number(NumberType::Int)),
             ExprAST::UnarySizeOfTypeName(_typ, _pos) => Ok(Type::Number(NumberType::Int)),
             ExprAST::ArrayAccess(expr, index_list, pos) => {
+                let index_len = index_list.len();
+
                 let typ = Self::get_type(&expr, env)?;
-                if let Type::Array { name: _, typ: item_type, size_list } = &typ {
-                    let index_len = index_list.len();
+                if let Type::Array { name: _, typ: item_type, size_list } = &typ {  // Array
                     let len = size_list.len();
 
                     if len == index_len {
@@ -228,6 +229,13 @@ impl TypeUtil {
                         let t = Type::new_pointer_type(*item_type.clone(), false, false);
                         Ok(t)
                     }
+                }else if let Type::Pointer(_, elem_type) = &typ {             // Pointer
+                    if index_len > 1 {
+                        return Err(CodeGenError::array_index_is_too_long(pos.clone()));
+                    }
+
+                    let t = Type::new_pointer_type(*elem_type.clone(), false, false);
+                    Ok(t)
 
                 }else{
                     return Err(CodeGenError::not_array(*expr.clone(), pos.clone()));

@@ -2284,7 +2284,7 @@ println!("init_type: {:?}", init_type);
                 let (_typ, ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
                 let typ = TypeUtil::get_type(ast, env)?;
 
-                match typ {
+                match &typ {
                     Type::Struct {name, fields} => {
                         let index = fields.get_index(member_name).ok_or(CodeGenError::no_such_a_member(pos.clone(), member_name))?;
                         let elem_type = fields.get_type(member_name).unwrap();
@@ -2323,7 +2323,83 @@ println!("init_type: {:?}", init_type);
                             Ok((typ.clone(), p))
                         }
                     },
-                    _ => Err(Box::new(CodeGenError::has_not_member(typ.to_string(), pos.clone())))
+                    Type::Pointer(_, elem_type) => {
+                        match ast {
+                            ExprAST::ArrayAccess(expr, index_list, pos) => {
+                                let ast = &**expr;
+                                let (expr_type, base_ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
+                                let index_len = index_list.len();
+
+                                if index_len > 1 {
+                                    return Err(Box::new(CodeGenError::array_index_is_too_long(pos.clone())));
+                                }
+            
+                                let value = self.gen_expr(&index_list[0], env, break_catcher, continue_catcher)?.ok_or(CodeGenError::no_index_value_while_access_array(pos.clone()))?;
+                                let index_val = value.get_value().into_int_value();
+                                let index_list = [index_val];
+                                let ptr = self.builder.build_load(base_ptr, "load_ptr")?.into_pointer_value();
+                                let ptr = unsafe { ptr.const_in_bounds_gep(&index_list) };
+println!("\nexpr_type: {:?}\n", expr_type);
+println!("ptr: {:?}\n", ptr);
+
+                                let typ = if let Some(type2) = expr_type.peel_off_pointer() {
+                                    type2
+                                }else{
+                                    return Err(Box::new(CodeGenError::not_pointer(pos.clone(), &expr_type)));
+                                };
+                                match &typ {
+                                    Type::Struct {name, fields} => {
+                                        let index = fields.get_index(member_name).ok_or(CodeGenError::no_such_a_member(pos.clone(), member_name))?;
+                                        let elem_type = fields.get_type(member_name).unwrap();
+                                        let msg = if let Some(id) = &name {
+                                            format!("struct_{}.{}", id, member_name)
+                                        }else{
+                                            format!("struct?.{}", member_name)
+                                        };
+                
+                                        let elem_ptr = self.builder.build_struct_gep(ptr, index as u32, &msg);
+                                        if let Ok(p) = elem_ptr {
+                                            Ok((elem_type.clone(), p))
+                                        }else{
+                                            return Err(Box::new(CodeGenError::cannot_access_struct_member(pos.clone(), &member_name)));
+                                        }
+                                    },
+                                    Type::Union { name, fields } => {
+                                        if let Some(id) = name {
+                                            let type_or_union = env.get_type(&id).ok_or(CodeGenError::no_such_a_member(pos.clone(), member_name))?;
+                                            match type_or_union {
+                                                TypeOrUnion::Union { type_list, index_map, max_size: _, max_size_type: _ } => {
+                                                    let idx = index_map[member_name];
+                                                    let (typ, to_type) = &type_list[idx];
+                                                    let ptr_type = to_type.ptr_type(AddressSpace::default());
+                
+                                                    let p = ptr.const_cast(ptr_type);
+                                                    Ok((typ.clone(), p))
+                                                },
+                                                _ => return Err(Box::new(CodeGenError::not_union(pos.clone(), &id))),
+                                            }
+                                        }else{
+                                            let typ = fields.get_type(member_name).ok_or(CodeGenError::no_such_a_member(pos.clone(), member_name))?;
+                                            let to_type = TypeUtil::to_basic_type_enum(typ, self.context, pos)?;
+                                            let ptr_type = to_type.ptr_type(AddressSpace::default());
+                                            let p = ptr.const_cast(ptr_type);
+                                            Ok((typ.clone(), p))
+                                        }
+                                    },
+                                    _ => {
+                                        Err(Box::new(CodeGenError::has_not_member(typ.to_string(), member_name.to_string(), pos.clone())))
+                                    }
+                                }
+
+                            },
+                            _ => {
+                                Err(Box::new(CodeGenError::has_not_member(typ.to_string(), member_name.to_string(), pos.clone())))
+                            },
+                        }
+                    },
+                    _ => {
+                        Err(Box::new(CodeGenError::has_not_member(typ.to_string(), member_name.to_string(), pos.clone())))
+                    }
                 }
             },
             ExprAST::PointerAccess(expr, member_name, pos) => {  // ptr->member
@@ -2366,7 +2442,9 @@ println!("init_type: {:?}", init_type);
                             Ok((typ.clone(), p))
                         }
                     },
-                    _ => Err(Box::new(CodeGenError::has_not_member(pointed_type.to_string(), pos.clone())))
+                    _ => {
+                        Err(Box::new(CodeGenError::has_not_member(pointed_type.to_string(), member_name.to_string(), pos.clone())))
+                    },
                 }
             },
             ExprAST::ArrayAccess(expr, index_list, pos) => {
@@ -2382,7 +2460,6 @@ println!("expr_type: {:?}", expr_type);
                 //
                 if let Type::Pointer(_, elem_type) = &expr_type {
                     if index_len > 1 {
-println!("index_len: {index_len}");
                         return Err(Box::new(CodeGenError::array_index_is_too_long(pos.clone())));
                     }
 
@@ -2392,11 +2469,9 @@ println!("index_len: {index_len}");
                     // let const_zero = i32_type.const_zero();
                     // let index_list = [const_zero, index_val];
                     let index_list = [index_val];
-println!("index_list: {:?}", index_list);
-println!("base_ptr: {:?}", base_ptr);
                     let ptr = self.builder.build_load(base_ptr, "load_ptr")?.into_pointer_value();
                     let ptr = unsafe { ptr.const_in_bounds_gep(&index_list) };
-println!("ret");
+
                     return Ok((*elem_type.clone(), ptr));
                 }
 
@@ -2404,6 +2479,7 @@ println!("ret");
                 // when Array
                 //
                 if ! expr_type.is_array() {
+println!("expr_type: {:?}", expr_type);
                     return Err(Box::new(CodeGenError::not_array(ast.clone(), pos.clone())));
                 }
                 let array_dim = expr_type.get_array_dimension();

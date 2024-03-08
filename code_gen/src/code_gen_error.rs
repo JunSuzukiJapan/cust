@@ -89,7 +89,7 @@ pub enum CodeGenError {
     SelfIsNotStatement(Position),
     SelfHasNotLeftValue(Position),
     HasNotLeftValue(String, Position),
-    HasNotMember(String, Position),
+    HasNotMember(String, String, Position),  // (type name, member name, Position)
     NotArray(ExprAST, Position),
     ArrayIndexIsTooLong(Position),
 }
@@ -389,8 +389,8 @@ impl CodeGenError {
         Self::HasNotLeftValue(name, pos)
     }
 
-    pub fn has_not_member(name: String, pos: Position) -> Self {
-        Self::HasNotMember(name, pos)
+    pub fn has_not_member(type_name: String, member_name: String, pos: Position) -> Self {
+        Self::HasNotMember(type_name, member_name, pos)
     }
 
     pub fn not_array(expr: ExprAST, pos: Position) -> Self {
@@ -644,8 +644,8 @@ impl fmt::Display for CodeGenError {
             Self::HasNotLeftValue(id, _pos) => {
                 write!(f, "{id} has not left value")
             },
-            Self::HasNotMember(id, _pos) => {
-                write!(f, "{id} has not member")
+            Self::HasNotMember(type_name, member_name, _pos) => {
+                write!(f, "'{type_name}' has not member '{member_name}'")
             },
             Self::NotArray(expr, _pos) => {
                 write!(f, "{:?} is not array", expr)

@@ -727,12 +727,12 @@ END: ;
         int test() {
             Date* ptr = days;
 
-            return days[0].year + days[0].month + days[0].day
-                 + days[1].year + days[1].month + days[1].day
-                 + days[2].year + days[2].month + days[2].day
-                 + days[3].year + days[3].month + days[3].day
-                 + days[4].year + days[4].month + days[4].day
-                 + days[5].year + days[5].month + days[5].day;
+            return ptr[0].year + ptr[0].month + ptr[0].day
+                 + ptr[1].year + ptr[1].month + ptr[1].day
+                 + ptr[2].year + ptr[2].month + ptr[2].day
+                 + ptr[3].year + ptr[3].month + ptr[3].day
+                 + ptr[4].year + ptr[4].month + ptr[4].day
+                 + ptr[5].year + ptr[5].month + ptr[5].day;
         }
     ";
 
