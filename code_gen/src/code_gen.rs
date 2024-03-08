@@ -2382,6 +2382,7 @@ println!("expr_type: {:?}", expr_type);
                 //
                 if let Type::Pointer(_, elem_type) = &expr_type {
                     if index_len > 1 {
+println!("index_len: {index_len}");
                         return Err(Box::new(CodeGenError::array_index_is_too_long(pos.clone())));
                     }
 
@@ -2409,6 +2410,7 @@ println!("ret");
                 let array_dim_len = array_dim.len();
 
                 if index_len > array_dim_len {
+println!("index_len: {index_len}, array_dim_len: {array_dim_len}");
                     return Err(Box::new(CodeGenError::array_index_is_too_long(pos.clone())));
                 }
 

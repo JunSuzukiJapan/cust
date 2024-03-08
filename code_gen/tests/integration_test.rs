@@ -1346,6 +1346,40 @@ fn code_gen_init_global_array2() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+#[test]
+fn code_gen_array_and_pointer() -> Result<(), Box<dyn Error>> {
+    // parse
+    let src = "
+        int num[2][2] = {{1, 2}, {3, 4}};
+
+        int test() {
+            int* ptr = num[0];
+            int* ptr2 = num;
+
+            return ptr[0] + ptr[1] + ptr[2] + ptr[3]
+                 + ptr2[0] + ptr2[1] + ptr2[2] + ptr2[3];
+        }
+    ";
+
+    // parse
+    let asts = parse_from_str(src).unwrap();
+
+    // code gen
+    let context = Context::create();
+    let gen = CodeGen::try_new(&context, "test run").unwrap();
+
+    let mut env = Env::new();
+    for i in 0..asts.len() {
+        let _any_value = gen.gen_stmt(&asts[i], &mut env, None, None)?;
+    }
+
+    let f: JitFunction<FuncType_void_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
+    let result = unsafe { f.call() };
+    assert_eq!(20, result);
+
+    Ok(())
+}
+
 /*
 #[test]
 fn code_gen_init_struct_array() -> Result<(), Box<dyn Error>> {

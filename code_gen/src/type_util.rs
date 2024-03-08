@@ -174,8 +174,8 @@ impl TypeUtil {
         }
     }
 
-    pub fn get_type(expr: &ExprAST, env: &Env) -> Result<Type, CodeGenError> {
-        match expr {
+    pub fn get_type(expr_ast: &ExprAST, env: &Env) -> Result<Type, CodeGenError> {
+        match expr_ast {
             ExprAST::Assign(left, _right, _pos) => {
                 // (*left).get_type(env)
                 Self::get_type(&left, env)
@@ -210,14 +210,14 @@ impl TypeUtil {
             ExprAST::UnarySizeOfTypeName(_typ, _pos) => Ok(Type::Number(NumberType::Int)),
             ExprAST::ArrayAccess(expr, index_list, pos) => {
                 let typ = Self::get_type(&expr, env)?;
-                if let Type::Array { name: _, typ: item_type, size_list } = typ {
+                if let Type::Array { name: _, typ: item_type, size_list } = &typ {
                     let index_len = index_list.len();
                     let len = size_list.len();
 
                     if len == index_len {
                         return Ok(*item_type.clone());
 
-                    } if len > index_len {
+                    } if len < index_len {
                         return Err(CodeGenError::array_index_is_too_long(pos.clone()))
 
                     }else{  // len < index_len

@@ -691,7 +691,7 @@ END: ;
             return *ptr;
         }
     ";
-*/
+
     let src = "
         int printf(char* format, ...);
 
@@ -704,6 +704,38 @@ END: ;
             return ptr[0] + ptr[1] + ptr[2] + ptr[3];
         }
     ";
+*/
+    let src = "
+        int printf(char* format, ...);
+
+        struct date {
+            int year, month;
+            int day;
+        };
+        typedef struct date Date;
+
+        Date days[2][3] = {{{2024, 1, 1},
+                            {2024, 1, 2},
+                            {2024, 1, 3}
+                           },
+                           {{2024, 2, 1},
+                            {2024, 2, 2},
+                            {2024, 2, 3}
+                           }
+                          };
+
+        int test() {
+            Date* ptr = days;
+
+            return days[0].year + days[0].month + days[0].day
+                 + days[1].year + days[1].month + days[1].day
+                 + days[2].year + days[2].month + days[2].day
+                 + days[3].year + days[3].month + days[3].day
+                 + days[4].year + days[4].month + days[4].day
+                 + days[5].year + days[5].month + days[5].day;
+        }
+    ";
+
 /*
     let src = "
         typedef struct date {
