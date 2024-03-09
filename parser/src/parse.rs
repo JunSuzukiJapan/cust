@@ -310,6 +310,7 @@ impl Parser {
                 return Err(ParserError::not_symbol_while_parsing_impl(pos.clone()));
             },
         };
+println!("\nget type {impl_name}");
         let impl_type = defs.get_type(impl_name).ok_or(ParserError::no_such_a_type(impl_name, pos.clone()))?.clone();
         defs.set_self_type(&impl_type)?;
 
@@ -531,14 +532,12 @@ impl Parser {
                     Token::Struct => {
                         iter.next();  // skip 'struct'
 
-                        // let (tok2, pos2) = iter.peek().ok_or(ParserError::illegal_end_of_input(pos.clone()))?;
                         let (tok2, pos2) = iter.peek().unwrap();
                         if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
                         match tok2 {
                             Token::Symbol(name) => {
                                 iter.next();  // skip Symbol
 
-                                // let (tok3, _pos3) = iter.peek().ok_or(ParserError::illegal_end_of_input(pos.clone()))?;
                                 let (tok3, pos3) = iter.peek().unwrap();
                                 if tok3.is_eof() { return Err(ParserError::illegal_end_of_input(pos3.clone())); }
                                 match tok3 {

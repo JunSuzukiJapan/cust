@@ -318,35 +318,38 @@ impl<'ctx> Env<'ctx> {
                 t.clone()
             },
             Type::Struct { name, fields } => {
-                if let Some(id) = name {
-                    let t = self.get_type(id).ok_or(CodeGenError::no_such_a_type(pos.clone(), id))?;
-                    if ! t.is_struct_type() {
-                        return  Err(Box::new(CodeGenError::mismatch_type_struct_fields(pos.clone(), Some(id))));
-                    }
-                    t.clone()
+                if let Some(struct_name) = name {
+                    if let Some(t) = self.get_type(struct_name) {
+                        if ! t.is_struct_type() {
+                            return  Err(Box::new(CodeGenError::already_type_defined_in_typedef(pos.clone(), typ, struct_name)));
+                        }
 
-                }else{
-                    let (t, _index_map) = CodeGen::struct_from_struct_definition(name, fields, ctx, pos)?;
-                    TypeOrUnion::Type(t.as_any_type_enum())
+                        self.types.insert(key.to_string(), (t.clone(), None));
+                        return Ok(());
+                    }
                 }
+
+                let (t, _index_map) = CodeGen::struct_from_struct_definition(name, fields, ctx, pos)?;
+                TypeOrUnion::Type(t.as_any_type_enum())
             },
             Type::Union { name, fields } => {
                 if let Some(id) = name {
-                    let t = self.get_type(id).ok_or(CodeGenError::no_such_a_type(pos.clone(), id))?;
+                    if let Some(t) = self.get_type(id) {
+                        if ! t.is_union_type() {
+                            return  Err(Box::new(CodeGenError::already_type_defined_in_typedef(pos.clone(), typ, id)));
+                        }
 
-                    if ! t.is_union_type() {
-                        return  Err(Box::new(CodeGenError::mismatch_type_union_fields(pos.clone(), Some(id))));
+                        self.types.insert(key.to_string(), (t.clone(), None));
+                        return  Ok(());
                     }
-                    t.clone()
+                }
 
-                }else{
-                    let (type_list, index_map, max_size, max_size_type) = CodeGen::union_from_struct_definition(name, fields, ctx, pos)?;
-                    TypeOrUnion::Union {
-                        type_list: type_list,
-                        index_map: index_map,
-                        max_size: max_size,
-                        max_size_type: max_size_type
-                    }
+                let (type_list, index_map, max_size, max_size_type) = CodeGen::union_from_struct_definition(name, fields, ctx, pos)?;
+                TypeOrUnion::Union {
+                    type_list: type_list,
+                    index_map: index_map,
+                    max_size: max_size,
+                    max_size_type: max_size_type
                 }
             },
             _ => TypeOrUnion::Type(TypeUtil::to_llvm_any_type(typ, ctx, pos)?),

@@ -704,7 +704,7 @@ END: ;
             return ptr[0] + ptr[1] + ptr[2] + ptr[3];
         }
     ";
-*/
+
     let src = "
         int printf(char* format, ...);
 
@@ -736,14 +736,38 @@ END: ;
         }
     ";
 
-/*
     let src = "
         typedef struct date {
             int year, month;
             int day;
         } Date;
+
+        int test() {
+            return 0;
+        }
     ";
 */
+
+    let src = "
+        union foo {
+            int i_value;
+            double d_value;
+        };
+
+        typedef union foo Bar;
+
+        int test() {
+            Bar bar;
+
+            bar.i_value = 100;
+            int i = bar.i_value;
+
+            bar.d_value = 3.14;
+            double d = bar.d_value;
+
+            return i;
+        }
+    ";
 
     // tokenize
     let tokenized = Tokenizer::tokenize(src).unwrap();

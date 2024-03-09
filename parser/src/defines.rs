@@ -352,6 +352,7 @@ impl Defines {
     }
 
     pub fn get_type(&self, name: &str) -> Option<&Type> {
+println!("get_type. {name}");
         // check locals
         if self.local_maps.last().unwrap().len() > 0 {
             let list = self.local_maps.last().unwrap();
@@ -370,6 +371,7 @@ impl Defines {
                                 return Some(&struct_type);
                             },
                             DefineType::TypeDef {source, ..} => {
+println!("DefineType::TypeDef. source: {:?}", source);
                                 return Some(source);
                             },
                             DefineType::Union { union_type } => {
