@@ -594,12 +594,10 @@ impl<'ctx> CodeGen<'ctx> {
                 let any_val = basic_val.as_any_value_enum();
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
-            ExprAST::ArrayAccess(boxed_ast, _index, pos) => {
+            ExprAST::ArrayAccess(_boxed_ast, _index, _pos) => {
                 let (typ, ptr) = self.get_l_value(expr_ast, env, break_catcher, continue_catcher)?;
-println!("gen_expr. ArrayAccess. ptr: {:?}", ptr);
                 if let Type::Array { typ, .. } = typ {
                     let any_val = ptr.as_any_value_enum();
-println!("  any_val: {:?}", any_val);
                     let t = Type::new_pointer_type(*typ.clone(), false, false);
                     Ok(Some(CompiledValue::new(t, any_val)))
 
@@ -616,7 +614,6 @@ println!("  any_val: {:?}", any_val);
                     // Ok(Some(CompiledValue::new(typ.clone(), any_val)))
 
                     if let Type::Array { typ, .. } = typ {
-println!("symbol is array. ptr: {:?}", ptr);
                         let any_val = ptr.as_any_value_enum();
                         let t = Type::new_pointer_type(*typ.clone(), false, false);
                         Ok(Some(CompiledValue::new(t, any_val)))
@@ -806,11 +803,6 @@ println!("gen_cost_expr. init: {:?}", init);
                             let init_type = compiled_value.get_type();
 
                             if typ != *init_type {
-println!("declarator: {:?}", declarator);
-println!("typ: {:?}", typ);
-println!("const_expr: {:?}", const_expr);
-println!("compiled_value: {:?}", compiled_value);
-println!("init_type: {:?}", init_type);
                                 init_value = self.gen_implicit_cast(&init_value, &init_type, &typ, (*const_expr).get_position())?;
                             }
 
@@ -941,7 +933,7 @@ println!("init_type: {:?}", init_type);
     }
 
     pub fn make_array_init_value<'b, 'c>(&self,
-        size_list: &Vec<usize>,
+        _size_list: &Vec<usize>,
         target_type: &Type,
         init_value_list: &Vec<Box<Initializer>>,
         env: &mut Env<'ctx>,
@@ -2323,7 +2315,7 @@ println!("init_type: {:?}", init_type);
                             Ok((typ.clone(), p))
                         }
                     },
-                    Type::Pointer(_, elem_type) => {
+                    Type::Pointer(_, _elem_type) => {
                         match ast {
                             ExprAST::ArrayAccess(expr, index_list, pos) => {
                                 let ast = &**expr;
@@ -2339,8 +2331,6 @@ println!("init_type: {:?}", init_type);
                                 let index_list = [index_val];
                                 let ptr = self.builder.build_load(base_ptr, "load_ptr")?.into_pointer_value();
                                 let ptr = unsafe { ptr.const_in_bounds_gep(&index_list) };
-println!("\nexpr_type: {:?}\n", expr_type);
-println!("ptr: {:?}\n", ptr);
 
                                 let typ = if let Some(type2) = expr_type.peel_off_pointer() {
                                     type2
@@ -2448,13 +2438,10 @@ println!("ptr: {:?}\n", ptr);
                 }
             },
             ExprAST::ArrayAccess(expr, index_list, pos) => {
-println!("expr: {:?}", expr);
-println!("index_list: {:?}", index_list);
                 let ast = &**expr;
                 let (expr_type, base_ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
                 let index_len = index_list.len();
 
-println!("expr_type: {:?}", expr_type);
                 //
                 // when Pointer
                 //
@@ -2465,9 +2452,6 @@ println!("expr_type: {:?}", expr_type);
 
                     let value = self.gen_expr(&index_list[0], env, break_catcher, continue_catcher)?.ok_or(CodeGenError::no_index_value_while_access_array(pos.clone()))?;
                     let index_val = value.get_value().into_int_value();
-                    let i32_type = self.context.i32_type();
-                    // let const_zero = i32_type.const_zero();
-                    // let index_list = [const_zero, index_val];
                     let index_list = [index_val];
                     let ptr = self.builder.build_load(base_ptr, "load_ptr")?.into_pointer_value();
                     let ptr = unsafe { ptr.const_in_bounds_gep(&index_list) };
@@ -2479,14 +2463,12 @@ println!("expr_type: {:?}", expr_type);
                 // when Array
                 //
                 if ! expr_type.is_array() {
-println!("expr_type: {:?}", expr_type);
                     return Err(Box::new(CodeGenError::not_array(ast.clone(), pos.clone())));
                 }
                 let array_dim = expr_type.get_array_dimension();
                 let array_dim_len = array_dim.len();
 
                 if index_len > array_dim_len {
-println!("index_len: {index_len}, array_dim_len: {array_dim_len}");
                     return Err(Box::new(CodeGenError::array_index_is_too_long(pos.clone())));
                 }
 
@@ -2513,9 +2495,6 @@ println!("index_len: {index_len}, array_dim_len: {array_dim_len}");
                     let index_list = [const_zero, index_val];
                     ptr = unsafe { ptr.const_in_bounds_gep(&index_list) };
                 }
-
-println!("[[typ: {:?}", expr_type);
-println!("item_type: {:?}", item_type);
 
                 Ok((result_type, ptr))
             },

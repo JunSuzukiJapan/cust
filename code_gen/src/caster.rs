@@ -1468,13 +1468,3 @@ impl Caster {
     }
         
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn cast_byte_to_int() {
-
-    }
-}

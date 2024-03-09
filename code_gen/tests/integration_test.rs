@@ -1380,7 +1380,61 @@ fn code_gen_array_and_pointer() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-/*
+/* main関数から実行するときは起きないが、テストだとスタックオーバーフローになる。
+
+#[test]
+fn code_gen_struct_array_and_pointer() -> Result<(), Box<dyn Error>> {
+    // parse
+    let src = "
+        int printf(char* format, ...);
+
+        struct date {
+            int year, month;
+            int day;
+        };
+        typedef struct date Date;
+
+        Date days[2][3] = {{{2024, 1, 1},
+                            {2024, 1, 2},
+                            {2024, 1, 3}
+                           },
+                           {{2024, 2, 1},
+                            {2024, 2, 2},
+                            {2024, 2, 3}
+                           }
+                          };
+
+        int test() {
+            Date* ptr = days;
+
+            return ptr[0].year + ptr[0].month + ptr[0].day
+                 + ptr[1].year + ptr[1].month + ptr[1].day
+                 + ptr[2].year + ptr[2].month + ptr[2].day
+                 + ptr[3].year + ptr[3].month + ptr[3].day
+                 + ptr[4].year + ptr[4].month + ptr[4].day
+                 + ptr[5].year + ptr[5].month + ptr[5].day;
+        }
+    ";
+
+    // parse
+    let asts = parse_from_str(src).unwrap();
+
+    // code gen
+    let context = Context::create();
+    let gen = CodeGen::try_new(&context, "test run").unwrap();
+
+    let mut env = Env::new();
+    for i in 0..asts.len() {
+        let _any_value = gen.gen_stmt(&asts[i], &mut env, None, None)?;
+    }
+
+    let f: JitFunction<FuncType_void_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
+    let result = unsafe { f.call() };
+    assert_eq!(12165, result);
+
+    Ok(())
+}
+
 #[test]
 fn code_gen_init_struct_array() -> Result<(), Box<dyn Error>> {
     let src = "
