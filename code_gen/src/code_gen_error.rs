@@ -8,31 +8,31 @@ use inkwell::values::AnyValueEnum;
 #[derive(Debug, Clone, PartialEq)]
 pub enum CodeGenError {
     ParserError(ParserError),
-    ConditionIsNotNumber(Position, ExprAST),
-    AlreadyTypeDefinedInStruct(Position, String),
-    AlreadyTypeDefinedInUnion(Position, String),
-    AlreadyTypeDefinedInTypedef(Position, Type, String),
-    UnionHasNoField(Position, Option<String>),
-    MismatchTypeUnionFields(Position, Option<String>),
-    MismatchTypeStructFields(Position, Option<String>),
-    NoSuchAType(Position, String),
+    ConditionIsNotNumber(ExprAST, Position),
+    AlreadyTypeDefinedInStruct(String, Position),
+    AlreadyTypeDefinedInUnion(String, Position),
+    AlreadyTypeDefinedInTypedef(Type, String, Position),
+    UnionHasNoField(Option<String>, Position),
+    MismatchTypeUnionFields(Option<String>, Position),
+    MismatchTypeStructFields(Option<String>, Position),
+    NoSuchAType(String, Position),
     CannotConvertToGlobalValue(Position),
     CannotConvertToLocalPointer(Position),
-    IllegalTypeForPointer(Position, Type),
+    IllegalTypeForPointer(Type, Position),
     IllegalEndOfInput(Position),
     ReturnWithoutFunction(Position),
     ReturnTypeMismatch {
-        pos: Position,
         real_type: Type,
         required_type: Type,
+        pos: Position,
     },
     NoCurrentFunction(Position),
     BreakNotInLoopOrSwitch(Position),
     ContinueNotInLoop(Position),
-    NoSuchALabel(Position, String),
-    NoSuchAVariable(Position, String),
-    NoSuchAFunction(Position, String),
-    NoSuchAStruct(Position, String),
+    NoSuchALabel(String, Position),
+    NoSuchAVariable(String, Position),
+    NoSuchAFunction(String, Position),
+    NoSuchAStruct(String, Position),
     CannotGetPointer(Position),
     MismatchInitializerType(Position),
     InitialListIsTooLong(Position),
@@ -41,40 +41,40 @@ pub enum CodeGenError {
     CaseAfterDefault(Position),
     AlreadyDefaultDefined(Position),
     IllegalBitSize {
-        pos: Position,
         typ: NumberType,
         size: usize,
+        pos: Position,
     },
-    CannotAddValue(Position, Type, Type),
-    CannotSubValue(Position, Type, Type),
-    CannotMulValue(Position, Type, Type),
-    CannotDivValue(Position, Type, Type),
-    CannotModValue(Position, Type, Type),
-    CannotCompareValue(Position, Type),
-    CannotApplyLogicalOpValue(Position, Type),
+    CannotAddValue(Type, Type, Position),
+    CannotSubValue(Type, Type, Position),
+    CannotMulValue(Type, Type, Position),
+    CannotDivValue(Type, Type, Position),
+    CannotModValue(Type, Type, Position),
+    CannotCompareValue(Type, Position),
+    CannotApplyLogicalOpValue(Type, Position),
     CannotCalculate(Position),
-    NotIntInShift(Position, Type),
-    NotIntBitAnd(Position, Type),
-    NotIntBitOr(Position, Type),
-    NotIntBitXor(Position, Type),
-    AssignIllegalValue(Position, ExprAST),
-    NoSuchAMember(Position, String),
-    CannotAccessStructMember(Position, String),
-    NotUnion(Position, String),
+    NotIntInShift(Type, Position),
+    NotIntBitAnd(Type, Position),
+    NotIntBitOr(Type, Position),
+    NotIntBitXor(Type, Position),
+    AssignIllegalValue(ExprAST, Position),
+    NoSuchAMember(String, Position),
+    CannotAccessStructMember(String, Position),
+    NotUnion(String, Position),
     NoIndexValueWhileAccessArray(Position),
     CannotCallNotFunction(Position),
-    NoReturnForType(Position, Type),
+    NoReturnForType(Type, Position),
     MismatchTypeInIf {
-        pos: Position,
         then_type: Type,
         else_type: Type,
+        pos: Position,
     },
     CannotMakePointerType(Type, Position),
     CannotMakeFnType(Position),
     AccessSelfTypeWithoutImpl(Position),
     AccessSelfWithoutImpl(Position),
-    NotPointer(Position, Type),
-    TypeHasNotMember(Position, String),
+    NotPointer(Type, Position),
+    TypeHasNotMember(String, Position),
     CannotUseFloatForBitsize(Position),
     CannotConvertAnyvalueenumToBasicmetadatavalueenum(Position),
     CannotConvertAnyvalueenumToBasicvalueenum(Position),
@@ -95,46 +95,46 @@ pub enum CodeGenError {
 }
 
 impl CodeGenError {
-    pub fn condition_is_not_number(pos: Position, expr: &ExprAST) -> Self {
-        Self::ConditionIsNotNumber(pos, expr.clone())
+    pub fn condition_is_not_number(expr: &ExprAST, pos: Position) -> Self {
+        Self::ConditionIsNotNumber(expr.clone(), pos)
     }
 
-    pub fn already_type_defined_in_struct(pos: Position, key: &str) -> Self {
-        Self::AlreadyTypeDefinedInStruct(pos, key.to_string())
+    pub fn already_type_defined_in_struct(key: &str, pos: Position) -> Self {
+        Self::AlreadyTypeDefinedInStruct(key.to_string(), pos)
     }
 
-    pub fn already_type_defined_in_union(pos: Position, key: &str) -> Self {
-        Self::AlreadyTypeDefinedInUnion(pos, key.to_string())
+    pub fn already_type_defined_in_union(key: &str, pos: Position) -> Self {
+        Self::AlreadyTypeDefinedInUnion(key.to_string(), pos)
     }
 
-    pub fn already_type_defined_in_typedef(pos: Position, typ: &Type, key: &str) -> Self {
-        Self::AlreadyTypeDefinedInTypedef(pos, typ.clone(), key.to_string())
+    pub fn already_type_defined_in_typedef(typ: &Type, key: &str, pos: Position) -> Self {
+        Self::AlreadyTypeDefinedInTypedef(typ.clone(), key.to_string(), pos)
     }
 
-    pub fn union_has_no_field(pos: Position, opt_id: Option<String>) -> Self {
-        Self::UnionHasNoField(pos, opt_id)
+    pub fn union_has_no_field(opt_id: Option<String>, pos: Position) -> Self {
+        Self::UnionHasNoField(opt_id, pos)
     }
 
-    pub fn mismatch_type_union_fields(pos: Position, opt_id: Option<&str>) -> Self {
+    pub fn mismatch_type_union_fields(opt_id: Option<&str>, pos: Position) -> Self {
         let opt_name = if let Some(s) = opt_id {
             Some(s.to_string())
         }else{
             None
         };
-        Self::MismatchTypeUnionFields(pos, opt_name)
+        Self::MismatchTypeUnionFields(opt_name, pos)
     }
 
-    pub fn mismatch_type_struct_fields(pos: Position, opt_id: Option<&str>)  -> Self {
+    pub fn mismatch_type_struct_fields(opt_id: Option<&str>, pos: Position)  -> Self {
         let opt_name = if let Some(s) = opt_id {
             Some(s.to_string())
         }else{
             None
         };
-        Self::MismatchTypeStructFields(pos, opt_name)
+        Self::MismatchTypeStructFields(opt_name, pos)
     }
 
-    pub fn no_such_a_type(pos: Position, name: &str) -> Self {
-        Self::NoSuchAType(pos, name.to_string())
+    pub fn no_such_a_type(name: &str, pos: Position) -> Self {
+        Self::NoSuchAType(name.to_string(), pos)
     }
 
     pub fn cannot_convert_to_global_value(pos: Position) -> Self {
@@ -145,8 +145,8 @@ impl CodeGenError {
         Self::CannotConvertToLocalPointer(pos)
     }
 
-    pub fn illegal_type_for_pointer(pos: Position, typ: &Type) -> Self {
-        Self::IllegalTypeForPointer(pos, typ.clone())
+    pub fn illegal_type_for_pointer(typ: &Type, pos: Position) -> Self {
+        Self::IllegalTypeForPointer(typ.clone(), pos)
     }
 
     pub fn illegal_end_of_input(pos: Position) -> Self {
@@ -157,11 +157,11 @@ impl CodeGenError {
         Self::ReturnWithoutFunction(pos)
     }
 
-    pub fn return_type_mismatch(pos: Position, real_type: Type, required_type: Type) -> Self {
+    pub fn return_type_mismatch(real_type: Type, required_type: Type, pos: Position) -> Self {
         Self::ReturnTypeMismatch {
-            pos: pos,
             real_type: real_type,
             required_type: required_type,
+            pos: pos,
         }
     }
 
@@ -177,20 +177,20 @@ impl CodeGenError {
         Self::ContinueNotInLoop(pos)
     }
 
-    pub fn no_such_a_label(pos: Position, id: &str) -> Self {
-        Self::NoSuchALabel(pos, id.to_string())
+    pub fn no_such_a_label(id: &str, pos: Position) -> Self {
+        Self::NoSuchALabel(id.to_string(), pos)
     }
 
-    pub fn no_such_a_variable(pos: Position, id: &str) -> Self {
-        Self::NoSuchAVariable(pos, id.to_string())
+    pub fn no_such_a_variable(id: &str, pos: Position) -> Self {
+        Self::NoSuchAVariable(id.to_string(), pos)
     }
 
-    pub fn no_such_a_function(pos: Position, id: &str) -> Self {
-        Self::NoSuchAFunction(pos, id.to_string())
+    pub fn no_such_a_function(id: &str, pos: Position) -> Self {
+        Self::NoSuchAFunction(id.to_string(), pos)
     }
 
-    pub fn no_such_a_struct(pos: Position, id: &str) -> Self {
-        Self::NoSuchAStruct(pos, id.to_string())
+    pub fn no_such_a_struct(id: &str, pos: Position) -> Self {
+        Self::NoSuchAStruct(id.to_string(), pos)
     }
 
     pub fn cannot_get_pointer(pos: Position) -> Self {
@@ -221,91 +221,91 @@ impl CodeGenError {
         Self::AlreadyDefaultDefined(pos)
     }
 
-    pub fn illegal_bit_size(pos: Position, typ: &NumberType, size: usize) -> Self {
-        Self::IllegalBitSize { pos: pos, typ: typ.clone(), size: size }
+    pub fn illegal_bit_size(typ: &NumberType, size: usize, pos: Position) -> Self {
+        Self::IllegalBitSize { typ: typ.clone(), size: size, pos: pos }
     }
 
-    pub fn cannot_add_value(pos: Position, left_type: &Type, right_type: &Type) -> Self {
-        Self::CannotAddValue(pos, left_type.clone(), right_type.clone())
+    pub fn cannot_add_value(left_type: &Type, right_type: &Type, pos: Position) -> Self {
+        Self::CannotAddValue(left_type.clone(), right_type.clone(), pos)
     }
 
-    pub fn cannot_sub_value(pos: Position, left_type: &Type, right_type: &Type,) -> Self {
-        Self::CannotSubValue(pos, left_type.clone(), right_type.clone())
+    pub fn cannot_sub_value(left_type: &Type, right_type: &Type, pos: Position) -> Self {
+        Self::CannotSubValue(left_type.clone(), right_type.clone(), pos)
     }
 
-    pub fn cannot_mul_value(pos: Position, left_type: &Type, right_type: &Type) -> Self {
-        Self::CannotMulValue(pos, left_type.clone(), right_type.clone())
+    pub fn cannot_mul_value(left_type: &Type, right_type: &Type, pos: Position) -> Self {
+        Self::CannotMulValue(left_type.clone(), right_type.clone(), pos)
     }
 
-    pub fn cannot_div_value(pos: Position, left_type: &Type, right_type: &Type) -> Self {
-        Self::CannotDivValue(pos, left_type.clone(), right_type.clone())
+    pub fn cannot_div_value(left_type: &Type, right_type: &Type, pos: Position) -> Self {
+        Self::CannotDivValue(left_type.clone(), right_type.clone(), pos)
     }
 
-    pub fn cannot_mod_value(pos: Position, left_type: &Type, right_type: &Type) -> Self {
-        Self::CannotModValue(pos, left_type.clone(), right_type.clone())
+    pub fn cannot_mod_value(left_type: &Type, right_type: &Type, pos: Position) -> Self {
+        Self::CannotModValue(left_type.clone(), right_type.clone(), pos)
     }
 
-    pub fn cannot_compare_value(pos: Position, typ: &Type) -> Self {
-        Self::CannotCompareValue(pos, typ.clone())
+    pub fn cannot_compare_value(typ: &Type, pos: Position) -> Self {
+        Self::CannotCompareValue(typ.clone(), pos)
     }
 
-    pub fn cannot_apply_logical_op_value(pos: Position, typ: &Type) -> Self {
-        Self::CannotApplyLogicalOpValue(pos, typ.clone())
+    pub fn cannot_apply_logical_op_value(typ: &Type, pos: Position) -> Self {
+        Self::CannotApplyLogicalOpValue(typ.clone(), pos)
     }
 
     pub fn cannot_calculate(pos: Position) -> Self {
         Self::CannotCalculate(pos)
     }
 
-    pub fn not_int_in_shift(pos: Position, typ: &Type) -> Self {
-        Self::NotIntInShift(pos, typ.clone())
+    pub fn not_int_in_shift(typ: &Type, pos: Position) -> Self {
+        Self::NotIntInShift(typ.clone(), pos)
     }
 
-    pub fn not_int_bit_and(pos: Position, typ: &Type) -> Self {
-        Self::NotIntInShift(pos, typ.clone())
+    pub fn not_int_bit_and(typ: &Type, pos: Position) -> Self {
+        Self::NotIntInShift(typ.clone(), pos)
     }
 
-    pub fn not_int_bit_or(pos: Position, typ: &Type) -> Self {
-        Self::NotIntInShift(pos, typ.clone())
+    pub fn not_int_bit_or(typ: &Type, pos: Position) -> Self {
+        Self::NotIntInShift(typ.clone(), pos)
     }
 
-    pub fn not_int_bit_xor(pos: Position, typ: &Type) -> Self {
-        Self::NotIntInShift(pos, typ.clone())
+    pub fn not_int_bit_xor(typ: &Type, pos: Position) -> Self {
+        Self::NotIntInShift(typ.clone(), pos)
     }
 
-    pub fn assign_illegal_value(pos: Position, expr: &ExprAST) -> Self {
-        Self::AssignIllegalValue(pos, expr.clone())
+    pub fn assign_illegal_value(expr: &ExprAST, pos: Position) -> Self {
+        Self::AssignIllegalValue(expr.clone(), pos)
     }
 
-    pub fn no_such_a_member(pos: Position, id: &str) -> Self {
-        Self::NoSuchAMember(pos, id.to_string())
+    pub fn no_such_a_member(id: &str, pos: Position) -> Self {
+        Self::NoSuchAMember(id.to_string(), pos)
     }
 
-    pub fn cannot_access_struct_member(pos: Position, id: &str) -> Self {
-        Self::CannotAccessStructMember(pos, id.to_string())
+    pub fn cannot_access_struct_member(id: &str, pos: Position) -> Self {
+        Self::CannotAccessStructMember(id.to_string(), pos)
     }
 
-    pub fn not_union(pos: Position, id: &str) -> Self {
-        Self::NotUnion(pos, id.to_string())
+    pub fn not_union(id: &str, pos: Position) -> Self {
+        Self::NotUnion(id.to_string(), pos)
     }
 
     pub fn no_index_value_while_access_array(pos: Position) -> Self {
         Self::NoIndexValueWhileAccessArray(pos)
     }
 
-    pub fn cannot_call_not_function(pos: Position, _any_val_enum: &AnyValueEnum) -> Self {
+    pub fn cannot_call_not_function(_any_val_enum: &AnyValueEnum, pos: Position) -> Self {
         Self::CannotCallNotFunction(pos)
     }
 
-    pub fn no_return_for_type(pos: Position, typ: &Type) -> Self {
-        Self::NoReturnForType(pos, typ.clone())
+    pub fn no_return_for_type(typ: &Type, pos: Position) -> Self {
+        Self::NoReturnForType(typ.clone(), pos)
     }
 
     pub fn mismatch_type_in_if(pos: Position, then_type: Type, else_type: Type) -> Self {
         Self::MismatchTypeInIf{
-            pos: pos,
             then_type: then_type,
             else_type: else_type,
+            pos: pos,
         }
     }
 
@@ -321,12 +321,12 @@ impl CodeGenError {
         Self::AccessSelfWithoutImpl(pos)
     }
 
-    pub fn not_pointer(pos: Position, typ: &Type) -> Self {
-        Self::NotPointer(pos, typ.clone())
+    pub fn not_pointer(typ: &Type, pos: Position) -> Self {
+        Self::NotPointer(typ.clone(), pos)
     }
 
-    pub fn type_has_not_member(pos: Position, id: &str) -> Self {
-        Self::TypeHasNotMember(pos, id.to_string())
+    pub fn type_has_not_member(id: &str, pos: Position) -> Self {
+        Self::TypeHasNotMember(id.to_string(), pos)
     }
 
     pub fn cannot_use_float_for_bitsize(pos: Position) -> Self {
@@ -412,40 +412,40 @@ impl fmt::Display for CodeGenError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::ParserError(err) => err.fmt(f),
-            Self::ConditionIsNotNumber(_pos, expr_ast) => {
+            Self::ConditionIsNotNumber(expr_ast, _pos) => {
                 write!(f, "condition {:?} is not a number", expr_ast)
             },
-            Self::AlreadyTypeDefinedInStruct(_pos, id) => {
+            Self::AlreadyTypeDefinedInStruct(id, _pos) => {
                 write!(f, "already type defined in struct. {id}")
             },
-            Self::AlreadyTypeDefinedInUnion(_pos, id) => {
+            Self::AlreadyTypeDefinedInUnion(id, _pos) => {
                 write!(f, "already type defined in union. {id}")
             },
-            Self::AlreadyTypeDefinedInTypedef(_pos, _typ, id) => {
+            Self::AlreadyTypeDefinedInTypedef(_typ, id, _pos) => {
                 write!(f, "already type defined {id}")
             },
-            Self::UnionHasNoField(_pos, opt_id) => {
+            Self::UnionHasNoField(opt_id, _pos) => {
                 if let Some(id) = opt_id {
                     write!(f, "union {id} has no field")
                 }else{
                     write!(f, "union has no field")
                 }
             },
-            Self::MismatchTypeUnionFields(_pos, opt_id) => {
+            Self::MismatchTypeUnionFields(opt_id, _pos) => {
                 if let Some(id) = opt_id {
                     write!(f, "mismatch type union fields {id}")
                 }else{
                     write!(f, "mismatch type union fields")
                 }
             },
-            Self::MismatchTypeStructFields(_pos, opt_id) => {
+            Self::MismatchTypeStructFields(opt_id, _pos) => {
                 if let Some(id) = opt_id {
                     write!(f, "mismatch type struct fields. {id}")
                 }else{
                     write!(f, "mismatch type struct fields")
                 }
             },
-            Self::NoSuchAType(_pos, id) => {
+            Self::NoSuchAType(id, _pos) => {
                 write!(f, "no such a type '{id}'")
             },
             Self::CannotConvertToGlobalValue(_pos) => {
@@ -454,7 +454,7 @@ impl fmt::Display for CodeGenError {
             Self::CannotConvertToLocalPointer(_pos) => {
                 write!(f, "cannot convert to local pointer")
             },
-            Self::IllegalTypeForPointer(_pos, _typ) => {
+            Self::IllegalTypeForPointer(_typ, _pos) => {
                 write!(f, "illegal type for pointer")
             },
             Self::IllegalEndOfInput(_pos) => {
@@ -464,9 +464,9 @@ impl fmt::Display for CodeGenError {
                 write!(f, "return without function")
             },
             Self::ReturnTypeMismatch {
-                    pos: _,
                     real_type,
                     required_type,
+                    pos: _,
                 } =>
             {
                 write!(f, "return type mismatch required '{required_type}', but '{real_type}'")
@@ -480,16 +480,16 @@ impl fmt::Display for CodeGenError {
             Self::ContinueNotInLoop(_pos) => {
                 write!(f, "continue not in loop")
             },
-            Self::NoSuchALabel(_pos, id) => {
+            Self::NoSuchALabel(id, _pos) => {
                 write!(f, "no such a label '{id}'")
             },
-            Self::NoSuchAVariable(_pos, id) => {
+            Self::NoSuchAVariable(id, _pos) => {
                 write!(f, "no such a variable '{id}'")
             },
-            Self::NoSuchAFunction(_pos, id) => {
+            Self::NoSuchAFunction(id, _pos) => {
                 write!(f, "no such a function '{id}'")
             },
-            Self::NoSuchAStruct(_pos, id) => {
+            Self::NoSuchAStruct(id, _pos) => {
                 write!(f, "no such a struct '{id}'")
             },
             Self::CannotGetPointer(_pos) => {
@@ -514,58 +514,58 @@ impl fmt::Display for CodeGenError {
                 write!(f, "already default defined")
             },
             Self::IllegalBitSize {
-                pos: _,
                 typ,
                 size: _,
+                pos: _,
             } => {
                 write!(f, "illegal bit size for type {typ}")
             },
-            Self::CannotAddValue(_pos, l_type, r_type) => {
+            Self::CannotAddValue(l_type, r_type, _pos) => {
                 write!(f, "cannot add. type {l_type} and {r_type}")
             },
-            Self::CannotSubValue(_pos, l_type, r_type) => {
+            Self::CannotSubValue(l_type, r_type, _pos) => {
                 write!(f, "cannot sub. type {l_type} and {r_type}")
             },
-            Self::CannotMulValue(_pos, l_type, r_type) => {
+            Self::CannotMulValue(l_type, r_type, _pos) => {
                 write!(f, "cannot mul. type {l_type} and {r_type}")
             },
-            Self::CannotDivValue(_pos, l_type, r_type) => {
+            Self::CannotDivValue(l_type, r_type, _pos) => {
                 write!(f, "cannot div. type {l_type} and {r_type}")
             },
-            Self::CannotModValue(_pos, l_type, r_type) => {
+            Self::CannotModValue(l_type, r_type, _pos) => {
                 write!(f, "cannot mod. type {l_type} by {r_type}")
             },
-            Self::CannotCompareValue(_pos, typ) => {
+            Self::CannotCompareValue(typ, _pos) => {
                 write!(f, "cannot compare value for type {typ}")
             },
-            Self::CannotApplyLogicalOpValue(_pos, typ) => {
+            Self::CannotApplyLogicalOpValue(typ, _pos) => {
                 write!(f, "cannot apply logical op value for type {typ}")
             },
             Self::CannotCalculate(_pos) => {
                 write!(f, "cannot calculate")
             },
-            Self::NotIntInShift(_pos, typ) => {
+            Self::NotIntInShift(typ, _pos) => {
                 write!(f, "type {typ} cannot shift")
             },
-            Self::NotIntBitAnd(_pos, typ) => {
+            Self::NotIntBitAnd(typ, _pos) => {
                 write!(f, "type {typ} cannot bit-and")
             },
-            Self::NotIntBitOr(_pos, typ) => {
+            Self::NotIntBitOr(typ, _pos) => {
                 write!(f, "type {typ} cannot bit-or")
             },
-            Self::NotIntBitXor(_pos, typ) => {
+            Self::NotIntBitXor(typ, _pos) => {
                 write!(f, "type {typ} cannot bit-xor")
             },
-            Self::AssignIllegalValue(_pos, expr_ast) => {
+            Self::AssignIllegalValue(expr_ast, _pos) => {
                 write!(f, "assign illegal value {:?}", expr_ast)
             },
-            Self::NoSuchAMember(_pos, id) => {
+            Self::NoSuchAMember(id, _pos) => {
                 write!(f, "no such a member '{id}'")
             },
-            Self::CannotAccessStructMember(_pos, id) => {
+            Self::CannotAccessStructMember(id, _pos) => {
                 write!(f, "{id} cannot access struct member")
             },
-            Self::NotUnion(_pos, id) => {
+            Self::NotUnion(id, _pos) => {
                 write!(f, "{id} is not union")
             },
             Self::NoIndexValueWhileAccessArray(_pos) => {
@@ -574,13 +574,13 @@ impl fmt::Display for CodeGenError {
             Self::CannotCallNotFunction(_pos) => {
                 write!(f, "cannot call non-function")
             },
-            Self::NoReturnForType(_pos, typ) => {
+            Self::NoReturnForType(typ, _pos) => {
                 write!(f, "no return for type {typ}")
             },
             Self::MismatchTypeInIf {
-                pos: _,
                 then_type,
                 else_type,
+                pos: _,
             } => {
                 write!(f, "mismatch type if if-statement. then type is {then_type}, else type is {else_type}")
             },
@@ -596,10 +596,10 @@ impl fmt::Display for CodeGenError {
             Self::AccessSelfWithoutImpl(_pos) => {
                 write!(f, "access self without impl")
             },
-            Self::NotPointer(_pos, typ) => {
+            Self::NotPointer(typ, _pos) => {
                 write!(f, "{typ} is not pointer")
             },
-            Self::TypeHasNotMember(_pos, id) => {
+            Self::TypeHasNotMember(id, _pos) => {
                 write!(f, "type {id} has not member")
             },
             Self::CannotUseFloatForBitsize(_pos) => {

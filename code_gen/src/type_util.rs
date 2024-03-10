@@ -59,7 +59,7 @@ impl TypeUtil {
                 }else if typ.is_struct_type() {
                     Ok(typ.into_struct_type().ptr_type(AddressSpace::default()).into())
                 }else{
-                    Err(Box::new(CodeGenError::illegal_type_for_pointer(pos.clone(), &to_type)))
+                    Err(Box::new(CodeGenError::illegal_type_for_pointer(&to_type, pos.clone())))
                 }
             },
             Type::Array { name: _, typ: type2, size_list } => {
@@ -81,9 +81,9 @@ impl TypeUtil {
                     Ok(typ)
                 }else{
                     if let Some(id) = name {
-                        Err(Box::new(CodeGenError::union_has_no_field(pos.clone(), Some(id.to_string()))))
+                        Err(Box::new(CodeGenError::union_has_no_field(Some(id.to_string()), pos.clone())))
                     }else{
-                        Err(Box::new(CodeGenError::union_has_no_field(pos.clone(), None)))
+                        Err(Box::new(CodeGenError::union_has_no_field(None, pos.clone())))
                     }
                 }
             },
@@ -242,7 +242,7 @@ impl TypeUtil {
                 }
             },
             ExprAST::Symbol(name, pos) => {
-                let typ = env.get_type_by_id(&name).ok_or(CodeGenError::no_such_a_variable(pos.clone(), &name))?;
+                let typ = env.get_type_by_id(&name).ok_or(CodeGenError::no_such_a_variable(&name, pos.clone()))?;
                 Ok(typ.clone())
             },
             ExprAST::_Self(pos) => {
@@ -257,19 +257,19 @@ impl TypeUtil {
             // ExprAST::ExpressionPair(_, right, _pos) => TypeUtil::get_type(&right, env),
             ExprAST::Cast(typ, _, _pos) => Ok(typ.clone()),
             ExprAST::PreInc(name, _sym_pos, pos) => {
-                let typ = env.get_type_by_id(&name).ok_or(CodeGenError::no_such_a_variable(pos.clone(), &name))?;
+                let typ = env.get_type_by_id(&name).ok_or(CodeGenError::no_such_a_variable(&name, pos.clone()))?;
                 Ok(typ.clone())
             },
             ExprAST::PreDec(name, _sym_pos, pos) => {
-                let typ = env.get_type_by_id(&name).ok_or(CodeGenError::no_such_a_variable(pos.clone(), &name))?;
+                let typ = env.get_type_by_id(&name).ok_or(CodeGenError::no_such_a_variable(&name, pos.clone()))?;
                 Ok(typ.clone())
             },
             ExprAST::PostInc(name, _sym_pos, pos) => {
-                let typ = env.get_type_by_id(&name).ok_or(CodeGenError::no_such_a_variable(pos.clone(), &name))?;
+                let typ = env.get_type_by_id(&name).ok_or(CodeGenError::no_such_a_variable(&name, pos.clone()))?;
                 Ok(typ.clone())
             },
             ExprAST::PostDec(name, _sym_pos, pos) => {
-                let typ = env.get_type_by_id(&name).ok_or(CodeGenError::no_such_a_variable(pos.clone(), &name))?;
+                let typ = env.get_type_by_id(&name).ok_or(CodeGenError::no_such_a_variable(&name, pos.clone()))?;
                 Ok(typ.clone())
             },
             ExprAST::PreIncMemberAccess(expr, _pos) => {
@@ -297,7 +297,7 @@ impl TypeUtil {
                     Type::Pointer(_p, t) => {
                         Ok(*t.clone())
                     },
-                    _ => Err(CodeGenError::not_pointer(pos.clone(), &typ)),
+                    _ => Err(CodeGenError::not_pointer(&typ, pos.clone())),
                 }
             },
             ExprAST::MemberAccess(boxed_ast, field_name, pos) => {  // some_var.field
@@ -305,14 +305,14 @@ impl TypeUtil {
                 let typ = TypeUtil::get_type(ast, env)?;
                 match typ {
                     Type::Struct { name: _, fields } => {
-                        let t = fields.get_type(&field_name).ok_or(CodeGenError::type_has_not_member(pos.clone(), &field_name))?;
+                        let t = fields.get_type(&field_name).ok_or(CodeGenError::type_has_not_member(&field_name, pos.clone()))?;
                         Ok(t.clone())
                     },
                     Type::Union { name: _, fields } => {
-                        let t = fields.get_type(&field_name).ok_or(CodeGenError::type_has_not_member(pos.clone(), &field_name))?;
+                        let t = fields.get_type(&field_name).ok_or(CodeGenError::type_has_not_member(&field_name, pos.clone()))?;
                         Ok(t.clone())
                     },
-                    _ => return Err(CodeGenError::type_has_not_member(pos.clone(), &format!("{:?}", &typ))),
+                    _ => return Err(CodeGenError::type_has_not_member(&format!("{:?}", &typ), pos.clone())),
                 }
             },
             ExprAST::PointerAccess(boxed_ast, field_name, pos) => {  // some_var->field
@@ -320,14 +320,14 @@ impl TypeUtil {
                 let typ = TypeUtil::get_type(ast, env)?;
                 match typ {
                     Type::Struct { name: _, fields } => {
-                        let t = fields.get_type(&field_name).ok_or(CodeGenError::type_has_not_member(pos.clone(), &field_name))?;
+                        let t = fields.get_type(&field_name).ok_or(CodeGenError::type_has_not_member(&field_name, pos.clone()))?;
                         Ok(t.clone())
                     },
                     Type::Union { name: _, fields } => {
-                        let t = fields.get_type(&field_name).ok_or(CodeGenError::type_has_not_member(pos.clone(), &field_name))?;
+                        let t = fields.get_type(&field_name).ok_or(CodeGenError::type_has_not_member(&field_name, pos.clone()))?;
                         Ok(t.clone())
                     },
-                    _ => return Err(CodeGenError::type_has_not_member(pos.clone(), &format!("{:?}", &typ))),
+                    _ => return Err(CodeGenError::type_has_not_member(&format!("{:?}", &typ), pos.clone())),
                 }
             },
             ExprAST::TernaryOperator(_, e1, _, _pos) => {

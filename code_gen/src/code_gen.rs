@@ -144,7 +144,7 @@ impl<'ctx> CodeGen<'ctx> {
                     result = self.builder.build_return(Some(&ret))?;
                 }else{
                     if ! required_ret_type.is_void() {
-                        return Err(Box::new(CodeGenError::return_type_mismatch(pos.clone(), Type::Void, required_ret_type.clone())));
+                        return Err(Box::new(CodeGenError::return_type_mismatch(Type::Void, required_ret_type.clone(), pos.clone())));
                     }
 
                     result = self.builder.build_return(None)?;
@@ -185,7 +185,7 @@ impl<'ctx> CodeGen<'ctx> {
                 self.builder.position_at_end(cond_block);
 
                 // check condition
-                let cond = self.gen_expr(condition, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::condition_is_not_number((**condition).get_position().clone(), condition))?;
+                let cond = self.gen_expr(condition, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::condition_is_not_number(condition, (**condition).get_position().clone()))?;
                 let mut comparison = cond.get_value().into_int_value();
                 let i1_type = self.context.bool_type();
                 comparison = self.builder.build_int_cast(comparison, i1_type, "cast to i1")?;  // cast to i1
@@ -242,13 +242,13 @@ impl<'ctx> CodeGen<'ctx> {
                 Ok(None)
             },
             AST::Goto(id, pos) => {
-                let block = env.get_block(id).ok_or(CodeGenError::no_such_a_label(pos.clone(), id))?;
+                let block = env.get_block(id).ok_or(CodeGenError::no_such_a_label(id, pos.clone()))?;
                 self.builder.build_unconditional_branch(*block)?;
 
                 Ok(None)
             },
             AST::Labeled(id, opt_stmt, pos) => {
-                let block = env.get_block(id).ok_or(CodeGenError::no_such_a_label(pos.clone(), id))?;
+                let block = env.get_block(id).ok_or(CodeGenError::no_such_a_label(id, pos.clone()))?;
                 self.builder.build_unconditional_branch(*block)?;
                 self.builder.position_at_end(*block);
 
@@ -291,7 +291,7 @@ impl<'ctx> CodeGen<'ctx> {
 
                     Ok(Some(any_val))
                 }else{
-                    Err(Box::new(CodeGenError::no_such_a_variable(pos.clone(), "self")))
+                    Err(Box::new(CodeGenError::no_such_a_variable("self", pos.clone())))
                 }
             },
             AST::Expr(expr_ast, _pos) => {
@@ -391,13 +391,13 @@ impl<'ctx> CodeGen<'ctx> {
                     let any_val = basic_val.as_any_value_enum();
                     let one = TypeUtil::to_llvm_int_type(typ, self.context, pos)?.const_int(1, false);
                     let added = self.builder.build_int_add(any_val.into_int_value(), one, "pre_increment")?;
-                    let (_ptr_type, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(sym_pos.clone(), &name)))?;
+                    let (_ptr_type, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(&name, sym_pos.clone())))?;
                     let _result = self.builder.build_store(ptr, added);
 
                     Ok(Some(CompiledValue::new(typ.clone(), added.as_any_value_enum())))
     
                 }else{
-                    Err(Box::new(CodeGenError::no_such_a_variable(sym_pos.clone(), name)))
+                    Err(Box::new(CodeGenError::no_such_a_variable(name, sym_pos.clone())))
                 }
             },
             ExprAST::PreDec(name, sym_pos, pos) => {
@@ -406,13 +406,13 @@ impl<'ctx> CodeGen<'ctx> {
                     let any_val = basic_val.as_any_value_enum();
                     let one = TypeUtil::to_llvm_int_type(typ, self.context, pos)?.const_int(1, false);
                     let subed = self.builder.build_int_sub(any_val.into_int_value(), one, "pre_decrement")?;
-                    let (_ptr_type, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(sym_pos.clone(), &name)))?;
+                    let (_ptr_type, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(&name, sym_pos.clone())))?;
                     let _result = self.builder.build_store(ptr, subed);
 
                     Ok(Some(CompiledValue::new(typ.clone(), subed.as_any_value_enum())))
     
                 }else{
-                    Err(Box::new(CodeGenError::no_such_a_variable(sym_pos.clone(), name)))
+                    Err(Box::new(CodeGenError::no_such_a_variable(name, sym_pos.clone())))
                 }
             },
             ExprAST::PostInc(name, sym_pos, pos) => {
@@ -421,13 +421,13 @@ impl<'ctx> CodeGen<'ctx> {
                     let pre_val = basic_val.as_any_value_enum();
                     let one = TypeUtil::to_llvm_int_type(typ, self.context, pos)?.const_int(1, false);
                     let added = self.builder.build_int_add(pre_val.into_int_value(), one, "post_increment")?;
-                    let (_ptr_type, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(sym_pos.clone(), &name)))?;
+                    let (_ptr_type, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(&name, sym_pos.clone())))?;
                     let _result = self.builder.build_store(ptr, added);
 
                     Ok(Some(CompiledValue::new(typ.clone(), pre_val)))
     
                 }else{
-                    Err(Box::new(CodeGenError::no_such_a_variable(sym_pos.clone(), name)))
+                    Err(Box::new(CodeGenError::no_such_a_variable(name, sym_pos.clone())))
                 }
             },
             ExprAST::PostDec(name, sym_pos, pos) => {
@@ -436,13 +436,13 @@ impl<'ctx> CodeGen<'ctx> {
                     let pre_val = basic_val.as_any_value_enum();
                     let one = TypeUtil::to_llvm_int_type(typ, self.context, pos)?.const_int(1, false);
                     let subed = self.builder.build_int_sub(pre_val.into_int_value(), one, "post_decrement")?;
-                    let (_ptr_type, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(sym_pos.clone(), &name)))?;
+                    let (_ptr_type, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(&name, sym_pos.clone())))?;
                     let _result = self.builder.build_store(ptr, subed);
 
                     Ok(Some(CompiledValue::new(typ.clone(), pre_val)))
     
                 }else{
-                    Err(Box::new(CodeGenError::no_such_a_variable(sym_pos.clone(), name)))
+                    Err(Box::new(CodeGenError::no_such_a_variable(name, sym_pos.clone())))
                 }
             },
             ExprAST::PreIncMemberAccess(boxed_ast, pos) => {
@@ -542,12 +542,12 @@ impl<'ctx> CodeGen<'ctx> {
             },
             ExprAST::UnaryPointerAccess(boxed_ast, pos) => {  // *pointer
                 let ast = &**boxed_ast;
-                let ptr = self.gen_expr(&ast, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::not_pointer(pos.clone(), &TypeUtil::get_type(&ast, env)?))?;
+                let ptr = self.gen_expr(&ast, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::not_pointer(&TypeUtil::get_type(&ast, env)?, pos.clone()))?;
                 let typ = ptr.get_type();
 
                 let basic_val = self.builder.build_load(ptr.get_value().into_pointer_value(), &format!("get_value_from_pointer"))?;
                 let any_val = basic_val.as_any_value_enum();
-                let type2 = typ.peel_off_pointer().ok_or(CodeGenError::not_pointer(pos.clone(), &typ))?;
+                let type2 = typ.peel_off_pointer().ok_or(CodeGenError::not_pointer(&typ, pos.clone()))?;
 
                 Ok(Some(CompiledValue::new(type2, any_val)))
             },
@@ -635,7 +635,7 @@ impl<'ctx> CodeGen<'ctx> {
                     }
     
                 }else{
-                    Err(Box::new(CodeGenError::no_such_a_variable(pos.clone(), name)))
+                    Err(Box::new(CodeGenError::no_such_a_variable(name, pos.clone())))
                 }
             },
             ExprAST::_self(pos) => {
@@ -645,7 +645,7 @@ impl<'ctx> CodeGen<'ctx> {
 
                     Ok(Some(CompiledValue::new(typ.clone(), any_val)))
                 }else{
-                    Err(Box::new(CodeGenError::no_such_a_variable(pos.clone(), "self")))
+                    Err(Box::new(CodeGenError::no_such_a_variable("self", pos.clone())))
                 }
             },
             ExprAST::UnarySizeOfExpr(expr, pos) => {
@@ -673,7 +673,7 @@ impl<'ctx> CodeGen<'ctx> {
                 self.builder.position_at_end(cond_block);
 
                 // check condition
-                let cond = self.gen_expr(condition, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::condition_is_not_number(condition.get_position().clone(), condition))?;
+                let cond = self.gen_expr(condition, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::condition_is_not_number(condition, condition.get_position().clone()))?;
                 let mut comparison = cond.get_value().into_int_value();
                 let i1_type = self.context.bool_type();
                 comparison = self.builder.build_int_cast(comparison, i1_type, "cast to i1")?;  // cast to i1
@@ -1109,7 +1109,7 @@ println!("gen_cost_expr. init: {:?}", init);
             }
 
         }else{
-            return Err(Box::new(CodeGenError::no_such_a_function(pos.clone(), &name)));
+            return Err(Box::new(CodeGenError::no_such_a_function(&name, pos.clone())));
         }
     }
 
@@ -1374,7 +1374,7 @@ println!("gen_cost_expr. init: {:?}", init);
         pos: &Position
     ) -> Result<(), Box<dyn Error>> {
 
-        let _class = env.get_type(class_name).ok_or(Box::new(CodeGenError::no_such_a_struct(pos.clone(), class_name)))?;
+        let _class = env.get_type(class_name).ok_or(Box::new(CodeGenError::no_such_a_struct(class_name, pos.clone())))?;
 
         for function in functions {
             self.gen_impl_function(class_name, typ, function, env, break_catcher, continue_catcher, pos)?;
@@ -1677,57 +1677,57 @@ println!("gen_cost_expr. init: {:?}", init);
             match typ {
                 NumberType::_Bool => {
                     if size > 1 {
-                        return Err(CodeGenError::illegal_bit_size(pos.clone(), typ, size));
+                        return Err(CodeGenError::illegal_bit_size(typ, size, pos.clone()));
                     }
                 },
                 NumberType::Char => {
                     if size > 8 {
-                        return Err(CodeGenError::illegal_bit_size(pos.clone(), typ, size));
+                        return Err(CodeGenError::illegal_bit_size(typ, size, pos.clone()));
                     }
                 },
                 NumberType::Short => {
                     if size > 16 {
-                        return Err(CodeGenError::illegal_bit_size(pos.clone(), typ, size));
+                        return Err(CodeGenError::illegal_bit_size(typ, size, pos.clone()));
                     }
                 },
                 NumberType::Int => {
                     if size > 32 {
-                        return Err(CodeGenError::illegal_bit_size(pos.clone(), typ, size));
+                        return Err(CodeGenError::illegal_bit_size(typ, size, pos.clone()));
                     }
                 },
                 NumberType::Long => {
                     if size > 64 {
-                        return Err(CodeGenError::illegal_bit_size(pos.clone(), typ, size));
+                        return Err(CodeGenError::illegal_bit_size(typ, size, pos.clone()));
                     }
                 },
                 NumberType::LongLong => {
                     if size > 128 {
-                        return Err(CodeGenError::illegal_bit_size(pos.clone(), typ, size));
+                        return Err(CodeGenError::illegal_bit_size(typ, size, pos.clone()));
                     }
                 },
                 NumberType::UnsignedChar => {
                     if size > 8 {
-                        return Err(CodeGenError::illegal_bit_size(pos.clone(), typ, size));
+                        return Err(CodeGenError::illegal_bit_size(typ, size, pos.clone()));
                     }
                 },
                 NumberType::UnsignedShort => {
                     if size > 16 {
-                        return Err(CodeGenError::illegal_bit_size(pos.clone(), typ, size));
+                        return Err(CodeGenError::illegal_bit_size(typ, size, pos.clone()));
                     }
                 },
                 NumberType::UnsignedInt => {
                     if size > 32 {
-                        return Err(CodeGenError::illegal_bit_size(pos.clone(), typ, size));
+                        return Err(CodeGenError::illegal_bit_size(typ, size, pos.clone()));
                     }
                 },
                 NumberType::UnsignedLong => {
                     if size > 64 {
-                        return Err(CodeGenError::illegal_bit_size(pos.clone(), typ, size));
+                        return Err(CodeGenError::illegal_bit_size(typ, size, pos.clone()));
                     }
                 },
                 NumberType::UnsignedLongLong => {
                     if size > 128 {
-                        return Err(CodeGenError::illegal_bit_size(pos.clone(), typ, size));
+                        return Err(CodeGenError::illegal_bit_size(typ, size, pos.clone()));
                     }
                 },
                 NumberType::Float | NumberType::Double => {
@@ -1790,7 +1790,7 @@ println!("gen_cost_expr. init: {:?}", init);
         self.builder.position_at_end(pre_condition_block);
 
         if let Some(cond) = pre_condition {
-            let cond = self.gen_expr(cond, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::condition_is_not_number(cond.get_position().clone(), cond))?;
+            let cond = self.gen_expr(cond, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::condition_is_not_number(cond, cond.get_position().clone()))?;
             let comparison = cond.get_value().into_int_value();
             self.builder.build_conditional_branch(comparison, start_block, end_block)?;
         }else{
@@ -1820,7 +1820,7 @@ println!("gen_cost_expr. init: {:?}", init);
         // check post condtition
         //
         if let Some(cond) = post_condition {
-            let cond = self.gen_expr(cond, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::condition_is_not_number(cond.get_position().clone(), cond))?;
+            let cond = self.gen_expr(cond, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::condition_is_not_number(cond, cond.get_position().clone()))?;
             let comparison = cond.get_value().into_int_value();
             self.builder.build_conditional_branch(comparison, pre_condition_block, end_block)?;
         }else{
@@ -1873,7 +1873,7 @@ println!("gen_cost_expr. init: {:?}", init);
                     let result = self.builder.build_float_add(left_value.into_float_value(), right_value.into_float_value(), "add_float")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CodeGenError::cannot_add_value(left_arg.get_position().clone(), left_type, right.get_type())))
+                    Err(Box::new(CodeGenError::cannot_add_value(left_type, right.get_type(), left_arg.get_position().clone())))
                 }
             },
             BinOp::Sub => {
@@ -1891,7 +1891,7 @@ println!("gen_cost_expr. init: {:?}", init);
                     let result = self.builder.build_float_sub(left_value.into_float_value(), right_value.into_float_value(), "sub_float")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CodeGenError::cannot_sub_value(left_arg.get_position().clone(), left_type, right.get_type())))
+                    Err(Box::new(CodeGenError::cannot_sub_value(left_type, right.get_type(), left_arg.get_position().clone())))
                 }
             },
             BinOp::Mul => {
@@ -1909,7 +1909,7 @@ println!("gen_cost_expr. init: {:?}", init);
                     let result = self.builder.build_float_mul(left_value.into_float_value(), right_value.into_float_value(), "mul_float")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CodeGenError::cannot_mul_value(left_arg.get_position().clone(), left_type, right.get_type())))
+                    Err(Box::new(CodeGenError::cannot_mul_value(left_type, right.get_type(), left_arg.get_position().clone())))
                 }
             },
             BinOp::Div => {
@@ -1932,7 +1932,7 @@ println!("gen_cost_expr. init: {:?}", init);
                     let result = self.builder.build_float_div(left_value.into_float_value(), right_value.into_float_value(), "div_float")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CodeGenError::cannot_div_value(left_arg.get_position().clone(), left_type, right.get_type())))
+                    Err(Box::new(CodeGenError::cannot_div_value(left_type, right.get_type(), left_arg.get_position().clone())))
                 }
             },
             BinOp::Mod => {
@@ -1955,7 +1955,7 @@ println!("gen_cost_expr. init: {:?}", init);
                     let result = self.builder.build_float_rem(left_value.into_float_value(), right_value.into_float_value(), "mod_float")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CodeGenError::cannot_mod_value(left_arg.get_position().clone(), left_type, right.get_type())))
+                    Err(Box::new(CodeGenError::cannot_mod_value(left_type, right.get_type(), left_arg.get_position().clone())))
                 }
             },
             BinOp::Equal => {
@@ -1973,7 +1973,7 @@ println!("gen_cost_expr. init: {:?}", init);
                     let result = self.builder.build_float_compare(FloatPredicate::OEQ, left_value.into_float_value(), right_value.into_float_value(), "eq_float")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CodeGenError::cannot_compare_value(left_arg.get_position().clone(), left_type)))
+                    Err(Box::new(CodeGenError::cannot_compare_value(left_type, left_arg.get_position().clone())))
                 }
             },
             BinOp::NotEqual => {
@@ -1991,7 +1991,7 @@ println!("gen_cost_expr. init: {:?}", init);
                     let result = self.builder.build_float_compare(FloatPredicate::ONE, left_value.into_float_value(), right_value.into_float_value(), "not_eq_float")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CodeGenError::cannot_compare_value(left_arg.get_position().clone(), left_type)))
+                    Err(Box::new(CodeGenError::cannot_compare_value(left_type, left_arg.get_position().clone())))
                 }
             },
             BinOp::Less => {
@@ -2014,7 +2014,7 @@ println!("gen_cost_expr. init: {:?}", init);
                     let result = self.builder.build_float_compare(FloatPredicate::OLT, left_value.into_float_value(), right_value.into_float_value(), "less_float")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CodeGenError::cannot_compare_value(left_arg.get_position().clone(), left_type)))
+                    Err(Box::new(CodeGenError::cannot_compare_value(left_type, left_arg.get_position().clone())))
                 }
             },
             BinOp::LessEqual => {
@@ -2037,7 +2037,7 @@ println!("gen_cost_expr. init: {:?}", init);
                     let result = self.builder.build_float_compare(FloatPredicate::OLE, left_value.into_float_value(), right_value.into_float_value(), "less_eq_float")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CodeGenError::cannot_compare_value(left_arg.get_position().clone(), left_type)))
+                    Err(Box::new(CodeGenError::cannot_compare_value(left_type, left_arg.get_position().clone())))
                 }
             },
             BinOp::Greater => {
@@ -2060,7 +2060,7 @@ println!("gen_cost_expr. init: {:?}", init);
                     let result = self.builder.build_float_compare(FloatPredicate::OGT, left_value.into_float_value(), right_value.into_float_value(), "greater_float")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CodeGenError::cannot_compare_value(left_arg.get_position().clone(), left_type)))
+                    Err(Box::new(CodeGenError::cannot_compare_value(left_type, left_arg.get_position().clone())))
                 }
             },
             BinOp::GreaterEqual => {
@@ -2083,7 +2083,7 @@ println!("gen_cost_expr. init: {:?}", init);
                     let result = self.builder.build_float_compare(FloatPredicate::OGE, left_value.into_float_value(), right_value.into_float_value(), "greater_eq_float")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CodeGenError::cannot_compare_value(left_arg.get_position().clone(), left_type)))
+                    Err(Box::new(CodeGenError::cannot_compare_value(left_type, left_arg.get_position().clone())))
                 }
             },
             BinOp::And => {
@@ -2098,7 +2098,7 @@ println!("gen_cost_expr. init: {:?}", init);
                     let result = self.builder.build_and(left_value.into_int_value(), right_value.into_int_value(), "and_int")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CodeGenError::cannot_apply_logical_op_value(left_arg.get_position().clone(), left_type)))
+                    Err(Box::new(CodeGenError::cannot_apply_logical_op_value(left_type, left_arg.get_position().clone())))
                 }
             },
             BinOp::Or => {
@@ -2113,7 +2113,7 @@ println!("gen_cost_expr. init: {:?}", init);
                     let result = self.builder.build_or(left_value.into_int_value(), right_value.into_int_value(), "or_int")?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CodeGenError::cannot_apply_logical_op_value(left_arg.get_position().clone(), left_type)))
+                    Err(Box::new(CodeGenError::cannot_apply_logical_op_value(left_type, left_arg.get_position().clone())))
                 }
             },
             BinOp::Comma => {
@@ -2131,10 +2131,10 @@ println!("gen_cost_expr. init: {:?}", init);
                 let right_value = right.get_value();
 
                 if ! left_value.is_int_value() {
-                    return Err(Box::new(CodeGenError::not_int_in_shift(left_arg.get_position().clone(), &left_type)));
+                    return Err(Box::new(CodeGenError::not_int_in_shift(&left_type, left_arg.get_position().clone())));
                 }
                 if ! right_value.is_int_value() {
-                    return Err(Box::new(CodeGenError::not_int_in_shift(right_arg.get_position().clone(), &right_type)));
+                    return Err(Box::new(CodeGenError::not_int_in_shift(&right_type, right_arg.get_position().clone())));
                 }
 
                 let result = self.builder.build_left_shift(left_value.into_int_value(), right_value.into_int_value(), "ShiftLeft")?;
@@ -2149,10 +2149,10 @@ println!("gen_cost_expr. init: {:?}", init);
                 let right_value = right.get_value();
 
                 if ! left_value.is_int_value() {
-                    return Err(Box::new(CodeGenError::not_int_in_shift(left_arg.get_position().clone(), &left_type)));
+                    return Err(Box::new(CodeGenError::not_int_in_shift(&left_type, left_arg.get_position().clone())));
                 }
                 if ! right_value.is_int_value() {
-                    return Err(Box::new(CodeGenError::not_int_in_shift(right_arg.get_position().clone(), &right_type)));
+                    return Err(Box::new(CodeGenError::not_int_in_shift(&right_type, right_arg.get_position().clone())));
                 }
 
                 let result = self.builder.build_right_shift(left_value.into_int_value(), right_value.into_int_value(), left_type.is_signed()?, "ShiftRight")?;
@@ -2167,10 +2167,10 @@ println!("gen_cost_expr. init: {:?}", init);
                 let right_value = right.get_value();
 
                 if ! left_value.is_int_value() {
-                    return Err(Box::new(CodeGenError::not_int_bit_and(left_arg.get_position().clone(), &left_type)));
+                    return Err(Box::new(CodeGenError::not_int_bit_and(&left_type, left_arg.get_position().clone())));
                 }
                 if ! right_value.is_int_value() {
-                    return Err(Box::new(CodeGenError::not_int_bit_and(right_arg.get_position().clone(), &right_type)));
+                    return Err(Box::new(CodeGenError::not_int_bit_and(&right_type, right_arg.get_position().clone())));
                 }
 
                 let result = self.builder.build_and(left_value.into_int_value(), right_value.into_int_value(), "BitAnd")?;
@@ -2185,10 +2185,10 @@ println!("gen_cost_expr. init: {:?}", init);
                 let right_value = right.get_value();
 
                 if ! left_value.is_int_value() {
-                    return Err(Box::new(CodeGenError::not_int_bit_or(left_arg.get_position().clone(), &left_type)));
+                    return Err(Box::new(CodeGenError::not_int_bit_or(&left_type, left_arg.get_position().clone())));
                 }
                 if ! right_value.is_int_value() {
-                    return Err(Box::new(CodeGenError::not_int_bit_or(right_arg.get_position().clone(), &right_type)));
+                    return Err(Box::new(CodeGenError::not_int_bit_or(&right_type, right_arg.get_position().clone())));
                 }
 
                 let result = self.builder.build_and(left_value.into_int_value(), right_value.into_int_value(), "BitOr")?;
@@ -2203,10 +2203,10 @@ println!("gen_cost_expr. init: {:?}", init);
                 let right_value = right.get_value();
 
                 if ! left_value.is_int_value() {
-                    return Err(Box::new(CodeGenError::not_int_bit_xor(left_arg.get_position().clone(), &left_type)));
+                    return Err(Box::new(CodeGenError::not_int_bit_xor(&left_type, left_arg.get_position().clone())));
                 }
                 if ! right_value.is_int_value() {
-                    return Err(Box::new(CodeGenError::not_int_bit_xor(right_arg.get_position().clone(), &right_type)));
+                    return Err(Box::new(CodeGenError::not_int_bit_xor(&right_type, right_arg.get_position().clone())));
                 }
 
                 let result = self.builder.build_xor(left_value.into_int_value(), right_value.into_int_value(), "BitXor")?;
@@ -2222,7 +2222,7 @@ println!("gen_cost_expr. init: {:?}", init);
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
-        let compiled_value = self.gen_expr(r_value, env, break_catcher, continue_catcher)?.ok_or(Box::new(CodeGenError::assign_illegal_value(r_value.get_position().clone(), r_value)))?;
+        let compiled_value = self.gen_expr(r_value, env, break_catcher, continue_catcher)?.ok_or(Box::new(CodeGenError::assign_illegal_value(r_value, r_value.get_position().clone())))?;
         let value = self.try_as_basic_value(&compiled_value.get_value(), l_value.get_position())?;
         // let from_type = compiled_value.get_type();
         let (_to_type, ptr) = self.get_l_value(l_value, env, break_catcher, continue_catcher)?;
@@ -2256,7 +2256,7 @@ println!("gen_cost_expr. init: {:?}", init);
     ) -> Result<(Type, PointerValue<'ctx>), Box<dyn Error>> {
         match ast {
             ExprAST::Symbol(name, pos) => {
-                let (typ, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(pos.clone(), &name)))?;
+                let (typ, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(&name, pos.clone())))?;
                 Ok((typ.clone(), ptr))
             },
             ExprAST::UnaryPointerAccess(boxed_ast, pos) => {  // *pointer
@@ -2268,7 +2268,7 @@ println!("gen_cost_expr. init: {:?}", init);
 
                     Ok((Type::new_pointer_type(type2.clone(), false, false), ptr.into_pointer_value()))
                 }else{
-                    Err(Box::new(CodeGenError::not_pointer(pos.clone(), &typ)))
+                    Err(Box::new(CodeGenError::not_pointer(&typ, pos.clone())))
                 }
             },
             ExprAST::MemberAccess(expr, member_name, pos) => {  // struct_or_union.member
@@ -2278,7 +2278,7 @@ println!("gen_cost_expr. init: {:?}", init);
 
                 match &typ {
                     Type::Struct {name, fields} => {
-                        let index = fields.get_index(member_name).ok_or(CodeGenError::no_such_a_member(pos.clone(), member_name))?;
+                        let index = fields.get_index(member_name).ok_or(CodeGenError::no_such_a_member(member_name, pos.clone()))?;
                         let elem_type = fields.get_type(member_name).unwrap();
                         let msg = if let Some(id) = &name {
                             format!("struct_{}.{}", id, member_name)
@@ -2290,12 +2290,12 @@ println!("gen_cost_expr. init: {:?}", init);
                         if let Ok(p) = elem_ptr {
                             Ok((elem_type.clone(), p))
                         }else{
-                            return Err(Box::new(CodeGenError::cannot_access_struct_member(pos.clone(), &member_name)));
+                            return Err(Box::new(CodeGenError::cannot_access_struct_member(&member_name, pos.clone())));
                         }
                     },
                     Type::Union { name, fields } => {
                         if let Some(id) = name {
-                            let type_or_union = env.get_type(&id).ok_or(CodeGenError::no_such_a_member(pos.clone(), member_name))?;
+                            let type_or_union = env.get_type(&id).ok_or(CodeGenError::no_such_a_member(member_name, pos.clone()))?;
                             match type_or_union {
                                 TypeOrUnion::Union { type_list, index_map, max_size: _, max_size_type: _ } => {
                                     let idx = index_map[member_name];
@@ -2305,10 +2305,10 @@ println!("gen_cost_expr. init: {:?}", init);
                                     let p = ptr.const_cast(ptr_type);
                                     Ok((typ.clone(), p))
                                 },
-                                _ => return Err(Box::new(CodeGenError::not_union(pos.clone(), &id))),
+                                _ => return Err(Box::new(CodeGenError::not_union(&id, pos.clone()))),
                             }
                         }else{
-                            let typ = fields.get_type(member_name).ok_or(CodeGenError::no_such_a_member(pos.clone(), member_name))?;
+                            let typ = fields.get_type(member_name).ok_or(CodeGenError::no_such_a_member(member_name, pos.clone()))?;
                             let to_type = TypeUtil::to_basic_type_enum(typ, self.context, pos)?;
                             let ptr_type = to_type.ptr_type(AddressSpace::default());
                             let p = ptr.const_cast(ptr_type);
@@ -2335,11 +2335,11 @@ println!("gen_cost_expr. init: {:?}", init);
                                 let typ = if let Some(type2) = expr_type.peel_off_pointer() {
                                     type2
                                 }else{
-                                    return Err(Box::new(CodeGenError::not_pointer(pos.clone(), &expr_type)));
+                                    return Err(Box::new(CodeGenError::not_pointer(&expr_type, pos.clone())));
                                 };
                                 match &typ {
                                     Type::Struct {name, fields} => {
-                                        let index = fields.get_index(member_name).ok_or(CodeGenError::no_such_a_member(pos.clone(), member_name))?;
+                                        let index = fields.get_index(member_name).ok_or(CodeGenError::no_such_a_member(member_name, pos.clone()))?;
                                         let elem_type = fields.get_type(member_name).unwrap();
                                         let msg = if let Some(id) = &name {
                                             format!("struct_{}.{}", id, member_name)
@@ -2351,12 +2351,12 @@ println!("gen_cost_expr. init: {:?}", init);
                                         if let Ok(p) = elem_ptr {
                                             Ok((elem_type.clone(), p))
                                         }else{
-                                            return Err(Box::new(CodeGenError::cannot_access_struct_member(pos.clone(), &member_name)));
+                                            return Err(Box::new(CodeGenError::cannot_access_struct_member(&member_name, pos.clone())));
                                         }
                                     },
                                     Type::Union { name, fields } => {
                                         if let Some(id) = name {
-                                            let type_or_union = env.get_type(&id).ok_or(CodeGenError::no_such_a_member(pos.clone(), member_name))?;
+                                            let type_or_union = env.get_type(&id).ok_or(CodeGenError::no_such_a_member(member_name, pos.clone()))?;
                                             match type_or_union {
                                                 TypeOrUnion::Union { type_list, index_map, max_size: _, max_size_type: _ } => {
                                                     let idx = index_map[member_name];
@@ -2366,10 +2366,10 @@ println!("gen_cost_expr. init: {:?}", init);
                                                     let p = ptr.const_cast(ptr_type);
                                                     Ok((typ.clone(), p))
                                                 },
-                                                _ => return Err(Box::new(CodeGenError::not_union(pos.clone(), &id))),
+                                                _ => return Err(Box::new(CodeGenError::not_union(&id, pos.clone()))),
                                             }
                                         }else{
-                                            let typ = fields.get_type(member_name).ok_or(CodeGenError::no_such_a_member(pos.clone(), member_name))?;
+                                            let typ = fields.get_type(member_name).ok_or(CodeGenError::no_such_a_member(member_name, pos.clone()))?;
                                             let to_type = TypeUtil::to_basic_type_enum(typ, self.context, pos)?;
                                             let ptr_type = to_type.ptr_type(AddressSpace::default());
                                             let p = ptr.const_cast(ptr_type);
@@ -2401,18 +2401,18 @@ println!("gen_cost_expr. init: {:?}", init);
 
                 match pointed_type {
                     Type::Struct {fields, ..} => {
-                        let index = fields.get_index(member_name).ok_or(CodeGenError::no_such_a_member(pos.clone(), member_name))?;
+                        let index = fields.get_index(member_name).ok_or(CodeGenError::no_such_a_member(member_name, pos.clone()))?;
                         let elem_ptr = self.builder.build_struct_gep(ptr, index as u32, "struct_member_access");
                         if let Ok(p) = elem_ptr {
                             let typ = fields.get_type(member_name).unwrap();
                             Ok((typ.clone(), p))
                         }else{
-                            return Err(Box::new(CodeGenError::cannot_access_struct_member(pos.clone(), &member_name)));
+                            return Err(Box::new(CodeGenError::cannot_access_struct_member(&member_name, pos.clone())));
                         }
                     },
                     Type::Union { name, fields } => {
                         if let Some(id) = name {
-                            let type_or_union = env.get_type(&id).ok_or(CodeGenError::no_such_a_member(pos.clone(), member_name))?;
+                            let type_or_union = env.get_type(&id).ok_or(CodeGenError::no_such_a_member(member_name, pos.clone()))?;
                             match type_or_union {
                                 TypeOrUnion::Union { type_list, index_map, max_size: _, max_size_type: _ } => {
                                     let idx = index_map[member_name];
@@ -2422,10 +2422,10 @@ println!("gen_cost_expr. init: {:?}", init);
                                     let p = ptr.const_cast(ptr_type);
                                     Ok((typ.clone(), p))
                                 },
-                                _ => return Err(Box::new(CodeGenError::not_union(pos.clone(), &id))),
+                                _ => return Err(Box::new(CodeGenError::not_union(&id, pos.clone()))),
                             }
                         }else{
-                            let typ = fields.get_type(member_name).ok_or(CodeGenError::no_such_a_member(pos.clone(), member_name))?;
+                            let typ = fields.get_type(member_name).ok_or(CodeGenError::no_such_a_member(member_name, pos.clone()))?;
                             let to_type = TypeUtil::to_basic_type_enum(typ, self.context, pos)?;
                             let ptr_type = to_type.ptr_type(AddressSpace::default());
                             let p = ptr.const_cast(ptr_type);
@@ -2499,7 +2499,7 @@ println!("gen_cost_expr. init: {:?}", init);
                 Ok((result_type, ptr))
             },
             ExprAST::_self(pos) => {
-                let (typ, ptr) = env.get_ptr("self").ok_or(Box::new(CodeGenError::no_such_a_variable(pos.clone(), "self")))?;
+                let (typ, ptr) = env.get_ptr("self").ok_or(Box::new(CodeGenError::no_such_a_variable("self", pos.clone())))?;
                 Ok((typ.clone(), ptr))
             },
             ExprAST::_Self(pos) => {
@@ -2549,7 +2549,7 @@ println!("gen_cost_expr. init: {:?}", init);
     fn to_function(&self, any_val: &AnyValueEnum<'ctx>, pos: &Position) -> Result<FunctionValue<'ctx>, CodeGenError> {
         match any_val {
             AnyValueEnum::FunctionValue(fun) => Ok(*fun),
-            _ => Err(CodeGenError::cannot_call_not_function(pos.clone(), any_val)),
+            _ => Err(CodeGenError::cannot_call_not_function(any_val, pos.clone())),
         }
     }
 
@@ -2690,7 +2690,7 @@ println!("gen_cost_expr. init: {:?}", init);
                 Some(AST::Return(None, _)) => Ok(()),  // do nothing
                 Some(AST::Return(Some(expr), pos)) => {
                     let typ: Type = TypeUtil::get_type(expr, env)?;
-                    return Err(Box::new(CodeGenError::return_type_mismatch(pos.clone(), fn_type.get_return_type().clone(), typ)));
+                    return Err(Box::new(CodeGenError::return_type_mismatch(fn_type.get_return_type().clone(), typ, pos.clone())));
                 },
                 _ => {
                     self.builder.build_return(None)?;
@@ -2703,7 +2703,7 @@ println!("gen_cost_expr. init: {:?}", init);
             // 最後の文の型をチェックする。
             match last_stmt {
                 Some(AST::Return(None, pos)) => {
-                    return Err(Box::new(CodeGenError::no_return_for_type(pos.clone(), &fn_type.get_return_type())));
+                    return Err(Box::new(CodeGenError::no_return_for_type(&fn_type.get_return_type(), pos.clone())));
                 },
                 Some(AST::Return(Some(_expr), _pos)) => {
                     // let expr_type = expr.get_type(env)?.to_basic_type_enum(self.context)?;
@@ -2716,7 +2716,7 @@ println!("gen_cost_expr. init: {:?}", init);
                 Some(AST::If(_cond, _then, _else, pos)) => {
                     let typ = self.calc_ret_type(last_stmt.unwrap(), env)?;
                     if typ.is_void() {
-                        Err(Box::new(CodeGenError::return_type_mismatch(pos.clone(), ret_type.clone(), Type::Void)))
+                        Err(Box::new(CodeGenError::return_type_mismatch(ret_type.clone(), Type::Void, pos.clone())))
                     }else{
                         if *ret_type == typ {
                             // 最後の文が、ifのとき、ラベルif.endの後にコードが生成されないのでセグフォが起きることへのケア
@@ -2724,7 +2724,7 @@ println!("gen_cost_expr. init: {:?}", init);
 
                             Ok(())
                         }else{
-                            Err(Box::new(CodeGenError::return_type_mismatch(pos.clone(), ret_type.clone(), typ)))
+                            Err(Box::new(CodeGenError::return_type_mismatch(ret_type.clone(), typ, pos.clone())))
                         }
 
                     }
@@ -2733,12 +2733,12 @@ println!("gen_cost_expr. init: {:?}", init);
                     // if let Some(typ) = self.calc_ret_type(stmt, env)? {
                     let typ = self.calc_ret_type(stmt, env)?;
                     if typ.is_void() {
-                        Err(Box::new(CodeGenError::return_type_mismatch(stmt.get_position().clone(), ret_type.clone(), Type::Void)))
+                        Err(Box::new(CodeGenError::return_type_mismatch(ret_type.clone(), Type::Void, stmt.get_position().clone())))
                     }else{
                         if *ret_type == typ {
                             Ok(())
                         }else{
-                            Err(Box::new(CodeGenError::return_type_mismatch(stmt.get_position().clone(), ret_type.clone(), typ)))
+                            Err(Box::new(CodeGenError::return_type_mismatch(ret_type.clone(), typ, stmt.get_position().clone())))
                         }
                     }
 

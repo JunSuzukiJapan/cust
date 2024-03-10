@@ -309,19 +309,19 @@ impl<'ctx> Env<'ctx> {
 
     pub fn insert_typedef(&mut self, key: &str, typ: &Type, ctx: &'ctx Context, pos: &Position) -> Result<(), Box<dyn Error>> {
         if let Some(_any_type_enum) = self.types.get(key) {
-            return Err(Box::new(CodeGenError::already_type_defined_in_typedef(pos.clone(), typ, key)));
+            return Err(Box::new(CodeGenError::already_type_defined_in_typedef(typ, key, pos.clone())));
         }
 
         let type_or_union = match typ {
             Type::Symbol(name) => {
-                let t = self.get_type(name).ok_or(CodeGenError::no_such_a_type(pos.clone(), name))?;
+                let t = self.get_type(name).ok_or(CodeGenError::no_such_a_type(name, pos.clone()))?;
                 t.clone()
             },
             Type::Struct { name, fields } => {
                 if let Some(struct_name) = name {
                     if let Some(t) = self.get_type(struct_name) {
                         if ! t.is_struct_type() {
-                            return  Err(Box::new(CodeGenError::already_type_defined_in_typedef(pos.clone(), typ, struct_name)));
+                            return  Err(Box::new(CodeGenError::already_type_defined_in_typedef(typ, struct_name, pos.clone())));
                         }
 
                         self.types.insert(key.to_string(), (t.clone(), None));
@@ -336,7 +336,7 @@ impl<'ctx> Env<'ctx> {
                 if let Some(id) = name {
                     if let Some(t) = self.get_type(id) {
                         if ! t.is_union_type() {
-                            return  Err(Box::new(CodeGenError::already_type_defined_in_typedef(pos.clone(), typ, id)));
+                            return  Err(Box::new(CodeGenError::already_type_defined_in_typedef(typ, id, pos.clone())));
                         }
 
                         self.types.insert(key.to_string(), (t.clone(), None));
@@ -369,15 +369,15 @@ impl<'ctx> Env<'ctx> {
                                 if let Ok(basic_type) = BasicTypeEnum::try_from(*t) {
                                     Ok(basic_type)
                                 }else{
-                                    Err(Box::new(CodeGenError::mismatch_type_struct_fields(pos.clone(), Some(id))))
+                                    Err(Box::new(CodeGenError::mismatch_type_struct_fields(Some(id), pos.clone())))
                                 }
                             },
                             TypeOrUnion::Union { max_size_type, .. } => {
-                                let t = max_size_type.ok_or(CodeGenError::union_has_no_field(pos.clone(), None))?;
+                                let t = max_size_type.ok_or(CodeGenError::union_has_no_field(None, pos.clone()))?;
                                 if let Ok(basic_type) = BasicTypeEnum::try_from(t) {
                                     Ok(basic_type)
                                 }else{
-                                    Err(Box::new(CodeGenError::mismatch_type_union_fields(pos.clone(), Some(id))))
+                                    Err(Box::new(CodeGenError::mismatch_type_union_fields(Some(id), pos.clone())))
                                 }
                             },
                             TypeOrUnion::StandardEnum { i32_type, .. } => {
@@ -403,15 +403,15 @@ impl<'ctx> Env<'ctx> {
                                 if let Ok(basic_type) = BasicTypeEnum::try_from(*t) {
                                     Ok(basic_type)
                                 }else{
-                                    Err(Box::new(CodeGenError::mismatch_type_struct_fields(pos.clone(), Some(id))))
+                                    Err(Box::new(CodeGenError::mismatch_type_struct_fields(Some(id), pos.clone())))
                                 }
                             },
                             TypeOrUnion::Union { max_size_type, .. } => {
-                                let t = max_size_type.ok_or(CodeGenError::union_has_no_field(pos.clone(), None))?;
+                                let t = max_size_type.ok_or(CodeGenError::union_has_no_field(None, pos.clone()))?;
                                 if let Ok(basic_type) = BasicTypeEnum::try_from(t) {
                                     Ok(basic_type)
                                 }else{
-                                    Err(Box::new(CodeGenError::mismatch_type_union_fields(pos.clone(), Some(id))))
+                                    Err(Box::new(CodeGenError::mismatch_type_union_fields(Some(id), pos.clone())))
                                 }
                             },
                             TypeOrUnion::StandardEnum { i32_type, .. } => {
@@ -420,12 +420,12 @@ impl<'ctx> Env<'ctx> {
                         }
                     }else{
                         let (_type_list, _index_map, _max_size, max_size_type_opt) = CodeGen::union_from_struct_definition(&None, fields, ctx, pos)?;
-                        let max_size_type = max_size_type_opt.ok_or(CodeGenError::union_has_no_field(pos.clone(), None))?;
+                        let max_size_type = max_size_type_opt.ok_or(CodeGenError::union_has_no_field(None, pos.clone()))?;
                         Ok(max_size_type)
                     }
                 }else{
                     let (_type_list, _index_map, _max_size, max_size_type_opt) = CodeGen::union_from_struct_definition(&None, fields, ctx, pos)?;
-                    let max_size_type = max_size_type_opt.ok_or(CodeGenError::union_has_no_field(pos.clone(), None))?;
+                    let max_size_type = max_size_type_opt.ok_or(CodeGenError::union_has_no_field(None, pos.clone()))?;
                     Ok(max_size_type)
                 }
             },
@@ -445,7 +445,7 @@ impl<'ctx> Env<'ctx> {
 
     pub fn insert_struct(&mut self, key: &str, struct_type: &StructType<'ctx>, index_map: HashMap<String, usize>, pos: &Position) -> Result<(), CodeGenError> {
         if let Some(_any_type_enum) = self.types.get(key) {
-            return Err(CodeGenError::already_type_defined_in_struct(pos.clone(), key));
+            return Err(CodeGenError::already_type_defined_in_struct(key, pos.clone()));
         }
 
         self.types.insert(key.to_string(), (TypeOrUnion::Type(struct_type.as_any_type_enum()), Some(index_map)));
@@ -463,7 +463,7 @@ impl<'ctx> Env<'ctx> {
       ) -> Result<(), CodeGenError>
     {
         if let Some(_any_type_enum) = self.types.get(key) {
-            return Err(CodeGenError::already_type_defined_in_union(pos.clone(), key));
+            return Err(CodeGenError::already_type_defined_in_union(key, pos.clone()));
         }
 
         let type_or_union = TypeOrUnion::Union { type_list, index_map: index_map.clone(), max_size, max_size_type };
@@ -474,7 +474,7 @@ impl<'ctx> Env<'ctx> {
 
     pub fn insert_enum(&mut self, key: &str, enum_type: &IntType<'ctx>, enumerator_list: Vec<(String, IntValue<'ctx>)>, index_map: HashMap<String, usize>, pos: &Position) -> Result<(), CodeGenError> {
         if let Some(_any_type_enum) = self.types.get(key) {
-            return Err(CodeGenError::already_type_defined_in_struct(pos.clone(), key));
+            return Err(CodeGenError::already_type_defined_in_struct(key, pos.clone()));
         }
 
         for (id, val) in &enumerator_list {
@@ -600,7 +600,7 @@ impl<'ctx> Env<'ctx> {
                 if let Some((typ, _pointer)) = self.get_ptr(name) {
                     Ok(typ.is_signed()?)
                 }else{
-                    Err(CodeGenError::condition_is_not_number(ast.get_position().clone(), ast))
+                    Err(CodeGenError::condition_is_not_number(ast, ast.get_position().clone()))
                 }
             },
             _ => Ok(ast.is_signed()?),
