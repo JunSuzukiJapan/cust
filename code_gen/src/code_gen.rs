@@ -4,7 +4,7 @@ use crate::parser::{AST, ExprAST, BinOp, Type, Pointer, Block, Params, StructDef
 use crate::parser::{Declaration, DeclarationSpecifier, CustFunctionType, Initializer};
 use super::{CompiledValue, CodeGenError};
 use super::Env;
-use super::env::{BreakCatcher, ContinueCatcher, TypeOrUnion};
+use super::env::{BreakCatcher, ContinueCatcher};
 use super::caster::Caster;
 use super::type_util::TypeUtil;
 #[cfg(test)]
