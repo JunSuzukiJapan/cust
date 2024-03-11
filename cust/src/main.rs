@@ -745,7 +745,7 @@ END: ;
             return 0;
         }
     ";
-*/
+
     let src = "
         typedef union foo {
             int i_value;
@@ -764,8 +764,8 @@ END: ;
             return i;
         }
     ";
+*/
 
-/*
     let src = "
         typedef struct circle {
             int radius;
@@ -789,7 +789,7 @@ END: ;
 
         }
     ";
-*/
+
 
     // tokenize
     let tokenized = Tokenizer::tokenize(src).unwrap();
