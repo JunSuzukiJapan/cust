@@ -747,7 +747,7 @@ impl<'ctx> CodeGen<'ctx> {
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
-println!("gen_cost_expr. init: {:?}", init);
+
         match init {
             Initializer::Simple(expr, _pos) => self.gen_expr(expr, env, break_catcher, continue_catcher),
             Initializer::Array(_list, _typ, _pos) => {
@@ -2278,7 +2278,7 @@ println!("gen_cost_expr. init: {:?}", init);
 
                 match &typ {
                     Type::Struct {name, fields} => {
-                        let index = fields.get_index(member_name).ok_or(CodeGenError::no_such_a_member(member_name, pos.clone()))?;
+                        let index = fields.get_index(member_name).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
                         let elem_type = fields.get_type(member_name).unwrap();
                         let msg = if let Some(id) = &name {
                             format!("struct_{}.{}", id, member_name)
@@ -2294,26 +2294,32 @@ println!("gen_cost_expr. init: {:?}", init);
                         }
                     },
                     Type::Union { name, fields } => {
-                        if let Some(id) = name {
-                            let type_or_union = env.get_type(&id).ok_or(CodeGenError::no_such_a_member(member_name, pos.clone()))?;
-                            match type_or_union {
-                                TypeOrUnion::Union { type_list, index_map, max_size: _, max_size_type: _ } => {
-                                    let idx = index_map[member_name];
-                                    let (typ, to_type) = &type_list[idx];
-                                    let ptr_type = to_type.ptr_type(AddressSpace::default());
+                        let typ = fields.get_type(member_name).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
+                        let to_type = TypeUtil::to_basic_type_enum(typ, self.context, pos)?;
+                        let ptr_type = to_type.ptr_type(AddressSpace::default());
+                        let p = ptr.const_cast(ptr_type);
+                        Ok((typ.clone(), p))
 
-                                    let p = ptr.const_cast(ptr_type);
-                                    Ok((typ.clone(), p))
-                                },
-                                _ => return Err(Box::new(CodeGenError::not_union(&id, pos.clone()))),
-                            }
-                        }else{
-                            let typ = fields.get_type(member_name).ok_or(CodeGenError::no_such_a_member(member_name, pos.clone()))?;
-                            let to_type = TypeUtil::to_basic_type_enum(typ, self.context, pos)?;
-                            let ptr_type = to_type.ptr_type(AddressSpace::default());
-                            let p = ptr.const_cast(ptr_type);
-                            Ok((typ.clone(), p))
-                        }
+                        // if let Some(id) = name {
+                        //     let type_or_union = env.get_type(&id).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
+                        //     match type_or_union {
+                        //         TypeOrUnion::Union { type_list, index_map, max_size: _, max_size_type: _ } => {
+                        //             let idx = index_map[member_name];
+                        //             let (typ, to_type) = &type_list[idx];
+                        //             let ptr_type = to_type.ptr_type(AddressSpace::default());
+
+                        //             let p = ptr.const_cast(ptr_type);
+                        //             Ok((typ.clone(), p))
+                        //         },
+                        //         _ => return Err(Box::new(CodeGenError::not_union(&id, pos.clone()))),
+                        //     }
+                        // }else{
+                        //     let typ = fields.get_type(member_name).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
+                        //     let to_type = TypeUtil::to_basic_type_enum(typ, self.context, pos)?;
+                        //     let ptr_type = to_type.ptr_type(AddressSpace::default());
+                        //     let p = ptr.const_cast(ptr_type);
+                        //     Ok((typ.clone(), p))
+                        // }
                     },
                     Type::Pointer(_, _elem_type) => {
                         match ast {
@@ -2339,7 +2345,7 @@ println!("gen_cost_expr. init: {:?}", init);
                                 };
                                 match &typ {
                                     Type::Struct {name, fields} => {
-                                        let index = fields.get_index(member_name).ok_or(CodeGenError::no_such_a_member(member_name, pos.clone()))?;
+                                        let index = fields.get_index(member_name).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
                                         let elem_type = fields.get_type(member_name).unwrap();
                                         let msg = if let Some(id) = &name {
                                             format!("struct_{}.{}", id, member_name)
@@ -2355,26 +2361,32 @@ println!("gen_cost_expr. init: {:?}", init);
                                         }
                                     },
                                     Type::Union { name, fields } => {
-                                        if let Some(id) = name {
-                                            let type_or_union = env.get_type(&id).ok_or(CodeGenError::no_such_a_member(member_name, pos.clone()))?;
-                                            match type_or_union {
-                                                TypeOrUnion::Union { type_list, index_map, max_size: _, max_size_type: _ } => {
-                                                    let idx = index_map[member_name];
-                                                    let (typ, to_type) = &type_list[idx];
-                                                    let ptr_type = to_type.ptr_type(AddressSpace::default());
+                                        let typ = fields.get_type(member_name).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
+                                        let to_type = TypeUtil::to_basic_type_enum(typ, self.context, pos)?;
+                                        let ptr_type = to_type.ptr_type(AddressSpace::default());
+                                        let p = ptr.const_cast(ptr_type);
+                                        Ok((typ.clone(), p))
+
+                                        // if let Some(id) = name {
+                                        //     let type_or_union = env.get_type(&id).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
+                                        //     match type_or_union {
+                                        //         TypeOrUnion::Union { type_list, index_map, max_size: _, max_size_type: _ } => {
+                                        //             let idx = index_map[member_name];
+                                        //             let (typ, to_type) = &type_list[idx];
+                                        //             let ptr_type = to_type.ptr_type(AddressSpace::default());
                 
-                                                    let p = ptr.const_cast(ptr_type);
-                                                    Ok((typ.clone(), p))
-                                                },
-                                                _ => return Err(Box::new(CodeGenError::not_union(&id, pos.clone()))),
-                                            }
-                                        }else{
-                                            let typ = fields.get_type(member_name).ok_or(CodeGenError::no_such_a_member(member_name, pos.clone()))?;
-                                            let to_type = TypeUtil::to_basic_type_enum(typ, self.context, pos)?;
-                                            let ptr_type = to_type.ptr_type(AddressSpace::default());
-                                            let p = ptr.const_cast(ptr_type);
-                                            Ok((typ.clone(), p))
-                                        }
+                                        //             let p = ptr.const_cast(ptr_type);
+                                        //             Ok((typ.clone(), p))
+                                        //         },
+                                        //         _ => return Err(Box::new(CodeGenError::not_union(&id, pos.clone()))),
+                                        //     }
+                                        // }else{
+                                        //     let typ = fields.get_type(member_name).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
+                                        //     let to_type = TypeUtil::to_basic_type_enum(typ, self.context, pos)?;
+                                        //     let ptr_type = to_type.ptr_type(AddressSpace::default());
+                                        //     let p = ptr.const_cast(ptr_type);
+                                        //     Ok((typ.clone(), p))
+                                        // }
                                     },
                                     _ => {
                                         Err(Box::new(CodeGenError::has_not_member(typ.to_string(), member_name.to_string(), pos.clone())))
@@ -2400,8 +2412,8 @@ println!("gen_cost_expr. init: {:?}", init);
                 let pointed_type = typ.get_pointed_type(pos)?;
 
                 match pointed_type {
-                    Type::Struct {fields, ..} => {
-                        let index = fields.get_index(member_name).ok_or(CodeGenError::no_such_a_member(member_name, pos.clone()))?;
+                    Type::Struct {fields, name} => {
+                        let index = fields.get_index(member_name).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
                         let elem_ptr = self.builder.build_struct_gep(ptr, index as u32, "struct_member_access");
                         if let Ok(p) = elem_ptr {
                             let typ = fields.get_type(member_name).unwrap();
@@ -2411,26 +2423,32 @@ println!("gen_cost_expr. init: {:?}", init);
                         }
                     },
                     Type::Union { name, fields } => {
-                        if let Some(id) = name {
-                            let type_or_union = env.get_type(&id).ok_or(CodeGenError::no_such_a_member(member_name, pos.clone()))?;
-                            match type_or_union {
-                                TypeOrUnion::Union { type_list, index_map, max_size: _, max_size_type: _ } => {
-                                    let idx = index_map[member_name];
-                                    let (typ, to_type) = &type_list[idx];
-                                    let ptr_type = to_type.ptr_type(AddressSpace::default());
+                        let typ = fields.get_type(member_name).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
+                        let to_type = TypeUtil::to_basic_type_enum(typ, self.context, pos)?;
+                        let ptr_type = to_type.ptr_type(AddressSpace::default());
+                        let p = ptr.const_cast(ptr_type);
+                        Ok((typ.clone(), p))
 
-                                    let p = ptr.const_cast(ptr_type);
-                                    Ok((typ.clone(), p))
-                                },
-                                _ => return Err(Box::new(CodeGenError::not_union(&id, pos.clone()))),
-                            }
-                        }else{
-                            let typ = fields.get_type(member_name).ok_or(CodeGenError::no_such_a_member(member_name, pos.clone()))?;
-                            let to_type = TypeUtil::to_basic_type_enum(typ, self.context, pos)?;
-                            let ptr_type = to_type.ptr_type(AddressSpace::default());
-                            let p = ptr.const_cast(ptr_type);
-                            Ok((typ.clone(), p))
-                        }
+                        // if let Some(id) = name {
+                        //     let type_or_union = env.get_type(&id).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
+                        //     match type_or_union {
+                        //         TypeOrUnion::Union { type_list, index_map, max_size: _, max_size_type: _ } => {
+                        //             let idx = index_map[member_name];
+                        //             let (typ, to_type) = &type_list[idx];
+                        //             let ptr_type = to_type.ptr_type(AddressSpace::default());
+
+                        //             let p = ptr.const_cast(ptr_type);
+                        //             Ok((typ.clone(), p))
+                        //         },
+                        //         _ => return Err(Box::new(CodeGenError::not_union(&id, pos.clone()))),
+                        //     }
+                        // }else{
+                        //     let typ = fields.get_type(member_name).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
+                        //     let to_type = TypeUtil::to_basic_type_enum(typ, self.context, pos)?;
+                        //     let ptr_type = to_type.ptr_type(AddressSpace::default());
+                        //     let p = ptr.const_cast(ptr_type);
+                        //     Ok((typ.clone(), p))
+                        // }
                     },
                     _ => {
                         Err(Box::new(CodeGenError::has_not_member(pointed_type.to_string(), member_name.to_string(), pos.clone())))

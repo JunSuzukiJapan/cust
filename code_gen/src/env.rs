@@ -338,7 +338,7 @@ impl<'ctx> Env<'ctx> {
                         if ! t.is_union_type() {
                             return  Err(Box::new(CodeGenError::already_type_defined_in_typedef(typ, id, pos.clone())));
                         }
-
+println!("insert Union '{id}'. {:?}", t);
                         self.types.insert(key.to_string(), (t.clone(), None));
                         return  Ok(());
                     }

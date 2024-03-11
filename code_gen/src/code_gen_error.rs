@@ -58,7 +58,7 @@ pub enum CodeGenError {
     NotIntBitOr(Type, Position),
     NotIntBitXor(Type, Position),
     AssignIllegalValue(ExprAST, Position),
-    NoSuchAMember(String, Position),
+    NoSuchAMember(Option<String>, String, Position),  // (type name, member name, position)
     CannotAccessStructMember(String, Position),
     NotUnion(String, Position),
     NoIndexValueWhileAccessArray(Position),
@@ -277,8 +277,12 @@ impl CodeGenError {
         Self::AssignIllegalValue(expr.clone(), pos)
     }
 
-    pub fn no_such_a_member(id: &str, pos: Position) -> Self {
-        Self::NoSuchAMember(id.to_string(), pos)
+    pub fn no_such_a_member(type_name: &Option<String>, member_name: &str, pos: Position) -> Self {
+        if let Some(name) = type_name {
+            Self::NoSuchAMember(Some(name.to_string()), member_name.to_string(), pos)
+        }else{
+            Self::NoSuchAMember(None, member_name.to_string(), pos)
+        }
     }
 
     pub fn cannot_access_struct_member(id: &str, pos: Position) -> Self {
@@ -559,8 +563,12 @@ impl fmt::Display for CodeGenError {
             Self::AssignIllegalValue(expr_ast, _pos) => {
                 write!(f, "assign illegal value {:?}", expr_ast)
             },
-            Self::NoSuchAMember(id, _pos) => {
-                write!(f, "no such a member '{id}'")
+            Self::NoSuchAMember(opt_type_name, member_name, _pos) => {
+                if let Some(id) = opt_type_name {
+                    write!(f, "no such a member '{member_name}' in {}", id)
+                }else{
+                    write!(f, "no such a member '{member_name}'")
+                }
             },
             Self::CannotAccessStructMember(id, _pos) => {
                 write!(f, "{id} cannot access struct member")

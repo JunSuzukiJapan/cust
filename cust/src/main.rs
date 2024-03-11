@@ -708,11 +708,10 @@ END: ;
     let src = "
         int printf(char* format, ...);
 
-        struct date {
+        typedef struct date {
             int year, month;
             int day;
-        };
-        typedef struct date Date;
+        } Date;
 
         Date days[2][3] = {{{2024, 1, 1},
                             {2024, 1, 2},
@@ -747,14 +746,11 @@ END: ;
         }
     ";
 */
-
     let src = "
-        union foo {
+        typedef union foo {
             int i_value;
             double d_value;
-        };
-
-        typedef union foo Bar;
+        } Bar;
 
         int test() {
             Bar bar;
@@ -768,6 +764,32 @@ END: ;
             return i;
         }
     ";
+
+/*
+    let src = "
+        typedef struct circle {
+            int radius;
+        } Circle;
+        
+        impl Circle {
+            const int PI100 = 314;
+        
+            Circle new(int radius) {
+                Circle c = {radius};
+        
+                return c;
+            }
+        
+            int area() {
+                return self.radius * Self::PI100 / 100;
+            }
+        }
+
+        int test() {
+
+        }
+    ";
+*/
 
     // tokenize
     let tokenized = Tokenizer::tokenize(src).unwrap();

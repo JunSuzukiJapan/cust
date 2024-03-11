@@ -289,7 +289,6 @@ impl Parser {
     }
 
     fn parse_impl(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<AST>, ParserError> {
-        // let (tok, pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
         let (tok, pos) = iter.peek().unwrap();
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
         if *tok != Token::Impl {
@@ -310,7 +309,7 @@ impl Parser {
                 return Err(ParserError::not_symbol_while_parsing_impl(pos.clone()));
             },
         };
-println!("\nget type {impl_name}");
+
         let impl_type = defs.get_type(impl_name).ok_or(ParserError::no_such_a_type(impl_name, pos.clone()))?.clone();
         defs.set_self_type(&impl_type)?;
 
