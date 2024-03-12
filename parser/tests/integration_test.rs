@@ -486,7 +486,7 @@ mod tests {
         let ast = parse_external_declaration_from_str(src).unwrap().unwrap();
 
         match ast {
-            AST::FunProto(FunProto {specifiers, declarator, params}, _pos) => {
+            ToplevelAST::FunProto(FunProto {specifiers, declarator, params}, _pos) => {
                 let name = declarator.get_name();
                 let ret_type = specifiers.get_type();
                 assert_eq!(*name, "add".to_string());
@@ -518,7 +518,7 @@ mod tests {
         let ast = parse_external_declaration_from_str(src).unwrap().unwrap();
 
         match ast {
-            AST::Function(Function {specifiers, declarator, params, body, labels: _}, _pos) => {
+            ToplevelAST::Function(Function {specifiers, declarator, params, body, labels: _}, _pos) => {
                 let name = declarator.get_name();
                 let ret_type = specifiers.get_type();
                 assert_eq!(*name, "add".to_string());
@@ -568,7 +568,7 @@ mod tests {
         let ast = parse_external_declaration_from_str(src).unwrap().unwrap();
 
         match ast {
-            AST::Function(Function {specifiers, declarator, params, body, labels: _}, _pos) => {
+            ToplevelAST::Function(Function {specifiers, declarator, params, body, labels: _}, _pos) => {
                 let name = declarator.get_name();
                 let ret_type = specifiers.get_type();
                 assert_eq!(*name, "foo".to_string());
@@ -652,7 +652,7 @@ mod tests {
         let ast = parse_external_declaration_from_str(src).unwrap().unwrap();
 
         match ast {
-            AST::Function(Function {specifiers, declarator, params, body, labels: _}, _pos) => {
+            ToplevelAST::Function(Function {specifiers, declarator, params, body, labels: _}, _pos) => {
                 let name = declarator.get_name();
                 let ret_type = specifiers.get_type();
                 assert_eq!(*name, "foo".to_string());
@@ -743,7 +743,7 @@ mod tests {
         //
         // test first statement
         //
-        if let AST::DefineStruct {name: Some(id), fields, pos: _} = &list[0] {
+        if let ToplevelAST::DefineStruct {name: Some(id), fields, pos: _} = &list[0] {
             assert_eq!(*id, "date".to_string());
 
             let fields = fields.get_fields().unwrap();
@@ -779,7 +779,7 @@ mod tests {
         //
         // test 2nd statement
         //
-        if let AST::TypeDef(name, Type::Struct {name: Some(id), fields}, _pos) = &list[1] {
+        if let ToplevelAST::TypeDef(name, Type::Struct {name: Some(id), fields}, _pos) = &list[1] {
             assert_eq!(*name, "Date".to_string());
             assert_eq!(*id, "date".to_string());
             assert!(fields.has_fields());
@@ -791,7 +791,7 @@ mod tests {
         //
         // test 3rd statement
         //
-        if let AST::Function(Function {specifiers, declarator, params, body, labels: _}, _pos) = &list[2] {
+        if let ToplevelAST::Function(Function {specifiers, declarator, params, body, labels: _}, _pos) = &list[2] {
             let name = declarator.get_name();
             let ret_type = specifiers.get_type();
             assert_eq!(*name, "foo".to_string());
@@ -994,7 +994,7 @@ mod tests {
         let ast = parse_external_declaration_from_str(src).unwrap().unwrap();
 
         match ast {
-            AST::GlobalDefVar { specifiers: DeclarationSpecifier {typ, specifier_qualifier}, declaration, pos: _ } => {
+            ToplevelAST::GlobalDefVar { specifiers: DeclarationSpecifier {typ, specifier_qualifier}, declaration, pos: _ } => {
                 assert_eq!(typ, Type::Number(NumberType::Int));
                 assert_eq!(specifier_qualifier, SpecifierQualifier::new());
 
@@ -1031,7 +1031,7 @@ mod tests {
         let ast = parse_external_declaration_from_str(src).unwrap().unwrap();
 
         match ast {
-            AST::GlobalDefVar { specifiers: DeclarationSpecifier {typ, specifier_qualifier}, declaration, pos: _ } => {
+            ToplevelAST::GlobalDefVar { specifiers: DeclarationSpecifier {typ, specifier_qualifier}, declaration, pos: _ } => {
                 assert_eq!(typ, Type::Number(NumberType::Int));
                 assert_eq!(specifier_qualifier, SpecifierQualifier::new());
 
@@ -1075,7 +1075,7 @@ mod tests {
         let ast = parse_external_declaration_from_str(src).unwrap().unwrap();
 
         match ast {
-            AST::GlobalDefVar { specifiers: DeclarationSpecifier {typ, specifier_qualifier}, declaration, pos: _ } => {
+            ToplevelAST::GlobalDefVar { specifiers: DeclarationSpecifier {typ, specifier_qualifier}, declaration, pos: _ } => {
                 let int_pointer_type = Type::Pointer(
                     Pointer {
                         is_const: false,

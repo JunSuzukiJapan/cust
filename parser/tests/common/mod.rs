@@ -16,7 +16,7 @@ pub fn parse_expression_from_str(src: &str) -> Result<Option<ExprAST>, ParserErr
     parser.parse_expression(&mut iter, &mut defs, &mut Some(&mut labels))
 }
 
-pub fn parse_external_declaration_from_str(src: &str) -> Result<Option<AST>, ParserError> {
+pub fn parse_external_declaration_from_str(src: &str) -> Result<Option<ToplevelAST>, ParserError> {
     let token_list = Tokenizer::tokenize(src).unwrap();
     let mut iter = token_list.iter().peekable();
     let parser = Parser::new();
@@ -25,7 +25,7 @@ pub fn parse_external_declaration_from_str(src: &str) -> Result<Option<AST>, Par
     parser.parse_external_declaration(&mut iter, &mut defs, &mut Some(&mut labels))
 }
 
-pub fn parse_translation_unit_from_str(src: &str) -> Result<Vec<AST>, ParserError> {
+pub fn parse_translation_unit_from_str(src: &str) -> Result<Vec<ToplevelAST>, ParserError> {
     let token_list = Tokenizer::tokenize(src).unwrap();
     let mut iter = token_list.iter().peekable();
     let parser = Parser::new();

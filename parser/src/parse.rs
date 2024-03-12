@@ -2,7 +2,7 @@
 
 use super::{Position, Token};
 use super::ParserError;
-use super::ast::{AST, ExprAST, Block, Param, Params, BinOp, TypeQualifier, DeclarationSpecifier, SpecifierQualifier, Declarator, DirectDeclarator, Initializer};
+use super::ast::{AST, ToplevelAST, ExprAST, Block, Param, Params, BinOp, TypeQualifier, DeclarationSpecifier, SpecifierQualifier, Declarator, DirectDeclarator, Initializer};
 use super::ast::{DeclarationSpecifierOrVariadic, Declaration, StructDeclaration, StructDeclarator, AbstractDeclarator, DirectAbstractDeclarator};
 use super::ConstExpr;
 use super::types::*;
@@ -20,7 +20,7 @@ impl Parser {
         Parser
     }
 
-    pub fn parse(input: Vec<(Token, Position)>) -> Result<Vec<AST>, ParserError> {
+    pub fn parse(input: Vec<(Token, Position)>) -> Result<Vec<ToplevelAST>, ParserError> {
         let mut iter = input.iter().peekable();
         let parser = Parser::new();
         let mut defs = Defines::new();
@@ -28,20 +28,23 @@ impl Parser {
         parser.parse_translation_unit(&mut iter, &mut defs)
     }
 
-    pub fn parse_translation_unit(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Vec<AST>, ParserError> {
+    pub fn parse_translation_unit(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Vec<ToplevelAST>, ParserError> {
         let mut declarations = Vec::new();
         let mut labels = Vec::new();
 
         while let Some((tok, _pos)) = iter.peek() {
             if tok.is_eof() { break; }
-            if let Some(mut decl) = self.parse_external_declaration(iter, defs, &mut Some(&mut labels))? {
-                match decl {
-                    AST::DefVar {specifiers, declarations: declaration, pos} => {
-                        decl = AST::GlobalDefVar{specifiers, declaration, pos};
-                    },
-                    _ => {
-                    },
-                }
+            // if let Some(mut decl) = self.parse_external_declaration(iter, defs, &mut Some(&mut labels))? {
+            //     match decl {
+            //         AST::DefVar {specifiers, declarations: declaration, pos} => {
+            //             decl = ToplevelAST::GlobalDefVar{specifiers, declaration, pos};
+            //         },
+            //         _ => {
+            //         },
+            //     }
+            //     declarations.push(decl);
+            // }
+            if let Some(decl) = self.parse_external_declaration(iter, defs, &mut Some(&mut labels))? {
                 declarations.push(decl);
             }
         }
@@ -49,7 +52,7 @@ impl Parser {
         Ok(declarations)
     }
 
-    fn make_global_def_var(&self, ds: DeclarationSpecifier, declarations: Vec<Declaration>, defs: &mut Defines, pos: &Position) -> Result<AST, ParserError> {
+    fn make_global_def_var(&self, ds: DeclarationSpecifier, declarations: Vec<Declaration>, defs: &mut Defines, pos: &Position) -> Result<ToplevelAST, ParserError> {
         let typ = ds.get_type();
 
         for declaration in &declarations {
@@ -63,14 +66,14 @@ impl Parser {
             defs.set_var(name, typ, init, pos)?;
         }
 
-        Ok(AST::GlobalDefVar {
+        Ok(ToplevelAST::GlobalDefVar {
             specifiers: ds,
             declaration: declarations,
             pos: pos.clone(),
         })
     }
 
-    fn make_global_def_array(&self, ds: DeclarationSpecifier, declarations: Vec<Declaration>, size_list: &Vec<usize>, defs: &mut Defines, pos: &Position) -> Result<AST, ParserError> {
+    fn make_global_def_array(&self, ds: DeclarationSpecifier, declarations: Vec<Declaration>, size_list: &Vec<usize>, defs: &mut Defines, pos: &Position) -> Result<ToplevelAST, ParserError> {
         let typ = ds.get_type();
 
         for declaration in &declarations {
@@ -85,7 +88,7 @@ impl Parser {
             defs.set_var(name, &array_type, init, pos)?;
         }
 
-        Ok(AST::GlobalDefVar {
+        Ok(ToplevelAST::GlobalDefVar {
             specifiers: ds,
             declaration: declarations,
             pos: pos.clone(),
@@ -109,7 +112,7 @@ impl Parser {
         Ok((ds, declarations))
     }
 
-    pub fn  parse_external_declaration(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<AST>, ParserError> {
+    pub fn  parse_external_declaration(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ToplevelAST>, ParserError> {
         let (tok, pos) = iter.peek().unwrap();
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
 
@@ -127,13 +130,13 @@ impl Parser {
 
             match ds.get_type() {
                 Type::Struct { name, fields } => {
-                    return Ok(Some(AST::DefineStruct{name: name.clone(), fields: fields.clone(), pos: pos.clone()}));
+                    return Ok(Some(ToplevelAST::DefineStruct{name: name.clone(), fields: fields.clone(), pos: pos.clone()}));
                 },
                 Type::Union { name, fields } => {
-                    return Ok(Some(AST::DefineUnion{name: name.clone(), fields: fields.clone(), pos: pos.clone()}));
+                    return Ok(Some(ToplevelAST::DefineUnion{name: name.clone(), fields: fields.clone(), pos: pos.clone()}));
                 },
                 Type::Enum { name, enum_def } => {
-                    return Ok(Some(AST::DefineEnum {name: name.clone(), fields: enum_def.clone(), pos: pos.clone()}));
+                    return Ok(Some(ToplevelAST::DefineEnum {name: name.clone(), fields: enum_def.clone(), pos: pos.clone()}));
                 }
                 _ => {
                     println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
@@ -151,7 +154,7 @@ impl Parser {
             let name = decl.get_name();
             defs.set_typedef(&name, typ, pos)?;
 
-            Ok(Some(AST::TypeDef(name.to_string(), typ.clone(), pos.clone())))
+            Ok(Some(ToplevelAST::TypeDef(name.to_string(), typ.clone(), pos.clone())))
         }else{
             let (tok, pos) = iter.peek().unwrap();
             if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
@@ -160,7 +163,7 @@ impl Parser {
         }
     }
 
-    fn process_declarator(&self, decl: Declarator, opt_initializer: Option<Initializer>, ds: &DeclarationSpecifier, tok: &Token, pos: &Position, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) ->  Result<Option<AST>, ParserError> {
+    fn process_declarator(&self, decl: Declarator, opt_initializer: Option<Initializer>, ds: &DeclarationSpecifier, tok: &Token, pos: &Position, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) ->  Result<Option<ToplevelAST>, ParserError> {
         match decl.get_direct_declarator() {
             DirectDeclarator::Symbol(_id, _pos2) => {
                 match tok {
@@ -245,7 +248,7 @@ impl Parser {
                     Token::SemiColon => {  // pre function definition
                         iter.next();  // skip ';'
 
-                        let proto = AST::FunProto(FunProto {
+                        let proto = ToplevelAST::FunProto(FunProto {
                                 specifiers: ds.clone(),
                                 declarator: decl.clone(),
                                 params: params.clone(),
@@ -262,7 +265,7 @@ impl Parser {
                         let mut labels = Vec::new();
                         let block = self.parse_compound_statement(iter, defs, &mut Some(&mut labels))?;
 
-                        let func = AST::Function(Function {
+                        let func = ToplevelAST::Function(Function {
                                 specifiers: ds.clone(),
                                 declarator: decl.clone(),
                                 params: params.clone(),
@@ -3041,7 +3044,7 @@ println!("opt_name: {:?}", opt_name);
         }
     }
 
-    fn parse_impl(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<AST>, ParserError> {
+    fn parse_impl(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ToplevelAST>, ParserError> {
         let (tok, pos) = iter.peek().unwrap();
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
         if *tok != Token::Impl {
@@ -3102,11 +3105,11 @@ println!("opt_name: {:?}", opt_name);
         let functions = self.parse_impl_functions(iter, defs, labels)?;
         // let decl = self.parse_impl_declaration(iter, defs, labels)?;
         self.parse_expected_token(iter, Token::BraceRight)?;
-        let ast_impl = AST::new_impl(impl_name, impl_type, for_something, functions, pos);
+        let ast_impl = ToplevelAST::new_impl(impl_name, impl_type, for_something, functions, pos);
         Ok(Some(ast_impl))
     }
 
-    pub fn  parse_impl_declaration(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<AST>, ParserError> {
+    pub fn  parse_impl_declaration(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ToplevelAST>, ParserError> {
         // let (tok, pos) = iter.peek().unwrap();
         // if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
         // if *tok != Token::BraceLeft {
@@ -3152,13 +3155,13 @@ println!("opt_name: {:?}", opt_name);
 
             match ds.get_type() {
                 Type::Struct { name, fields } => {
-                    return Ok(Some(AST::DefineStruct{name: name.clone(), fields: fields.clone(), pos: pos.clone()}));
+                    return Ok(Some(ToplevelAST::DefineStruct{name: name.clone(), fields: fields.clone(), pos: pos.clone()}));
                 },
                 Type::Union { name, fields } => {
-                    return Ok(Some(AST::DefineUnion{name: name.clone(), fields: fields.clone(), pos: pos.clone()}));
+                    return Ok(Some(ToplevelAST::DefineUnion{name: name.clone(), fields: fields.clone(), pos: pos.clone()}));
                 },
                 Type::Enum { name, enum_def } => {
-                    return Ok(Some(AST::DefineEnum {name: name.clone(), fields: enum_def.clone(), pos: pos.clone()}));
+                    return Ok(Some(ToplevelAST::DefineEnum {name: name.clone(), fields: enum_def.clone(), pos: pos.clone()}));
                 }
                 _ => {
                     println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
@@ -3176,7 +3179,7 @@ println!("opt_name: {:?}", opt_name);
             let name = decl.get_name();
             defs.set_typedef(&name, typ, pos)?;
 
-            Ok(Some(AST::TypeDef(name.to_string(), typ.clone(), pos.clone())))
+            Ok(Some(ToplevelAST::TypeDef(name.to_string(), typ.clone(), pos.clone())))
         }else{
             let (tok, pos) = iter.peek().unwrap();
             if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
@@ -3185,7 +3188,7 @@ println!("opt_name: {:?}", opt_name);
         }
     }
 
-    fn process_impl_declarator(&self, decl: Declarator, opt_initializer: Option<Initializer>, ds: &DeclarationSpecifier, tok: &Token, pos: &Position, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) ->  Result<Option<AST>, ParserError> {
+    fn process_impl_declarator(&self, decl: Declarator, opt_initializer: Option<Initializer>, ds: &DeclarationSpecifier, tok: &Token, pos: &Position, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) ->  Result<Option<ToplevelAST>, ParserError> {
         match decl.get_direct_declarator() {
             DirectDeclarator::Symbol(_id, _pos2) => {
                 match tok {
@@ -3244,7 +3247,7 @@ println!("opt_name: {:?}", opt_name);
                     Token::SemiColon => {  // pre function definition
                         iter.next();  // skip ';'
 
-                        let proto = AST::FunProto(FunProto {
+                        let proto = ToplevelAST::FunProto(FunProto {
                                 specifiers: ds.clone(),
                                 declarator: decl.clone(),
                                 params: params.clone(),
@@ -3261,7 +3264,7 @@ println!("opt_name: {:?}", opt_name);
                         let mut labels = Vec::new();
                         let block = self.parse_compound_statement(iter, defs, &mut Some(&mut labels))?;
 
-                        let func = AST::Function(Function {
+                        let func = ToplevelAST::Function(Function {
                                 specifiers: ds.clone(),
                                 declarator: decl.clone(),
                                 params: params.clone(),

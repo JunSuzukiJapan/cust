@@ -982,7 +982,7 @@ impl ExprAST {
 
 #[allow(non_camel_case_types)]
 #[derive(Debug, Clone, PartialEq)]
-pub enum AST {
+pub enum ToplevelAST {
     TypeDef(String, Type, Position),
     DefineStruct {
         name: Option<String>,
@@ -1006,11 +1006,6 @@ pub enum AST {
         functions: Vec<FunOrProto>,
         pos: Position,
     },
-    DefVar {
-        specifiers: DeclarationSpecifier,
-        declarations: Vec<Declaration>,
-        pos: Position,
-    },
     GlobalDefVar {
         specifiers: DeclarationSpecifier,
         declaration: Vec<Declaration>,
@@ -1018,6 +1013,35 @@ pub enum AST {
     },
     Function(Function, Position),
     FunProto(FunProto, Position),
+}
+
+impl ToplevelAST {
+    pub fn new_impl(impl_name: &str, impl_type: Type, for_something: Option<String>, functions: Vec<FunOrProto>, pos: &Position) -> ToplevelAST {
+        ToplevelAST::Impl { name: impl_name.to_string(), typ: impl_type, for_type: for_something, functions: functions, pos: pos.clone() }
+    }
+
+    pub fn get_position(&self) -> &Position {
+        match self {
+            ToplevelAST::DefineEnum { name: _, fields: _, pos } => pos,
+            ToplevelAST::DefineStruct { name: _, fields: _, pos } => pos,
+            ToplevelAST::DefineUnion { name: _, fields: _, pos } => pos,
+            ToplevelAST::FunProto(_, pos) => pos,
+            ToplevelAST::Function(_, pos) => pos,
+            ToplevelAST::GlobalDefVar { specifiers: _, declaration: _, pos } => pos,
+            ToplevelAST::Impl { name: _, typ: _, for_type: _, functions: _, pos } => pos,
+            ToplevelAST::TypeDef(_, _, pos) => pos,
+        }
+    }
+}
+
+#[allow(non_camel_case_types)]
+#[derive(Debug, Clone, PartialEq)]
+pub enum AST {
+    DefVar {
+        specifiers: DeclarationSpecifier,
+        declarations: Vec<Declaration>,
+        pos: Position,
+    },
     Block(Block, Position),
     Expr(Box<ExprAST>, Position),
     Return(Option<Box<ExprAST>>, Position),
@@ -1042,21 +1066,10 @@ pub enum AST {
 }
 
 impl AST {
-    pub fn new_impl(impl_name: &str, impl_type: Type, for_something: Option<String>, functions: Vec<FunOrProto>, pos: &Position) -> AST {
-        AST::Impl { name: impl_name.to_string(), typ: impl_type, for_type: for_something, functions: functions, pos: pos.clone() }
-    }
-
     pub fn is_block(&self) -> bool {
         match self {
             AST::Block(_, _pos) => true,
             _ => false,
-        }
-    }
-
-    pub fn get_block(&self, pos: &Position) -> Result<&Block, ParserError> {
-        match self {
-            AST::Block(blk, _pos) => Ok(blk),
-            _ => Err(ParserError::cannot_get_block(pos.clone())),
         }
     }
 
@@ -1076,31 +1089,30 @@ impl AST {
         }
     }
 
+    pub fn get_block(&self, pos: &Position) -> Result<&Block, ParserError> {
+        match self {
+            AST::Block(blk, _pos) => Ok(blk),
+            _ => Err(ParserError::cannot_get_block(pos.clone())),
+        }
+    }
+
     pub fn get_position(&self) -> &Position {
         match self {
             AST::Block(_, pos) => pos,
             AST::Break(pos) => pos,
             AST::Case(_, pos) => pos,
             AST::Continue(pos) => pos,
-            AST::DefVar { specifiers: _, declarations: _, pos } => pos,
             AST::Default(_, pos) => pos,
-            AST::DefineEnum { name: _, fields: _, pos } => pos,
-            AST::DefineStruct { name: _, fields: _, pos } => pos,
-            AST::DefineUnion { name: _, fields: _, pos } => pos,
+            AST::DefVar { specifiers: _, declarations: _, pos } => pos,
             AST::Expr(_, pos) => pos,
-            AST::FunProto(_, pos) => pos,
-            AST::Function(_, pos) => pos,
-            AST::GlobalDefVar { specifiers: _, declaration: _, pos } => pos,
             AST::Goto(_, pos) => pos,
             AST::If(_, _, _, pos) => pos,
-            AST::Impl { name: _, typ: _, for_type: _, functions: _, pos } => pos,
             AST::Labeled(_, _, pos) => pos,
             AST::Loop { init_expr: _, pre_condition: _, body: _, update_expr: _, post_condition: _, pos } => pos,
             AST::Return(_, pos) => pos,
             AST::Switch(_, pos) => pos,
             AST::_Self(pos) => pos,
             AST::_self(pos) => pos,
-            AST::TypeDef(_, _, pos) => pos,
         }
     }
  }

@@ -42,7 +42,7 @@ fn code_gen_array() -> Result<(), CodeGenError> {
     let mut env = Env::new();
 
     for i in 0..asts.len() {
-        let _any_value = gen.gen_stmt(&asts[i], &mut env, None, None).unwrap();
+        let _any_value = gen.gen_toplevel(&asts[i], &mut env, None, None).unwrap();
     }
 
     let f: JitFunction<FuncType_void_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
@@ -71,7 +71,7 @@ fn code_gen_init_array1() -> Result<(), Box<dyn Error>> {
 
     let mut env = Env::new();
     for i in 0..asts.len() {
-        let _any_value = gen.gen_stmt(&asts[i], &mut env, None, None)?;
+        let _any_value = gen.gen_toplevel(&asts[i], &mut env, None, None)?;
     }
 
     let f: JitFunction<FuncType_void_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
@@ -103,7 +103,7 @@ fn code_gen_init_array2() -> Result<(), Box<dyn Error>> {
 
     let mut env = Env::new();
     for i in 0..asts.len() {
-        let _any_value = gen.gen_stmt(&asts[i], &mut env, None, None)?;
+        let _any_value = gen.gen_toplevel(&asts[i], &mut env, None, None)?;
     }
 
     let f: JitFunction<FuncType_void_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
@@ -136,7 +136,7 @@ fn code_gen_init_global_array2() -> Result<(), Box<dyn Error>> {
 
     let mut env = Env::new();
     for i in 0..asts.len() {
-        let _any_value = gen.gen_stmt(&asts[i], &mut env, None, None)?;
+        let _any_value = gen.gen_toplevel(&asts[i], &mut env, None, None)?;
     }
 
     let f: JitFunction<FuncType_void_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
@@ -170,7 +170,7 @@ fn code_gen_array_and_pointer() -> Result<(), Box<dyn Error>> {
 
     let mut env = Env::new();
     for i in 0..asts.len() {
-        let _any_value = gen.gen_stmt(&asts[i], &mut env, None, None)?;
+        let _any_value = gen.gen_toplevel(&asts[i], &mut env, None, None)?;
     }
 
     let f: JitFunction<FuncType_void_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };

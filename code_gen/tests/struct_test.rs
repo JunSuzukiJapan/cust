@@ -37,7 +37,7 @@ fn code_gen_pre_increment_member() {
     let mut env = Env::new();
 
     for i in 0..asts.len() {
-        let _any_value = gen.gen_stmt(&asts[i], &mut env, None, None).unwrap();
+        let _any_value = gen.gen_toplevel(&asts[i], &mut env, None, None).unwrap();
     }
 
     let f: JitFunction<FuncType_i32_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
@@ -75,7 +75,7 @@ fn code_gen_post_increment_member() {
     let mut env = Env::new();
 
     for i in 0..asts.len() {
-        let _any_value = gen.gen_stmt(&asts[i], &mut env, None, None).unwrap();
+        let _any_value = gen.gen_toplevel(&asts[i], &mut env, None, None).unwrap();
     }
 
     let f: JitFunction<FuncType_i32_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
@@ -113,7 +113,7 @@ fn code_gen_pre_decrement_member() {
     let mut env = Env::new();
 
     for i in 0..asts.len() {
-        let _any_value = gen.gen_stmt(&asts[i], &mut env, None, None).unwrap();
+        let _any_value = gen.gen_toplevel(&asts[i], &mut env, None, None).unwrap();
     }
 
     let f: JitFunction<FuncType_i32_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
@@ -151,7 +151,7 @@ fn code_gen_post_decrement_member() {
     let mut env = Env::new();
 
     for i in 0..asts.len() {
-        let _any_value = gen.gen_stmt(&asts[i], &mut env, None, None).unwrap();
+        let _any_value = gen.gen_toplevel(&asts[i], &mut env, None, None).unwrap();
     }
 
     let f: JitFunction<FuncType_i32_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
@@ -195,7 +195,7 @@ fn code_gen_struct() -> Result<(), CodeGenError> {
     let mut env = Env::new();
 
     for i in 0..asts.len() {
-        let _any_value = gen.gen_stmt(&asts[i], &mut env, None, None).unwrap();
+        let _any_value = gen.gen_toplevel(&asts[i], &mut env, None, None).unwrap();
     }
 
     let f: JitFunction<FuncType_void_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
@@ -232,7 +232,7 @@ fn code_gen_struct_init() -> Result<(), CodeGenError> {
     let mut env = Env::new();
 
     for i in 0..asts.len() {
-        let _any_value = gen.gen_stmt(&asts[i], &mut env, None, None).unwrap();
+        let _any_value = gen.gen_toplevel(&asts[i], &mut env, None, None).unwrap();
     }
 
     let f: JitFunction<FuncType_void_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
@@ -274,7 +274,7 @@ fn code_gen_global_struct_init() -> Result<(), CodeGenError> {
     let mut env = Env::new();
 
     for i in 0..asts.len() {
-        let _any_value = gen.gen_stmt(&asts[i], &mut env, None, None).unwrap();
+        let _any_value = gen.gen_toplevel(&asts[i], &mut env, None, None).unwrap();
     }
 
     let f: JitFunction<FuncType_void_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
@@ -382,7 +382,7 @@ fn code_gen_member_function() {
 
     let mut env = Env::new();
     for i in 0..asts.len() {
-        let _any_value = gen.gen_stmt(&asts[i], &mut env, None, None).unwrap();
+        let _any_value = gen.gen_toplevel(&asts[i], &mut env, None, None).unwrap();
     }
 
     let f: JitFunction<FuncType_void_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
@@ -412,7 +412,7 @@ fn code_gen_typedef() -> Result<(), Box<dyn Error>> {
 
     let mut env = Env::new();
     for i in 0..asts.len() {
-        let _any_value = gen.gen_stmt(&asts[i], &mut env, None, None)?;
+        let _any_value = gen.gen_toplevel(&asts[i], &mut env, None, None)?;
     }
 
     let f: JitFunction<FuncType_void_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
@@ -467,7 +467,7 @@ fn code_gen_struct_array_and_pointer() -> Result<(), Box<dyn Error>> {
 
     let mut env = Env::new();
     for i in 0..asts.len() {
-        let _any_value = gen.gen_stmt(&asts[i], &mut env, None, None)?;
+        let _any_value = gen.gen_toplevel(&asts[i], &mut env, None, None)?;
     }
 
     let f: JitFunction<FuncType_void_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
@@ -515,7 +515,7 @@ fn code_gen_init_struct_array() -> Result<(), Box<dyn Error>> {
 
     let mut env = Env::new();
     for i in 0..asts.len() {
-        let _any_value = gen.gen_stmt(&asts[i], &mut env, None, None)?;
+        let _any_value = gen.gen_toplevel(&asts[i], &mut env, None, None)?;
     }
 
     let f: JitFunction<FuncType_void_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };

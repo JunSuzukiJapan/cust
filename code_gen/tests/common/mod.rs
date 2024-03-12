@@ -9,7 +9,7 @@ pub use inkwell::execution_engine::{JitFunction, FunctionLookupError};
 pub use inkwell::values::{BasicValue, AnyValueEnum};
 pub use inkwell::context::Context;
 pub use inkwell::types::FunctionType;
-pub use parser::{Parser, Defines, ParserError, ExprAST, AST};
+pub use parser::{Parser, Defines, ParserError, ExprAST, ToplevelAST, AST};
 pub use tokenizer::Tokenizer;
 pub use code_gen::{CodeGen, Env, Position, CodeGenError};
 pub use std::error::Error;
@@ -20,7 +20,7 @@ pub type FuncType_i32i32_i32 = unsafe extern "C" fn(i32, i32) -> i32;
 pub type FuncType_i32i32i32_i32 = unsafe extern "C" fn(i32, i32, i32) -> i32;
 pub type FuncType_void_void = unsafe extern "C" fn() -> ();
 
-pub fn parse_from_str(input: &str) -> Result<Vec<AST>, ParserError> {
+pub fn parse_from_str(input: &str) -> Result<Vec<ToplevelAST>, ParserError> {
     let token_list = Tokenizer::tokenize(input)?;
     Parser::parse(token_list)
 }

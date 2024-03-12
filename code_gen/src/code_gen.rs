@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use crate::parser::{AST, ExprAST, BinOp, Type, Pointer, Block, Params, StructDefinition, StructField, NumberType, Function, FunProto, FunOrProto, EnumDefinition, Enumerator};
+use crate::parser::{AST, ToplevelAST, ExprAST, BinOp, Type, Pointer, Block, Params, StructDefinition, StructField, NumberType, Function, FunProto, FunOrProto, EnumDefinition, Enumerator};
 use crate::parser::{Declaration, DeclarationSpecifier, CustFunctionType, Initializer};
 use super::{CompiledValue, CodeGenError};
 use super::Env;
@@ -64,29 +64,25 @@ impl<'ctx> CodeGen<'ctx> {
         })
     }
 
-    pub fn gen_toplevels(&self, asts: &'ctx Vec<AST>, env: &mut Env<'ctx>) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
+    pub fn gen_toplevels(&self, asts: &'ctx Vec<ToplevelAST>, env: &mut Env<'ctx>) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
         let mut any_value = None;
 
         for ast in asts {
-            any_value = self.gen_stmt(&ast, env, None, None)?;
+            any_value = self.gen_toplevel(&ast, env, None, None)?;
         }
 
         Ok(any_value)
     }
 
-    pub fn gen_stmt<'b, 'c>(&self,
-        ast: &'ctx AST,
+    pub fn gen_toplevel<'b, 'c>(&self,
+        ast: &'ctx ToplevelAST,
         env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
 
         match ast {
-            AST::DefVar{specifiers, declarations, pos: _} => {
-                self.gen_def_var(specifiers, declarations, env, break_catcher, continue_catcher)?;
-                Ok(None)
-            },
-            AST::GlobalDefVar{specifiers, declaration, pos} => {
+            ToplevelAST::GlobalDefVar{specifiers, declaration, pos} => {
                 let base_type = specifiers.get_type();
 
                 for decl in declaration {
@@ -103,7 +99,7 @@ impl<'ctx> CodeGen<'ctx> {
                                     self.gen_global_struct_init(&fields, ptr, &*initializer, env, break_catcher, continue_catcher)?;
                                 },
                                 Type::Array { name: _, typ, size_list } => {
-                                    self.gen_global_array_init(size_list, ptr, typ, &*initializer, env, break_catcher, continue_catcher)?;
+                                    self.gen_global_array_init(&size_list, ptr, &*typ, &*initializer, env, break_catcher, continue_catcher)?;
                                 },
                                 _ => {
                                     let init = self.gen_const_expr(initializer, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(pos.clone()))?;
@@ -121,8 +117,62 @@ impl<'ctx> CodeGen<'ctx> {
 
                 Ok(None)
             },
-            AST::TypeDef(name, typ, pos) => {
+            ToplevelAST::TypeDef(name, typ, pos) => {
                 env.insert_typedef(name, typ, self.context, pos)?;
+                Ok(None)
+            },
+            ToplevelAST::Function(Function {specifiers, declarator, params, body, labels}, pos) => {
+                let name = declarator.get_name();
+                let sp_type = specifiers.get_type();
+                let ret_type = declarator.make_type(&sp_type);
+                let function = self.gen_code_function(name, &ret_type, params, body, labels, env, break_catcher, continue_catcher, pos)?;
+                let fun_type = Self::make_fun_type(&name, &ret_type, params, env)?;
+
+                env.insert_function(&name, fun_type, function);
+
+                Ok(Some(AnyValueEnum::FunctionValue(function)))
+            },
+            ToplevelAST::FunProto(FunProto {specifiers, declarator, params}, pos) => {
+                let name = declarator.get_name();
+                let sp_type = specifiers.get_type();
+                let ret_type = declarator.make_type(&sp_type);
+                let fun_proto = self.gen_code_function_prototype(name, &ret_type, params, env, pos)?;
+                let fun_type = Self::make_fun_type(&name, &ret_type, params, env)?;
+
+                env.insert_function(&name, fun_type, fun_proto);
+
+                Ok(Some(AnyValueEnum::FunctionValue(fun_proto)))
+            },
+            ToplevelAST::DefineStruct{name, fields, pos} => {
+                self.gen_define_struct(name, fields, env, break_catcher, continue_catcher, pos)?;
+                Ok(None)
+            },
+            ToplevelAST::DefineUnion { name, fields, pos } => {
+                self.gen_define_union(name, fields, env, break_catcher, continue_catcher, pos)?;
+                Ok(None)
+            },
+            ToplevelAST::DefineEnum { name, fields, pos } => {
+                self.gen_define_enum(name, fields, env, break_catcher, continue_catcher, pos)?;
+                Ok(None)
+            },
+            ToplevelAST::Impl { name, typ, for_type, functions, pos } => {
+                self.gen_impl(name, typ, for_type, functions, env, break_catcher, continue_catcher, pos)?;
+
+                Ok(None)
+            },
+        }
+    }
+
+    pub fn gen_stmt<'b, 'c>(&self,
+        ast: &'ctx AST,
+        env: &mut Env<'ctx>,
+        break_catcher: Option<&'b BreakCatcher>,
+        continue_catcher: Option<&'c ContinueCatcher>
+    ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
+
+        match ast {
+            AST::DefVar{specifiers, declarations, pos: _} => {
+                self.gen_def_var(specifiers, declarations, env, break_catcher, continue_catcher)?;
                 Ok(None)
             },
             AST::Block(block, _pos) => self.gen_block(block, env, break_catcher, continue_catcher),
@@ -150,28 +200,6 @@ impl<'ctx> CodeGen<'ctx> {
                     result = self.builder.build_return(None)?;
                 }
                 Ok(Some(result.as_any_value_enum()))
-            },
-            AST::Function(Function {specifiers, declarator, params, body, labels}, pos) => {
-                let name = declarator.get_name();
-                let sp_type = specifiers.get_type();
-                let ret_type = declarator.make_type(&sp_type);
-                let function = self.gen_code_function(name, &ret_type, params, body, labels, env, break_catcher, continue_catcher, pos)?;
-                let fun_type = Self::make_fun_type(&name, &ret_type, params, env)?;
-
-                env.insert_function(&name, fun_type, function);
-
-                Ok(Some(AnyValueEnum::FunctionValue(function)))
-            },
-            AST::FunProto(FunProto {specifiers, declarator, params}, pos) => {
-                let name = declarator.get_name();
-                let sp_type = specifiers.get_type();
-                let ret_type = declarator.make_type(&sp_type);
-                let fun_proto = self.gen_code_function_prototype(name, &ret_type, params, env, pos)?;
-                let fun_type = Self::make_fun_type(&name, &ret_type, params, env)?;
-
-                env.insert_function(&name, fun_type, fun_proto);
-
-                Ok(Some(AnyValueEnum::FunctionValue(fun_proto)))
             },
             AST::If(condition, then, _else, pos) => {
                 let (_fun_type, func) = env.get_current_function().ok_or(CodeGenError::no_current_function(pos.clone()))?;
@@ -257,23 +285,6 @@ impl<'ctx> CodeGen<'ctx> {
                 }else{
                     Ok(None)
                 }
-            },
-            AST::DefineStruct{name, fields, pos} => {
-                self.gen_define_struct(name, fields, env, break_catcher, continue_catcher, pos)?;
-                Ok(None)
-            },
-            AST::DefineUnion { name, fields, pos } => {
-                self.gen_define_union(name, fields, env, break_catcher, continue_catcher, pos)?;
-                Ok(None)
-            },
-            AST::DefineEnum { name, fields, pos } => {
-                self.gen_define_enum(name, fields, env, break_catcher, continue_catcher, pos)?;
-                Ok(None)
-            },
-            AST::Impl { name, typ, for_type, functions, pos } => {
-                self.gen_impl(name, typ, for_type, functions, env, break_catcher, continue_catcher, pos)?;
-
-                Ok(None)
             },
             AST::Switch(switch, pos) => {
                 self.gen_switch(switch, env, break_catcher, continue_catcher, pos)
