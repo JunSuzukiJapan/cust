@@ -58,7 +58,7 @@ pub enum ParserError {
     NoConstantExprAfterCase(Position),
     LabeledStatementWithoutFunction(Position),
     NoIdForGotoStatement(Position),
-    NotFunctionDefineInImpl(Position),
+    NotFunctionOrVarDefineInImpl(Position),
     NotBraceLeftOrForWhileParsingImpl(Token, Position),
     NoIdAfterForWhileParsingImpl(Token, Position),
     NotSymbolWhileParsingImpl(Position),
@@ -248,8 +248,8 @@ impl ParserError {
         ParserError::NoIdForGotoStatement(pos)
     }
 
-    pub fn not_function_define_in_impl(pos: Position) -> ParserError {
-        ParserError::NotFunctionDefineInImpl(pos)
+    pub fn not_function_or_var_define_in_impl(pos: Position) -> ParserError {
+        ParserError::NotFunctionOrVarDefineInImpl(pos)
     }
 
     pub fn not_brace_left_or_for_while_parsing_impl(tok: &Token, pos: Position) -> ParserError {
@@ -357,7 +357,7 @@ impl fmt::Display for ParserError {
             Self::NoConstantExprAfterCase(_pos) => write!(f, "no constant expr after case"),
             Self::LabeledStatementWithoutFunction(_pos) => write!(f, "labeled statement without function"),
             Self::NoIdForGotoStatement(_pos) => write!(f, "no id for goto statement"),
-            Self::NotFunctionDefineInImpl(_pos) => write!(f, "not function define in impl"),
+            Self::NotFunctionOrVarDefineInImpl(_pos) => write!(f, "not function or variable define in impl"),
             Self::NotBraceLeftOrForWhileParsingImpl(_tok, _pos) => write!(f, "not brace left or for while parsing impl"),
             Self::NoIdAfterForWhileParsingImpl(_tok, _pos) => write!(f, "no id after for while parsing impl"),
             Self::NotSymbolWhileParsingImpl(_pos) => write!(f, "not symbol while parsing impl"),
