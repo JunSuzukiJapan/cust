@@ -3095,14 +3095,6 @@ println!("defs: {:?}", defs);
             }
         }
 
-        // let functions = self.parse_impl_functions(iter, defs, labels)?;
-        let decl = self.parse_impl_declaration_list(iter, defs, labels)?;
-        self.parse_expected_token(iter, Token::BraceRight)?;
-        let ast_impl = ToplevelAST::new_impl(impl_name, impl_type, for_something, decl, pos);
-        Ok(Some(ast_impl))
-    }
-
-    pub fn  parse_impl_declaration_list(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Vec<ImplElement>, ParserError> {
         let (tok, pos) = iter.peek().unwrap();
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
         if *tok != Token::BraceLeft {
@@ -3111,6 +3103,14 @@ println!("defs: {:?}", defs);
         }
         iter.next();  // skip '{'
 
+        // let functions = self.parse_impl_functions(iter, defs, labels)?;
+        let decl = self.parse_impl_declaration_list(iter, defs, labels)?;
+        self.parse_expected_token(iter, Token::BraceRight)?;
+        let ast_impl = ToplevelAST::new_impl(impl_name, impl_type, for_something, decl, pos);
+        Ok(Some(ast_impl))
+    }
+
+    pub fn  parse_impl_declaration_list(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Vec<ImplElement>, ParserError> {
         let mut list = Vec::new();
         loop {
             let (tok, pos) = iter.peek().unwrap();
