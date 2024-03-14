@@ -553,46 +553,55 @@ pub struct FunProto {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum FunOrProto {
+pub enum FunOrProt {
     Fun(Function),
     Proto(FunProto),
 }
 
-impl FunOrProto {
+impl FunOrProt {
     pub fn get_specifiers(&self) -> &DeclarationSpecifier {
         match self {
-            FunOrProto::Fun(f) => &f.specifiers,
-            FunOrProto::Proto(p) => &p.specifiers,
+            FunOrProt::Fun(f) => &f.specifiers,
+            FunOrProt::Proto(p) => &p.specifiers,
         }
     }
 
     pub fn get_declarator(&self) -> &Declarator {
         match self {
-            FunOrProto::Fun(f) => &f.declarator,
-            FunOrProto::Proto(p) => &p.declarator,
+            FunOrProt::Fun(f) => &f.declarator,
+            FunOrProt::Proto(p) => &p.declarator,
         }
     }
 
     pub fn get_params(&self) -> &Params {
         match self {
-            FunOrProto::Fun(f) => &f.params,
-            FunOrProto::Proto(p) => &p.params,
+            FunOrProt::Fun(f) => &f.params,
+            FunOrProt::Proto(p) => &p.params,
         }
     }
 
     pub fn get_body(&self) -> Option<&Block> {
         match self {
-            FunOrProto::Fun(f) => Some(&f.body),
-            FunOrProto::Proto(_) => None,
+            FunOrProt::Fun(f) => Some(&f.body),
+            FunOrProt::Proto(_) => None,
         }
     }
 
     pub fn get_labels(&self) -> Option<&Vec<String>> {
         match self {
-            FunOrProto::Fun(f) => Some(&f.labels),
-            FunOrProto::Proto(_) => None,
+            FunOrProt::Fun(f) => Some(&f.labels),
+            FunOrProt::Proto(_) => None,
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ImplElement {
+    FunOrProt(FunOrProt),
+    DefVar {
+        specifiers: DeclarationSpecifier,
+        declaration: Vec<Declaration>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1003,7 +1012,7 @@ pub enum ToplevelAST {
         name: String,
         typ: Type,
         for_type: Option<String>,
-        functions: Vec<FunOrProto>,
+        defines: Vec<ImplElement>,
         pos: Position,
     },
     GlobalDefVar {
@@ -1016,8 +1025,8 @@ pub enum ToplevelAST {
 }
 
 impl ToplevelAST {
-    pub fn new_impl(impl_name: &str, impl_type: Type, for_something: Option<String>, functions: Vec<FunOrProto>, pos: &Position) -> ToplevelAST {
-        ToplevelAST::Impl { name: impl_name.to_string(), typ: impl_type, for_type: for_something, functions: functions, pos: pos.clone() }
+    pub fn new_impl(impl_name: &str, impl_type: Type, for_something: Option<String>, defines: Vec<ImplElement>, pos: &Position) -> ToplevelAST {
+        ToplevelAST::Impl { name: impl_name.to_string(), typ: impl_type, for_type: for_something, defines: defines, pos: pos.clone() }
     }
 
     pub fn get_position(&self) -> &Position {
@@ -1028,7 +1037,7 @@ impl ToplevelAST {
             ToplevelAST::FunProto(_, pos) => pos,
             ToplevelAST::Function(_, pos) => pos,
             ToplevelAST::GlobalDefVar { specifiers: _, declaration: _, pos } => pos,
-            ToplevelAST::Impl { name: _, typ: _, for_type: _, functions: _, pos } => pos,
+            ToplevelAST::Impl { name: _, typ: _, for_type: _, defines: _, pos } => pos,
             ToplevelAST::TypeDef(_, _, pos) => pos,
         }
     }

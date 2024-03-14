@@ -3,11 +3,11 @@
 use super::{Position, Token};
 use super::ParserError;
 use super::ast::{AST, ToplevelAST, ExprAST, Block, Param, Params, BinOp, TypeQualifier, DeclarationSpecifier, SpecifierQualifier, Declarator, DirectDeclarator, Initializer};
-use super::ast::{DeclarationSpecifierOrVariadic, Declaration, StructDeclaration, StructDeclarator, AbstractDeclarator, DirectAbstractDeclarator};
+use super::ast::{DeclarationSpecifierOrVariadic, Declaration, StructDeclaration, StructDeclarator, AbstractDeclarator, DirectAbstractDeclarator, ImplElement};
 use super::ConstExpr;
 use super::types::*;
 use super::defines::*;
-use super::{CustSelf, Function, FunProto, FunOrProto, Switch, Case};
+use super::{CustSelf, Function, FunProto, FunOrProt, Switch, Case};
 
 use std::slice::Iter;
 use std::iter::Peekable;
@@ -34,16 +34,7 @@ impl Parser {
 
         while let Some((tok, _pos)) = iter.peek() {
             if tok.is_eof() { break; }
-            // if let Some(mut decl) = self.parse_external_declaration(iter, defs, &mut Some(&mut labels))? {
-            //     match decl {
-            //         AST::DefVar {specifiers, declarations: declaration, pos} => {
-            //             decl = ToplevelAST::GlobalDefVar{specifiers, declaration, pos};
-            //         },
-            //         _ => {
-            //         },
-            //     }
-            //     declarations.push(decl);
-            // }
+
             if let Some(decl) = self.parse_external_declaration(iter, defs, &mut Some(&mut labels))? {
                 declarations.push(decl);
             }
@@ -308,9 +299,10 @@ impl Parser {
         let mut opt_unsigned: Option<(bool, Position)> = None;
         let mut opt_type: Option<(Type, Position)> = None;
         let mut opt_name: Option<String> = None;
-
+println!("LOOP");
         loop {
             if let Some((tok, pos)) = iter.peek() {
+println!("tok: {:?}", tok);
                 match tok {
                     Token::Equal | Token::SemiColon | Token::ParenLeft | Token::BracketLeft | Token::Comma | Token::ParenRight => {
                         break;
@@ -692,6 +684,7 @@ impl Parser {
             (typ, pos)
         }else{
 println!("opt_name: {:?}", opt_name);
+println!("defs: {:?}", defs);
             return Err(ParserError::no_type_defined(opt_name, iter.peek().unwrap().1.clone()));
         };
         let typ = if let Some((true, _)) = opt_unsigned {
@@ -3102,48 +3095,79 @@ println!("opt_name: {:?}", opt_name);
             }
         }
 
-        let functions = self.parse_impl_functions(iter, defs, labels)?;
-        // let decl = self.parse_impl_declaration(iter, defs, labels)?;
+        // let functions = self.parse_impl_functions(iter, defs, labels)?;
+        let decl = self.parse_impl_declaration_list(iter, defs, labels)?;
         self.parse_expected_token(iter, Token::BraceRight)?;
-        let ast_impl = ToplevelAST::new_impl(impl_name, impl_type, for_something, functions, pos);
+        let ast_impl = ToplevelAST::new_impl(impl_name, impl_type, for_something, decl, pos);
         Ok(Some(ast_impl))
     }
 
-    pub fn  parse_impl_declaration(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ToplevelAST>, ParserError> {
-        // let (tok, pos) = iter.peek().unwrap();
-        // if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
-        // if *tok != Token::BraceLeft {
-        //     println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-        //     return Err(ParserError::syntax_error(pos.clone()));
-        // }
-        // iter.next();  // skip '{'
-
-        // let mut list = Vec::new();
-        // loop {
-        //     let (tok, pos) = iter.peek().unwrap();
-        //     if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
-        //     if *tok == Token::BraceRight {
-        //         iter.next();  // skip '}'
-        //         break;
-        //     }
-
-        //     let function = self.parse_impl_function(iter, defs, labels)?;
-        //     list.push(function);
-        // }
-
-        // Ok(list)
-
-
-
-
-
-
+    pub fn  parse_impl_declaration_list(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Vec<ImplElement>, ParserError> {
         let (tok, pos) = iter.peek().unwrap();
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
+        if *tok != Token::BraceLeft {
+            println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+            return Err(ParserError::syntax_error(pos.clone()));
+        }
+        iter.next();  // skip '{'
 
-        // if *tok == Token::Impl {
-        //     return self.parse_impl(iter, defs, labels);
-        // }
+        let mut list = Vec::new();
+        loop {
+            let (tok, pos) = iter.peek().unwrap();
+            if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
+            if *tok == Token::BraceRight {
+                iter.next();  // skip '}'
+                break;
+            }
+
+            if let Some(toplevel_ast) = self.parse_impl_declaration(iter, defs, labels)? {
+                // syntax check
+                match toplevel_ast {
+                    ToplevelAST::DefineEnum { name: _, fields: _, pos } => {
+                        return Err(ParserError::syntax_error(pos.clone()));
+                    },
+                    ToplevelAST::DefineStruct { name: _, fields: _, pos } => {
+                        return Err(ParserError::syntax_error(pos.clone()));
+                    },
+                    ToplevelAST::DefineUnion { name: _, fields: _, pos } => {
+                        return Err(ParserError::syntax_error(pos.clone()));
+                    },
+                    ToplevelAST::Impl { name: _, typ: _, for_type: _, defines: _, pos } => {
+                        return Err(ParserError::syntax_error(pos.clone()));
+                    },
+                    ToplevelAST::TypeDef(_, _, pos) => {
+                        return Err(ParserError::syntax_error(pos.clone()));
+                    },
+                    ToplevelAST::GlobalDefVar { specifiers, declaration, pos: _ } => {
+                        let elem = ImplElement::DefVar {
+                            specifiers,
+                            declaration,
+                        };
+
+                        list.push(elem);
+                    },
+                    ToplevelAST::FunProto(proto, _pos) => {
+                        let proto = FunOrProt::Proto(proto);
+                        let elem = ImplElement::FunOrProt(proto);
+
+                        list.push(elem);
+                    },
+                    ToplevelAST::Function(func, _pos) => {
+                        let fun = FunOrProt::Fun(func);
+                        let elem = ImplElement::FunOrProt(fun);
+
+                        list.push(elem);
+                    },
+                }
+            }
+        }
+
+        Ok(list)
+    }
+
+    pub fn  parse_impl_declaration(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ToplevelAST>, ParserError> {
+        let (tok, pos) = iter.peek().unwrap();
+        if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
 
         let ds = self.parse_declaration_specifier(iter, defs, labels)?;
         let ds = ds.get_declaration_specifier().unwrap();
@@ -3225,11 +3249,6 @@ println!("opt_name: {:?}", opt_name);
 
                         let declaration = Declaration::new(decl.clone(), opt_initializer);
 
-                        // if let Some(size_list) = const_expr_list {
-                        //     Ok(Some(self.make_global_def_array(ds.clone(), vec![declaration], size_list, defs, pos)?))
-                        // }else{
-                        //     Err(ParserError::array_need_explicit_size_or_initializer(pos.clone()))
-                        // }
                         Ok(Some(self.make_global_def_array(ds.clone(), vec![declaration], opt_usize_list, defs, pos)?))
 
                     },
@@ -3289,6 +3308,7 @@ println!("opt_name: {:?}", opt_name);
         }
     }
 
+/*
     fn parse_impl_functions(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Vec<FunOrProto>, ParserError> {
         let (tok, pos) = iter.peek().unwrap();
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
@@ -3371,90 +3391,6 @@ println!("opt_name: {:?}", opt_name);
             },
         }
     }
-
-/*
-    fn parse_impl_function(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<FunOrProto, ParserError> {
-        defs.add_new_function_local();
-
-        let ds = self.parse_declaration_specifier(iter, defs, labels)?;
-        let ds = ds.get_declaration_specifier().unwrap();
-        let (decl, _initializer) = self.parse_declarator(ds.get_type(), iter, defs, &mut None)?;
-
-        let (tok, pos) = iter.peek().unwrap();
-        if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
-        let dd = decl.get_direct_declarator();
-        match dd {
-            DirectDeclarator::Symbol(_id, _pos2) => {
-                match tok {
-                    Token::SemiColon => {
-                        iter.next();  // skip ';'
-                        let declaration = Declaration::new(decl, opt_initializer);
-
-                        Ok(Some(self.make_global_def_var(ds.clone(), vec![declaration], defs, pos)?))
-                    },
-                    Token::Assign => {
-                        iter.next();  // skip '='
-
-                        let mut labels = Vec::new();
-                        let typ = ds.get_type();
-                        let init_expr = self.parse_initializer(typ, iter, defs, &mut Some(&mut labels))?;
-                        self.parse_expected_token(iter, Token::SemiColon)?;
-                        let declaration = Declaration::new(decl, Some(init_expr));
-
-                        Ok(Some(self.make_global_def_var(ds.clone(), vec![declaration], defs, pos)?))
-                    },
-                    _ => {
-                        println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                        Err(ParserError::syntax_error(pos.clone()))
-                    },
-                }
-            },
-            DirectDeclarator::FunctionDef(_direct_declarator, params, _pos2) => {
-                match tok {
-                    Token::SemiColon => {  // pre function definition
-                        iter.next();  // skip ';'
-
-                        let proto = FunOrProto::Proto(FunProto {
-                            specifiers: ds.clone(),
-                            declarator: decl.clone(),
-                            params: params.clone(),
-                        });
-
-                        defs.remove_function_local();
-                        defs.set_function(decl.get_name(), ds.clone(), decl.clone(), params.clone(), pos)?;
-
-                        Ok(proto)
-                    },
-                    Token::BraceLeft => {  // function
-                        let mut labels = Vec::new();
-                        let block = self.parse_compound_statement(iter, defs, &mut Some(&mut labels))?;
-
-                        let func = FunOrProto::Fun(Function {
-                            specifiers: ds.clone(),
-                            declarator: decl.clone(),
-                            params: params.clone(),
-                            body: block,
-                            labels: labels,
-                        });
-
-                        defs.remove_function_local();
-                        defs.set_function(decl.get_name(), ds.clone(), decl.clone(), params.clone(), pos)?;
-
-                        Ok(func)
-                    },
-                    _ => {
-                        defs.remove_function_local();
-                        println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                        Err(ParserError::syntax_error(pos.clone()))
-                    },
-                }
-            },
-            _ => {
-                defs.remove_function_local();
-println!("direct declarator: {:?}", dd);
-                return Err(ParserError::not_function_or_var_define_in_impl(pos.clone()));
-            },
-        }
-    }
 */
+
 }

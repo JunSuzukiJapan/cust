@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
-use crate::parser::{AST, ToplevelAST, ExprAST, BinOp, Type, Pointer, Block, Params, StructDefinition, StructField, NumberType, Function, FunProto, FunOrProto, EnumDefinition, Enumerator};
-use crate::parser::{Declaration, DeclarationSpecifier, CustFunctionType, Initializer};
+use crate::parser::{AST, ToplevelAST, ExprAST, BinOp, Type, Pointer, Block, Params, StructDefinition, StructField, NumberType, Function, FunProto, FunOrProt, EnumDefinition, Enumerator};
+use crate::parser::{Declaration, DeclarationSpecifier, CustFunctionType, Initializer, ImplElement};
 use super::{CompiledValue, CodeGenError};
 use super::Env;
 use super::env::{BreakCatcher, ContinueCatcher};
@@ -155,8 +155,8 @@ impl<'ctx> CodeGen<'ctx> {
                 self.gen_define_enum(name, fields, env, break_catcher, continue_catcher, pos)?;
                 Ok(None)
             },
-            ToplevelAST::Impl { name, typ, for_type, functions, pos } => {
-                self.gen_impl(name, typ, for_type, functions, env, break_catcher, continue_catcher, pos)?;
+            ToplevelAST::Impl { name, typ, for_type, defines, pos } => {
+                self.gen_impl(name, typ, for_type, defines, env, break_catcher, continue_catcher, pos)?;
 
                 Ok(None)
             },
@@ -1361,16 +1361,16 @@ impl<'ctx> CodeGen<'ctx> {
         class_name: &str,
         typ: &Type,
         for_type: &Option<String>,
-        functions: &'ctx Vec<FunOrProto>,
+        defines: &'ctx Vec<ImplElement>,
         env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>,
         pos: &Position
     ) -> Result<(), Box<dyn Error>> {
         if for_type.is_some() {
-            self.gen_impl_for(class_name, typ, for_type, functions, env, break_catcher, continue_catcher)
+            self.gen_impl_for(class_name, typ, for_type, defines, env, break_catcher, continue_catcher)
         }else{
-            self.gen_impl_no_for(class_name, typ, functions, env, break_catcher, continue_catcher, pos)
+            self.gen_impl_no_for(class_name, typ, defines, env, break_catcher, continue_catcher, pos)
         }
     }
 
@@ -1378,7 +1378,8 @@ impl<'ctx> CodeGen<'ctx> {
         &self,
         class_name: &str,
         typ: &Type,
-        functions: &'ctx Vec<FunOrProto>,
+        // functions: &'ctx Vec<FunOrProt>,
+        defines: &'ctx Vec<ImplElement>,
         env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>,
@@ -1387,8 +1388,26 @@ impl<'ctx> CodeGen<'ctx> {
 
         let _class = env.get_type(class_name).ok_or(Box::new(CodeGenError::no_such_a_struct(class_name, pos.clone())))?;
 
-        for function in functions {
-            self.gen_impl_function(class_name, typ, function, env, break_catcher, continue_catcher, pos)?;
+        // for function in functions {
+        //     self.gen_impl_function(class_name, typ, function, env, break_catcher, continue_catcher, pos)?;
+        // }
+
+        for def in defines {
+            match def {
+                ImplElement::FunOrProt(f_or_p) => {
+                    self.gen_impl_function(class_name, typ, f_or_p, env, break_catcher, continue_catcher, pos)?;
+                },
+                ImplElement::DefVar { specifiers, declaration } => {
+
+
+
+
+
+
+
+                    unimplemented!();
+                },
+            }
         }
 
         Ok(())
@@ -1400,7 +1419,8 @@ impl<'ctx> CodeGen<'ctx> {
         class_name: &str,
         typ: &Type,
         for_type: &Option<String>,
-        functions: &Vec<FunOrProto>,
+        // functions: &Vec<FunOrProt>,
+        defines: &'ctx Vec<ImplElement>,
         env: &mut Env<'ctx>,
         _break_catcher: Option<&'b BreakCatcher>,
         _continue_catcher: Option<&'c ContinueCatcher>
@@ -1419,7 +1439,7 @@ impl<'ctx> CodeGen<'ctx> {
         &self,
         class_name: &str,
         _typ: &Type,
-        fun_or_proto: &'ctx FunOrProto,
+        fun_or_proto: &'ctx FunOrProt,
         env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>,
