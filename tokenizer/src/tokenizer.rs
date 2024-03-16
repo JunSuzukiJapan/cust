@@ -392,10 +392,19 @@ impl Tokenizer {
                     self.next_char(ctx);
                     Ok(Some((Token::Question, start_pos)))
                 },
-                // Colon,         // ':'
+                // Colon,         // ':' or '::'
                 ':' => {
                     self.next_char(ctx);
-                    Ok(Some((Token::Colon, start_pos)))
+                    if let Some(c) = self.peek_char(ctx) {
+                        if c == ':' {
+                            self.next_char(ctx);
+                            Ok(Some((Token::WColon, start_pos)))
+                        }else{
+                            Ok(Some((Token::Colon, start_pos)))
+                        }
+                    }else{
+                        Ok(Some((Token::Colon, start_pos)))
+                    }
                 },
                 // SemiColon,     // ';'
                 ';' => {
@@ -1325,11 +1334,11 @@ mod tests {
 
     #[test]
     fn tokenize_operator_others() {
-        let src = ": ; . -> () {} []";
+        let src = ": ; . -> () {} [] ::";
         let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 11);
+                assert_eq!(v.len(), 12);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Colon);
@@ -1372,8 +1381,12 @@ mod tests {
                 assert_eq!(*pos, Position {line: 1, column: 17});
 
                 let (tok, pos) = &v[10];
+                assert_eq!(*tok, Token::WColon);
+                assert_eq!(*pos, Position {line: 1, column: 19});
+
+                let (tok, pos) = &v[11];
                 assert_eq!(*tok, Token::EndOfInput);
-                assert_eq!(*pos, Position {line: 1, column: 18});
+                assert_eq!(*pos, Position {line: 1, column: 21});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }

@@ -76,9 +76,10 @@ pub enum Token {
     NotEqual,
 
     Colon,         // ':'
+    WColon,        // '::'
     SemiColon,     // ';'
     Dot,           // '.'
-    TripleDot,    // '...'
+    TripleDot,     // '...'
     Comma,         // ','
     ParenLeft,     // '('
     ParenRight,    // ')'
@@ -230,14 +231,15 @@ impl fmt::Display for Token {
             Token::NotEqual => write!(f, "!="),
         
             Token::Colon => write!(f, ":"),         // ':'
+            Token::WColon => write!(f, "::"),       // '::'
             Token::SemiColon => write!(f, ";"),     // ';'
             Token::Dot => write!(f, "."),           // '.'
-            Token::TripleDot => write!(f, "..."),    // '...'
+            Token::TripleDot => write!(f, "..."),   // '...'
             Token::Comma => write!(f, ","),         // ','
             Token::ParenLeft => write!(f, "("),     // '('
             Token::ParenRight => write!(f, ")"),    // ')'
-            Token::BraceLeft => write!(f, "{{"),     // '{'
-            Token::BraceRight => write!(f, "}}"),    // '}'
+            Token::BraceLeft => write!(f, "{{"),    // '{'
+            Token::BraceRight => write!(f, "}}"),   // '}'
             Token::BracketLeft => write!(f, "["),   // '['
             Token::BracketRight => write!(f, "]"),  // ']'
         

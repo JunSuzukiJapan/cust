@@ -3103,7 +3103,6 @@ println!("defs: {:?}", defs);
         }
         iter.next();  // skip '{'
 
-        // let functions = self.parse_impl_functions(iter, defs, labels)?;
         let decl = self.parse_impl_declaration_list(iter, defs, labels)?;
         self.parse_expected_token(iter, Token::BraceRight)?;
         let ast_impl = ToplevelAST::new_impl(impl_name, impl_type, for_something, decl, pos);
@@ -3307,90 +3306,5 @@ println!("defs: {:?}", defs);
             },
         }
     }
-
-/*
-    fn parse_impl_functions(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Vec<FunOrProto>, ParserError> {
-        let (tok, pos) = iter.peek().unwrap();
-        if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
-        if *tok != Token::BraceLeft {
-            println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-            return Err(ParserError::syntax_error(pos.clone()));
-        }
-        iter.next();  // skip '{'
-
-        let mut list = Vec::new();
-        loop {
-            let (tok, pos) = iter.peek().unwrap();
-            if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
-            if *tok == Token::BraceRight {
-                iter.next();  // skip '}'
-                break;
-            }
-
-            let function = self.parse_impl_function(iter, defs, labels)?;
-            list.push(function);
-        }
-
-        Ok(list)
-    }
-
-    fn parse_impl_function(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<FunOrProto, ParserError> {
-        defs.add_new_function_local();
-
-        let ds = self.parse_declaration_specifier(iter, defs, labels)?;
-        let ds = ds.get_declaration_specifier().unwrap();
-        let (decl, _initializer) = self.parse_declarator(ds.get_type(), iter, defs, &mut None)?;
-
-        let (tok, pos) = iter.peek().unwrap();
-        if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
-        match decl.get_direct_declarator() {
-            DirectDeclarator::FunctionDef(_direct_declarator, params, _pos2) => {
-                match tok {
-                    Token::SemiColon => {  // pre function definition
-                        iter.next();  // skip ';'
-
-                        let proto = FunOrProto::Proto(FunProto {
-                            specifiers: ds.clone(),
-                            declarator: decl.clone(),
-                            params: params.clone(),
-                        });
-
-                        defs.remove_function_local();
-                        defs.set_function(decl.get_name(), ds.clone(), decl.clone(), params.clone(), pos)?;
-
-                        Ok(proto)
-                    },
-                    Token::BraceLeft => {  // function
-                        let mut labels = Vec::new();
-                        let block = self.parse_compound_statement(iter, defs, &mut Some(&mut labels))?;
-
-                        let func = FunOrProto::Fun(Function {
-                            specifiers: ds.clone(),
-                            declarator: decl.clone(),
-                            params: params.clone(),
-                            body: block,
-                            labels: labels,
-                        });
-
-                        defs.remove_function_local();
-                        defs.set_function(decl.get_name(), ds.clone(), decl.clone(), params.clone(), pos)?;
-
-                        Ok(func)
-                    },
-                    _ => {
-                        defs.remove_function_local();
-                        println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                        Err(ParserError::syntax_error(pos.clone()))
-                    },
-                }
-            },
-            _ => {
-                defs.remove_function_local();
-                // return Err(ParserError::not_function_define_in_impl(pos.clone()));
-                return Err(ParserError::not_function_or_var_define_in_impl(pos.clone()));
-            },
-        }
-    }
-*/
 
 }
