@@ -3119,7 +3119,7 @@ println!("defs: {:?}", defs);
         iter.next();  // skip '{'
 
         let decl = self.parse_impl_declaration_list(iter, defs, labels)?;
-        self.parse_expected_token(iter, Token::BraceRight)?;
+        self.parse_expected_token(iter, Token::BraceRight)?;  // skip '}'
         let ast_impl = ToplevelAST::new_impl(impl_name, impl_type, for_something, decl, pos);
         Ok(Some(ast_impl))
     }

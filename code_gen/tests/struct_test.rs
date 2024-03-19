@@ -316,44 +316,43 @@ fn code_gen_member_function() {
                 self.day++;
 
                 switch(self.month) {
-                    case 1:
-                    case 3:
-                    case 5:
-                    case 7:
-                    case 8:
-                    case 10:
-                        if (self.day == 32) {
+                case 1:
+                case 3:
+                case 5:
+                case 7:
+                case 8:
+                case 10:
+                    if (self.day == 32) {
+                        self.day = 1;
+                        self.month++;
+                    }
+                    break;
+                case 12:
+                    if (self.day == 32) {
+                        self.day = 1;
+                        self.month = 1;
+                        self.year++;
+                    }
+                    break;
+                case 4:
+                case 6:
+                case 9:
+                case 11:
+                    if(self.day == 31){
+                        self.day = 1;
+                        self.month++;
+                    }
+                    break;
+                case 2:
+                    if(self.isLeapYear()){
+                        if(self.day == 30){
                             self.day = 1;
-                            self.month++;
+                            self.month = 3;
                         }
-                        break;
-                    case 12:
-                        if (self.day == 32) {
+                    }else{
+                        if(self.day == 29){
                             self.day = 1;
-                            self.month = 1;
-                            self.year++;
-                        }
-                        break;
-                    case 4:
-                    case 6:
-                    case 9:
-                    case 11:
-                        if(self.day == 31){
-                            self.day = 1;
-                            self.month++;
-                        }
-                        break;
-                    case 2:
-                        if(self.isLeapYear()){
-                            if(self.day == 30){
-                                self.day = 1;
-                                self.month = 3;
-                            }
-                        }else{
-                            if(self.day == 29){
-                                self.day = 1;
-                                self.month = 3;
-                            }
+                            self.month = 3;
                         }
                     }
                 }
