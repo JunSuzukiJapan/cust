@@ -7,6 +7,11 @@ extern crate parser;
 pub use tokenizer::*;
 pub use parser::*;
 
+pub fn parse_from_str(input: &str) -> Result<Vec<ToplevelAST>, ParserError> {
+    let token_list = Tokenizer::tokenize(input)?;
+    Parser::parse(token_list)
+}
+
 pub fn parse_expression_from_str(src: &str) -> Result<Option<ExprAST>, ParserError> {
     let token_list = Tokenizer::tokenize(src).unwrap();
     let mut iter = token_list.iter().peekable();

@@ -733,8 +733,8 @@ pub enum ExprAST {
         declarations: Vec<Declaration>,
         pos: Position,
     },
-    _Self(Position),
     _self(Position),
+    SelfStaticSymbol(String, Position),
 }
 
 impl ExprAST {
@@ -771,7 +771,7 @@ impl ExprAST {
             ExprAST::UnarySizeOfTypeName(_typ, pos) => pos,
             ExprAST::ArrayAccess(_expr, _index, pos) => pos,
             ExprAST::Symbol(_name, pos) => pos,
-            ExprAST::_Self(pos) => pos,
+            ExprAST::SelfStaticSymbol(_, pos) => pos,
             ExprAST::_self(pos) => pos,
             ExprAST::Not(_expr, pos) => pos,
             // ExprAST::ExpressionPair(_, _right, pos) => pos,

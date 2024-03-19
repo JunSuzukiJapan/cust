@@ -245,7 +245,7 @@ impl TypeUtil {
                 let typ = env.get_type_by_id(&name).ok_or(CodeGenError::no_such_a_variable(&name, pos.clone()))?;
                 Ok(typ.clone())
             },
-            ExprAST::_Self(pos) => {
+            ExprAST::SelfStaticSymbol(_sym, pos) => {
                 let (typ, _expr) = env.get_ptr("Self").ok_or(CodeGenError::access_self_type_without_impl(pos.clone()))?;
                 Ok(typ.clone())
             },

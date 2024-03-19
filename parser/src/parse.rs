@@ -1778,7 +1778,6 @@ println!("defs: {:?}", defs);
                         Token::Dot => {
                             iter.next();  // skip '.'
 
-                            // let (tok2, pos2) = iter.next().ok_or(ParserError::illegal_end_of_input(pos.clone()))?;
                             let (tok2, pos2) = iter.next().unwrap();
                             if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
 
@@ -1792,7 +1791,6 @@ println!("defs: {:?}", defs);
                         Token::MemberSelection => {
                             iter.next();  // skip '->'
 
-                            // let (tok2, pos2) = iter.next().ok_or(ParserError::illegal_end_of_input(pos.clone()))?;
                             let (tok2, pos2) = iter.next().unwrap();
                             if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
 
@@ -1893,7 +1891,23 @@ println!("defs: {:?}", defs);
                 },
                 Token::_Self => {
                     iter.next();  // skip 'Self'
-                    Ok(Some(ExprAST::_Self(pos.clone())))
+
+                    let (tok2, pos2) = iter.peek().unwrap();
+                    if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
+
+                    self.parse_expected_token(iter, Token::WColon)?;  // check '::'
+
+                    let (tok3, pos3) = iter.next().unwrap();
+                    if tok3.is_eof() { return Err(ParserError::illegal_end_of_input(pos3.clone())); }
+
+                    let name = if let Token::Symbol(id) = tok3 {
+                        id
+                    }else{
+                        return Err(ParserError::not_symbol(pos3.clone()));
+                    };
+
+                    Ok(Some(ExprAST::SelfStaticSymbol(name.to_string(), pos3.clone())))
+
                 },
                 Token::_self => {
                     iter.next();  // skip 'self'
@@ -2557,6 +2571,7 @@ println!("defs: {:?}", defs);
         }
 
         defs.remove_local();
+
         self.parse_expected_token(iter, Token::BraceRight)?;
 
         let block = Block::new_with_block(body);
@@ -3115,7 +3130,7 @@ println!("defs: {:?}", defs);
             let (tok, pos) = iter.peek().unwrap();
             if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
             if *tok == Token::BraceRight {
-                iter.next();  // skip '}'
+                // iter.next();  // skip '}'
                 break;
             }
 

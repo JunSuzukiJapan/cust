@@ -745,9 +745,8 @@ impl<'ctx> CodeGen<'ctx> {
                 let result = Caster::gen_cast(&self.builder, self.context, &value, &from, to_type, &**expr)?;
                 Ok(Some(CompiledValue::new(to_type.clone(), result)))
             },
-            ExprAST::_Self(_) => {
-                // never reached, maybe
-                unimplemented!()  // _Self
+            ExprAST::SelfStaticSymbol(_sym, _pos) => {
+                unimplemented!()  // _Self::Symbol
             },
         }
     }
@@ -2551,8 +2550,10 @@ impl<'ctx> CodeGen<'ctx> {
                 let (typ, ptr) = env.get_ptr("self").ok_or(Box::new(CodeGenError::no_such_a_variable("self", pos.clone())))?;
                 Ok((typ.clone(), ptr))
             },
-            ExprAST::_Self(pos) => {
-                Err(Box::new(CodeGenError::self_has_not_l_value(pos.clone())))
+            ExprAST::SelfStaticSymbol(_sym, _pos) => {
+                unimplemented!()
+
+                // Err(Box::new(CodeGenError::self_has_not_l_value(pos.clone())))
             },
             _ => {
                 Err(Box::new(CodeGenError::has_not_l_value(format!("{:?}", ast), ast.get_position().clone())))

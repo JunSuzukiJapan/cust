@@ -894,8 +894,18 @@ END: ;
         }
     ";
 
+    let src = "
+        struct foo {
+            int bar;
+        };
 
-    // tokenize
+        impl foo {
+            int test() {
+                return 0;
+            }
+        }
+    ";
+        // tokenize
     let tokenized = Tokenizer::tokenize(src).unwrap();
     // parse
     let asts = Parser::parse(tokenized).unwrap();
