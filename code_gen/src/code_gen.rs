@@ -7,8 +7,8 @@ use super::Env;
 use super::env::{BreakCatcher, ContinueCatcher};
 use super::caster::Caster;
 use super::type_util::TypeUtil;
-#[cfg(test)]
-use crate::parser::{SpecifierQualifier, DirectDeclarator, Declarator, Defines, Param};
+use crate::parser::{SpecifierQualifier, DirectDeclarator, Defines, Param};
+use crate::parser::Declarator;
 use crate::parser::{Switch, Case};
 use crate::Position;
 
@@ -87,32 +87,35 @@ impl<'ctx> CodeGen<'ctx> {
 
                 for decl in declaration {
                     let declarator = decl.get_declarator();
-                    let typ = declarator.make_type(base_type);
                     let name = declarator.get_name();
-                    let basic_type = TypeUtil::to_basic_type_enum(&typ, self.context, ast.get_position())?;
-                    let ptr = self.module.add_global(basic_type, Some(AddressSpace::default()), name);
+
+                    self.gen_global_def_var_sub(name, base_type, decl, declarator, env, break_catcher, continue_catcher, pos)?;
+
+                    // let typ = declarator.make_type(base_type);
+                    // let basic_type = TypeUtil::to_basic_type_enum(&typ, self.context, ast.get_position())?;
+                    // let ptr = self.module.add_global(basic_type, Some(AddressSpace::default()), name);
     
-                    match decl.get_init_expr() {
-                        Some(initializer) => {
-                            match &typ {
-                                Type::Struct { fields, .. } => {
-                                    self.gen_global_struct_init(&fields, ptr, &*initializer, env, break_catcher, continue_catcher)?;
-                                },
-                                Type::Array { name: _, typ, size_list } => {
-                                    self.gen_global_array_init(&size_list, ptr, &*typ, &*initializer, env, break_catcher, continue_catcher)?;
-                                },
-                                _ => {
-                                    let init = self.gen_const_expr(initializer, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(pos.clone()))?;
-                                    let basic_value = self.try_as_basic_value(&init.get_value(), initializer.get_position())?;
+                    // match decl.get_init_expr() {
+                    //     Some(initializer) => {
+                    //         match &typ {
+                    //             Type::Struct { fields, .. } => {
+                    //                 self.gen_global_struct_init(&fields, ptr, &*initializer, env, break_catcher, continue_catcher)?;
+                    //             },
+                    //             Type::Array { name: _, typ, size_list } => {
+                    //                 self.gen_global_array_init(&size_list, ptr, &*typ, &*initializer, env, break_catcher, continue_catcher)?;
+                    //             },
+                    //             _ => {
+                    //                 let init = self.gen_const_expr(initializer, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(pos.clone()))?;
+                    //                 let basic_value = self.try_as_basic_value(&init.get_value(), initializer.get_position())?;
             
-                                    ptr.set_initializer(&basic_value);
-                                }
-                            }
-                        },
-                        None => (),  // do nothing
-                    };
+                    //                 ptr.set_initializer(&basic_value);
+                    //             }
+                    //         }
+                    //     },
+                    //     None => (),  // do nothing
+                    // };
     
-                    env.insert_global_var(name, typ.clone(), ptr);
+                    // env.insert_global_var(name, typ.clone(), ptr);
                 }
 
                 Ok(None)
@@ -1387,24 +1390,13 @@ impl<'ctx> CodeGen<'ctx> {
 
         let _class = env.get_type(class_name).ok_or(Box::new(CodeGenError::no_such_a_struct(class_name, pos.clone())))?;
 
-        // for function in functions {
-        //     self.gen_impl_function(class_name, typ, function, env, break_catcher, continue_catcher, pos)?;
-        // }
-
         for def in defines {
             match def {
                 ImplElement::FunOrProt(f_or_p) => {
                     self.gen_impl_function(class_name, typ, f_or_p, env, break_catcher, continue_catcher, pos)?;
                 },
                 ImplElement::DefVar { specifiers, declaration } => {
-
-
-
-
-
-
-
-                    unimplemented!();
+                    self.gen_impl_def_var(class_name, typ, specifiers, declaration, env, break_catcher, continue_catcher, pos)?;
                 },
             }
         }
@@ -1468,8 +1460,104 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(Some(AnyValueEnum::FunctionValue(function)))
     }
 
+    fn gen_impl_def_var<'b, 'c>(
+        &self,
+        class_name: &str,
+        _typ: &Type,
+        specifier: &DeclarationSpecifier,
+        declarations: &Vec<Declaration>,
+        env: &mut Env<'ctx>,
+        break_catcher: Option<&'b BreakCatcher>,
+        continue_catcher: Option<&'c ContinueCatcher>,
+        pos: &Position
+    ) -> Result<(), Box<dyn Error>> {
+
+        let base_type = specifier.get_type();
+
+        for decl in declarations {
+            let declarator = decl.get_declarator();
+            let var_name = declarator.get_name();
+            let name = Self::make_var_name_in_impl(class_name, var_name);
+
+            self.gen_global_def_var_sub(&name, base_type, decl, declarator, env, break_catcher, continue_catcher, pos)?;
+
+            // let typ = declarator.make_type(base_type);
+            // let basic_type = TypeUtil::to_basic_type_enum(&typ, self.context, pos)?;
+            // let ptr = self.module.add_global(basic_type, Some(AddressSpace::default()), &name);
+
+            // match decl.get_init_expr() {
+            //     Some(initializer) => {
+            //         match &typ {
+            //             Type::Struct { fields, .. } => {
+            //                 self.gen_global_struct_init(&fields, ptr, &*initializer, env, break_catcher, continue_catcher)?;
+            //             },
+            //             Type::Array { name: _, typ, size_list } => {
+            //                 self.gen_global_array_init(&size_list, ptr, &*typ, &*initializer, env, break_catcher, continue_catcher)?;
+            //             },
+            //             _ => {
+            //                 let init = self.gen_const_expr(initializer, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(pos.clone()))?;
+            //                 let basic_value = self.try_as_basic_value(&init.get_value(), initializer.get_position())?;
+    
+            //                 ptr.set_initializer(&basic_value);
+            //             }
+            //         }
+            //     },
+            //     None => (),  // do nothing
+            // };
+
+            // env.insert_global_var(&name, typ.clone(), ptr);
+        }
+
+        Ok(())
+    }
+
+    fn gen_global_def_var_sub<'b, 'c>(
+        &self,
+        name: &str,
+        base_type: &Type,
+        decl: &Declaration,
+        declarator: &Declarator,
+        env: &mut Env<'ctx>,
+        break_catcher: Option<&'b BreakCatcher>,
+        continue_catcher: Option<&'c ContinueCatcher>,
+        pos: &Position
+    ) -> Result<(), Box<dyn Error>> {
+
+        let typ = declarator.make_type(base_type);
+        let basic_type = TypeUtil::to_basic_type_enum(&typ, self.context, pos)?;
+        let ptr = self.module.add_global(basic_type, Some(AddressSpace::default()), &name);
+
+        match decl.get_init_expr() {
+            Some(initializer) => {
+                match &typ {
+                    Type::Struct { fields, .. } => {
+                        self.gen_global_struct_init(&fields, ptr, &*initializer, env, break_catcher, continue_catcher)?;
+                    },
+                    Type::Array { name: _, typ, size_list } => {
+                        self.gen_global_array_init(&size_list, ptr, &*typ, &*initializer, env, break_catcher, continue_catcher)?;
+                    },
+                    _ => {
+                        let init = self.gen_const_expr(initializer, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(pos.clone()))?;
+                        let basic_value = self.try_as_basic_value(&init.get_value(), initializer.get_position())?;
+
+                        ptr.set_initializer(&basic_value);
+                    }
+                }
+            },
+            None => (),  // do nothing
+        };
+
+        env.insert_global_var(&name, typ.clone(), ptr);
+
+        Ok(())
+    }
+
     pub fn make_function_name_in_impl(class_name: &str, fun_name: &str) -> String {
-        format!("${}${}", class_name, fun_name)
+        format!("${}$${}", class_name, fun_name)
+    }
+
+    pub fn make_var_name_in_impl(class_name: &str, var_name: &str) -> String {
+        format!("${}@@{}", class_name, var_name)
     }
 
     pub fn gen_define_struct<'b, 'c>(
