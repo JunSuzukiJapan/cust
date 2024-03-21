@@ -1648,8 +1648,9 @@ println!("defs: {:?}", defs);
                     iter.next();  // skip '++'
 
                     println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+println!("peek: {:?}", iter.peek().unwrap());
                     let expr = self.parse_unary_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
-
+println!("expr: {:?}", expr);
                     if expr.is_symbol() {
                         let (sym, sym_pos) = expr.get_symbol()?;
                         let inc = ExprAST::PreInc(sym.clone(), sym_pos.clone(), pos.clone());
@@ -1748,6 +1749,7 @@ println!("defs: {:?}", defs);
     }
 
     fn parse_postfix_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ExprAST>, ParserError> {
+println!("parse postfix");
         if let Some(mut ast) = self.parse_primary_expression(iter, defs, labels)? {
             loop {
                 if let Some((tok, pos)) = iter.peek() {
@@ -1883,14 +1885,13 @@ println!("defs: {:?}", defs);
     }
 
     fn parse_primary_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ExprAST>, ParserError> {
+println!("parse primary");
         if let Some((tok, pos)) = iter.peek() {
             match &*tok {
                 Token::Symbol(name) => {
                     iter.next();  // skip symbol
 
                     let (tok2, pos2) = iter.peek().unwrap();
-                    if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
-
                     if *tok2 == Token::WColon {
                         iter.next();  // skip '::'
 
