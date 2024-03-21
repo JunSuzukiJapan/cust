@@ -1887,7 +1887,27 @@ println!("defs: {:?}", defs);
             match &*tok {
                 Token::Symbol(name) => {
                     iter.next();  // skip symbol
-                    Ok(Some(ExprAST::Symbol(name.clone(), pos.clone())))
+
+                    let (tok2, pos2) = iter.peek().unwrap();
+                    if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
+
+                    if *tok2 == Token::WColon {
+                        iter.next();  // skip '::'
+
+                        let (tok3, pos3) = iter.next().unwrap();
+                        if tok3.is_eof() { return Err(ParserError::illegal_end_of_input(pos3.clone())); }
+
+                        let elem_name = if let Token::Symbol(id) = tok3 {
+                            id
+                        }else{
+                            return Err(ParserError::not_symbol(pos3.clone()));
+                        };
+
+                        Ok(Some(ExprAST::StructStaticSymbol(name.clone(), elem_name.clone(), pos.clone())))
+
+                    }else{
+                        Ok(Some(ExprAST::Symbol(name.clone(), pos.clone())))
+                    }
                 },
                 Token::_Self => {
                     iter.next();  // skip 'Self'

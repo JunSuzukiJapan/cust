@@ -249,6 +249,12 @@ impl TypeUtil {
                 let (typ, _expr) = env.get_ptr("Self").ok_or(CodeGenError::access_self_type_without_impl(pos.clone()))?;
                 Ok(typ.clone())
             },
+            ExprAST::StructStaticSymbol(_class, _elem, pos) => {
+                // let (typ, _expr) = env.get_ptr("Self").ok_or(CodeGenError::access_self_type_without_impl(pos.clone()))?;
+                // Ok(typ.clone())
+
+                unimplemented!()
+            },
             ExprAST::_self(pos) => {
                 let (typ, _expr) = env.get_ptr("self").ok_or(CodeGenError::access_self_without_impl(pos.clone()))?;
                 Ok(typ.clone())

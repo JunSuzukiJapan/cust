@@ -748,8 +748,11 @@ impl<'ctx> CodeGen<'ctx> {
                 let result = Caster::gen_cast(&self.builder, self.context, &value, &from, to_type, &**expr)?;
                 Ok(Some(CompiledValue::new(to_type.clone(), result)))
             },
-            ExprAST::SelfStaticSymbol(_sym, _pos) => {
-                unimplemented!()  // _Self::Symbol
+            ExprAST::SelfStaticSymbol(_sym, _pos) => {  // _Self::Symbol
+                unimplemented!()
+            },
+            ExprAST::StructStaticSymbol(_struct_name, _elem_name, _pos) => {  // struct_name::elem_name
+                unimplemented!()
             },
         }
     }

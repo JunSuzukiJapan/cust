@@ -735,6 +735,7 @@ pub enum ExprAST {
     },
     _self(Position),
     SelfStaticSymbol(String, Position),
+    StructStaticSymbol(String, String, Position),  // struct_name::feature_name
 }
 
 impl ExprAST {
@@ -772,6 +773,7 @@ impl ExprAST {
             ExprAST::ArrayAccess(_expr, _index, pos) => pos,
             ExprAST::Symbol(_name, pos) => pos,
             ExprAST::SelfStaticSymbol(_, pos) => pos,
+            ExprAST::StructStaticSymbol(_, _, pos) => pos,
             ExprAST::_self(pos) => pos,
             ExprAST::Not(_expr, pos) => pos,
             // ExprAST::ExpressionPair(_, _right, pos) => pos,

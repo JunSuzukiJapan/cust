@@ -906,6 +906,21 @@ END: ;
     ";
 
 
+    let src = "
+        struct foo {
+            int bar;
+        };
+
+        impl foo {
+            int Zot = 1;
+
+            int test() {
+                return foo::Zot;
+            }
+        }
+    ";
+
+
     // tokenize
     let tokenized = Tokenizer::tokenize(src).unwrap();
     // parse
