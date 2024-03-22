@@ -299,10 +299,9 @@ impl Parser {
         let mut opt_unsigned: Option<(bool, Position)> = None;
         let mut opt_type: Option<(Type, Position)> = None;
         let mut opt_name: Option<String> = None;
-println!("LOOP");
+
         loop {
             if let Some((tok, pos)) = iter.peek() {
-println!("tok: {:?}", tok);
                 match tok {
                     Token::Equal | Token::SemiColon | Token::ParenLeft | Token::BracketLeft | Token::Comma | Token::ParenRight => {
                         break;
@@ -1749,7 +1748,6 @@ println!("expr: {:?}", expr);
     }
 
     fn parse_postfix_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ExprAST>, ParserError> {
-println!("parse postfix");
         if let Some(mut ast) = self.parse_primary_expression(iter, defs, labels)? {
             loop {
                 if let Some((tok, pos)) = iter.peek() {
@@ -1885,7 +1883,6 @@ println!("parse postfix");
     }
 
     fn parse_primary_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ExprAST>, ParserError> {
-println!("parse primary");
         if let Some((tok, pos)) = iter.peek() {
             match &*tok {
                 Token::Symbol(name) => {

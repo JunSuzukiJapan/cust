@@ -912,11 +912,21 @@ END: ;
         };
 
         impl foo {
-            int Zot = 1;
+            int zot = 1;
 
             int test() {
-                return foo::Zot;
+                return 5;
             }
+
+            int test2(&self) {
+                return 2;
+            }
+        }
+
+        int test(){
+            struct foo temp;
+
+            return temp.test2();
         }
     ";
 
