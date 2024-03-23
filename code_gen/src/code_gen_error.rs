@@ -92,6 +92,8 @@ pub enum CodeGenError {
     HasNotMember(String, String, Position),  // (type name, member name, Position)
     NotArray(ExprAST, Position),
     ArrayIndexIsTooLong(Position),
+    AlreadyClassFunctionDefined(String, String, Position),
+    AlreadyMemberFunctionDefined(String, String, Position),
 }
 
 impl CodeGenError {
@@ -404,6 +406,14 @@ impl CodeGenError {
     pub fn array_index_is_too_long(pos: Position) -> Self {
         Self::ArrayIndexIsTooLong(pos)
     }
+
+    pub fn already_class_function_defined(class_name: String, func_name: String, pos: Position) -> Self {
+        Self::AlreadyClassFunctionDefined(class_name, func_name, pos)
+    }
+
+    pub fn already_member_function_defined(class_name: String, func_name: String, pos: Position) -> Self {
+        Self::AlreadyMemberFunctionDefined(class_name, func_name, pos)
+    }
 }
 
 impl From<ParserError> for CodeGenError {
@@ -660,6 +670,12 @@ impl fmt::Display for CodeGenError {
             },
             Self::ArrayIndexIsTooLong(_pos) => {
                 write!(f, "array index is too long")
+            },
+            Self::AlreadyClassFunctionDefined(class_name, func_name, _pos) => {
+                write!(f, "already static function '{func_name}' is defined in struct '{class_name}'")
+            },
+            Self::AlreadyMemberFunctionDefined(class_name, func_name, _pos) => {
+                write!(f, "already member function '{func_name}' is defined in struct '{class_name}'")
             }
         }
         

@@ -2,11 +2,13 @@
 
 use std::collections::HashMap;
 use std::error::Error;
+use std::hash::Hash;
 // use inkwell::debug_info::DIFlagsConstants;
 use inkwell::values::{PointerValue, FunctionValue, GlobalValue, AnyValueEnum, IntValue, BasicValueEnum, BasicValue};
 use inkwell::types::{StructType, AnyTypeEnum, AnyType, BasicTypeEnum, IntType, BasicType};
 use inkwell::basic_block::BasicBlock;
 use inkwell::context::Context;
+use parser::FunProto;
 use tokenizer::Position;
 use crate::parser::{Type, ConstExpr, NumberType, ExprAST, CustFunctionType};
 use crate::CodeGenError;
@@ -203,18 +205,67 @@ enum ConstOrGlobalValue<'ctx> {
     GlobalValue{global: GlobalValue<'ctx>},
 }
 
-// #[derive(Debug, Clone, PartialEq)]
-// pub struct CompiledFunction<'ctx> {
-//     arg_types: Option<Vec<Type>>,
-//     ret_type: Option<Type>,
+#[derive(Debug)]
+pub struct Interface {
+    name: String,
+    function_prototypes: HashMap<String, FunProto>,
+}
 
-//     function_value: FunctionValue<'ctx>,
-// }
+#[derive(Debug)]
+pub struct Class<'a> {
+    name: String,
+    class_functions: HashMap<String, (CustFunctionType, FunctionValue<'a>)>,
+    functions: HashMap<String, (CustFunctionType, FunctionValue<'a>)>,
+    interfaces: HashMap<String, (Interface,                                   // interface
+                                 HashMap<String, &'a (CustFunctionType, FunctionValue<'a>)>)      // interfaceに対する実際の関数実装
+                       >,
+}
+
+impl<'a> Class<'a> {
+    pub fn new(name: &str) -> Self {
+        Class {
+            name: name.to_string(),
+            class_functions: HashMap::new(),
+            functions: HashMap::new(),
+            interfaces: HashMap::new(),
+        }
+    }
+
+    pub fn add_class_function(&mut self, func_name: &str, typ: CustFunctionType, function: FunctionValue<'a>, pos: &Position) -> Result<(), CodeGenError> {
+        if self.class_functions.contains_key(func_name) {
+            return  Err(CodeGenError::already_class_function_defined(self.name.clone(), func_name.to_string(), pos.clone()));
+        }
+
+        self.class_functions.insert(func_name.to_string(), (typ, function));
+
+        Ok(())
+    }
+
+    pub fn add_member_function(&mut self, func_name: &str, typ: CustFunctionType, function: FunctionValue<'a>, pos: &Position) -> Result<(), CodeGenError> {
+        if self.functions.contains_key(func_name) {
+            return Err(CodeGenError::already_member_function_defined(self.name.clone(), func_name.to_string(), pos.clone()));
+        }
+
+        self.functions.insert(func_name.to_string(), (typ, function));
+
+        Ok(())
+    }
+
+    pub fn get_class_function(&self, func_name: &str) -> Option<&(CustFunctionType, FunctionValue<'a>)> {
+        self.class_functions.get(func_name)
+    }
+
+    pub fn get_member_function(&self, func_name: &str) -> Option<&(CustFunctionType, FunctionValue<'a>)> {
+        self.functions.get(func_name)
+    }
+}
 
 #[derive(Debug)]
 pub struct Env<'ctx> {
     global_def: HashMap<String, (Type, ConstOrGlobalValue<'ctx>)>,
     global_functions: HashMap<String, (CustFunctionType, FunctionValue<'ctx>)>,
+
+    classes: HashMap<String, Class<'ctx>>,
 
     locals: Vec<Vec<HashMap<String, (Type, PointerValue<'ctx>)>>>,
     local_functions: Vec<Vec<HashMap<String, (CustFunctionType, FunctionValue<'ctx>)>>>,
@@ -230,6 +281,8 @@ impl<'ctx> Env<'ctx> {
         Env {
             global_def: HashMap::new(),
             global_functions: HashMap::new(),
+
+            classes: HashMap::new(),
 
             locals: Vec::new(),
             local_functions: Vec::new(),
@@ -303,8 +356,44 @@ impl<'ctx> Env<'ctx> {
         self.global_functions.insert(key.to_string(), (typ, function));
     }
 
+    pub fn insert_class_function(&mut self, class_name: &str, func_name: &str, typ: CustFunctionType, function: FunctionValue<'ctx>, pos: &Position) -> Result<(), CodeGenError> {
+        if ! self.classes.contains_key(class_name) {
+            self.classes.insert(class_name.to_string(), Class::new(class_name));
+        }
+
+        self.classes.get_mut(class_name).unwrap().add_class_function(func_name, typ, function, pos)?;
+
+        Ok(())
+    }
+
+    pub fn insert_member_function(&mut self, class_name: &str, func_name: &str, typ: CustFunctionType, function: FunctionValue<'ctx>, pos: &Position) -> Result<(), CodeGenError> {
+        if ! self.classes.contains_key(class_name) {
+            self.classes.insert(class_name.to_string(), Class::new(class_name));
+        }
+
+        self.classes.get_mut(class_name).unwrap().add_member_function(func_name, typ, function, pos)?;
+
+        Ok(())
+    }
+
     pub fn get_function(&self, key: &str) -> Option<&(CustFunctionType, FunctionValue<'ctx>)> {
         self.global_functions.get(key)
+    }
+
+    pub fn get_class_function(&self, class_name: &str, func_name: &str) -> Option<&(CustFunctionType, FunctionValue<'ctx>)> {
+        if ! self.classes.contains_key(class_name) {
+            return  None;
+        }
+
+        self.classes.get(class_name).unwrap().get_class_function(func_name)
+    }
+
+    pub fn get_member_function(&self, class_name: &str, func_name: &str) -> Option<&(CustFunctionType, FunctionValue<'ctx>)> {
+        if ! self.classes.contains_key(class_name) {
+            return  None;
+        }
+
+        self.classes.get(class_name).unwrap().get_member_function(func_name)
     }
 
     pub fn insert_typedef(&mut self, key: &str, typ: &Type, ctx: &'ctx Context, pos: &Position) -> Result<(), Box<dyn Error>> {
@@ -338,7 +427,7 @@ impl<'ctx> Env<'ctx> {
                         if ! t.is_union_type() {
                             return  Err(Box::new(CodeGenError::already_type_defined_in_typedef(typ, id, pos.clone())));
                         }
-println!("insert Union '{id}'. {:?}", t);
+
                         self.types.insert(key.to_string(), (t.clone(), None));
                         return  Ok(());
                     }

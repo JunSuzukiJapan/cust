@@ -1458,7 +1458,8 @@ impl<'ctx> CodeGen<'ctx> {
         };
 
         let fun_type = Self::make_fun_type(&fun_name, &ret_type, params, env)?;
-        env.insert_function(&fun_name, fun_type, function);
+        env.insert_function(&fun_name, fun_type.clone(), function);
+        env.insert_member_function(class_name, &fun_name, fun_type, function, pos)?;
 
         Ok(Some(AnyValueEnum::FunctionValue(function)))
     }
