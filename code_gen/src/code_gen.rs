@@ -576,7 +576,7 @@ impl<'ctx> CodeGen<'ctx> {
 
                 match &**fun {
                     ExprAST::Symbol(name, _pos2) => {
-                        self.gen_call_function(name, v, env, break_catcher, continue_catcher, pos)
+                        self.gen_call_function(name, &v, env, break_catcher, continue_catcher, pos)
                     },
                     ExprAST::MemberAccess(ast, fun_name, _pos2) => {
                         let typ = TypeUtil::get_type(ast, env)?;
@@ -588,8 +588,11 @@ impl<'ctx> CodeGen<'ctx> {
 
                         args.append(&mut v);
 
-                        self.gen_call_member_function(&class_name, &method_name, args, env, break_catcher, continue_catcher, pos)
+                        self.gen_call_member_function(&class_name, &method_name, &args, env, break_catcher, continue_catcher, pos)
 
+                    },
+                    ExprAST::StructStaticSymbol(class_name, method_name, _pos2) => {
+                        self.gen_call_class_function(&class_name, &method_name, &v, env, break_catcher, continue_catcher, pos)
                     },
                     _ => {
                         Err(Box::new(CodeGenError::not_function(&format!("{:?}", fun), pos.clone())))
@@ -1106,14 +1109,14 @@ impl<'ctx> CodeGen<'ctx> {
 
     pub fn gen_call_function<'b, 'c>(&self,
         name: &str,
-        args: Vec<BasicMetadataValueEnum<'ctx>>,
+        args: &Vec<BasicMetadataValueEnum<'ctx>>,
         env: &mut Env<'ctx>,
         _break_catcher: Option<&'b BreakCatcher>,
         _continue_catcher: Option<&'c ContinueCatcher>,
         pos: &Position
    ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
         if let Some((fn_typ, function)) = env.get_function(name) {
-            let call_site_value = self.builder.build_call(*function, &args, &format!("call_function_{}", name))?;
+            let call_site_value = self.builder.build_call(*function, args, &format!("call_function_{}", name))?;
 
             let tried = call_site_value.try_as_basic_value();
             if tried.is_left() {  // BasicValueEnum
@@ -1132,14 +1135,43 @@ impl<'ctx> CodeGen<'ctx> {
     pub fn gen_call_member_function<'b, 'c>(&self,
         class_name: &str,
         name: &str,
-        args: Vec<BasicMetadataValueEnum<'ctx>>,
+        args: &Vec<BasicMetadataValueEnum<'ctx>>,
         env: &mut Env<'ctx>,
         _break_catcher: Option<&'b BreakCatcher>,
         _continue_catcher: Option<&'c ContinueCatcher>,
         pos: &Position
     ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
         if let Some((fn_typ, function)) = env.get_member_function(class_name, name) {
-            let call_site_value = self.builder.build_call(*function, &args, &format!("call_member_function_{name}_in_{class_name}"))?;
+            let call_site_value = self.builder.build_call(*function, args, &format!("call_member_function_{name}_in_{class_name}"))?;
+
+            let tried = call_site_value.try_as_basic_value();
+            if tried.is_left() {  // BasicValueEnum
+                let any_val = tried.left().unwrap().as_any_value_enum();
+                Ok(Some(CompiledValue::new(fn_typ.get_return_type().clone(), any_val)))
+
+            }else{                 // InstructionValue
+                Ok(Some(CompiledValue::new(fn_typ.get_return_type().clone(), AnyValueEnum::InstructionValue(tried.right().unwrap()))))
+            }
+
+        }else{
+            return Err(Box::new(CodeGenError::no_such_a_function(&name, pos.clone())));
+        }
+    }
+
+    pub fn gen_call_class_function<'b, 'c>(&self,
+        class_name: &str,
+        name: &str,
+        args: &Vec<BasicMetadataValueEnum<'ctx>>,
+        env: &mut Env<'ctx>,
+        _break_catcher: Option<&'b BreakCatcher>,
+        _continue_catcher: Option<&'c ContinueCatcher>,
+        pos: &Position
+    ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
+
+        let method_name = Self::make_function_name_in_impl(&class_name, name);
+
+        if let Some((fn_typ, function)) = env.get_class_function(class_name, &method_name) {
+            let call_site_value = self.builder.build_call(*function, &args, &format!("call_class_function_{name}_in_{class_name}"))?;
 
             let tried = call_site_value.try_as_basic_value();
             if tried.is_left() {  // BasicValueEnum
@@ -1484,8 +1516,12 @@ impl<'ctx> CodeGen<'ctx> {
         };
 
         let fun_type = Self::make_fun_type(&fun_name, &ret_type, params, env)?;
-        // env.insert_function(&fun_name, fun_type.clone(), function);
-        env.insert_member_function(class_name, &fun_name, fun_type, function, pos)?;
+
+        if params.has_self() {
+            env.insert_member_function(class_name, &fun_name, fun_type, function, pos)?;
+        }else{
+            env.insert_class_function(class_name, &fun_name, fun_type, function, pos)?;
+        }
 
         Ok(Some(AnyValueEnum::FunctionValue(function)))
     }

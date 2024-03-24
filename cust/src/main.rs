@@ -930,6 +930,30 @@ END: ;
         }
     ";
 
+    let src = "
+        struct foo {
+            int bar;
+        };
+
+        impl foo {
+            int zot = 1;
+
+            int test() {
+                return 5;
+            }
+
+            int test2(&self) {
+                return 2;
+            }
+        }
+
+        int test(){
+            struct foo temp;
+
+            return foo::test();
+        }
+    ";
+
 
     // tokenize
     let tokenized = Tokenizer::tokenize(src).unwrap();
