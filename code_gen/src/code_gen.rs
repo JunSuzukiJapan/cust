@@ -582,13 +582,13 @@ impl<'ctx> CodeGen<'ctx> {
                         let typ = TypeUtil::get_type(ast, env)?;
                         let (_t, obj) = self.get_l_value(&**ast, env, break_catcher, continue_catcher)?;
                         let class_name = typ.get_type_name();
-                        let method_name = Self::make_function_name_in_impl(&class_name, fun_name);
+                        // let method_name = Self::make_function_name_in_impl(&class_name, fun_name);
                         let mut args: Vec<BasicMetadataValueEnum> = Vec::new();
                         args.push(obj.into());
 
                         args.append(&mut v);
 
-                        self.gen_call_member_function(&class_name, &method_name, &args, env, break_catcher, continue_catcher, pos)
+                        self.gen_call_member_function(&class_name, &fun_name, &args, env, break_catcher, continue_catcher, pos)
 
                     },
                     ExprAST::StructStaticSymbol(class_name, method_name, _pos2) => {
@@ -1168,9 +1168,9 @@ impl<'ctx> CodeGen<'ctx> {
         pos: &Position
     ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
 
-        let method_name = Self::make_function_name_in_impl(&class_name, name);
+        // let method_name = Self::make_function_name_in_impl(&class_name, name);
 
-        if let Some((fn_typ, function)) = env.get_class_function(class_name, &method_name) {
+        if let Some((fn_typ, function)) = env.get_class_function(class_name, &name) {
             let call_site_value = self.builder.build_call(*function, &args, &format!("call_class_function_{name}_in_{class_name}"))?;
 
             let tried = call_site_value.try_as_basic_value();
@@ -1504,7 +1504,11 @@ impl<'ctx> CodeGen<'ctx> {
         let ret_type = declarator.make_type(&sp_type);
         let params = fun_or_proto.get_params();
         let decl_name = declarator.get_name();
-        let fun_name = Self::make_function_name_in_impl(class_name, decl_name);
+        let fun_name = if params.has_self() {
+            Self::make_function_name_in_impl(class_name, decl_name)
+        }else{
+            Self::make_class_function_name_in_impl(class_name, decl_name)
+        };
         let body = fun_or_proto.get_body();
         let function = if let Some(b) = body {
             // Function
@@ -1518,9 +1522,9 @@ impl<'ctx> CodeGen<'ctx> {
         let fun_type = Self::make_fun_type(&fun_name, &ret_type, params, env)?;
 
         if params.has_self() {
-            env.insert_member_function(class_name, &fun_name, fun_type, function, pos)?;
+            env.insert_member_function(class_name, &decl_name, fun_type, function, pos)?;
         }else{
-            env.insert_class_function(class_name, &fun_name, fun_type, function, pos)?;
+            env.insert_class_function(class_name, &decl_name, fun_type, function, pos)?;
         }
 
         Ok(Some(AnyValueEnum::FunctionValue(function)))
@@ -1619,7 +1623,11 @@ impl<'ctx> CodeGen<'ctx> {
     }
 
     pub fn make_function_name_in_impl(class_name: &str, fun_name: &str) -> String {
-        format!("${}$${}", class_name, fun_name)
+        format!("${}.{}", class_name, fun_name)
+    }
+
+    pub fn make_class_function_name_in_impl(class_name: &str, fun_name: &str) -> String {
+        format!("${}::{}", class_name, fun_name)
     }
 
     pub fn make_var_name_in_impl(class_name: &str, var_name: &str) -> String {

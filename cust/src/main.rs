@@ -929,7 +929,7 @@ END: ;
             return temp.test2();
         }
     ";
-
+/*
     let src = "
         struct foo {
             int bar;
@@ -953,7 +953,7 @@ END: ;
             return foo::test();
         }
     ";
-
+*/
 
     // tokenize
     let tokenized = Tokenizer::tokenize(src).unwrap();

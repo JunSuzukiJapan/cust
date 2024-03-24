@@ -11,7 +11,7 @@ use inkwell::context::Context;
 use parser::FunProto;
 use tokenizer::Position;
 use crate::parser::{Type, ConstExpr, NumberType, ExprAST, CustFunctionType};
-use crate::CodeGenError;
+use crate::{code_gen, CodeGenError};
 use super::type_util::TypeUtil;
 
 use super::CodeGen;
