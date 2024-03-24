@@ -588,7 +588,7 @@ impl<'ctx> CodeGen<'ctx> {
 
                         args.append(&mut v);
 
-                        self.gen_call_function(&method_name, args, env, break_catcher, continue_catcher, pos)
+                        self.gen_call_member_function(&class_name, &method_name, args, env, break_catcher, continue_catcher, pos)
 
                     },
                     _ => {
@@ -1129,6 +1129,32 @@ impl<'ctx> CodeGen<'ctx> {
         }
     }
 
+    pub fn gen_call_member_function<'b, 'c>(&self,
+        class_name: &str,
+        name: &str,
+        args: Vec<BasicMetadataValueEnum<'ctx>>,
+        env: &mut Env<'ctx>,
+        _break_catcher: Option<&'b BreakCatcher>,
+        _continue_catcher: Option<&'c ContinueCatcher>,
+        pos: &Position
+    ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
+        if let Some((fn_typ, function)) = env.get_member_function(class_name, name) {
+            let call_site_value = self.builder.build_call(*function, &args, &format!("call_member_function_{name}_in_{class_name}"))?;
+
+            let tried = call_site_value.try_as_basic_value();
+            if tried.is_left() {  // BasicValueEnum
+                let any_val = tried.left().unwrap().as_any_value_enum();
+                Ok(Some(CompiledValue::new(fn_typ.get_return_type().clone(), any_val)))
+
+            }else{                 // InstructionValue
+                Ok(Some(CompiledValue::new(fn_typ.get_return_type().clone(), AnyValueEnum::InstructionValue(tried.right().unwrap()))))
+            }
+
+        }else{
+            return Err(Box::new(CodeGenError::no_such_a_function(&name, pos.clone())));
+        }
+    }
+
     fn str_to_basic_metadata_value_enum(&self, s: &str, pos: &Position) -> Result<BasicMetadataValueEnum<'ctx>, Box<dyn Error>> {
         let global_str = self.builder.build_global_string_ptr(s, &format!("global_str_{}", s))?.as_any_value_enum();
         Ok(self.try_as_basic_metadata_value(&global_str, pos)?)
@@ -1458,7 +1484,7 @@ impl<'ctx> CodeGen<'ctx> {
         };
 
         let fun_type = Self::make_fun_type(&fun_name, &ret_type, params, env)?;
-        env.insert_function(&fun_name, fun_type.clone(), function);
+        // env.insert_function(&fun_name, fun_type.clone(), function);
         env.insert_member_function(class_name, &fun_name, fun_type, function, pos)?;
 
         Ok(Some(AnyValueEnum::FunctionValue(function)))
