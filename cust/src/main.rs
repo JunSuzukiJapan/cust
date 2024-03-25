@@ -968,6 +968,10 @@ END: ;
                 return Self::Zot;
             }
         }
+
+        int test(){
+            return foo::test();
+        }
     ";
 
     let src = "
@@ -982,6 +986,10 @@ END: ;
                 return foo::Zot;
             }
         }
+
+        int test(){
+            return foo::test();
+        }
     ";
 
     let src = "
@@ -995,6 +1003,10 @@ END: ;
             int test() {
                 return Foo::Zot;
             }
+        }
+
+        int test(){
+            return foo::test();
         }
     ";
 

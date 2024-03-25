@@ -367,7 +367,30 @@ impl<'ctx> Env<'ctx> {
         self.global_def.insert(key.to_string(), (typ, ConstOrGlobalValue::GlobalValue { global: ptr }));
     }
 
+    fn get_real_class_name(&self, class_name: &str) -> String {
+        if let Some((type_or_union, _)) = self.types.get(class_name) {
+            match type_or_union {
+                TypeOrUnion::TypeDefStruct(name) => {
+println!("name: {class_name} -> real: {name}");
+                    name.to_string()
+                },
+                TypeOrUnion::TypeDefUnion(name) => {
+                    name.to_string()
+                },
+                _ => {
+println!("not typedef. {:?}", type_or_union);
+                    class_name.to_string()
+                },
+            }
+        }else{
+println!("no class");
+            class_name.to_string()
+        }
+    }
+
     pub fn insert_class_var(&mut self, class_name: &str, var_name: &str, typ: Type, ptr: GlobalValue<'ctx>, pos: &Position) -> Result<(), CodeGenError> {
+        let class_name = &self.get_real_class_name(class_name);
+println!("insert real name: {class_name}");
         if ! self.classes.contains_key(class_name) {
             self.classes.insert(class_name.to_string(), Class::new(class_name));
         }
@@ -378,6 +401,8 @@ impl<'ctx> Env<'ctx> {
     }
 
     pub fn get_class_var(&self, class_name: &str, var_name: &str) -> Option<&(Type, GlobalValue<'ctx>)> {
+        let class_name = &self.get_real_class_name(class_name);
+println!("get real name: {class_name}");
         if ! self.classes.contains_key(class_name) {
             return None;
         }
@@ -487,7 +512,7 @@ impl<'ctx> Env<'ctx> {
                         if ! t.is_struct_type() {
                             return  Err(Box::new(CodeGenError::already_type_defined_in_typedef(typ, struct_name, pos.clone())));
                         }
-
+println!("insert typedef 1");
                         self.types.insert(key.to_string(), (t.clone(), None));
                         return Ok(());
                     }
@@ -496,12 +521,13 @@ impl<'ctx> Env<'ctx> {
                 let (struct_type, index_map) = CodeGen::struct_from_struct_definition(name, fields, ctx, pos)?;
                 if let Some(struct_name) = name {
                     self.insert_struct(struct_name, &struct_type, index_map, pos)?;
-
+println!("2. key: {key}, struct name: {struct_name}");
                     // let t = self.get_type(&struct_name).unwrap();
                     // self.types.insert(key.to_string(), (t.clone(), None));
                     let t = TypeOrUnion::TypeDefStruct(struct_name.to_string());
-                    self.types.insert(key.to_string(), (t.clone(), None));
+                    self.types.insert(key.to_string(), (t, None));
                 }else{
+println!("3");
                     self.insert_struct(key, &struct_type, index_map, pos)?;
                 };
             },
