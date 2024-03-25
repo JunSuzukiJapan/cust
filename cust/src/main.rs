@@ -803,7 +803,7 @@ END: ;
             return Foo::Bar;
         }
     ";
-
+/*
     let src = "
         int printf(char* format, ...);
         typedef unsigned char bool;
@@ -890,22 +890,9 @@ END: ;
             return p1 && p2;
         }
     ";
+*/
 
-    let src = "
-        typedef struct foo {
-            int bar;
-        } Foo;
-
-        impl foo {
-            int Zot = 1;
-
-            int test() {
-                return Self::Zot + foo::Zot + Foo::Zot;
-            }
-        }
-    ";
-
-
+/*
     let src = "
         struct foo {
             int bar;
@@ -929,7 +916,7 @@ END: ;
             return temp.test2();
         }
     ";
-/*
+
     let src = "
         struct foo {
             int bar;
@@ -954,6 +941,63 @@ END: ;
         }
     ";
 */
+
+    let src = "
+        typedef struct foo {
+            int bar;
+        } Foo;
+
+        impl foo {
+            int Zot = 1;
+
+            int test() {
+                return Self::Zot + foo::Zot + Foo::Zot;
+            }
+        }
+    ";
+
+    let src = "
+        typedef struct foo {
+            int bar;
+        } Foo;
+
+        impl foo {
+            int Zot = 1;
+
+            int test() {
+                return Self::Zot;
+            }
+        }
+    ";
+
+    let src = "
+        typedef struct foo {
+            int bar;
+        } Foo;
+
+        impl foo {
+            int Zot = 1;
+
+            int test() {
+                return foo::Zot;
+            }
+        }
+    ";
+
+    let src = "
+        typedef struct foo {
+            int bar;
+        } Foo;
+
+        impl foo {
+            int Zot = 1;
+
+            int test() {
+                return Foo::Zot;
+            }
+        }
+    ";
+
 
     // tokenize
     let tokenized = Tokenizer::tokenize(src).unwrap();

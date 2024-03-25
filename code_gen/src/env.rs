@@ -166,7 +166,7 @@ pub enum TypeOrUnion<'ctx> {
         i32_type: IntType<'ctx>,
         enumerator_list: Vec<(String, IntValue<'ctx>)>,
         index_map: HashMap<String,usize>,
-    }
+    },
 }
 
 impl<'ctx> TypeOrUnion<'ctx> {
@@ -352,6 +352,11 @@ impl<'ctx> Env<'ctx> {
         self.locals.last_mut().unwrap().last_mut().unwrap().insert(key.to_string(), (typ, ptr));
     }
 
+    pub fn insert_label(&mut self, key: &str, block: BasicBlock<'ctx>) -> Result<(), CodeGenError> {
+        self.local_labels.last_mut().unwrap().last_mut().unwrap().insert(key.to_string(), block);
+        Ok(())
+    }
+
     pub fn insert_function(&mut self, key: &str, typ: CustFunctionType, function: FunctionValue<'ctx>) {
         self.global_functions.insert(key.to_string(), (typ, function));
     }
@@ -396,15 +401,44 @@ impl<'ctx> Env<'ctx> {
         self.classes.get(class_name).unwrap().get_member_function(func_name)
     }
 
+    pub fn insert_struct(&mut self, key: &str, struct_type: &StructType<'ctx>, index_map: HashMap<String, usize>, pos: &Position) -> Result<(), CodeGenError> {
+        if let Some(_any_type_enum) = self.types.get(key) {
+            return Err(CodeGenError::already_type_defined_in_struct(key, pos.clone()));
+        }
+
+        self.types.insert(key.to_string(), (TypeOrUnion::Type(struct_type.as_any_type_enum()), Some(index_map)));
+
+        Ok(())
+    }
+
+    pub fn insert_union(
+        &mut self,
+        key: &str,
+        type_list: Vec<(Type, BasicTypeEnum<'ctx>)>,
+        index_map: HashMap<String, usize>,
+        max_size: u64, max_size_type: Option<BasicTypeEnum<'ctx>>,
+        pos: &Position
+      ) -> Result<(), CodeGenError>
+    {
+        if let Some(_any_type_enum) = self.types.get(key) {
+            return Err(CodeGenError::already_type_defined_in_union(key, pos.clone()));
+        }
+
+        let type_or_union = TypeOrUnion::Union { type_list, index_map: index_map.clone(), max_size, max_size_type };
+        self.types.insert(key.to_string(), (type_or_union, Some(index_map)));
+
+        Ok(())
+    }
+
     pub fn insert_typedef(&mut self, key: &str, typ: &Type, ctx: &'ctx Context, pos: &Position) -> Result<(), Box<dyn Error>> {
         if let Some(_any_type_enum) = self.types.get(key) {
             return Err(Box::new(CodeGenError::already_type_defined_in_typedef(typ, key, pos.clone())));
         }
 
-        let type_or_union = match typ {
+        match typ {
             Type::Symbol(name) => {
-                let t = self.get_type(name).ok_or(CodeGenError::no_such_a_type(name, pos.clone()))?;
-                t.clone()
+                let t = self.get_type(name).ok_or(CodeGenError::no_such_a_type(name, pos.clone()))?.clone();
+                self.types.insert(key.to_string(), (t.clone(), None));
             },
             Type::Struct { name, fields } => {
                 if let Some(struct_name) = name {
@@ -418,8 +452,15 @@ impl<'ctx> Env<'ctx> {
                     }
                 }
 
-                let (t, _index_map) = CodeGen::struct_from_struct_definition(name, fields, ctx, pos)?;
-                TypeOrUnion::Type(t.as_any_type_enum())
+                let (struct_type, index_map) = CodeGen::struct_from_struct_definition(name, fields, ctx, pos)?;
+                if let Some(struct_name) = name {
+                    self.insert_struct(struct_name, &struct_type, index_map, pos)?;
+
+                    let t = self.get_type(&struct_name).unwrap();
+                    self.types.insert(key.to_string(), (t.clone(), None));                    
+                }else{
+                    self.insert_struct(key, &struct_type, index_map, pos)?;
+                };
             },
             Type::Union { name, fields } => {
                 if let Some(id) = name {
@@ -434,15 +475,37 @@ impl<'ctx> Env<'ctx> {
                 }
 
                 let (type_list, index_map, max_size, max_size_type) = CodeGen::union_from_struct_definition(name, fields, ctx, pos)?;
-                TypeOrUnion::Union {
-                    type_list: type_list,
-                    index_map: index_map,
-                    max_size: max_size,
-                    max_size_type: max_size_type
+                if let Some(union_name) = name {
+                    self.insert_union(&union_name, type_list, index_map, max_size, max_size_type, pos)?;
+
+                    let t = self.get_type(&union_name).unwrap();
+                    self.types.insert(key.to_string(), (t.clone(), None));
+
+                }else{
+                    self.insert_union(key, type_list, index_map, max_size, max_size_type, pos)?;
                 }
+
             },
-            _ => TypeOrUnion::Type(TypeUtil::to_llvm_any_type(typ, ctx, pos)?),
+            _ => {
+                let type_or_union = TypeOrUnion::Type(TypeUtil::to_llvm_any_type(typ, ctx, pos)?);
+                self.types.insert(key.to_string(), (type_or_union, None));
+            },
         };
+        // self.types.insert(key.to_string(), (type_or_union, None));
+
+        Ok(())
+    }
+
+    pub fn insert_enum(&mut self, key: &str, enum_type: &IntType<'ctx>, enumerator_list: Vec<(String, IntValue<'ctx>)>, index_map: HashMap<String, usize>, pos: &Position) -> Result<(), CodeGenError> {
+        if let Some(_any_type_enum) = self.types.get(key) {
+            return Err(CodeGenError::already_type_defined_in_struct(key, pos.clone()));
+        }
+
+        for (id, val) in &enumerator_list {
+            self.insert_global_enumerator(id, Type::Number(NumberType::Int), *val);
+        }
+
+        let type_or_union = TypeOrUnion::StandardEnum { i32_type: *enum_type, enumerator_list: enumerator_list, index_map: index_map };
         self.types.insert(key.to_string(), (type_or_union, None));
 
         Ok(())
@@ -525,55 +588,6 @@ impl<'ctx> Env<'ctx> {
                 Ok(TypeUtil::to_basic_type_enum(typ, ctx, pos)?)
             },
         }
-    }
-
-    pub fn insert_label(&mut self, key: &str, block: BasicBlock<'ctx>) -> Result<(), CodeGenError> {
-        self.local_labels.last_mut().unwrap().last_mut().unwrap().insert(key.to_string(), block);
-        Ok(())
-    }
-
-    pub fn insert_struct(&mut self, key: &str, struct_type: &StructType<'ctx>, index_map: HashMap<String, usize>, pos: &Position) -> Result<(), CodeGenError> {
-        if let Some(_any_type_enum) = self.types.get(key) {
-            return Err(CodeGenError::already_type_defined_in_struct(key, pos.clone()));
-        }
-
-        self.types.insert(key.to_string(), (TypeOrUnion::Type(struct_type.as_any_type_enum()), Some(index_map)));
-
-        Ok(())
-    }
-
-    pub fn insert_union(
-        &mut self,
-        key: &str,
-        type_list: Vec<(Type, BasicTypeEnum<'ctx>)>,
-        index_map: HashMap<String, usize>,
-        max_size: u64, max_size_type: Option<BasicTypeEnum<'ctx>>,
-        pos: &Position
-      ) -> Result<(), CodeGenError>
-    {
-        if let Some(_any_type_enum) = self.types.get(key) {
-            return Err(CodeGenError::already_type_defined_in_union(key, pos.clone()));
-        }
-
-        let type_or_union = TypeOrUnion::Union { type_list, index_map: index_map.clone(), max_size, max_size_type };
-        self.types.insert(key.to_string(), (type_or_union, Some(index_map)));
-
-        Ok(())
-    }
-
-    pub fn insert_enum(&mut self, key: &str, enum_type: &IntType<'ctx>, enumerator_list: Vec<(String, IntValue<'ctx>)>, index_map: HashMap<String, usize>, pos: &Position) -> Result<(), CodeGenError> {
-        if let Some(_any_type_enum) = self.types.get(key) {
-            return Err(CodeGenError::already_type_defined_in_struct(key, pos.clone()));
-        }
-
-        for (id, val) in &enumerator_list {
-            self.insert_global_enumerator(id, Type::Number(NumberType::Int), *val);
-        }
-
-        let type_or_union = TypeOrUnion::StandardEnum { i32_type: *enum_type, enumerator_list: enumerator_list, index_map: index_map };
-        self.types.insert(key.to_string(), (type_or_union, None));
-
-        Ok(())
     }
 
     pub fn get_block(&self, key: &str) -> Option<&BasicBlock> {

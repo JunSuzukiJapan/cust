@@ -1448,7 +1448,7 @@ impl<'ctx> CodeGen<'ctx> {
         continue_catcher: Option<&'c ContinueCatcher>,
         pos: &Position
     ) -> Result<(), Box<dyn Error>> {
-
+println!("gen_impl_no_for");
         let _class = env.get_type(class_name).ok_or(Box::new(CodeGenError::no_such_a_struct(class_name, pos.clone())))?;
 
         for def in defines {
