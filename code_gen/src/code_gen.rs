@@ -751,10 +751,13 @@ impl<'ctx> CodeGen<'ctx> {
                 let result = Caster::gen_cast(&self.builder, self.context, &value, &from, to_type, &**expr)?;
                 Ok(Some(CompiledValue::new(to_type.clone(), result)))
             },
-            ExprAST::SelfStaticSymbol(_sym, _pos) => {  // _Self::Symbol
-                unimplemented!()
+            ExprAST::StructStaticSymbol(struct_name, var_name, pos) => {  // struct_name::var_name
+                let (typ, ptr) = self.get_l_value(expr_ast, env, break_catcher, continue_catcher)?;
+                let basic_val = self.builder.build_load(ptr, &format!("access_to_field_{}_in_class_{}", var_name, struct_name))?;
+                let any_val = basic_val.as_any_value_enum();
+                Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
-            ExprAST::StructStaticSymbol(_struct_name, _elem_name, _pos) => {  // struct_name::elem_name
+            ExprAST::SelfStaticSymbol(_sym, _pos) => {  // _Self::Symbol
                 unimplemented!()
             },
         }
@@ -1168,8 +1171,6 @@ impl<'ctx> CodeGen<'ctx> {
         pos: &Position
     ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
 
-        // let method_name = Self::make_function_name_in_impl(&class_name, name);
-
         if let Some((fn_typ, function)) = env.get_class_function(class_name, &name) {
             let call_site_value = self.builder.build_call(*function, &args, &format!("call_class_function_{name}_in_{class_name}"))?;
 
@@ -1547,35 +1548,36 @@ println!("gen_impl_no_for");
         for decl in declarations {
             let declarator = decl.get_declarator();
             let var_name = declarator.get_name();
-            let name = Self::make_var_name_in_impl(class_name, var_name);
+            let global_name = Self::make_var_name_in_impl(class_name, var_name);
 
-            self.gen_global_def_var_sub(&name, base_type, decl, declarator, env, break_catcher, continue_catcher, pos)?;
+            // self.gen_global_def_var_sub(&name, base_type, decl, declarator, env, break_catcher, continue_catcher, pos)?;
 
-            // let typ = declarator.make_type(base_type);
-            // let basic_type = TypeUtil::to_basic_type_enum(&typ, self.context, pos)?;
-            // let ptr = self.module.add_global(basic_type, Some(AddressSpace::default()), &name);
+            let typ = declarator.make_type(base_type);
+            let basic_type = TypeUtil::to_basic_type_enum(&typ, self.context, pos)?;
+            let ptr = self.module.add_global(basic_type, Some(AddressSpace::default()), &global_name);
 
-            // match decl.get_init_expr() {
-            //     Some(initializer) => {
-            //         match &typ {
-            //             Type::Struct { fields, .. } => {
-            //                 self.gen_global_struct_init(&fields, ptr, &*initializer, env, break_catcher, continue_catcher)?;
-            //             },
-            //             Type::Array { name: _, typ, size_list } => {
-            //                 self.gen_global_array_init(&size_list, ptr, &*typ, &*initializer, env, break_catcher, continue_catcher)?;
-            //             },
-            //             _ => {
-            //                 let init = self.gen_const_expr(initializer, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(pos.clone()))?;
-            //                 let basic_value = self.try_as_basic_value(&init.get_value(), initializer.get_position())?;
+            match decl.get_init_expr() {
+                Some(initializer) => {
+                    match &typ {
+                        Type::Struct { fields, .. } => {
+                            self.gen_global_struct_init(&fields, ptr, &*initializer, env, break_catcher, continue_catcher)?;
+                        },
+                        Type::Array { name: _, typ, size_list } => {
+                            self.gen_global_array_init(&size_list, ptr, &*typ, &*initializer, env, break_catcher, continue_catcher)?;
+                        },
+                        _ => {
+                            let init = self.gen_const_expr(initializer, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(pos.clone()))?;
+                            let basic_value = self.try_as_basic_value(&init.get_value(), initializer.get_position())?;
     
-            //                 ptr.set_initializer(&basic_value);
-            //             }
-            //         }
-            //     },
-            //     None => (),  // do nothing
-            // };
+                            ptr.set_initializer(&basic_value);
+                        }
+                    }
+                },
+                None => (),  // do nothing
+            };
 
             // env.insert_global_var(&name, typ.clone(), ptr);
+            env.insert_class_var(class_name, var_name, typ.clone(), ptr, pos)?;
         }
 
         Ok(())
@@ -2716,6 +2718,13 @@ println!("gen_impl_no_for");
                 unimplemented!()
 
                 // Err(Box::new(CodeGenError::self_has_not_l_value(pos.clone())))
+            },
+            ExprAST::StructStaticSymbol(struct_name, var_name, pos) => {
+                if let Some((typ, ptr)) = env.get_class_var(struct_name, var_name) {
+                    Ok((typ.clone(), ptr.as_pointer_value()))
+                }else{
+                    return Err(Box::new(CodeGenError::no_such_a_class_var(struct_name.clone(), var_name.clone(), pos.clone())));
+                }
             },
             _ => {
                 Err(Box::new(CodeGenError::has_not_l_value(format!("{:?}", ast), ast.get_position().clone())))

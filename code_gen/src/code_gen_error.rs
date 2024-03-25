@@ -94,6 +94,8 @@ pub enum CodeGenError {
     ArrayIndexIsTooLong(Position),
     AlreadyClassFunctionDefined(String, String, Position),
     AlreadyMemberFunctionDefined(String, String, Position),
+    AlreadyClassVarDefined(String, String, Position),
+    NoSuchAClassVar(String, String, Position),
 }
 
 impl CodeGenError {
@@ -414,6 +416,14 @@ impl CodeGenError {
     pub fn already_member_function_defined(class_name: String, func_name: String, pos: Position) -> Self {
         Self::AlreadyMemberFunctionDefined(class_name, func_name, pos)
     }
+
+    pub fn already_class_var_defined(class_name: String, var_name: String, pos: Position) -> Self {
+        Self::AlreadyClassVarDefined(class_name, var_name, pos)
+    }
+
+    pub fn no_such_a_class_var(class_name: String, var_name: String, pos: Position) -> Self {
+        Self::NoSuchAClassVar(class_name, var_name, pos)
+    }
 }
 
 impl From<ParserError> for CodeGenError {
@@ -676,7 +686,13 @@ impl fmt::Display for CodeGenError {
             },
             Self::AlreadyMemberFunctionDefined(class_name, func_name, _pos) => {
                 write!(f, "already member function '{func_name}' is defined in struct '{class_name}'")
-            }
+            },
+            Self::AlreadyClassVarDefined(class_name, var_name, _pos) => {
+                write!(f, "already static var '{var_name}' is defined in struct '{class_name}'")
+            },
+            Self::NoSuchAClassVar(class_name, var_name, _pos) => {
+                write!(f, "no such a var '{var_name}' in struct '{class_name}'")
+            },
         }
         
     }

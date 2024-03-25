@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 use std::collections::HashMap;
+use std::env::var;
 use std::error::Error;
 use std::hash::Hash;
 // use inkwell::debug_info::DIFlagsConstants;
@@ -167,12 +168,15 @@ pub enum TypeOrUnion<'ctx> {
         enumerator_list: Vec<(String, IntValue<'ctx>)>,
         index_map: HashMap<String,usize>,
     },
+    TypeDefStruct(String),
+    TypeDefUnion(String),
 }
 
 impl<'ctx> TypeOrUnion<'ctx> {
     pub fn is_struct_type(&self) -> bool {
         match self {
             TypeOrUnion::Type(t) => t.is_struct_type(),
+            TypeOrUnion::TypeDefStruct(_) => true,
             _ => false,
         }
     }
@@ -180,6 +184,7 @@ impl<'ctx> TypeOrUnion<'ctx> {
     pub fn is_union_type(&self) -> bool{
         match self {
             TypeOrUnion::Union {..} => true,
+            TypeOrUnion::TypeDefUnion(_) => true,
             _ => false,
         }
     }
@@ -195,6 +200,8 @@ impl<'ctx> TypeOrUnion<'ctx> {
                 }
             },
             TypeOrUnion::StandardEnum {i32_type, ..} => AnyTypeEnum::IntType(*i32_type),
+            TypeOrUnion::TypeDefStruct(_name) => panic!(),
+            TypeOrUnion::TypeDefUnion(_name) => panic!(),
         }
     }
 }
@@ -212,26 +219,28 @@ pub struct Interface {
 }
 
 #[derive(Debug)]
-pub struct Class<'a> {
+pub struct Class<'ctx> {
     name: String,
-    class_functions: HashMap<String, (CustFunctionType, FunctionValue<'a>)>,
-    functions: HashMap<String, (CustFunctionType, FunctionValue<'a>)>,
+    vars:HashMap<String, (Type, GlobalValue<'ctx>)>,
+    class_functions: HashMap<String, (CustFunctionType, FunctionValue<'ctx>)>,
+    functions: HashMap<String, (CustFunctionType, FunctionValue<'ctx>)>,
     interfaces: HashMap<String, (Interface,                                   // interface
-                                 HashMap<String, &'a (CustFunctionType, FunctionValue<'a>)>)      // interfaceに対する実際の関数実装
+                                 HashMap<String, &'ctx (CustFunctionType, FunctionValue<'ctx>)>)      // interfaceに対する実際の関数実装
                        >,
 }
 
-impl<'a> Class<'a> {
+impl<'ctx> Class<'ctx> {
     pub fn new(name: &str) -> Self {
         Class {
             name: name.to_string(),
+            vars: HashMap::new(),
             class_functions: HashMap::new(),
             functions: HashMap::new(),
             interfaces: HashMap::new(),
         }
     }
 
-    pub fn add_class_function(&mut self, func_name: &str, typ: CustFunctionType, function: FunctionValue<'a>, pos: &Position) -> Result<(), CodeGenError> {
+    pub fn add_class_function(&mut self, func_name: &str, typ: CustFunctionType, function: FunctionValue<'ctx>, pos: &Position) -> Result<(), CodeGenError> {
         if self.class_functions.contains_key(func_name) {
             return  Err(CodeGenError::already_class_function_defined(self.name.clone(), func_name.to_string(), pos.clone()));
         }
@@ -241,7 +250,7 @@ impl<'a> Class<'a> {
         Ok(())
     }
 
-    pub fn add_member_function(&mut self, func_name: &str, typ: CustFunctionType, function: FunctionValue<'a>, pos: &Position) -> Result<(), CodeGenError> {
+    pub fn add_member_function(&mut self, func_name: &str, typ: CustFunctionType, function: FunctionValue<'ctx>, pos: &Position) -> Result<(), CodeGenError> {
         if self.functions.contains_key(func_name) {
             return Err(CodeGenError::already_member_function_defined(self.name.clone(), func_name.to_string(), pos.clone()));
         }
@@ -251,12 +260,26 @@ impl<'a> Class<'a> {
         Ok(())
     }
 
-    pub fn get_class_function(&self, func_name: &str) -> Option<&(CustFunctionType, FunctionValue<'a>)> {
+    pub fn get_class_function(&self, func_name: &str) -> Option<&(CustFunctionType, FunctionValue<'ctx>)> {
         self.class_functions.get(func_name)
     }
 
-    pub fn get_member_function(&self, func_name: &str) -> Option<&(CustFunctionType, FunctionValue<'a>)> {
+    pub fn get_member_function(&self, func_name: &str) -> Option<&(CustFunctionType, FunctionValue<'ctx>)> {
         self.functions.get(func_name)
+    }
+
+    pub fn add_class_var(&mut self, var_name: &str, typ: Type, ptr: GlobalValue<'ctx>, pos: &Position) -> Result<(), CodeGenError> {
+        if self.vars.contains_key(var_name) {
+            return Err(CodeGenError::already_class_var_defined(self.name.clone(), var_name.to_string(), pos.clone()));
+        }
+
+        self.vars.insert(var_name.to_string(), (typ, ptr));
+
+        Ok(())
+    }
+
+    pub fn get_class_var(&self, var_name: &str) -> Option<&(Type, GlobalValue<'ctx>)> {
+        self.vars.get(var_name)
     }
 }
 
@@ -342,6 +365,24 @@ impl<'ctx> Env<'ctx> {
 
     pub fn insert_global_var(&mut self, key: &str, typ: Type, ptr: GlobalValue<'ctx>) {
         self.global_def.insert(key.to_string(), (typ, ConstOrGlobalValue::GlobalValue { global: ptr }));
+    }
+
+    pub fn insert_class_var(&mut self, class_name: &str, var_name: &str, typ: Type, ptr: GlobalValue<'ctx>, pos: &Position) -> Result<(), CodeGenError> {
+        if ! self.classes.contains_key(class_name) {
+            self.classes.insert(class_name.to_string(), Class::new(class_name));
+        }
+
+        self.classes.get_mut(class_name).unwrap().add_class_var(var_name, typ, ptr, pos)?;
+
+        Ok(())
+    }
+
+    pub fn get_class_var(&self, class_name: &str, var_name: &str) -> Option<&(Type, GlobalValue<'ctx>)> {
+        if ! self.classes.contains_key(class_name) {
+            return None;
+        }
+
+        self.classes.get(class_name).unwrap().get_class_var(var_name)
     }
 
     pub fn insert_global_enumerator(&mut self, key: &str, typ: Type, value: IntValue<'ctx>) {
@@ -456,8 +497,10 @@ impl<'ctx> Env<'ctx> {
                 if let Some(struct_name) = name {
                     self.insert_struct(struct_name, &struct_type, index_map, pos)?;
 
-                    let t = self.get_type(&struct_name).unwrap();
-                    self.types.insert(key.to_string(), (t.clone(), None));                    
+                    // let t = self.get_type(&struct_name).unwrap();
+                    // self.types.insert(key.to_string(), (t.clone(), None));
+                    let t = TypeOrUnion::TypeDefStruct(struct_name.to_string());
+                    self.types.insert(key.to_string(), (t.clone(), None));
                 }else{
                     self.insert_struct(key, &struct_type, index_map, pos)?;
                 };
@@ -478,7 +521,9 @@ impl<'ctx> Env<'ctx> {
                 if let Some(union_name) = name {
                     self.insert_union(&union_name, type_list, index_map, max_size, max_size_type, pos)?;
 
-                    let t = self.get_type(&union_name).unwrap();
+                    // let t = self.get_type(&union_name).unwrap();
+                    // self.types.insert(key.to_string(), (t.clone(), None));
+                    let t = TypeOrUnion::TypeDefUnion(union_name.to_string());
                     self.types.insert(key.to_string(), (t.clone(), None));
 
                 }else{
@@ -516,25 +561,36 @@ impl<'ctx> Env<'ctx> {
             Type::Struct { name, fields } => {
                 if let Some(id) = name {
                     if let Some(type_or_union) = self.get_type(id) {
-                        match type_or_union {
-                            TypeOrUnion::Type(t) => {
-                                if let Ok(basic_type) = BasicTypeEnum::try_from(*t) {
-                                    Ok(basic_type)
-                                }else{
-                                    Err(Box::new(CodeGenError::mismatch_type_struct_fields(Some(id), pos.clone())))
-                                }
-                            },
-                            TypeOrUnion::Union { max_size_type, .. } => {
-                                let t = max_size_type.ok_or(CodeGenError::union_has_no_field(None, pos.clone()))?;
-                                if let Ok(basic_type) = BasicTypeEnum::try_from(t) {
-                                    Ok(basic_type)
-                                }else{
-                                    Err(Box::new(CodeGenError::mismatch_type_union_fields(Some(id), pos.clone())))
-                                }
-                            },
-                            TypeOrUnion::StandardEnum { i32_type, .. } => {
-                                Ok(i32_type.as_basic_type_enum())
-                            },
+                        let mut type_or_union = type_or_union;
+                        loop {
+                            match type_or_union {
+                                TypeOrUnion::Type(t) => {
+                                    if let Ok(basic_type) = BasicTypeEnum::try_from(*t) {
+                                        return Ok(basic_type);
+                                    }else{
+                                        return Err(Box::new(CodeGenError::mismatch_type_struct_fields(Some(id), pos.clone())));
+                                    }
+                                },
+                                TypeOrUnion::Union { max_size_type, .. } => {
+                                    let t = max_size_type.ok_or(CodeGenError::union_has_no_field(None, pos.clone()))?;
+                                    if let Ok(basic_type) = BasicTypeEnum::try_from(t) {
+                                        return Ok(basic_type);
+                                    }else{
+                                        return Err(Box::new(CodeGenError::mismatch_type_union_fields(Some(id), pos.clone())));
+                                    }
+                                },
+                                TypeOrUnion::StandardEnum { i32_type, .. } => {
+                                    return Ok(i32_type.as_basic_type_enum());
+                                },
+                                TypeOrUnion::TypeDefStruct(name) => {
+                                    let t = self.get_type(name).unwrap();
+                                    type_or_union = t;
+                                },
+                                TypeOrUnion::TypeDefUnion(name) => {
+                                    let t = self.get_type(name).unwrap();
+                                    type_or_union = t;
+                                },
+                            }
                         }
                     }else{
                         let (any_type, _index_map) = CodeGen::struct_from_struct_definition(&None, fields, ctx, pos)?;
@@ -550,25 +606,35 @@ impl<'ctx> Env<'ctx> {
             Type::Union { name, fields } => {
                 if let Some(id) = name {
                     if let Some(type_or_union) = self.get_type(id) {
-                        match type_or_union {
-                            TypeOrUnion::Type(t) => {
-                                if let Ok(basic_type) = BasicTypeEnum::try_from(*t) {
-                                    Ok(basic_type)
-                                }else{
-                                    Err(Box::new(CodeGenError::mismatch_type_struct_fields(Some(id), pos.clone())))
-                                }
-                            },
-                            TypeOrUnion::Union { max_size_type, .. } => {
-                                let t = max_size_type.ok_or(CodeGenError::union_has_no_field(None, pos.clone()))?;
-                                if let Ok(basic_type) = BasicTypeEnum::try_from(t) {
-                                    Ok(basic_type)
-                                }else{
-                                    Err(Box::new(CodeGenError::mismatch_type_union_fields(Some(id), pos.clone())))
-                                }
-                            },
-                            TypeOrUnion::StandardEnum { i32_type, .. } => {
-                                Ok(i32_type.as_basic_type_enum())
-                            },
+                        let mut type_or_union = type_or_union;
+                        loop {
+                            match type_or_union {
+                                TypeOrUnion::Type(t) => {
+                                    if let Ok(basic_type) = BasicTypeEnum::try_from(*t) {
+                                        return Ok(basic_type);
+                                    }else{
+                                        return Err(Box::new(CodeGenError::mismatch_type_struct_fields(Some(id), pos.clone())));
+                                    }
+                                },
+                                TypeOrUnion::Union { max_size_type, .. } => {
+                                    let t = max_size_type.ok_or(CodeGenError::union_has_no_field(None, pos.clone()))?;
+                                    if let Ok(basic_type) = BasicTypeEnum::try_from(t) {
+                                        return Ok(basic_type);
+                                    }else{
+                                        return Err(Box::new(CodeGenError::mismatch_type_union_fields(Some(id), pos.clone())));
+                                    }
+                                },
+                                TypeOrUnion::StandardEnum { i32_type, .. } => {
+                                    return Ok(i32_type.as_basic_type_enum());
+                                },
+                                TypeOrUnion::TypeDefStruct(name) => {
+                                    let t = self.get_type(name).unwrap();
+                                    type_or_union = t;
+                                },
+                                TypeOrUnion::TypeDefUnion(name) => {
+                                    let t = self.get_type(name).unwrap();
+                                    type_or_union = t;
+                                },                            }
                         }
                     }else{
                         let (_type_list, _index_map, _max_size, max_size_type_opt) = CodeGen::union_from_struct_definition(&None, fields, ctx, pos)?;
@@ -687,7 +753,17 @@ impl<'ctx> Env<'ctx> {
 
     pub fn get_type(&self, key: &str) -> Option<&TypeOrUnion<'ctx>> {
         if let Some((typ, _index_map)) = self.types.get(key) {
-            Some(typ)
+            match typ {
+                TypeOrUnion::TypeDefStruct(name) => {
+                    self.get_type(name)
+                },
+                TypeOrUnion::TypeDefUnion(name) => {
+                    self.get_type(name)
+                },
+                _ => {
+                    Some(typ)
+                }
+            }
         }else{
             None
         }
