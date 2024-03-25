@@ -421,6 +421,92 @@ fn code_gen_typedef() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+#[test]
+fn code_gen_call_class_function() -> Result<(), Box<dyn Error>> {
+    // parse
+    let src = "
+        struct foo {
+            int bar;
+        };
+
+        impl foo {
+            int test() {
+                return 5;
+            }
+        }
+
+        int test(){
+            struct foo temp;
+
+            return foo::test();
+        }
+    ";
+
+    // parse
+    let asts = parse_from_str(src).unwrap();
+
+    // code gen
+    let context = Context::create();
+    let gen = CodeGen::try_new(&context, "test run").unwrap();
+
+    let mut env = Env::new();
+    for i in 0..asts.len() {
+        let _any_value = gen.gen_toplevel(&asts[i], &mut env, None, None)?;
+    }
+
+    let f: JitFunction<FuncType_void_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
+    let result = unsafe { f.call() };
+    assert_eq!(5, result);
+
+    Ok(())
+}
+
+#[test]
+fn code_gen_call_member_function() -> Result<(), Box<dyn Error>> {
+    // parse
+    let src = "
+        struct foo {
+            int bar;
+        };
+
+        impl foo {
+            int zot = 1;
+
+            int test() {
+                return 5;
+            }
+
+            int test2(&self) {
+                return 2;
+            }
+        }
+
+        int test(){
+            struct foo temp;
+
+            return temp.test2();
+        }
+    ";
+
+    // parse
+    let asts = parse_from_str(src).unwrap();
+
+    // code gen
+    let context = Context::create();
+    let gen = CodeGen::try_new(&context, "test run").unwrap();
+
+    let mut env = Env::new();
+    for i in 0..asts.len() {
+        let _any_value = gen.gen_toplevel(&asts[i], &mut env, None, None)?;
+    }
+
+    let f: JitFunction<FuncType_void_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
+    let result = unsafe { f.call() };
+    assert_eq!(2, result);
+
+    Ok(())
+}
+
 /* main関数から実行するときは起きないが、テストだとスタックオーバーフローになる。
 
 #[test]
