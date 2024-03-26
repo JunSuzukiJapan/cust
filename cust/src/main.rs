@@ -1011,6 +1011,24 @@ END: ;
     ";
 */
 
+    let src = "
+        typedef struct foo {
+            int bar;
+        } Foo;
+
+        impl foo {
+            int Zot = 1;
+
+            int test() {
+                return Self::Zot;
+            }
+        }
+
+        int test(){
+            return foo::test();
+        }
+    ";
+
     // tokenize
     let tokenized = Tokenizer::tokenize(src).unwrap();
     // parse
