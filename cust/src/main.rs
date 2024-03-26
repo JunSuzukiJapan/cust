@@ -991,7 +991,7 @@ END: ;
             return foo::test();
         }
     ";
-
+/*
     let src = "
         typedef struct foo {
             int bar;
@@ -1009,7 +1009,7 @@ END: ;
             return foo::test();
         }
     ";
-
+*/
 
     // tokenize
     let tokenized = Tokenizer::tokenize(src).unwrap();
