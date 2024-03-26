@@ -297,6 +297,8 @@ pub struct Env<'ctx> {
 
     current_function: Option<(CustFunctionType, FunctionValue<'ctx>)>,
     types: HashMap<String, (TypeOrUnion<'ctx>, Option<HashMap<String, usize>>)>,
+
+    current_class: Option<*const TypeOrUnion<'ctx>>,
 }
 
 impl<'ctx> Env<'ctx> {
@@ -314,6 +316,8 @@ impl<'ctx> Env<'ctx> {
 
             current_function: None,
             types: HashMap::new(),
+
+            current_class: None,
         }
     }
 
@@ -803,5 +807,17 @@ impl<'ctx> Env<'ctx> {
             },
             _ => Ok(ast.is_signed()?),
         }
+    }
+
+    pub fn set_current_class(&mut self, class: *const TypeOrUnion<'ctx>) {
+        self.current_class = Some(class);
+    }
+
+    pub fn remove_current_class(&mut self) {
+        self.current_class = None;
+    }
+
+    pub fn get_current_class(&self) -> Option<*const TypeOrUnion<'ctx>> {
+        self.current_class
     }
 }

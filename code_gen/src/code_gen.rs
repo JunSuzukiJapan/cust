@@ -2,6 +2,7 @@
 
 use crate::parser::{AST, ToplevelAST, ExprAST, BinOp, Type, Pointer, Block, Params, StructDefinition, StructField, NumberType, Function, FunProto, FunOrProt, EnumDefinition, Enumerator};
 use crate::parser::{Declaration, DeclarationSpecifier, CustFunctionType, Initializer, ImplElement};
+use crate::env::TypeOrUnion;
 use super::{CompiledValue, CodeGenError};
 use super::Env;
 use super::env::{BreakCatcher, ContinueCatcher};
@@ -1431,11 +1432,19 @@ impl<'ctx> CodeGen<'ctx> {
         continue_catcher: Option<&'c ContinueCatcher>,
         pos: &Position
     ) -> Result<(), Box<dyn Error>> {
+
+        let class = env.get_type(class_name).ok_or(Box::new(CodeGenError::no_such_a_struct(class_name, pos.clone())))? as *const TypeOrUnion;
+        env.set_current_class(class);
+
         if for_type.is_some() {
-            self.gen_impl_for(class_name, typ, for_type, defines, env, break_catcher, continue_catcher)
+            self.gen_impl_for(class_name, typ, for_type, defines, env, break_catcher, continue_catcher)?
         }else{
-            self.gen_impl_no_for(class_name, typ, defines, env, break_catcher, continue_catcher, pos)
+            self.gen_impl_no_for(class_name, typ, defines, env, break_catcher, continue_catcher, pos)?
         }
+
+        env.remove_current_class();
+
+        Ok(())
     }
 
     fn gen_impl_no_for<'b, 'c>(
@@ -1449,8 +1458,6 @@ impl<'ctx> CodeGen<'ctx> {
         continue_catcher: Option<&'c ContinueCatcher>,
         pos: &Position
     ) -> Result<(), Box<dyn Error>> {
-println!("gen_impl_no_for");
-        let _class = env.get_type(class_name).ok_or(Box::new(CodeGenError::no_such_a_struct(class_name, pos.clone())))?;
 
         for def in defines {
             match def {
@@ -1550,8 +1557,6 @@ println!("gen_impl_no_for");
             let var_name = declarator.get_name();
             let global_name = Self::make_var_name_in_impl(class_name, var_name);
 
-            // self.gen_global_def_var_sub(&name, base_type, decl, declarator, env, break_catcher, continue_catcher, pos)?;
-
             let typ = declarator.make_type(base_type);
             let basic_type = TypeUtil::to_basic_type_enum(&typ, self.context, pos)?;
             let ptr = self.module.add_global(basic_type, Some(AddressSpace::default()), &global_name);
@@ -1576,7 +1581,6 @@ println!("gen_impl_no_for");
                 None => (),  // do nothing
             };
 
-            // env.insert_global_var(&name, typ.clone(), ptr);
             env.insert_class_var(class_name, var_name, typ.clone(), ptr, pos)?;
         }
 
