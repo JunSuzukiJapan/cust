@@ -96,6 +96,7 @@ pub enum CodeGenError {
     AlreadyMemberFunctionDefined(String, String, Position),
     AlreadyClassVarDefined(String, String, Position),
     NoSuchAClassVar(String, String, Position),
+    NoCurrentClass(Position),
 }
 
 impl CodeGenError {
@@ -424,6 +425,10 @@ impl CodeGenError {
     pub fn no_such_a_class_var(class_name: String, var_name: String, pos: Position) -> Self {
         Self::NoSuchAClassVar(class_name, var_name, pos)
     }
+
+    pub fn no_current_class(pos: Position) -> Self {
+        Self::NoCurrentClass(pos)
+    }
 }
 
 impl From<ParserError> for CodeGenError {
@@ -692,6 +697,9 @@ impl fmt::Display for CodeGenError {
             },
             Self::NoSuchAClassVar(class_name, var_name, _pos) => {
                 write!(f, "no such a var '{var_name}' in struct '{class_name}'")
+            },
+            Self::NoCurrentClass(_pos) => {
+                write!(f, "no Self")
             },
         }
         

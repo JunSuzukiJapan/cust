@@ -2,7 +2,7 @@
 
 use crate::parser::{AST, ToplevelAST, ExprAST, BinOp, Type, Pointer, Block, Params, StructDefinition, StructField, NumberType, Function, FunProto, FunOrProt, EnumDefinition, Enumerator};
 use crate::parser::{Declaration, DeclarationSpecifier, CustFunctionType, Initializer, ImplElement};
-use crate::env::TypeOrUnion;
+use crate::env::Class;
 use super::{CompiledValue, CodeGenError};
 use super::Env;
 use super::env::{BreakCatcher, ContinueCatcher};
@@ -758,8 +758,11 @@ impl<'ctx> CodeGen<'ctx> {
                 let any_val = basic_val.as_any_value_enum();
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
-            ExprAST::SelfStaticSymbol(_sym, _pos) => {  // _Self::Symbol
-                unimplemented!()
+            ExprAST::SelfStaticSymbol(var_name, _pos) => {  // _Self::Symbol
+                let (typ, ptr) = self.get_l_value(expr_ast, env, break_catcher, continue_catcher)?;
+                let basic_val = self.builder.build_load(ptr, &format!("access_to_field_{}_in_Self", var_name))?;
+                let any_val = basic_val.as_any_value_enum();
+                Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
         }
     }
@@ -1433,7 +1436,8 @@ impl<'ctx> CodeGen<'ctx> {
         pos: &Position
     ) -> Result<(), Box<dyn Error>> {
 
-        let class = env.get_type(class_name).ok_or(Box::new(CodeGenError::no_such_a_struct(class_name, pos.clone())))? as *const TypeOrUnion;
+        let class = env.intern_class(class_name) as *const Class;
+
         env.set_current_class(class);
 
         if for_type.is_some() {
@@ -2718,10 +2722,16 @@ impl<'ctx> CodeGen<'ctx> {
                 let (typ, ptr) = env.get_ptr("self").ok_or(Box::new(CodeGenError::no_such_a_variable("self", pos.clone())))?;
                 Ok((typ.clone(), ptr))
             },
-            ExprAST::SelfStaticSymbol(_sym, _pos) => {
-                unimplemented!()
+            ExprAST::SelfStaticSymbol(var_name, pos) => {
+                let cls = env.get_current_class().ok_or(CodeGenError::no_current_class(pos.clone()))?;
 
-                // Err(Box::new(CodeGenError::self_has_not_l_value(pos.clone())))
+                unsafe {
+                    if let Some((typ, ptr)) = cls.as_ref().unwrap().get_class_var(var_name) {
+                        Ok((typ.clone(), ptr.as_pointer_value()))
+                    }else{
+                        return Err(Box::new(CodeGenError::no_such_a_class_var(cls.as_ref().unwrap().get_name().to_string(), var_name.clone(), pos.clone())));
+                    }
+                }
             },
             ExprAST::StructStaticSymbol(struct_name, var_name, pos) => {
                 if let Some((typ, ptr)) = env.get_class_var(struct_name, var_name) {

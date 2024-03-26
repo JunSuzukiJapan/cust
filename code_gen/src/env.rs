@@ -240,6 +240,11 @@ impl<'ctx> Class<'ctx> {
         }
     }
 
+    #[inline]
+    pub fn get_name(&self) -> &str {
+        &self.name
+    }
+
     pub fn add_class_function(&mut self, func_name: &str, typ: CustFunctionType, function: FunctionValue<'ctx>, pos: &Position) -> Result<(), CodeGenError> {
         if self.class_functions.contains_key(func_name) {
             return  Err(CodeGenError::already_class_function_defined(self.name.clone(), func_name.to_string(), pos.clone()));
@@ -260,10 +265,12 @@ impl<'ctx> Class<'ctx> {
         Ok(())
     }
 
+    #[inline]
     pub fn get_class_function(&self, func_name: &str) -> Option<&(CustFunctionType, FunctionValue<'ctx>)> {
         self.class_functions.get(func_name)
     }
 
+    #[inline]
     pub fn get_member_function(&self, func_name: &str) -> Option<&(CustFunctionType, FunctionValue<'ctx>)> {
         self.functions.get(func_name)
     }
@@ -278,6 +285,7 @@ impl<'ctx> Class<'ctx> {
         Ok(())
     }
 
+    #[inline]
     pub fn get_class_var(&self, var_name: &str) -> Option<&(Type, GlobalValue<'ctx>)> {
         self.vars.get(var_name)
     }
@@ -298,7 +306,7 @@ pub struct Env<'ctx> {
     current_function: Option<(CustFunctionType, FunctionValue<'ctx>)>,
     types: HashMap<String, (TypeOrUnion<'ctx>, Option<HashMap<String, usize>>)>,
 
-    current_class: Option<*const TypeOrUnion<'ctx>>,
+    current_class: Option<*const Class<'ctx>>,
 }
 
 impl<'ctx> Env<'ctx> {
@@ -809,7 +817,20 @@ impl<'ctx> Env<'ctx> {
         }
     }
 
-    pub fn set_current_class(&mut self, class: *const TypeOrUnion<'ctx>) {
+    #[inline]
+    pub fn get_class(&self, name: &str) -> Option<&Class<'ctx>> {
+        self.classes.get(name)
+    }
+
+    pub fn intern_class(&mut self, class_name: &str) -> &Class<'ctx> {
+        if ! self.classes.contains_key(class_name) {
+            self.classes.insert(class_name.to_string(), Class::new(class_name));
+        }
+
+        self.get_class(class_name).unwrap()
+    }
+
+    pub fn set_current_class(&mut self, class: *const Class<'ctx>) {
         self.current_class = Some(class);
     }
 
@@ -817,7 +838,7 @@ impl<'ctx> Env<'ctx> {
         self.current_class = None;
     }
 
-    pub fn get_current_class(&self) -> Option<*const TypeOrUnion<'ctx>> {
+    pub fn get_current_class(&self) -> Option<*const Class<'ctx>> {
         self.current_class
     }
 }
