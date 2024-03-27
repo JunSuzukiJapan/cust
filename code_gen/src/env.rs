@@ -857,7 +857,13 @@ impl<'ctx> Env<'ctx> {
         self.current_class = None;
     }
 
-    pub fn get_current_class(&self) -> Option<*const Class<'ctx>> {
-        self.current_class
+    pub fn get_current_class(&self) -> Option<&Class<'ctx>> {
+        if let Some(cls) = self.current_class {
+            unsafe {
+                Some(cls.as_ref().unwrap())
+            }
+        }else{
+            None
+        }
     }
 }

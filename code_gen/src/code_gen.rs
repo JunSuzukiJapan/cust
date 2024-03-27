@@ -2725,12 +2725,10 @@ impl<'ctx> CodeGen<'ctx> {
             ExprAST::SelfStaticSymbol(var_name, pos) => {
                 let cls = env.get_current_class().ok_or(CodeGenError::no_current_class(pos.clone()))?;
 
-                unsafe {
-                    if let Some((typ, ptr)) = cls.as_ref().unwrap().get_class_var(var_name) {
-                        Ok((typ.clone(), ptr.as_pointer_value()))
-                    }else{
-                        return Err(Box::new(CodeGenError::no_such_a_class_var(cls.as_ref().unwrap().get_name().to_string(), var_name.clone(), pos.clone())));
-                    }
+                if let Some((typ, ptr)) = cls.get_class_var(var_name) {
+                    Ok((typ.clone(), ptr.as_pointer_value()))
+                }else{
+                    return Err(Box::new(CodeGenError::no_such_a_class_var(cls.get_name().to_string(), var_name.clone(), pos.clone())));
                 }
             },
             ExprAST::StructStaticSymbol(struct_name, var_name, pos) => {
