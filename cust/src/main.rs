@@ -954,26 +954,15 @@ END: ;
                 return Self::Zot + foo::Zot + Foo::Zot;
             }
         }
-    ";
 
-    let src = "
-        typedef struct foo {
-            int bar;
-        } Foo;
-
-        impl foo {
-            int Zot = 1;
-
-            int test() {
-                return Self::Zot;
-            }
-        }
 
         int test(){
             return foo::test();
         }
     ";
 
+
+/*
     let src = "
         typedef struct foo {
             int bar;
@@ -991,6 +980,7 @@ END: ;
             return foo::test();
         }
     ";
+*/
 /*
     let src = "
         typedef struct foo {
@@ -1010,7 +1000,7 @@ END: ;
         }
     ";
 */
-
+/*
     let src = "
         typedef struct foo {
             int bar;
@@ -1028,6 +1018,7 @@ END: ;
             return foo::test();
         }
     ";
+*/
 
     // tokenize
     let tokenized = Tokenizer::tokenize(src).unwrap();
