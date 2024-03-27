@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::env::var;
 use std::error::Error;
 use std::hash::Hash;
+use std::os::macos::raw;
 // use inkwell::debug_info::DIFlagsConstants;
 use inkwell::values::{PointerValue, FunctionValue, GlobalValue, AnyValueEnum, IntValue, BasicValueEnum, BasicValue};
 use inkwell::types::{StructType, AnyTypeEnum, AnyType, BasicTypeEnum, IntType, BasicType};
@@ -168,15 +169,15 @@ pub enum TypeOrUnion<'ctx> {
         enumerator_list: Vec<(String, IntValue<'ctx>)>,
         index_map: HashMap<String,usize>,
     },
-    TypeDefStruct(String),
-    TypeDefUnion(String),
+    TypeDefStruct(String, *const TypeOrUnion<'ctx>),
+    TypeDefUnion(String, *const TypeOrUnion<'ctx>),
 }
 
 impl<'ctx> TypeOrUnion<'ctx> {
     pub fn is_struct_type(&self) -> bool {
         match self {
             TypeOrUnion::Type(t) => t.is_struct_type(),
-            TypeOrUnion::TypeDefStruct(_) => true,
+            TypeOrUnion::TypeDefStruct(_, _) => true,
             _ => false,
         }
     }
@@ -184,7 +185,7 @@ impl<'ctx> TypeOrUnion<'ctx> {
     pub fn is_union_type(&self) -> bool{
         match self {
             TypeOrUnion::Union {..} => true,
-            TypeOrUnion::TypeDefUnion(_) => true,
+            TypeOrUnion::TypeDefUnion(_, _) => true,
             _ => false,
         }
     }
@@ -200,8 +201,18 @@ impl<'ctx> TypeOrUnion<'ctx> {
                 }
             },
             TypeOrUnion::StandardEnum {i32_type, ..} => AnyTypeEnum::IntType(*i32_type),
-            TypeOrUnion::TypeDefStruct(_name) => panic!(),
-            TypeOrUnion::TypeDefUnion(_name) => panic!(),
+            TypeOrUnion::TypeDefStruct(_struct_name, raw_ptr) => {
+                let t = unsafe {
+                    raw_ptr.as_ref().unwrap()
+                };
+                t.as_any_type_enum()
+            },
+            TypeOrUnion::TypeDefUnion(_name, raw_ptr) => {
+                let t = unsafe {
+                    raw_ptr.as_ref().unwrap()
+                };
+                t.as_any_type_enum()
+            },
         }
     }
 }
@@ -382,10 +393,10 @@ impl<'ctx> Env<'ctx> {
     fn get_real_class_name(&self, class_name: &str) -> String {
         if let Some((type_or_union, _)) = self.types.get(class_name) {
             match type_or_union {
-                TypeOrUnion::TypeDefStruct(name) => {
-                    name.to_string()
+                TypeOrUnion::TypeDefStruct(struct_naem, _raw_ptr) => {
+                    struct_naem.to_string()
                 },
-                TypeOrUnion::TypeDefUnion(name) => {
+                TypeOrUnion::TypeDefUnion(name, _raw_ptr) => {
                     name.to_string()
                 },
                 _ => {
@@ -530,7 +541,8 @@ impl<'ctx> Env<'ctx> {
                 let (struct_type, index_map) = CodeGen::struct_from_struct_definition(name, fields, ctx, pos)?;
                 if let Some(struct_name) = name {
                     self.insert_struct(struct_name, &struct_type, index_map, pos)?;
-                    let t = TypeOrUnion::TypeDefStruct(struct_name.to_string());
+                    let raw_ptr = self.get_type(&struct_name).unwrap() as *const TypeOrUnion;
+                    let t = TypeOrUnion::TypeDefStruct(struct_name.to_string(), raw_ptr);
                     self.types.insert(key.to_string(), (t, None));
                 }else{
                     self.insert_struct(key, &struct_type, index_map, pos)?;
@@ -552,9 +564,8 @@ impl<'ctx> Env<'ctx> {
                 if let Some(union_name) = name {
                     self.insert_union(&union_name, type_list, index_map, max_size, max_size_type, pos)?;
 
-                    // let t = self.get_type(&union_name).unwrap();
-                    // self.types.insert(key.to_string(), (t.clone(), None));
-                    let t = TypeOrUnion::TypeDefUnion(union_name.to_string());
+                    let raw_ptr = self.get_type(&union_name).unwrap() as *const TypeOrUnion;
+                    let t = TypeOrUnion::TypeDefUnion(union_name.to_string(), raw_ptr);
                     self.types.insert(key.to_string(), (t.clone(), None));
 
                 }else{
@@ -613,13 +624,15 @@ impl<'ctx> Env<'ctx> {
                                 TypeOrUnion::StandardEnum { i32_type, .. } => {
                                     return Ok(i32_type.as_basic_type_enum());
                                 },
-                                TypeOrUnion::TypeDefStruct(name) => {
-                                    let t = self.get_type(name).unwrap();
-                                    type_or_union = t;
+                                TypeOrUnion::TypeDefStruct(_name, raw_ptr) => {
+                                    // let t = self.get_type(name).unwrap();
+                                    // type_or_union = t;
+                                    type_or_union = unsafe { raw_ptr.as_ref().unwrap() };
                                 },
-                                TypeOrUnion::TypeDefUnion(name) => {
-                                    let t = self.get_type(name).unwrap();
-                                    type_or_union = t;
+                                TypeOrUnion::TypeDefUnion(_name, raw_ptr) => {
+                                    // let t = self.get_type(name).unwrap();
+                                    // type_or_union = t;
+                                    type_or_union = unsafe { raw_ptr.as_ref().unwrap() };
                                 },
                             }
                         }
@@ -658,13 +671,15 @@ impl<'ctx> Env<'ctx> {
                                 TypeOrUnion::StandardEnum { i32_type, .. } => {
                                     return Ok(i32_type.as_basic_type_enum());
                                 },
-                                TypeOrUnion::TypeDefStruct(name) => {
-                                    let t = self.get_type(name).unwrap();
-                                    type_or_union = t;
+                                TypeOrUnion::TypeDefStruct(_name, raw_ptr) => {
+                                    // let t = self.get_type(name).unwrap();
+                                    // type_or_union = t;
+                                    type_or_union = unsafe { raw_ptr.as_ref().unwrap() };
                                 },
-                                TypeOrUnion::TypeDefUnion(name) => {
-                                    let t = self.get_type(name).unwrap();
-                                    type_or_union = t;
+                                TypeOrUnion::TypeDefUnion(_name, raw_ptr) => {
+                                    // let t = self.get_type(name).unwrap();
+                                    // type_or_union = t;
+                                    type_or_union = unsafe { raw_ptr.as_ref().unwrap() };
                                 },                            }
                         }
                     }else{
@@ -785,11 +800,15 @@ impl<'ctx> Env<'ctx> {
     pub fn get_type(&self, key: &str) -> Option<&TypeOrUnion<'ctx>> {
         if let Some((typ, _index_map)) = self.types.get(key) {
             match typ {
-                TypeOrUnion::TypeDefStruct(name) => {
-                    self.get_type(name)
+                TypeOrUnion::TypeDefStruct(_name, raw_ptr) => {
+                    // self.get_type(name)
+                    let t = unsafe { raw_ptr.as_ref().unwrap() };
+                    Some(t)
                 },
-                TypeOrUnion::TypeDefUnion(name) => {
-                    self.get_type(name)
+                TypeOrUnion::TypeDefUnion(_name, raw_ptr) => {
+                    // self.get_type(name)
+                    let t = unsafe { raw_ptr.as_ref().unwrap() };
+                    Some(t)
                 },
                 _ => {
                     Some(typ)
