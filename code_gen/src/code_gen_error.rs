@@ -2,7 +2,6 @@ use parser::{ExprAST, ParserError, NumberType};
 use super::{Position, Type};
 use std::error::Error;
 use std::fmt;
-// use inkwell::{values::{BasicValueEnum, BasicMetadataValueEnum, AnyValueEnum, AnyValue, FunctionValue, InstructionOpcode, PointerValue, InstructionValue, BasicValue, IntValue}, types::BasicTypeEnum};
 use inkwell::values::AnyValueEnum;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -34,7 +33,10 @@ pub enum CodeGenError {
     NoSuchAFunction(String, Position),
     NoSuchAStruct(String, Position),
     CannotGetPointer(Position),
-    MismatchInitializerType(Position),
+    MismatchInitializerType(Type, Type, Position),
+    InitializerIsNone(Position),
+    InitializerIsNotArray(Position),
+    InitializerIsNotStruct(Position),
     InitialListIsTooLong(Position),
     CannotInitStructMember(Position),
     CannotGetZeroValue(Position),
@@ -202,8 +204,20 @@ impl CodeGenError {
         Self::CannotGetPointer(pos)
     }
 
-    pub fn mismatch_initializer_type(pos: Position) -> Self {
-        Self::MismatchInitializerType(pos)
+    pub fn mismatch_initializer_type(require_type: &Type, real_type: &Type, pos: Position) -> Self {
+        Self::MismatchInitializerType(require_type.clone(), real_type.clone(), pos)
+    }
+
+    pub fn initializer_is_none(pos: Position) -> Self {
+        Self::InitializerIsNone(pos)
+    }
+
+    pub fn initializer_is_not_array(pos: Position) -> Self {
+        Self::InitializerIsNotArray(pos)
+    }
+
+    pub fn initializer_is_not_struct(pos: Position) -> Self {
+        Self::InitializerIsNotStruct(pos)
     }
 
     pub fn initial_list_is_too_long(pos: Position) -> Self {
@@ -524,8 +538,17 @@ impl fmt::Display for CodeGenError {
             Self::CannotGetPointer(_pos) => {
                 write!(f, "cannot get pointer")
             },
-            Self::MismatchInitializerType(_pos) => {
-                write!(f, "mismatch initializer type")
+            Self::MismatchInitializerType(require_type, real_type, _pos) => {
+                write!(f, "mismatch initializer type. require type: {:?}, real initializer: {:?}", require_type, real_type)
+            },
+            Self::InitializerIsNone(_pos) => {
+                write!(f, "initializer is none")
+            },
+            Self::InitializerIsNotArray(_pos) => {
+                write!(f, "initializer is not array")
+            },
+            Self::InitializerIsNotStruct(_pos) => {
+                write!(f, "initializer is not struct")
             },
             Self::InitialListIsTooLong(_pos) => {
                 write!(f, "initial list is too long")

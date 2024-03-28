@@ -8,6 +8,7 @@ use super::Env;
 use super::env::{BreakCatcher, ContinueCatcher};
 use super::caster::Caster;
 use super::type_util::TypeUtil;
+#[cfg(test)]
 use crate::parser::{SpecifierQualifier, DirectDeclarator, Defines, Param};
 use crate::parser::Declarator;
 use crate::parser::{Switch, Case};
@@ -752,7 +753,7 @@ impl<'ctx> CodeGen<'ctx> {
                 let result = Caster::gen_cast(&self.builder, self.context, &value, &from, to_type, &**expr)?;
                 Ok(Some(CompiledValue::new(to_type.clone(), result)))
             },
-            ExprAST::StructStaticSymbol(struct_name, var_name, pos) => {  // struct_name::var_name
+            ExprAST::StructStaticSymbol(struct_name, var_name, _pos) => {  // struct_name::var_name
                 let (typ, ptr) = self.get_l_value(expr_ast, env, break_catcher, continue_catcher)?;
                 let basic_val = self.builder.build_load(ptr, &format!("access_to_field_{}_in_class_{}", var_name, struct_name))?;
                 let any_val = basic_val.as_any_value_enum();
@@ -871,10 +872,10 @@ impl<'ctx> CodeGen<'ctx> {
                 let init_value = &init_value_list[i];
                 let init_type = TypeUtil::get_initializer_type(init_value, env)?;
                 if *field_type != init_type {
-                    return Err(Box::new(CodeGenError::mismatch_initializer_type(init_value.get_position().clone())));
+                    return Err(Box::new(CodeGenError::mismatch_initializer_type(field_type, &init_type, init_value.get_position().clone())));
                 }
 
-                let compiled_val = self.gen_const_expr(init_value, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::mismatch_initializer_type(init_value.get_position().clone()))?;
+                let compiled_val = self.gen_const_expr(init_value, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::mismatch_initializer_type(field_type, &init_type, init_value.get_position().clone()))?;
                 let value = self.try_as_basic_value(&compiled_val.get_value(), init_value.get_position())?;
                 vec.push(value);
 
@@ -900,7 +901,8 @@ impl<'ctx> CodeGen<'ctx> {
         let init_value_list = if let Initializer::Struct(list, _typ, _pos) = init {
             list
         }else{
-            return Err(Box::new(CodeGenError::mismatch_initializer_type(init.get_position().clone())));
+println!("is not array global. {:?}", init);
+            return Err(Box::new(CodeGenError::initializer_is_not_struct(init.get_position().clone())));
         };
 
         let target_len = target_fields.len();
@@ -935,7 +937,8 @@ impl<'ctx> CodeGen<'ctx> {
         let init_value_list = if let Initializer::Struct(list, _typ, _pos) = init {
             list
         }else{
-            return Err(Box::new(CodeGenError::mismatch_initializer_type(init.get_position().clone())));
+println!("2 is not struct. {:?}", init);
+            return Err(Box::new(CodeGenError::initializer_is_not_struct(init.get_position().clone())));
         };
 
         let target_len = target_fields.len();
@@ -977,10 +980,10 @@ impl<'ctx> CodeGen<'ctx> {
             let init_value = &init_value_list[i];
             let init_type = TypeUtil::get_initializer_type(init_value, env)?;
             if *target_type != init_type {
-                return Err(Box::new(CodeGenError::mismatch_initializer_type(init_value.get_position().clone())));
+                return Err(Box::new(CodeGenError::mismatch_initializer_type(target_type, &init_type, init_value.get_position().clone())));
             }
 
-            let any_val = self.gen_initializer(init_value, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::mismatch_initializer_type(init_value.get_position().clone()))?;
+            let any_val = self.gen_initializer(init_value, env, break_catcher, continue_catcher)?;
             let value = self.try_as_basic_value(&any_val, init_value.get_position())?;
 
             vec.push(value);
@@ -1003,7 +1006,7 @@ impl<'ctx> CodeGen<'ctx> {
         let init_value_list = if let Initializer::Array(list, _typ, _pos) = init {
             list
         }else{
-            return Err(Box::new(CodeGenError::mismatch_initializer_type(init.get_position().clone())));
+            return Err(Box::new(CodeGenError::initializer_is_not_array(init.get_position().clone())));
         };
 
         let init_len = init_value_list.len();
@@ -1030,7 +1033,7 @@ impl<'ctx> CodeGen<'ctx> {
         let init_value_list = if let Initializer::Array(list, _typ, _pos) = init {
             list
         }else{
-            return Err(Box::new(CodeGenError::mismatch_initializer_type(init.get_position().clone())));
+            return Err(Box::new(CodeGenError::initializer_is_not_array(init.get_position().clone())));
         };
 
         let init_len = init_value_list.len();
@@ -1049,19 +1052,19 @@ impl<'ctx> CodeGen<'ctx> {
         env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
-    ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
+    ) -> Result<AnyValueEnum<'ctx>, Box<dyn Error>> {
         match init {
-            Initializer::Simple(expr, _pos) => {
+            Initializer::Simple(expr, pos) => {
                 if let Some(v) = self.gen_expr(expr, env, break_catcher, continue_catcher)? {
-                    Ok(Some(v.get_value()))
+                    Ok(v.get_value())
                 }else{
-                    Ok(None)
+                    Err(Box::new(CodeGenError::initializer_is_none(pos.clone())))
                 }
             },
             Initializer::Array(vec_init, _typ, _pos) => {
                 let mut list = Vec::new();
                 for init_value in vec_init {
-                    let compiled_val = self.gen_initializer(init_value, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::mismatch_initializer_type(init_value.get_position().clone()))?;
+                    let compiled_val = self.gen_initializer(init_value, env, break_catcher, continue_catcher)?;
                     let value = self.try_as_basic_value(&compiled_val, init_value.get_position())?;
 
                     list.push(value);
@@ -1069,12 +1072,12 @@ impl<'ctx> CodeGen<'ctx> {
 
                 let values = self.context.const_struct(&list, false);
                 let any_val = values.as_any_value_enum();
-                Ok(Some(any_val))
+                Ok(any_val)
             },
             Initializer::Struct(vec_init, _typ, _pos) => {
                 let mut list = Vec::new();
                 for init_value in vec_init {
-                    let compiled_val = self.gen_initializer(init_value, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::mismatch_initializer_type(init_value.get_position().clone()))?;
+                    let compiled_val = self.gen_initializer(init_value, env, break_catcher, continue_catcher)?;
                     let value = self.try_as_basic_value(&compiled_val, init_value.get_position())?;
 
                     list.push(value);
@@ -1082,7 +1085,7 @@ impl<'ctx> CodeGen<'ctx> {
 
                 let values = self.context.const_struct(&list, false);
                 let any_val = values.as_any_value_enum();
-                Ok(Some(any_val))
+                Ok(any_val)
             }
         }
     }
@@ -1100,13 +1103,16 @@ impl<'ctx> CodeGen<'ctx> {
                 Ok(t.const_zero().as_basic_value_enum())
             },
             BasicMetadataTypeEnum::StructType(_) => {
-                unimplemented!()
+                let struct_type = t.into_struct_type();
+                Ok(struct_type.const_zero().as_basic_value_enum())
             },
             BasicMetadataTypeEnum::VectorType(_) => {
-                unimplemented!()
+                let v_type = t.into_vector_type();
+                Ok(v_type.const_zero().as_basic_value_enum())
             },
             BasicMetadataTypeEnum::ArrayType(_) => {
-                unimplemented!()
+                let ary_type = t.into_array_type();
+                Ok(ary_type.const_zero().as_basic_value_enum())
             },
             _ => {
                 Err(Box::new(CodeGenError::cannot_get_zero_value(pos.clone())))
