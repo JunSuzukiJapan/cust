@@ -1888,7 +1888,7 @@ println!("expr: {:?}", expr);
                 Token::Symbol(name) => {
                     iter.next();  // skip symbol
 
-                    let (tok2, pos2) = iter.peek().unwrap();
+                    let (tok2, _pos2) = iter.peek().unwrap();
                     if *tok2 == Token::WColon {
                         iter.next();  // skip '::'
 

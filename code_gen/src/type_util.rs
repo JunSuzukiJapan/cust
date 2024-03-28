@@ -249,11 +249,9 @@ impl TypeUtil {
                 let (typ, _expr) = env.get_ptr("Self").ok_or(CodeGenError::access_self_type_without_impl(pos.clone()))?;
                 Ok(typ.clone())
             },
-            ExprAST::StructStaticSymbol(_class, _elem, pos) => {
-                // let (typ, _expr) = env.get_ptr("Self").ok_or(CodeGenError::access_self_type_without_impl(pos.clone()))?;
-                // Ok(typ.clone())
-
-                unimplemented!()
+            ExprAST::StructStaticSymbol(class_name, var_name, pos) => {
+                let (typ, _global_value) = env.get_class_var(class_name, var_name).ok_or(CodeGenError::no_such_a_variable(&format!("{}::{}", class_name, var_name), pos.clone()))?;
+                Ok(typ.clone())
             },
             ExprAST::_self(pos) => {
                 let (typ, _expr) = env.get_ptr("self").ok_or(CodeGenError::access_self_without_impl(pos.clone()))?;

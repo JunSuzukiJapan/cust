@@ -765,9 +765,9 @@ END: ;
 */
 
     let src = "
-        typedef struct circle {
+        struct Circle {
             int radius;
-        } Circle;
+        };
         
         impl Circle {
             const int PI100 = 314;
@@ -789,7 +789,7 @@ END: ;
             return c.area();
         }
     ";
-
+/*
     let src = "
         typedef struct foo {
 
@@ -803,95 +803,7 @@ END: ;
             return Foo::Bar;
         }
     ";
-/*
-    let src = "
-        int printf(char* format, ...);
-        typedef unsigned char bool;
-
-        struct Date {
-            int year;
-            int month;
-            int day;
-        };
-
-        impl Date {
-            int getYear(&self) {
-                return self.year;
-            }
-
-            int getMonth(&self) {
-                return self.month;
-            }
-
-            int getDay(&self) {
-                return self.day;
-            }
-
-            bool isLeapYear(&self) {
-                return self.year % 4 == 0 && self.year % 100 != 0;
-            }
-
-            void nextDay(&self) {
-                self.day++;
-
-                switch(self.month) {
-                case 1:
-                case 3:
-                case 5:
-                case 7:
-                case 8:
-                case 10:
-                    if (self.day == 32) {
-                        self.day = 1;
-                        self.month++;
-                    }
-                    break;
-                case 12:
-                    if (self.day == 32) {
-                        self.day = 1;
-                        self.month = 1;
-                        self.year++;
-                    }
-                    break;
-                case 4:
-                case 6:
-                case 9:
-                case 11:
-                    if(self.day == 31){
-                        self.day = 1;
-                        self.month++;
-                    }
-                    break;
-                case 2:
-                    if(self.isLeapYear()){
-                        if(self.day == 30){
-                            self.day = 1;
-                            self.month = 3;
-                        }
-                    }else{
-                        if(self.day == 29){
-                            self.day = 1;
-                            self.month = 3;
-                        }
-                    }
-                }
-            }
-        }
-
-        int test() {
-            struct Date date = {2000, 2, 28};
-            date.nextDay();
-            bool p1 = date.year == 2000 && date.month == 3 && date.day == 1;
-
-            struct Date date2 = {2024, 2, 28};
-            date2.nextDay();
-            bool p2 = date2.year == 2024 && date2.month == 2 && date2.day == 29;
-
-            return p1 && p2;
-        }
-    ";
 */
-
 /*
     let src = "
         struct foo {
@@ -941,7 +853,7 @@ END: ;
         }
     ";
 */
-
+/*
     let src = "
         typedef struct foo {
             int bar;
@@ -960,7 +872,7 @@ END: ;
             return foo::test();
         }
     ";
-
+*/
 
 /*
     let src = "

@@ -1,11 +1,7 @@
 #![allow(dead_code)]
 
 use std::collections::HashMap;
-use std::env::var;
 use std::error::Error;
-use std::hash::Hash;
-use std::os::macos::raw;
-// use inkwell::debug_info::DIFlagsConstants;
 use inkwell::values::{PointerValue, FunctionValue, GlobalValue, AnyValueEnum, IntValue, BasicValueEnum, BasicValue};
 use inkwell::types::{StructType, AnyTypeEnum, AnyType, BasicTypeEnum, IntType, BasicType};
 use inkwell::basic_block::BasicBlock;
@@ -13,7 +9,7 @@ use inkwell::context::Context;
 use parser::FunProto;
 use tokenizer::Position;
 use crate::parser::{Type, ConstExpr, NumberType, ExprAST, CustFunctionType};
-use crate::{code_gen, CodeGenError};
+use crate::CodeGenError;
 use super::type_util::TypeUtil;
 
 use super::CodeGen;
