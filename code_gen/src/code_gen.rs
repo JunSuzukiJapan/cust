@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use crate::parser::{AST, ToplevelAST, ExprAST, BinOp, Type, Pointer, Block, Params, StructDefinition, StructField, NumberType, Function, FunProto, FunOrProt, EnumDefinition, Enumerator};
-use crate::parser::{Declaration, DeclarationSpecifier, CustFunctionType, Initializer, ImplElement};
+use crate::parser::{Declaration, DeclarationSpecifier, CustFunctionType, Initializer, ImplElement, SpecifierQualifier};
 use crate::env::Class;
 use super::{CompiledValue, CodeGenError};
 use super::Env;
@@ -9,7 +9,7 @@ use super::env::{BreakCatcher, ContinueCatcher};
 use super::caster::Caster;
 use super::type_util::TypeUtil;
 #[cfg(test)]
-use crate::parser::{SpecifierQualifier, DirectDeclarator, Defines, Param};
+use crate::parser::{DirectDeclarator, Defines, Param};
 use crate::parser::Declarator;
 use crate::parser::{Switch, Case};
 use crate::Position;
@@ -86,12 +86,13 @@ impl<'ctx> CodeGen<'ctx> {
         match ast {
             ToplevelAST::GlobalDefVar{specifiers, declaration, pos} => {
                 let base_type = specifiers.get_type();
+                let sq = specifiers.get_specifier_qualifier();
 
                 for decl in declaration {
                     let declarator = decl.get_declarator();
                     let name = declarator.get_name();
 
-                    self.gen_global_def_var_sub(name, base_type, decl, declarator, env, break_catcher, continue_catcher, pos)?;
+                    self.gen_global_def_var_sub(name, base_type, sq, decl, declarator, env, break_catcher, continue_catcher, pos)?;
 
                     // let typ = declarator.make_type(base_type);
                     // let basic_type = TypeUtil::to_basic_type_enum(&typ, self.context, ast.get_position())?;
@@ -301,7 +302,7 @@ impl<'ctx> CodeGen<'ctx> {
                 self.gen_default(stmt, env, break_catcher, continue_catcher, pos)
             },
             AST::_self(pos) => {
-                if let Some((_typ, ptr)) = env.get_self_ptr() {
+                if let Some((_typ, _sq, ptr)) = env.get_self_ptr() {
                     let basic_val = self.builder.build_load(ptr, "get_self")?;
                     let any_val = basic_val.as_any_value_enum();
 
@@ -402,12 +403,12 @@ impl<'ctx> CodeGen<'ctx> {
                 Ok(Some(CompiledValue::new(Type::Pointer(pointer, Box::new(Type::Number(NumberType::Char))), result.as_any_value_enum())))
             },
             ExprAST::PreInc(name, sym_pos, pos) => {
-                if let Some((typ, ptr)) = env.get_ptr(name) {
+                if let Some((typ, _sq, ptr)) = env.get_ptr(name) {
                     let basic_val = self.builder.build_load(ptr, name)?;
                     let any_val = basic_val.as_any_value_enum();
                     let one = TypeUtil::to_llvm_int_type(typ, self.context, pos)?.const_int(1, false);
                     let added = self.builder.build_int_add(any_val.into_int_value(), one, "pre_increment")?;
-                    let (_ptr_type, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(&name, sym_pos.clone())))?;
+                    let (_ptr_type, _sq, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(&name, sym_pos.clone())))?;
                     let _result = self.builder.build_store(ptr, added);
 
                     Ok(Some(CompiledValue::new(typ.clone(), added.as_any_value_enum())))
@@ -417,12 +418,12 @@ impl<'ctx> CodeGen<'ctx> {
                 }
             },
             ExprAST::PreDec(name, sym_pos, pos) => {
-                if let Some((typ, ptr)) = env.get_ptr(name) {
+                if let Some((typ, _sq, ptr)) = env.get_ptr(name) {
                     let basic_val = self.builder.build_load(ptr, name)?;
                     let any_val = basic_val.as_any_value_enum();
                     let one = TypeUtil::to_llvm_int_type(typ, self.context, pos)?.const_int(1, false);
                     let subed = self.builder.build_int_sub(any_val.into_int_value(), one, "pre_decrement")?;
-                    let (_ptr_type, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(&name, sym_pos.clone())))?;
+                    let (_ptr_type, _sq, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(&name, sym_pos.clone())))?;
                     let _result = self.builder.build_store(ptr, subed);
 
                     Ok(Some(CompiledValue::new(typ.clone(), subed.as_any_value_enum())))
@@ -432,12 +433,12 @@ impl<'ctx> CodeGen<'ctx> {
                 }
             },
             ExprAST::PostInc(name, sym_pos, pos) => {
-                if let Some((typ, ptr)) = env.get_ptr(name) {
+                if let Some((typ, _sq, ptr)) = env.get_ptr(name) {
                     let basic_val = self.builder.build_load(ptr, name)?;
                     let pre_val = basic_val.as_any_value_enum();
                     let one = TypeUtil::to_llvm_int_type(typ, self.context, pos)?.const_int(1, false);
                     let added = self.builder.build_int_add(pre_val.into_int_value(), one, "post_increment")?;
-                    let (_ptr_type, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(&name, sym_pos.clone())))?;
+                    let (_ptr_type, _sq, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(&name, sym_pos.clone())))?;
                     let _result = self.builder.build_store(ptr, added);
 
                     Ok(Some(CompiledValue::new(typ.clone(), pre_val)))
@@ -447,12 +448,12 @@ impl<'ctx> CodeGen<'ctx> {
                 }
             },
             ExprAST::PostDec(name, sym_pos, pos) => {
-                if let Some((typ, ptr)) = env.get_ptr(name) {
+                if let Some((typ, _sq, ptr)) = env.get_ptr(name) {
                     let basic_val = self.builder.build_load(ptr, name)?;
                     let pre_val = basic_val.as_any_value_enum();
                     let one = TypeUtil::to_llvm_int_type(typ, self.context, pos)?.const_int(1, false);
                     let subed = self.builder.build_int_sub(pre_val.into_int_value(), one, "post_decrement")?;
-                    let (_ptr_type, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(&name, sym_pos.clone())))?;
+                    let (_ptr_type, _sq, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(&name, sym_pos.clone())))?;
                     let _result = self.builder.build_store(ptr, subed);
 
                     Ok(Some(CompiledValue::new(typ.clone(), pre_val)))
@@ -627,7 +628,7 @@ impl<'ctx> CodeGen<'ctx> {
                 }
             },
             ExprAST::Symbol(name, pos) => {
-                if let Some((typ, ptr)) = env.get_ptr(name) {
+                if let Some((typ, _sq, ptr)) = env.get_ptr(name) {
                     // let basic_val = self.builder.build_load(ptr, name)?;
                     // let any_val = basic_val.as_any_value_enum();
                     // Ok(Some(CompiledValue::new(typ.clone(), any_val)))
@@ -643,7 +644,7 @@ impl<'ctx> CodeGen<'ctx> {
                         Ok(Some(CompiledValue::new(typ.clone(), any_val)))
                     }
 
-                }else if let Some((typ, val)) = env.get_value(name) {
+                }else if let Some((typ, _sq, val)) = env.get_value(name) {
                     if let Type::Array { typ, .. } = typ {
                         let any_val = val.as_any_value_enum();
                         let t = Type::new_pointer_type(*typ.clone(), false, false);
@@ -658,7 +659,7 @@ impl<'ctx> CodeGen<'ctx> {
                 }
             },
             ExprAST::_self(pos) => {
-                if let Some((typ, ptr)) = env.get_self_ptr() {
+                if let Some((typ, _sq, ptr)) = env.get_self_ptr() {
                     let basic_val = self.builder.build_load(ptr, "get_self")?;
                     let any_val = basic_val.as_any_value_enum();
 
@@ -841,7 +842,8 @@ impl<'ctx> CodeGen<'ctx> {
                 None => (),  // do nothing
             };
 
-            env.insert_local(name, typ.clone(), ptr);
+            let sq = specifiers.get_specifier_qualifier();
+            env.insert_local(name, typ.clone(), sq.clone(), ptr);
         }
 
         Ok(())
@@ -1601,6 +1603,7 @@ println!("2 is not struct. {:?}", init);
         &self,
         name: &str,
         base_type: &Type,
+        sq: &SpecifierQualifier,
         decl: &Declaration,
         declarator: &Declarator,
         env: &mut Env<'ctx>,
@@ -1633,7 +1636,7 @@ println!("2 is not struct. {:?}", init);
             None => (),  // do nothing
         };
 
-        env.insert_global_var(&name, typ.clone(), ptr);
+        env.insert_global_var(&name, typ.clone(), sq.clone(), ptr);
 
         Ok(())
     }
@@ -2464,7 +2467,7 @@ println!("2 is not struct. {:?}", init);
     ) -> Result<(Type, PointerValue<'ctx>), Box<dyn Error>> {
         match ast {
             ExprAST::Symbol(name, pos) => {
-                let (typ, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(&name, pos.clone())))?;
+                let (typ, _sq, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(&name, pos.clone())))?;
                 Ok((typ.clone(), ptr))
             },
             ExprAST::UnaryPointerAccess(boxed_ast, pos) => {  // *pointer
@@ -2725,7 +2728,7 @@ println!("2 is not struct. {:?}", init);
                 Ok((result_type, ptr))
             },
             ExprAST::_self(pos) => {
-                let (typ, ptr) = env.get_ptr("self").ok_or(Box::new(CodeGenError::no_such_a_variable("self", pos.clone())))?;
+                let (typ, _sq, ptr) = env.get_ptr("self").ok_or(Box::new(CodeGenError::no_such_a_variable("self", pos.clone())))?;
                 Ok((typ.clone(), ptr))
             },
             ExprAST::SelfStaticSymbol(var_name, pos) => {
@@ -2896,17 +2899,19 @@ println!("2 is not struct. {:?}", init);
             let typ = cust_self.get_type();
             let name = "self";
             let ptr = function.get_nth_param(0).unwrap().into_pointer_value();
-            env.insert_local(name, typ.clone(), ptr);
+            let sq = SpecifierQualifier::default();
+            env.insert_local(name, typ.clone(), sq, ptr);
         }
 
         // 引数の処理
         for (i, param) in params.get_params().iter().enumerate() {
             let typ = param.get_type();
             let name = param.get_name();
+            let sq = param.get_declaration_specifier().get_specifier_qualifier();
             let ptr = self.builder.build_alloca(TypeUtil::to_basic_type_enum(&typ, self.context, param.get_position())?, name)?;
             let value = function.get_nth_param(i as u32).unwrap();
             self.builder.build_store(ptr, value)?;
-            env.insert_local(name, typ.clone(), ptr);
+            env.insert_local(name, typ.clone(), sq.clone(), ptr);
         }
 
         // labels

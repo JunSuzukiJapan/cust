@@ -246,7 +246,7 @@ impl TypeUtil {
                 Ok(typ.clone())
             },
             ExprAST::SelfStaticSymbol(_sym, pos) => {
-                let (typ, _expr) = env.get_ptr("Self").ok_or(CodeGenError::access_self_type_without_impl(pos.clone()))?;
+                let (typ, _sq, _expr) = env.get_ptr("Self").ok_or(CodeGenError::access_self_type_without_impl(pos.clone()))?;
                 Ok(typ.clone())
             },
             ExprAST::StructStaticSymbol(class_name, var_name, pos) => {
@@ -254,7 +254,7 @@ impl TypeUtil {
                 Ok(typ.clone())
             },
             ExprAST::_self(pos) => {
-                let (typ, _expr) = env.get_ptr("self").ok_or(CodeGenError::access_self_without_impl(pos.clone()))?;
+                let (typ, _sq, _expr) = env.get_ptr("self").ok_or(CodeGenError::access_self_without_impl(pos.clone()))?;
                 Ok(typ.clone())
             },
             ExprAST::Not(_expr, _pos) => Ok(Type::Number(NumberType::_Bool)),

@@ -8,7 +8,7 @@ use inkwell::basic_block::BasicBlock;
 use inkwell::context::Context;
 use parser::FunProto;
 use tokenizer::Position;
-use crate::parser::{Type, ConstExpr, NumberType, ExprAST, CustFunctionType};
+use crate::parser::{Type, ConstExpr, NumberType, ExprAST, CustFunctionType, SpecifierQualifier};
 use crate::CodeGenError;
 use super::type_util::TypeUtil;
 
@@ -300,12 +300,12 @@ impl<'ctx> Class<'ctx> {
 
 #[derive(Debug)]
 pub struct Env<'ctx> {
-    global_def: HashMap<String, (Type, ConstOrGlobalValue<'ctx>)>,
+    global_def: HashMap<String, (Type, SpecifierQualifier, ConstOrGlobalValue<'ctx>)>,
     global_functions: HashMap<String, (CustFunctionType, FunctionValue<'ctx>)>,
 
     classes: HashMap<String, Class<'ctx>>,
 
-    locals: Vec<Vec<HashMap<String, (Type, PointerValue<'ctx>)>>>,
+    locals: Vec<Vec<HashMap<String, (Type, SpecifierQualifier, PointerValue<'ctx>)>>>,
     local_functions: Vec<Vec<HashMap<String, (CustFunctionType, FunctionValue<'ctx>)>>>,
     local_labels: Vec<Vec<HashMap<String, BasicBlock<'ctx>>>>,
     local_cases: Vec<Vec<Vec<CompiledCase<'ctx>>>>,
@@ -382,8 +382,8 @@ impl<'ctx> Env<'ctx> {
         self.local_cases.last_mut().unwrap().last_mut().unwrap().push(CompiledCase::new_default(block, code, insert_block, pos));
     }
 
-    pub fn insert_global_var(&mut self, key: &str, typ: Type, ptr: GlobalValue<'ctx>) {
-        self.global_def.insert(key.to_string(), (typ, ConstOrGlobalValue::GlobalValue { global: ptr }));
+    pub fn insert_global_var(&mut self, key: &str, typ: Type, sq: SpecifierQualifier, ptr: GlobalValue<'ctx>) {
+        self.global_def.insert(key.to_string(), (typ, sq, ConstOrGlobalValue::GlobalValue { global: ptr }));
     }
 
     fn get_real_class_name(&self, class_name: &str) -> String {
@@ -427,11 +427,12 @@ impl<'ctx> Env<'ctx> {
     }
 
     pub fn insert_global_enumerator(&mut self, key: &str, typ: Type, value: IntValue<'ctx>) {
-        self.global_def.insert(key.to_string(), (typ, ConstOrGlobalValue::Const { value: value.as_basic_value_enum() }));
+        let sq = SpecifierQualifier::default_const();
+        self.global_def.insert(key.to_string(), (typ, sq, ConstOrGlobalValue::Const { value: value.as_basic_value_enum() }));
     }
 
-    pub fn insert_local(&mut self, key: &str, typ: Type, ptr: PointerValue<'ctx>) {
-        self.locals.last_mut().unwrap().last_mut().unwrap().insert(key.to_string(), (typ, ptr));
+    pub fn insert_local(&mut self, key: &str, typ: Type, sq: SpecifierQualifier, ptr: PointerValue<'ctx>) {
+        self.locals.last_mut().unwrap().last_mut().unwrap().insert(key.to_string(), (typ, sq, ptr));
     }
 
     pub fn insert_label(&mut self, key: &str, block: BasicBlock<'ctx>) -> Result<(), CodeGenError> {
@@ -714,9 +715,9 @@ impl<'ctx> Env<'ctx> {
     }
 
     pub fn get_type_by_id(&self, key: &str) -> Option<&Type> {
-        if let Some((typ, _ptr)) = self.get_ptr_from_local(key) {
+        if let Some((typ, _sq, _ptr)) = self.get_ptr_from_local(key) {
             Some(typ)
-        }else if let Some((typ, val)) = self.global_def.get(key) {
+        }else if let Some((typ, _sq, val)) = self.global_def.get(key) {
             match val {
                 ConstOrGlobalValue::GlobalValue { global: _ } => Some(typ),
                 ConstOrGlobalValue::Const { value: _ } => Some(typ),
@@ -726,12 +727,12 @@ impl<'ctx> Env<'ctx> {
         }
     }
 
-    pub fn get_ptr(&self, key: &str) -> Option<(&Type, PointerValue<'ctx>)> {
-        if let Some((typ, ptr)) = self.get_ptr_from_local(key) {
-            Some((typ, *ptr))
-        }else if let Some((typ, val)) = self.global_def.get(key) {
+    pub fn get_ptr(&self, key: &str) -> Option<(&Type, &SpecifierQualifier, PointerValue<'ctx>)> {
+        if let Some((typ, sq, ptr)) = self.get_ptr_from_local(key) {
+            Some((typ, sq, *ptr))
+        }else if let Some((typ, sq, val)) = self.global_def.get(key) {
             match val {
-                ConstOrGlobalValue::GlobalValue { global } => Some((typ, global.as_pointer_value())),
+                ConstOrGlobalValue::GlobalValue { global } => Some((typ, sq, global.as_pointer_value())),
                 _ => None,
             }
         }else{
@@ -739,10 +740,10 @@ impl<'ctx> Env<'ctx> {
         }
     }
 
-    pub fn get_value(&self, key: &str) -> Option<(&Type, BasicValueEnum<'ctx>)> {
-        if let Some((typ, val)) = self.global_def.get(key) {
+    pub fn get_value(&self, key: &str) -> Option<(&Type, &SpecifierQualifier, BasicValueEnum<'ctx>)> {
+        if let Some((typ, sq, val)) = self.global_def.get(key) {
             match val {
-                ConstOrGlobalValue::Const { value } => Some((typ, *value)),
+                ConstOrGlobalValue::Const { value } => Some((typ, sq, *value)),
                 ConstOrGlobalValue::GlobalValue {..} => None,
             }
         }else{
@@ -750,7 +751,7 @@ impl<'ctx> Env<'ctx> {
         }
     }
 
-    fn get_ptr_from_local(&self, key: &str) -> Option<&(Type, PointerValue<'ctx>)> {
+    fn get_ptr_from_local(&self, key: &str) -> Option<&(Type, SpecifierQualifier, PointerValue<'ctx>)> {
         let list = self.locals.last().unwrap();
         let mut index = list.len() - 1;
         loop {
@@ -765,9 +766,9 @@ impl<'ctx> Env<'ctx> {
         None
     }
 
-    pub fn get_self_ptr(&self) -> Option<(&Type, PointerValue<'ctx>)> {
-        if let Some((typ, ptr)) = self.get_ptr_from_local("self") {
-            Some((typ, *ptr))
+    pub fn get_self_ptr(&self) -> Option<(&Type, &SpecifierQualifier, PointerValue<'ctx>)> {
+        if let Some((typ, sq, ptr)) = self.get_ptr_from_local("self") {
+            Some((typ, sq, *ptr))
         }else{
             None
         }
@@ -822,7 +823,7 @@ impl<'ctx> Env<'ctx> {
     pub fn is_signed(&self, ast: &ExprAST) -> Result<bool, CodeGenError> {
         match ast {
             ExprAST::Symbol(name, _pos) => {
-                if let Some((typ, _pointer)) = self.get_ptr(name) {
+                if let Some((typ, _sq, _pointer)) = self.get_ptr(name) {
                     Ok(typ.is_signed()?)
                 }else{
                     Err(CodeGenError::condition_is_not_number(ast, ast.get_position().clone()))

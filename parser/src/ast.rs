@@ -146,6 +146,42 @@ pub struct SpecifierQualifier {
     pub volatile: bool,
 }
 
+impl SpecifierQualifier {
+    pub fn default() -> Self {
+        SpecifierQualifier {
+            auto: false,
+            register: false,
+            static_: false,
+            extern_: false,
+            typedef: false,
+            const_: false,
+            volatile: false,
+        }
+    }
+
+    pub fn default_const() -> Self {
+        SpecifierQualifier {
+            auto: false,
+            register: false,
+            static_: false,
+            extern_: false,
+            typedef: false,
+            const_: true,
+            volatile: false,
+        }
+    }
+
+    #[inline]
+    pub fn is_const(&self) -> bool {
+        self.const_
+    }
+
+    #[inline]
+    pub fn is_volatile(&self) -> bool {
+        self.volatile
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum SpecifierQualifierOrVariadic {
     SQ(SpecifierQualifier),
@@ -207,45 +243,6 @@ pub struct DeclarationSpecifier {
     pub specifier_qualifier: SpecifierQualifier,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum DeclarationSpecifierOrVariadic {
-    DS(DeclarationSpecifier),
-    Variadic,
-}
-
-impl DeclarationSpecifierOrVariadic {
-    #[inline]
-    pub fn from_declaration_specifier(ds: DeclarationSpecifier) -> DeclarationSpecifierOrVariadic {
-        DeclarationSpecifierOrVariadic::DS(ds)
-    }
-
-    #[inline]
-    pub fn new_variadic() -> DeclarationSpecifierOrVariadic {
-        DeclarationSpecifierOrVariadic::Variadic
-    }
-
-    #[inline]
-    pub fn is_variadic(&self) -> bool {
-        *self == DeclarationSpecifierOrVariadic::Variadic
-    }
-
-    #[inline]
-    pub fn get_declaration_specifier(&self) -> Option<&DeclarationSpecifier> {
-        match self {
-            DeclarationSpecifierOrVariadic::DS(ds) => Some(ds),
-            _ => None,
-        }
-    }
-
-    #[inline]
-    pub fn get_type(&self) -> Option<&Type> {
-        match self {
-            DeclarationSpecifierOrVariadic::DS(ds) => Some(ds.get_type()),
-            _ => None,
-        }
-    }
-}
-
 impl DeclarationSpecifier {
     pub fn new(typ: Type, sq: SpecifierQualifier) -> DeclarationSpecifier {
         DeclarationSpecifier {
@@ -282,6 +279,45 @@ impl DeclarationSpecifier {
     #[inline]
     pub fn is_volatile(&self) -> bool {
         self.specifier_qualifier.volatile
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum DeclarationSpecifierOrVariadic {
+    DS(DeclarationSpecifier),
+    Variadic,
+}
+
+impl DeclarationSpecifierOrVariadic {
+    #[inline]
+    pub fn from_declaration_specifier(ds: DeclarationSpecifier) -> DeclarationSpecifierOrVariadic {
+        DeclarationSpecifierOrVariadic::DS(ds)
+    }
+
+    #[inline]
+    pub fn new_variadic() -> DeclarationSpecifierOrVariadic {
+        DeclarationSpecifierOrVariadic::Variadic
+    }
+
+    #[inline]
+    pub fn is_variadic(&self) -> bool {
+        *self == DeclarationSpecifierOrVariadic::Variadic
+    }
+
+    #[inline]
+    pub fn get_declaration_specifier(&self) -> Option<&DeclarationSpecifier> {
+        match self {
+            DeclarationSpecifierOrVariadic::DS(ds) => Some(ds),
+            _ => None,
+        }
+    }
+
+    #[inline]
+    pub fn get_type(&self) -> Option<&Type> {
+        match self {
+            DeclarationSpecifierOrVariadic::DS(ds) => Some(ds.get_type()),
+            _ => None,
+        }
     }
 }
 
@@ -1142,6 +1178,11 @@ impl AST {
     pub fn get_type(&self) -> Type {
         let typ = self.0.get_type();
         self.1.make_type(typ)
+    }
+
+    #[inline]
+    pub fn get_declaration_specifier(&self) -> &DeclarationSpecifier {
+        &self.0
     }
 
     pub fn get_name(&self) -> &str {
