@@ -2467,7 +2467,11 @@ println!("2 is not struct. {:?}", init);
     ) -> Result<(Type, PointerValue<'ctx>), Box<dyn Error>> {
         match ast {
             ExprAST::Symbol(name, pos) => {
-                let (typ, _sq, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(&name, pos.clone())))?;
+                let (typ, sq, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(&name, pos.clone())))?;
+                if sq.is_const() {
+                    return Err(Box::new(CodeGenError::cannot_assign_constant(pos.clone())));
+                }
+
                 Ok((typ.clone(), ptr))
             },
             ExprAST::UnaryPointerAccess(boxed_ast, pos) => {  // *pointer

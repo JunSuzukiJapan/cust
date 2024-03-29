@@ -81,6 +81,15 @@ fn main() {
         }
     ";
 
+    let src = "
+        const int i = 1;
+
+        int test() {
+            i = 2;
+
+            return 3;
+        }
+    ";
 
     // tokenize
     let tokenized = Tokenizer::tokenize(src).unwrap();

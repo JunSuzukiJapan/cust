@@ -782,3 +782,32 @@ fn code_gen_parened_define() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
+
+#[test]
+fn code_gen_const() -> Result<(), Box<dyn Error>> {
+    // parse
+    let src = "
+        const int i = 1;
+
+        int test() {
+            i = 2;
+
+            return 3;
+        }
+    ";
+
+    // parse
+    let asts = parse_from_str(src).unwrap();
+
+    // code gen
+    let context = Context::create();
+    let gen = CodeGen::try_new(&context, "test run").unwrap();
+
+    let mut env = Env::new();
+    let _any_value = gen.gen_toplevel(&asts[0], &mut env, None, None)?;
+    let err = gen.gen_toplevel(&asts[1], &mut env, None, None).err().unwrap();
+    let msg = format!("{err}");
+    assert_eq!(msg, "cannot assign constant");
+
+    Ok(())
+}

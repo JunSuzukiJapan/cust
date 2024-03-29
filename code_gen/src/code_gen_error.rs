@@ -99,6 +99,7 @@ pub enum CodeGenError {
     AlreadyClassVarDefined(String, String, Position),
     NoSuchAClassVar(String, String, Position),
     NoCurrentClass(Position),
+    CannotAssignConstant(Position),
 }
 
 impl CodeGenError {
@@ -443,6 +444,10 @@ impl CodeGenError {
     pub fn no_current_class(pos: Position) -> Self {
         Self::NoCurrentClass(pos)
     }
+
+    pub fn cannot_assign_constant(pos: Position) -> Self {
+        Self::CannotAssignConstant(pos)
+    }
 }
 
 impl From<ParserError> for CodeGenError {
@@ -723,6 +728,9 @@ impl fmt::Display for CodeGenError {
             },
             Self::NoCurrentClass(_pos) => {
                 write!(f, "no Self")
+            },
+            Self::CannotAssignConstant(_pos) => {
+                write!(f, "cannot assign constant")
             },
         }
         
