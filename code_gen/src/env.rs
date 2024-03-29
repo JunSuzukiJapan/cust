@@ -383,7 +383,12 @@ impl<'ctx> Env<'ctx> {
     }
 
     pub fn insert_global_var(&mut self, key: &str, typ: Type, sq: SpecifierQualifier, ptr: GlobalValue<'ctx>) {
-        self.global_def.insert(key.to_string(), (typ, sq, ConstOrGlobalValue::GlobalValue { global: ptr }));
+        if sq.is_const() {
+            ptr.set_constant(true);
+            self.global_def.insert(key.to_string(), (typ, sq, ConstOrGlobalValue::GlobalValue { global: ptr }));
+        }else{
+            self.global_def.insert(key.to_string(), (typ, sq, ConstOrGlobalValue::GlobalValue { global: ptr }));
+        }
     }
 
     fn get_real_class_name(&self, class_name: &str) -> String {
