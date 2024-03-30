@@ -1563,6 +1563,7 @@ println!("2 is not struct. {:?}", init);
     ) -> Result<(), Box<dyn Error>> {
 
         let base_type = specifier.get_type();
+        let sq = specifier.get_specifier_qualifier();
 
         for decl in declarations {
             let declarator = decl.get_declarator();
@@ -1593,7 +1594,7 @@ println!("2 is not struct. {:?}", init);
                 None => (),  // do nothing
             };
 
-            env.insert_class_var(class_name, var_name, typ.clone(), ptr, pos)?;
+            env.insert_class_var(class_name, var_name, typ.clone(), sq.clone(), ptr, pos)?;
         }
 
         Ok(())
@@ -2738,14 +2739,14 @@ println!("2 is not struct. {:?}", init);
             ExprAST::SelfStaticSymbol(var_name, pos) => {
                 let cls = env.get_current_class().ok_or(CodeGenError::no_current_class(pos.clone()))?;
 
-                if let Some((typ, ptr)) = cls.get_class_var(var_name) {
+                if let Some((typ, _sq, ptr)) = cls.get_class_var(var_name) {
                     Ok((typ.clone(), ptr.as_pointer_value()))
                 }else{
                     return Err(Box::new(CodeGenError::no_such_a_class_var(cls.get_name().to_string(), var_name.clone(), pos.clone())));
                 }
             },
             ExprAST::StructStaticSymbol(struct_name, var_name, pos) => {
-                if let Some((typ, ptr)) = env.get_class_var(struct_name, var_name) {
+                if let Some((typ, _sq, ptr)) = env.get_class_var(struct_name, var_name) {
                     Ok((typ.clone(), ptr.as_pointer_value()))
                 }else{
                     return Err(Box::new(CodeGenError::no_such_a_class_var(struct_name.clone(), var_name.clone(), pos.clone())));

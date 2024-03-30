@@ -250,7 +250,7 @@ impl TypeUtil {
                 Ok(typ.clone())
             },
             ExprAST::StructStaticSymbol(class_name, var_name, pos) => {
-                let (typ, _global_value) = env.get_class_var(class_name, var_name).ok_or(CodeGenError::no_such_a_variable(&format!("{}::{}", class_name, var_name), pos.clone()))?;
+                let (typ, _sq, _global_value) = env.get_class_var(class_name, var_name).ok_or(CodeGenError::no_such_a_variable(&format!("{}::{}", class_name, var_name), pos.clone()))?;
                 Ok(typ.clone())
             },
             ExprAST::_self(pos) => {

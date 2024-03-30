@@ -228,7 +228,7 @@ pub struct Interface {
 #[derive(Debug)]
 pub struct Class<'ctx> {
     name: String,
-    vars:HashMap<String, (Type, GlobalValue<'ctx>)>,
+    vars:HashMap<String, (Type, SpecifierQualifier, GlobalValue<'ctx>)>,
     class_functions: HashMap<String, (CustFunctionType, FunctionValue<'ctx>)>,
     functions: HashMap<String, (CustFunctionType, FunctionValue<'ctx>)>,
     interfaces: HashMap<String, (Interface,                                   // interface
@@ -282,18 +282,25 @@ impl<'ctx> Class<'ctx> {
         self.functions.get(func_name)
     }
 
-    pub fn add_class_var(&mut self, var_name: &str, typ: Type, ptr: GlobalValue<'ctx>, pos: &Position) -> Result<(), CodeGenError> {
+    pub fn add_class_var(&mut self, var_name: &str, typ: Type, sq: SpecifierQualifier, ptr: GlobalValue<'ctx>, pos: &Position) -> Result<(), CodeGenError> {
         if self.vars.contains_key(var_name) {
             return Err(CodeGenError::already_class_var_defined(self.name.clone(), var_name.to_string(), pos.clone()));
         }
 
-        self.vars.insert(var_name.to_string(), (typ, ptr));
+        if sq.is_volatile() {
+            unimplemented!()
+        }
+        if sq.is_const() {
+            ptr.set_constant(true);
+        }
+
+        self.vars.insert(var_name.to_string(), (typ, sq, ptr));
 
         Ok(())
     }
 
     #[inline]
-    pub fn get_class_var(&self, var_name: &str) -> Option<&(Type, GlobalValue<'ctx>)> {
+    pub fn get_class_var(&self, var_name: &str) -> Option<&(Type, SpecifierQualifier, GlobalValue<'ctx>)> {
         self.vars.get(var_name)
     }
 }
@@ -383,6 +390,9 @@ impl<'ctx> Env<'ctx> {
     }
 
     pub fn insert_global_var(&mut self, key: &str, typ: Type, sq: SpecifierQualifier, ptr: GlobalValue<'ctx>) {
+        if sq.is_volatile() {
+            unimplemented!()
+        }
         if sq.is_const() {
             ptr.set_constant(true);
             self.global_def.insert(key.to_string(), (typ, sq, ConstOrGlobalValue::GlobalValue { global: ptr }));
@@ -409,19 +419,19 @@ impl<'ctx> Env<'ctx> {
         }
     }
 
-    pub fn insert_class_var(&mut self, class_name: &str, var_name: &str, typ: Type, ptr: GlobalValue<'ctx>, pos: &Position) -> Result<(), CodeGenError> {
+    pub fn insert_class_var(&mut self, class_name: &str, var_name: &str, typ: Type, sq: SpecifierQualifier, ptr: GlobalValue<'ctx>, pos: &Position) -> Result<(), CodeGenError> {
         let class_name = &self.get_real_class_name(class_name);
 
         if ! self.classes.contains_key(class_name) {
             self.classes.insert(class_name.to_string(), Class::new(class_name));
         }
 
-        self.classes.get_mut(class_name).unwrap().add_class_var(var_name, typ, ptr, pos)?;
+        self.classes.get_mut(class_name).unwrap().add_class_var(var_name, typ, sq, ptr, pos)?;
 
         Ok(())
     }
 
-    pub fn get_class_var(&self, class_name: &str, var_name: &str) -> Option<&(Type, GlobalValue<'ctx>)> {
+    pub fn get_class_var(&self, class_name: &str, var_name: &str) -> Option<&(Type, SpecifierQualifier, GlobalValue<'ctx>)> {
         let class_name = &self.get_real_class_name(class_name);
 
         if ! self.classes.contains_key(class_name) {
@@ -437,6 +447,9 @@ impl<'ctx> Env<'ctx> {
     }
 
     pub fn insert_local(&mut self, key: &str, typ: Type, sq: SpecifierQualifier, ptr: PointerValue<'ctx>) {
+        if sq.is_volatile() {
+            unimplemented!()
+        }
         self.locals.last_mut().unwrap().last_mut().unwrap().insert(key.to_string(), (typ, sq, ptr));
     }
 
