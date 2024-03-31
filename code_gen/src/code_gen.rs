@@ -583,9 +583,9 @@ impl<'ctx> CodeGen<'ctx> {
                     },
                     ExprAST::MemberAccess(ast, fun_name, _pos2) => {
                         let typ = TypeUtil::get_type(ast, env)?;
-                        let (_t, obj) = self.get_l_value(&**ast, env, break_catcher, continue_catcher)?;
                         let class_name = typ.get_type_name();
-                        // let method_name = Self::make_function_name_in_impl(&class_name, fun_name);
+                        let (_t, obj) = self.get_l_value(&**ast, env, break_catcher, continue_catcher)?;
+
                         let mut args: Vec<BasicMetadataValueEnum> = Vec::new();
                         args.push(obj.into());
 
@@ -820,7 +820,7 @@ impl<'ctx> CodeGen<'ctx> {
                 Some(const_expr) => {
                     match &typ {
                         Type::Struct { fields, .. } => {
-                            self.gen_struct_init(&fields, ptr, &*const_expr, env, break_catcher, continue_catcher)?;
+                            self.gen_struct_init(&typ, &fields, ptr, &*const_expr, env, break_catcher, continue_catcher)?;
                         },
                         Type::Array { name: _, typ, size_list } => {
                             self.gen_array_init(&size_list, ptr, typ, &*const_expr, env, break_catcher, continue_catcher)?;
@@ -928,6 +928,7 @@ println!("is not array global. {:?}", init);
     }
 
     pub fn gen_struct_init<'b, 'c>(&self,
+        typ: &Type,
         target_fields: &StructDefinition,
         target_struct_ptr: PointerValue<'ctx>,
         init: &Initializer,
@@ -936,29 +937,96 @@ println!("is not array global. {:?}", init);
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
 
-        let init_value_list = if let Initializer::Struct(list, _typ, _pos) = init {
-            list
-        }else{
-println!("2 is not struct. {:?}", init);
-            return Err(Box::new(CodeGenError::initializer_is_not_struct(init.get_position().clone())));
+        match init {
+            Initializer::Struct(init_value_list, _typ, _pos) => {
+                let target_len = target_fields.len();
+                let init_len = init_value_list.len();
+                if target_len < init_len {
+                    return  Err(Box::new(CodeGenError::initial_list_is_too_long(init.get_position().clone())));
+                }
+        
+                if target_len == 0 {
+                    return Ok(None);
+                }
+        
+                //
+                // target_len > 0
+                //
+        
+                let values = self.make_struct_init_value(target_fields, init.get_position(), init_value_list, env, break_catcher, continue_catcher)?;
+                let _result = self.builder.build_store(target_struct_ptr, values.as_basic_value_enum());
+            },
+            Initializer::Simple(expr, _pos) => {
+                match expr {
+                    ExprAST::CallFunction(fun, args, pos2) => {
+                        let mut v: Vec<BasicMetadataValueEnum> = Vec::new();
+                        for expr in args {
+                            let result = self.gen_expr(expr, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(pos2.clone()))?;
+                            v.push(self.try_as_basic_metadata_value(&result.get_value(), pos2)?);
+                        }
+        
+                        let compiled_value = match &**fun {
+                            ExprAST::Symbol(name, _pos2) => {
+                                if let Some((fn_typ, _function)) = env.get_function(name) {
+                                    let ret_type = fn_typ.get_return_type();
+                                    if typ != ret_type {
+                                        return Err(Box::new(CodeGenError::initializer_is_not_struct(init.get_position().clone())));
+                                    }
+                                }else{
+                                    return Err(Box::new(CodeGenError::no_such_a_function(&name, pos2.clone())));
+                                }
+
+                                self.gen_call_function(name, &v, env, break_catcher, continue_catcher, pos2)?.unwrap()
+                            },
+                            ExprAST::MemberAccess(ast, fun_name, pos2) => {
+                                let typ2 = TypeUtil::get_type(ast, env)?;
+                                let class_name = typ2.get_type_name();
+                                if let Some((fn_typ, _function)) = env.get_member_function(&class_name, fun_name) {
+                                    let ret_type = fn_typ.get_return_type();
+                                    if typ != ret_type {
+                                        return Err(Box::new(CodeGenError::initializer_is_not_struct(init.get_position().clone())));
+                                    }
+                                }else{
+                                    return Err(Box::new(CodeGenError::no_such_a_member_function(class_name, fun_name.to_string(), pos2.clone())));
+                                }
+
+                                let (_t, obj) = self.get_l_value(&**ast, env, break_catcher, continue_catcher)?;
+
+                                let mut args: Vec<BasicMetadataValueEnum> = Vec::new();
+                                args.push(obj.into());
+
+                                args.append(&mut v);
+
+                                self.gen_call_member_function(&class_name, &fun_name, &args, env, break_catcher, continue_catcher, pos2)?.unwrap()
+                            },
+                            ExprAST::StructStaticSymbol(class_name, method_name, pos2) => {
+                                if let Some((fn_typ, _function)) = env.get_class_function(class_name, &method_name) {
+                                    let ret_type = fn_typ.get_return_type();
+                                    if typ != ret_type {
+                                        return Err(Box::new(CodeGenError::initializer_is_not_struct(init.get_position().clone())));
+                                    }
+                                }else{
+                                    return Err(Box::new(CodeGenError::no_such_a_class_function(class_name.to_string(), method_name.to_string(), pos2.clone())));
+                                }
+
+                                self.gen_call_class_function(&class_name, &method_name, &v, env, break_catcher, continue_catcher, pos2)?.unwrap()
+                            },
+                            _ => {
+                                return Err(Box::new(CodeGenError::not_function(&format!("{:?}", fun), pos2.clone())));
+                            }
+                        };
+
+                        let _result = self.builder.build_store(target_struct_ptr, compiled_value.get_value().into_struct_value().as_basic_value_enum());
+                    },
+                    _ => {
+                        return Err(Box::new(CodeGenError::initializer_is_not_struct(init.get_position().clone())));
+                    }
+                }
+            },
+            _ => {
+                return Err(Box::new(CodeGenError::initializer_is_not_struct(init.get_position().clone())));
+            },
         };
-
-        let target_len = target_fields.len();
-        let init_len = init_value_list.len();
-        if target_len < init_len {
-            return  Err(Box::new(CodeGenError::initial_list_is_too_long(init.get_position().clone())));
-        }
-
-        if target_len == 0 {
-            return Ok(None);
-        }
-
-        //
-        // target_len > 0
-        //
-
-        let values = self.make_struct_init_value(target_fields, init.get_position(), init_value_list, env, break_catcher, continue_catcher)?;
-        let _result = self.builder.build_store(target_struct_ptr, values.as_basic_value_enum());
 
         Ok(None)
     }
@@ -1169,7 +1237,7 @@ println!("2 is not struct. {:?}", init);
             }
 
         }else{
-            return Err(Box::new(CodeGenError::no_such_a_function(&name, pos.clone())));
+            return Err(Box::new(CodeGenError::no_such_a_member_function(class_name.to_string(), name.to_string(), pos.clone())));
         }
     }
 
@@ -1196,7 +1264,7 @@ println!("2 is not struct. {:?}", init);
             }
 
         }else{
-            return Err(Box::new(CodeGenError::no_such_a_function(&name, pos.clone())));
+            return Err(Box::new(CodeGenError::no_such_a_class_function(class_name.to_string(), name.to_string(), pos.clone())));
         }
     }
 

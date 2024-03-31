@@ -31,6 +31,8 @@ pub enum CodeGenError {
     NoSuchALabel(String, Position),
     NoSuchAVariable(String, Position),
     NoSuchAFunction(String, Position),
+    NoSuchAMemberFunction(String, String, Position),  // (class_name, method_name, position)
+    NoSuchAClassFunction(String, String, Position),  // (class_name, method_name, position)
     NoSuchAStruct(String, Position),
     CannotGetPointer(Position),
     MismatchInitializerType(Type, Type, Position),
@@ -195,6 +197,14 @@ impl CodeGenError {
 
     pub fn no_such_a_function(id: &str, pos: Position) -> Self {
         Self::NoSuchAFunction(id.to_string(), pos)
+    }
+
+    pub fn no_such_a_member_function(class_name: String, method_name: String, pos: Position) -> Self {
+        Self::NoSuchAMemberFunction(class_name, method_name, pos)
+    }
+
+    pub fn no_such_a_class_function(class_name: String, member_name: String, pos: Position) -> Self {
+        Self::NoSuchAClassFunction(class_name, member_name, pos)
     }
 
     pub fn no_such_a_struct(id: &str, pos: Position) -> Self {
@@ -537,6 +547,12 @@ impl fmt::Display for CodeGenError {
             Self::NoSuchAFunction(id, _pos) => {
                 write!(f, "no such a function '{id}'")
             },
+            Self::NoSuchAMemberFunction(class_name, method_name, _pos) => {
+                write!(f, "no such a member function '{method_name}' in struct '{class_name}'")
+            },
+            Self::NoSuchAClassFunction(class_name, method_name, _pos) => {
+                write!(f, "no such a class function '{method_name}' in struct '{class_name}'")
+            }
             Self::NoSuchAStruct(id, _pos) => {
                 write!(f, "no such a struct '{id}'")
             },
