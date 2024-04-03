@@ -1916,6 +1916,8 @@ println!("expr: {:?}", expr);
                             iter.next();  // skip '{'
 
                             let mut map = HashMap::new();
+                            let mut all_const = true;
+                            let mut const_map = HashMap::new();
 
                             'outer: loop {
                                 let (tok3, pos3) = iter.next().unwrap();
@@ -1935,11 +1937,22 @@ println!("expr: {:?}", expr);
                                 if map.contains_key(field_name) {
                                     return Err(ParserError::duplicate_field_in_struct_initializer(field_name.to_string(), pos3.clone()));
                                 }
-println!("peek1: {:?}", iter.peek());
+
                                 self.parse_expected_token(iter, Token::Colon)?;  // skip ':'
-println!("peek2: {:?}", iter.peek());
+
                                 if let Some(expr) = self.parse_expression(iter, defs, labels)? {
 println!("expr: {expr:?}");
+                                    let maybe_const = expr.to_const(defs, pos3);
+                                    if maybe_const.is_err() {
+                                        all_const = false;
+                                    }else if all_const {
+                                        const_map.insert(field_name.to_string(), maybe_const.ok().unwrap());
+                                    }
+
+
+
+
+
                                     map.insert(field_name.to_string(), Box::new(expr));
                                 }else{
                                     return Err(ParserError::not_expr(iter.peek().unwrap().1.clone()));
@@ -1955,8 +1968,6 @@ println!("expr: {expr:?}");
                                         iter.next();  // skip ';'
                                     },
                                     _ => {
-println!("class name: '{name}', field name: '{field_name}'");
-println!("syntax error, token: {:?}", tok4);
                                         return Err(ParserError::syntax_error(pos4.clone()));
                                     },
                                 }
@@ -1971,6 +1982,14 @@ println!("syntax error, token: {:?}", tok4);
                                 for field in fields {
                                     let key = field.get_name().clone().unwrap();
                                     if ! map.contains_key(&key) {
+
+
+
+
+
+
+
+
                                         // return Err(ParserError::);
                                         unimplemented!()
                                     }
@@ -1982,7 +2001,11 @@ println!("syntax error, token: {:?}", tok4);
                                 }
                             }
 
-                            let struct_init = ExprAST::StructInitializer(typ, map, pos.clone());
+                            let struct_init = if all_const {
+                                ExprAST::StructConstInitializer(typ, const_map, pos.clone())
+                            }else{
+                                ExprAST::StructInitializer(typ, map, pos.clone())
+                            };
 
                             Ok(Some(struct_init))
                         },

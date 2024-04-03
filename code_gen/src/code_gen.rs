@@ -11,7 +11,7 @@ use super::type_util::TypeUtil;
 #[cfg(test)]
 use crate::parser::{DirectDeclarator, Defines, Param};
 use crate::parser::Declarator;
-use crate::parser::{Switch, Case};
+use crate::parser::{Switch, Case, ConstExpr};
 use crate::Position;
 
 use inkwell::OptimizationLevel;
@@ -769,6 +769,9 @@ impl<'ctx> CodeGen<'ctx> {
             ExprAST::StructInitializer(typ, map, _pos) => {
                 unimplemented!()
             },
+            ExprAST::StructConstInitializer(typ, map, _pos) => {
+                unimplemented!()
+            },
         }
     }
 
@@ -955,7 +958,6 @@ println!("is not array global. {:?}", init);
                 //
                 // target_len > 0
                 //
-        
                 let values = self.make_struct_init_value(target_fields, init.get_position(), init_value_list, env, break_catcher, continue_catcher)?;
                 let _result = self.builder.build_store(target_struct_ptr, values.as_basic_value_enum());
             },
@@ -1021,6 +1023,51 @@ println!("is not array global. {:?}", init);
 
                         let _result = self.builder.build_store(target_struct_ptr, compiled_value.get_value().into_struct_value().as_basic_value_enum());
                     },
+                    ExprAST::StructInitializer(typ2, map, pos2) => {
+                        if typ != typ2 {
+                            return Err(Box::new(CodeGenError::mismatch_initializer_type(typ, typ2, pos2.clone())));
+                        }
+
+                        // let mut vec = Vec::new();
+                        if let Some(fields) = typ.get_struct_fields() {
+                            let i32_type = self.context.i32_type();
+                            let const_zero = i32_type.const_int(0, false);
+
+                            let mut index = 0;
+
+                            for field in fields {
+                                let name = field.get_name().as_ref().unwrap();
+                                let expr_ast = map.get(name).unwrap();
+                                let any_value = self.gen_expr(expr_ast, env, break_catcher, continue_catcher)?.unwrap().get_value();
+                                let basic_value = BasicValueEnum::try_from(any_value).map_err(|_e| CodeGenError::system_error(pos2.clone()))?;
+
+                                let const_index = i32_type.const_int(index, false);
+                                let indexes = vec![const_zero, const_index];
+                                let ptr = unsafe { self.builder.build_in_bounds_gep(target_struct_ptr, &indexes, "gep_for_struct_field")? };
+                                let _result = self.builder.build_store(ptr, basic_value);
+
+                                index += 1;
+                            }
+                        }
+                    },
+                    ExprAST::StructConstInitializer(typ2, const_map, pos2) => {
+                        if typ != typ2 {
+                            return Err(Box::new(CodeGenError::mismatch_initializer_type(typ, typ2, pos2.clone())));
+                        }
+
+                        let mut vec = Vec::new();
+                        if let Some(fields) = typ.get_struct_fields() {
+                            for field in fields {
+                                let name = field.get_name().as_ref().unwrap();
+                                let const_expr = const_map.get(name).unwrap();
+                                let basic_value = self.const_expr_to_basic_value_enum(const_expr, self.context);
+                                vec.push(basic_value);
+                            }
+
+                            let values = self.context.const_struct(&vec, false);
+                            let _result = self.builder.build_store(target_struct_ptr, values.as_basic_value_enum());
+                        }
+                    },
                     _ => {
                         return Err(Box::new(CodeGenError::initializer_is_not_struct(init.get_position().clone())));
                     }
@@ -1032,6 +1079,32 @@ println!("is not array global. {:?}", init);
         };
 
         Ok(None)
+    }
+
+
+    fn const_expr_to_basic_value_enum(&self, const_expr: &ConstExpr, context: &Context) -> BasicValueEnum {
+        match const_expr {
+            ConstExpr::Int(n, _) => {
+                let i32_type = self.context.i32_type();
+                i32_type.const_int(*n as u64, false).as_basic_value_enum()
+            },
+            ConstExpr::Unsigned(n, _) => {
+                let i32_type = self.context.i32_type();
+                i32_type.const_int(*n as u64, true).as_basic_value_enum()
+            },
+            ConstExpr::LongLong(n, _) => {
+                let i64_type = self.context.i64_type();
+                i64_type.const_int(*n as u64, false).as_basic_value_enum()
+            },
+            ConstExpr::ULongLong(n, _) => {
+                let i64_type = self.context.i64_type();
+                i64_type.const_int(*n as u64, true).as_basic_value_enum()
+            },
+            ConstExpr::Double(f, _) => {
+                let f64_type = self.context.f64_type();
+                f64_type.const_float(*f).as_basic_value_enum()
+            },
+        }
     }
 
     pub fn make_array_init_value<'b, 'c>(&self,

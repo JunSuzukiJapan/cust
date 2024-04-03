@@ -7,6 +7,7 @@ use inkwell::values::AnyValueEnum;
 #[derive(Debug, Clone, PartialEq)]
 pub enum CodeGenError {
     ParserError(ParserError),
+    SystemError(Position),
     ConditionIsNotNumber(ExprAST, Position),
     AlreadyTypeDefinedInStruct(String, Position),
     AlreadyTypeDefinedInUnion(String, Position),
@@ -107,6 +108,10 @@ pub enum CodeGenError {
 impl CodeGenError {
     pub fn condition_is_not_number(expr: &ExprAST, pos: Position) -> Self {
         Self::ConditionIsNotNumber(expr.clone(), pos)
+    }
+
+    pub fn system_error(pos: Position) -> Self {
+        Self::SystemError(pos)
     }
 
     pub fn already_type_defined_in_struct(key: &str, pos: Position) -> Self {
@@ -470,6 +475,9 @@ impl fmt::Display for CodeGenError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::ParserError(err) => err.fmt(f),
+            Self::SystemError(pos) => {
+                write!(f, "system error")
+            },
             Self::ConditionIsNotNumber(expr_ast, _pos) => {
                 write!(f, "condition {:?} is not a number", expr_ast)
             },
