@@ -292,6 +292,13 @@ impl StructField {
             },
         }
     }
+
+    pub fn get_name(&self) -> &Option<String> {
+        match self {
+            StructField::NormalField {name, ..} => name,
+            StructField::BitField {name, ..} => name,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

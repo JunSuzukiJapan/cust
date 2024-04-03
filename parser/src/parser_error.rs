@@ -13,6 +13,7 @@ pub enum ParserError {
     NotPointer(Type, Position),
     NotArray(Type, Position),
     NotSymbol(Position),
+    NotExpr(Position),
     NotFunction(Type, Position),
     NotNumberType(Type, Position),
     NotNumberTypeToBeUnsigned(Type, Position),
@@ -70,6 +71,8 @@ pub enum ParserError {
     ArrayLengthMismatch(usize, usize, Position),
     NotStructTypeWhenParsingStructInitializer(Position),
     NoTypeWhileParsingStructInitializer(Position),
+    DuplicateFieldInStructInitializer(String, Position),
+    NumberOfElementsDoesNotMatch(Position),
 }
 
 impl ParserError {
@@ -86,6 +89,10 @@ impl ParserError {
 
     pub fn not_symbol(pos: Position) -> Self {
         ParserError::NotSymbol(pos)
+    }
+
+    pub fn not_expr(pos: Position) -> Self {
+        ParserError::NotExpr(pos)
     }
 
     pub fn not_function(typ: &Type, pos: Position) -> ParserError {
@@ -295,6 +302,14 @@ impl ParserError {
     pub fn no_type_while_parsing_struct_initializer(pos: Position) -> ParserError {
         ParserError::NoTypeWhileParsingStructInitializer(pos)
     }
+
+    pub fn duplicate_field_in_struct_initializer(field_name: String, pos: Position) -> Self {
+        ParserError::DuplicateFieldInStructInitializer(field_name, pos)
+    }
+
+    pub fn number_of_elements_does_not_match(pos: Position) -> Self {
+        ParserError::NumberOfElementsDoesNotMatch(pos)
+    }
 }
 
 impl From<TokenizerError> for ParserError {
@@ -311,6 +326,7 @@ impl fmt::Display for ParserError {
             Self::NotPointer(_typ, _pos) => write!(f, "not pointer"),
             Self::NotArray(_typ, _pos) => write!(f, "not array"),
             Self::NotSymbol(_pos) => write!(f, "not symbol"),
+            Self::NotExpr(_pos) => write!(f, "not expr"),
             Self::NotFunction(_typ, _pos) => write!(f, "not function"),
             Self::NotNumberType(_typ, _pos) => write!(f, "not number type"),
             Self::NotNumberTypeToBeUnsigned(_typ, _pos) => write!(f, "not number type to be unsigned"),
@@ -369,6 +385,8 @@ impl fmt::Display for ParserError {
             Self::ArrayLengthMismatch(required_len, real_len, _pos) => write!(f, "mismatch array length. required {required_len}, but {real_len}"),
             Self::NotStructTypeWhenParsingStructInitializer(_pos) => write!(f, "not struct type when parsing struct initializer"),
             Self::NoTypeWhileParsingStructInitializer(_pos) => write!(f, "no type while parsing struct initializer"),
+            Self::DuplicateFieldInStructInitializer(field_name, _pos) => write!(f, "duplicate field '{field_name}' in struct initializer"),
+            Self::NumberOfElementsDoesNotMatch(_pos) => write!(f, "number of elements does not match"),
         }
     }
 }

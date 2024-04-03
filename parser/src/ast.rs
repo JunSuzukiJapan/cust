@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+use std::collections::HashMap;
+
 use crate::ParserError;
 use super::{Type, Pointer, ConstExpr, Defines, StructDefinition, EnumDefinition};
 use tokenizer::{Token, Position};
@@ -772,6 +774,7 @@ pub enum ExprAST {
     _self(Position),
     SelfStaticSymbol(String, Position),
     StructStaticSymbol(String, String, Position),  // struct_name::feature_name
+    StructInitializer(Type, HashMap<String, Box<ExprAST>>, Position),
 }
 
 impl ExprAST {
@@ -830,7 +833,7 @@ impl ExprAST {
             // ExprAST::InitializerList(_, pos) => pos,
             ExprAST::CallFunction(_, _, pos) => pos,
             ExprAST::DefVar { specifiers: _, declarations: _, pos } => pos,
-
+            ExprAST::StructInitializer(_typ, _map, pos) => pos,
         }
     }
 

@@ -362,6 +362,9 @@ impl TypeUtil {
 
                 Ok(f_type.get_return_type().clone())
             },
+            ExprAST::StructInitializer(typ, _map, _pos) => {
+                Ok(typ.clone())
+            },
             ExprAST::DefVar { specifiers: _, declarations: _, pos: _ } => {
                 // maybe unreached???
                 unimplemented!()

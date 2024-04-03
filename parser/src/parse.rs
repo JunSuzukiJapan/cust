@@ -11,6 +11,7 @@ use super::{CustSelf, Function, FunProto, FunOrProt, Switch, Case};
 
 use std::slice::Iter;
 use std::iter::Peekable;
+use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct Parser;
@@ -1889,22 +1890,105 @@ println!("expr: {:?}", expr);
                     iter.next();  // skip symbol
 
                     let (tok2, _pos2) = iter.peek().unwrap();
-                    if *tok2 == Token::WColon {
-                        iter.next();  // skip '::'
+                    match tok2 {
+                        Token::WColon => {
+                            iter.next();  // skip '::'
 
-                        let (tok3, pos3) = iter.next().unwrap();
-                        if tok3.is_eof() { return Err(ParserError::illegal_end_of_input(pos3.clone())); }
+                            let (tok3, pos3) = iter.next().unwrap();
+                            if tok3.is_eof() { return Err(ParserError::illegal_end_of_input(pos3.clone())); }
 
-                        let elem_name = if let Token::Symbol(id) = tok3 {
-                            id
-                        }else{
-                            return Err(ParserError::not_symbol(pos3.clone()));
-                        };
+                            let elem_name = if let Token::Symbol(id) = tok3 {
+                                id
+                            }else{
+                                return Err(ParserError::not_symbol(pos3.clone()));
+                            };
 
-                        Ok(Some(ExprAST::StructStaticSymbol(name.clone(), elem_name.clone(), pos.clone())))
+                            Ok(Some(ExprAST::StructStaticSymbol(name.clone(), elem_name.clone(), pos.clone())))
+                        },
+                        Token::BraceLeft => {  // parse struct initializer
+                            // check symbol(name) is struct
+                            let typ = if let Some(cls) = defs.get_struct_type(name) {
+                                cls.clone()
+                            }else{
+                                return Err(ParserError::no_such_a_struct(name, pos.clone()));
+                            };
 
-                    }else{
-                        Ok(Some(ExprAST::Symbol(name.clone(), pos.clone())))
+                            iter.next();  // skip '{'
+
+                            let mut map = HashMap::new();
+
+                            'outer: loop {
+                                let (tok3, pos3) = iter.next().unwrap();
+                                if tok3.is_eof() { return Err(ParserError::illegal_end_of_input(pos3.clone())); }
+
+                                let field_name = match tok3 {
+                                    Token::BraceRight => {
+                                        break 'outer;
+                                    },
+                                    Token::Symbol(id) => {
+                                        id
+                                    },
+                                    _ => {
+                                        return Err(ParserError::not_symbol(pos3.clone()));
+                                    }
+                                };
+                                if map.contains_key(field_name) {
+                                    return Err(ParserError::duplicate_field_in_struct_initializer(field_name.to_string(), pos3.clone()));
+                                }
+println!("peek1: {:?}", iter.peek());
+                                self.parse_expected_token(iter, Token::Colon)?;  // skip ':'
+println!("peek2: {:?}", iter.peek());
+                                if let Some(expr) = self.parse_expression(iter, defs, labels)? {
+println!("expr: {expr:?}");
+                                    map.insert(field_name.to_string(), Box::new(expr));
+                                }else{
+                                    return Err(ParserError::not_expr(iter.peek().unwrap().1.clone()));
+                                }
+
+                                let (tok4, pos4) = iter.peek().unwrap();
+                                if tok4.is_eof() { return Err(ParserError::illegal_end_of_input(pos4.clone())); }
+                                match tok4 {
+                                    Token::BraceRight => {
+                                        break 'outer;
+                                    },
+                                    Token::SemiColon => {
+                                        iter.next();  // skip ';'
+                                    },
+                                    _ => {
+println!("class name: '{name}', field name: '{field_name}'");
+println!("syntax error, token: {:?}", tok4);
+                                        return Err(ParserError::syntax_error(pos4.clone()));
+                                    },
+                                }
+                            }
+
+                            // check fields coount
+                            if let Some(fields) = typ.get_struct_fields() {
+                                if fields.len() != map.len() {
+                                    return Err(ParserError::number_of_elements_does_not_match(pos.clone()));
+                                }
+
+                                for field in fields {
+                                    let key = field.get_name().clone().unwrap();
+                                    if ! map.contains_key(&key) {
+                                        // return Err(ParserError::);
+                                        unimplemented!()
+                                    }
+                                }
+
+                            }else{
+                                if map.len() != 0 {
+                                    return Err(ParserError::number_of_elements_does_not_match(pos.clone()));
+                                }
+                            }
+
+                            let struct_init = ExprAST::StructInitializer(typ, map, pos.clone());
+
+                            Ok(Some(struct_init))
+                        },
+                        _ => {
+                            Ok(Some(ExprAST::Symbol(name.clone(), pos.clone())))
+                        }
                     }
                 },
                 Token::_Self => {
