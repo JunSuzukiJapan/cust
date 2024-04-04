@@ -48,7 +48,7 @@ fn main() {
                 i_value: 1;
             };
 
-            int i = bar.i_value;
+            int i = foo.i_value;
 
             foo.d_value = 3.14;
             double d = foo.d_value;

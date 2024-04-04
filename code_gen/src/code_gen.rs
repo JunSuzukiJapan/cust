@@ -817,11 +817,34 @@ impl<'ctx> CodeGen<'ctx> {
                 let any_val = basic_val.as_any_value_enum();
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
-            ExprAST::UnionLiteral(typ, map, pos) => {
-                unimplemented!()
+            ExprAST::UnionLiteral(typ, list, pos) => {
+                let basic_type = env.basic_type_enum_from_type(&typ, self.context, pos)?;
+                let union_ptr = self.builder.build_alloca(basic_type, "union_leteral")?;
+                let union_name = typ.get_type_name();
+
+                for (_field_name, expr_ast2) in list {
+                    let any_value = self.gen_expr(expr_ast2, env, break_catcher, continue_catcher)?.unwrap().get_value();
+                    let basic_value = BasicValueEnum::try_from(any_value).map_err(|_e| CodeGenError::system_error(pos.clone()))?;
+                    let _result = self.builder.build_store(union_ptr, basic_value);                        
+                }
+
+                let basic_val = self.builder.build_load(union_ptr, &format!("load_union_{}_literal", union_name))?;
+                let any_val = basic_val.as_any_value_enum();
+                Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
-            ExprAST::UnionConstLiteral(typ, const_map, pos) => {
-                unimplemented!()
+            ExprAST::UnionConstLiteral(typ, const_list, pos) => {
+                let basic_type = env.basic_type_enum_from_type(&typ, self.context, pos)?;
+                let union_ptr = self.builder.build_alloca(basic_type, "union_leteral")?;
+                let union_name = typ.get_type_name();
+
+                for (_field_name, const_expr) in const_list {
+                    let basic_value = self.const_expr_to_basic_value_enum(const_expr, self.context);
+                    let _result = self.builder.build_store(union_ptr, basic_value);                        
+                }
+
+                let basic_val = self.builder.build_load(union_ptr, &format!("load_union_{}_literal", union_name))?;
+                let any_val = basic_val.as_any_value_enum();
+                Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
         }
     }
@@ -2709,27 +2732,6 @@ println!("is not array global. {:?}", init);
                         let ptr_type = to_type.ptr_type(AddressSpace::default());
                         let p = ptr.const_cast(ptr_type);
                         Ok((typ.clone(), p))
-
-                        // if let Some(id) = name {
-                        //     let type_or_union = env.get_type(&id).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
-                        //     match type_or_union {
-                        //         TypeOrUnion::Union { type_list, index_map, max_size: _, max_size_type: _ } => {
-                        //             let idx = index_map[member_name];
-                        //             let (typ, to_type) = &type_list[idx];
-                        //             let ptr_type = to_type.ptr_type(AddressSpace::default());
-
-                        //             let p = ptr.const_cast(ptr_type);
-                        //             Ok((typ.clone(), p))
-                        //         },
-                        //         _ => return Err(Box::new(CodeGenError::not_union(&id, pos.clone()))),
-                        //     }
-                        // }else{
-                        //     let typ = fields.get_type(member_name).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
-                        //     let to_type = TypeUtil::to_basic_type_enum(typ, self.context, pos)?;
-                        //     let ptr_type = to_type.ptr_type(AddressSpace::default());
-                        //     let p = ptr.const_cast(ptr_type);
-                        //     Ok((typ.clone(), p))
-                        // }
                     },
                     Type::Pointer(_, _elem_type) => {
                         match ast {
