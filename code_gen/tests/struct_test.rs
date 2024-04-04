@@ -675,6 +675,161 @@ fn code_gen_init_struct_by_function() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+#[test]
+fn code_gen_init_struct_by_function2() -> Result<(), Box<dyn Error>> {
+    // parse
+    let src = "
+        struct Circle {
+            int x, y;
+            int radius;
+        };
+
+        impl Circle {
+            const int PI100 = 314;
+
+            Self new(int x, int y, int radius) {
+                Circle c = Circle {
+                    x: x;
+                    y: y;
+                    radius: radius;
+                };
+
+                return c;
+            }
+
+            int area(&self) {
+                return self.radius * Self::PI100 / 100;
+            }
+        }
+
+        int test() {
+            Circle c = Circle::new(0, 0, 100);
+
+            return c.area();
+        }
+    ";
+
+    // parse
+    let asts = parse_from_str(src).unwrap();
+
+    // code gen
+    let context = Context::create();
+    let gen = CodeGen::try_new(&context, "test run").unwrap();
+
+    let mut env = Env::new();
+    for i in 0..asts.len() {
+        let _any_value = gen.gen_toplevel(&asts[i], &mut env, None, None)?;
+    }
+
+    let f: JitFunction<FuncType_void_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
+    let result = unsafe { f.call() };
+    assert_eq!(314, result);
+
+    Ok(())
+}
+
+#[test]
+fn code_gen_init_struct_by_function3() -> Result<(), Box<dyn Error>> {
+    // parse
+    let src = "
+        struct Circle {
+            int x, y;
+            int radius;
+        };
+
+        impl Circle {
+            const int PI100 = 314;
+
+            Self new(int x, int y, int radius) {
+                return Circle {
+                    x: x;
+                    y: y;
+                    radius: radius;
+                };
+            }
+
+            int area(&self) {
+                return self.radius * Self::PI100 / 100;
+            }
+        }
+
+        int test() {
+            Circle c = Circle::new(0, 0, 100);
+
+            return c.area();
+        }
+    ";
+
+    // parse
+    let asts = parse_from_str(src).unwrap();
+
+    // code gen
+    let context = Context::create();
+    let gen = CodeGen::try_new(&context, "test run").unwrap();
+
+    let mut env = Env::new();
+    for i in 0..asts.len() {
+        let _any_value = gen.gen_toplevel(&asts[i], &mut env, None, None)?;
+    }
+
+    let f: JitFunction<FuncType_void_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
+    let result = unsafe { f.call() };
+    assert_eq!(314, result);
+
+    Ok(())
+}
+
+#[test]
+fn code_gen_init_struct_by_function4() -> Result<(), Box<dyn Error>> {
+    // parse
+    let src = "
+        struct Circle {
+            int x, y;
+            int radius;
+        };
+
+        impl Circle {
+            const int PI100 = 314;
+
+            Self default_new() {
+                return Circle {
+                    x: 0;
+                    y: 0;
+                    radius: 100;
+                };
+            }
+
+            int area(&self) {
+                return self.radius * Self::PI100 / 100;
+            }
+        }
+
+        int test() {
+            Circle c = Circle::default_new();
+
+            return c.area();
+        }
+    ";
+
+    // parse
+    let asts = parse_from_str(src).unwrap();
+
+    // code gen
+    let context = Context::create();
+    let gen = CodeGen::try_new(&context, "test run").unwrap();
+
+    let mut env = Env::new();
+    for i in 0..asts.len() {
+        let _any_value = gen.gen_toplevel(&asts[i], &mut env, None, None)?;
+    }
+
+    let f: JitFunction<FuncType_void_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
+    let result = unsafe { f.call() };
+    assert_eq!(314, result);
+
+    Ok(())
+}
+
 /* main関数から実行するときは起きないが、テストだとスタックオーバーフローになる。
 
 #[test]

@@ -766,11 +766,56 @@ impl<'ctx> CodeGen<'ctx> {
                 let any_val = basic_val.as_any_value_enum();
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
-            ExprAST::StructInitializer(typ, map, _pos) => {
-                unimplemented!()
+            ExprAST::StructLiteral(typ, map, pos) => {
+                let basic_type = env.basic_type_enum_from_type(&typ, self.context, pos)?;
+                let struct_ptr = self.builder.build_alloca(basic_type, "struct_leteral")?;
+                let struct_name = typ.get_type_name();
+
+                if let Some(fields) = typ.get_struct_fields() {
+                    let i32_type = self.context.i32_type();
+                    let const_zero = i32_type.const_int(0, false);
+
+                    let mut index = 0;
+                    for field in fields {
+                        let name = field.get_name().as_ref().unwrap();
+                        let expr_ast = map.get(name).unwrap();
+                        let any_value = self.gen_expr(expr_ast, env, break_catcher, continue_catcher)?.unwrap().get_value();
+                        let basic_value = BasicValueEnum::try_from(any_value).map_err(|_e| CodeGenError::system_error(pos.clone()))?;
+
+                        let const_index = i32_type.const_int(index, false);
+                        let indexes = vec![const_zero, const_index];
+                        let ptr = unsafe { self.builder.build_in_bounds_gep(struct_ptr, &indexes, "gep_for_struct_field")? };
+                        let _result = self.builder.build_store(ptr, basic_value);
+
+                        index += 1;
+                    }
+                }
+
+                let basic_val = self.builder.build_load(struct_ptr, &format!("load_struct_{}_literal", struct_name))?;
+                let any_val = basic_val.as_any_value_enum();
+                Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
-            ExprAST::StructConstInitializer(typ, map, _pos) => {
-                unimplemented!()
+            ExprAST::StructConstLiteral(typ, const_map, pos) => {
+                let basic_type = env.basic_type_enum_from_type(&typ, self.context, pos)?;
+                let struct_ptr = self.builder.build_alloca(basic_type, "struct_leteral")?;
+                let struct_name = typ.get_type_name();
+
+                let mut vec = Vec::new();
+                if let Some(fields) = typ.get_struct_fields() {
+                    for field in fields {
+                        let name = field.get_name().as_ref().unwrap();
+                        let const_expr = const_map.get(name).unwrap();
+                        let basic_value = self.const_expr_to_basic_value_enum(const_expr, self.context);
+                        vec.push(basic_value);
+                    }
+
+                    let values = self.context.const_struct(&vec, false);
+                    let _result = self.builder.build_store(struct_ptr, values.as_basic_value_enum());
+                }
+
+                let basic_val = self.builder.build_load(struct_ptr, &format!("load_struct_{}_literal", struct_name))?;
+                let any_val = basic_val.as_any_value_enum();
+                Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
         }
     }
@@ -1023,12 +1068,11 @@ println!("is not array global. {:?}", init);
 
                         let _result = self.builder.build_store(target_struct_ptr, compiled_value.get_value().into_struct_value().as_basic_value_enum());
                     },
-                    ExprAST::StructInitializer(typ2, map, pos2) => {
+                    ExprAST::StructLiteral(typ2, map, pos2) => {
                         if typ != typ2 {
                             return Err(Box::new(CodeGenError::mismatch_initializer_type(typ, typ2, pos2.clone())));
                         }
 
-                        // let mut vec = Vec::new();
                         if let Some(fields) = typ.get_struct_fields() {
                             let i32_type = self.context.i32_type();
                             let const_zero = i32_type.const_int(0, false);
@@ -1050,7 +1094,7 @@ println!("is not array global. {:?}", init);
                             }
                         }
                     },
-                    ExprAST::StructConstInitializer(typ2, const_map, pos2) => {
+                    ExprAST::StructConstLiteral(typ2, const_map, pos2) => {
                         if typ != typ2 {
                             return Err(Box::new(CodeGenError::mismatch_initializer_type(typ, typ2, pos2.clone())));
                         }

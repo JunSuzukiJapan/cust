@@ -2002,9 +2002,9 @@ println!("expr: {expr:?}");
                             }
 
                             let struct_init = if all_const {
-                                ExprAST::StructConstInitializer(typ, const_map, pos.clone())
+                                ExprAST::StructConstLiteral(typ, const_map, pos.clone())
                             }else{
-                                ExprAST::StructInitializer(typ, map, pos.clone())
+                                ExprAST::StructLiteral(typ, map, pos.clone())
                             };
 
                             Ok(Some(struct_init))

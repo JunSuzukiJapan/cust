@@ -774,8 +774,8 @@ pub enum ExprAST {
     _self(Position),
     SelfStaticSymbol(String, Position),
     StructStaticSymbol(String, String, Position),  // struct_name::feature_name
-    StructInitializer(Type, HashMap<String, Box<ExprAST>>, Position),
-    StructConstInitializer(Type, HashMap<String, ConstExpr>, Position),
+    StructLiteral(Type, HashMap<String, Box<ExprAST>>, Position),
+    StructConstLiteral(Type, HashMap<String, ConstExpr>, Position),
 }
 
 impl ExprAST {
@@ -834,8 +834,8 @@ impl ExprAST {
             // ExprAST::InitializerList(_, pos) => pos,
             ExprAST::CallFunction(_, _, pos) => pos,
             ExprAST::DefVar { specifiers: _, declarations: _, pos } => pos,
-            ExprAST::StructInitializer(_typ, _map, pos) => pos,
-            ExprAST::StructConstInitializer(_typ, _map, pos) => pos,
+            ExprAST::StructLiteral(_typ, _map, pos) => pos,
+            ExprAST::StructConstLiteral(_typ, _map, pos) => pos,
         }
     }
 

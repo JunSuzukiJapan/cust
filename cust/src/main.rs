@@ -108,16 +108,38 @@ fn main() {
 
         int test() {
             Circle c = Circle::new(0, 0, 100);
-            Circle c2 = Circle {
-                x: 1;
-                y: 1;
-                radius: 1000
-            };
 
             return c.area();
         }
     ";
+    let src = "
+        struct Circle {
+            int x, y;
+            int radius;
+        };
 
+        impl Circle {
+            const int PI100 = 314;
+
+            Self new(int x, int y, int radius) {
+                return Circle {
+                    x: x;
+                    y: y;
+                    radius: radius;
+                };
+            }
+
+            int area(&self) {
+                return self.radius * Self::PI100 / 100;
+            }
+        }
+
+        int test() {
+            Circle c = Circle::new(0, 0, 100);
+
+            return c.area();
+        }
+    ";
 
     // tokenize
     let tokenized = Tokenizer::tokenize(src).unwrap();
