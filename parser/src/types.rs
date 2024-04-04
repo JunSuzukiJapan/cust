@@ -613,6 +613,13 @@ impl Type {
         }
     }
 
+    pub fn get_union_fields(&self) -> Option<&Vec<StructField>> {
+        match self {
+            Type::Union { name: _, fields } => fields.get_fields(),
+            _ => None,
+        }
+    }
+
     pub fn get_pointed_type(&self, pos: &Position) -> Result<&Type, ParserError> {
         if let Type::Pointer(_pointer, to_type) = self {
             Ok(&**to_type)

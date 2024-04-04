@@ -451,6 +451,41 @@ impl Defines {
         }    
     }
 
+    pub fn get_union_type(&self, name: &str) -> Option<&Type> {
+        // check locals
+        if self.local_maps.last().unwrap().len() > 0 {
+            let list = self.local_maps.last().unwrap();
+            let len = list.len();
+            if len > 0 {
+                for i in 0 .. (len - 1) {
+                    let index = (len - 1) - i;
+                    let map = &list[index].struct_map;
+
+                    if let Some(obj) = map.get(name) {
+                        match obj {
+                            DefineType::Union {union_type} => {
+                                return Some(&union_type);
+                            },
+                            _ => return None,
+                        }
+                    }
+                }
+            }
+        }
+
+        // check globals
+        if let Some(obj) = self.global_maps.struct_map.get(name) {
+            match obj {
+                DefineType::Union {union_type} => {
+                    Some(&union_type)
+                },
+                _ => None,
+            }
+        }else{
+            None
+        }    
+    }
+
     pub fn cannot_define_var(&self, name: &str) -> bool {
         if self.local_maps.last().unwrap().len() > 0 {
             let map = &self.local_maps.last().unwrap().last().unwrap().def_map;

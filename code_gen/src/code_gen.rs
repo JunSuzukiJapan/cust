@@ -817,6 +817,12 @@ impl<'ctx> CodeGen<'ctx> {
                 let any_val = basic_val.as_any_value_enum();
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
+            ExprAST::UnionLiteral(typ, map, pos) => {
+                unimplemented!()
+            },
+            ExprAST::UnionConstLiteral(typ, const_map, pos) => {
+                unimplemented!()
+            },
         }
     }
 

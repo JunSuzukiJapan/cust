@@ -776,6 +776,8 @@ pub enum ExprAST {
     StructStaticSymbol(String, String, Position),  // struct_name::feature_name
     StructLiteral(Type, HashMap<String, Box<ExprAST>>, Position),
     StructConstLiteral(Type, HashMap<String, ConstExpr>, Position),
+    UnionLiteral(Type, Vec<(String, Box<ExprAST>)>, Position),
+    UnionConstLiteral(Type, Vec<(String, ConstExpr)>, Position),
 }
 
 impl ExprAST {
@@ -836,7 +838,8 @@ impl ExprAST {
             ExprAST::DefVar { specifiers: _, declarations: _, pos } => pos,
             ExprAST::StructLiteral(_typ, _map, pos) => pos,
             ExprAST::StructConstLiteral(_typ, _map, pos) => pos,
-        }
+            ExprAST::UnionLiteral(_typ, _map, pos) => pos,
+            ExprAST::UnionConstLiteral(_typ, _map, pos) => pos,        }
     }
 
     pub fn is_symbol(&self) -> bool {

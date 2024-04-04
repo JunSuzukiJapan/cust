@@ -36,108 +36,24 @@ fn parse_expression_from_str(src: &str) -> Result<Option<ExprAST>, ParserError> 
 fn main() {
 
     let src = "
-        struct Circle {
-            int radius;
-        };
-        
-        impl Circle {
-            const int PI100 = 314;
-        
-            Self new(int radius) {
-                Circle c = {radius};
-        
-                return c;
-            }
-        
-            int area(&self) {
-                return self.radius * Self::PI100 / 100;
-            }
-        }
-
-        int test() {
-            Circle c = Circle::new(100);
-
-            return c.area();
-        }
-    ";
-/*
-    let src = "
-        struct Circle {
-            int radius;
-        };
-        
-        impl Circle {
-            const int PI100 = 314;
-
-            int area(&self) {
-                return self.radius * Self::PI100 / 100;
-            }
-        }
-
-        int test() {
-            Circle c = {100};
-
-            return c.area();
-        }
-    ";
-*/
-
-    let src = "
-        struct Circle {
-            int x, y;
-            int radius;
+        union foo {
+            int i_value;
+            double d_value;
         };
 
-        impl Circle {
-            const int PI100 = 314;
-
-            Self new(int x, int y, int radius) {
-                Circle c = Circle {
-                    x: x;
-                    y: y;
-                    radius: radius;
-                };
-
-                return c;
-            }
-
-            int area(&self) {
-                return self.radius * Self::PI100 / 100;
-            }
-        }
+        typedef union foo Foo;
 
         int test() {
-            Circle c = Circle::new(0, 0, 100);
+            Foo foo = foo {
+                i_value: 1;
+            };
 
-            return c.area();
-        }
-    ";
-    let src = "
-        struct Circle {
-            int x, y;
-            int radius;
-        };
+            int i = bar.i_value;
 
-        impl Circle {
-            const int PI100 = 314;
+            foo.d_value = 3.14;
+            double d = foo.d_value;
 
-            Self new(int x, int y, int radius) {
-                return Circle {
-                    x: x;
-                    y: y;
-                    radius: radius;
-                };
-            }
-
-            int area(&self) {
-                return self.radius * Self::PI100 / 100;
-            }
-        }
-
-        int test() {
-            Circle c = Circle::new(0, 0, 100);
-
-            return c.area();
+            return i;
         }
     ";
 

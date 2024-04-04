@@ -368,6 +368,12 @@ impl TypeUtil {
             ExprAST::StructConstLiteral(typ, _map, _pos) => {
                 Ok(typ.clone())
             },
+            ExprAST::UnionLiteral(typ, _map, _pos) => {
+                Ok(typ.clone())
+            },
+            ExprAST::UnionConstLiteral(typ, _map, _pos) => {
+                Ok(typ.clone())
+            },
             ExprAST::DefVar { specifiers: _, declarations: _, pos: _ } => {
                 // maybe unreached???
                 unimplemented!()
