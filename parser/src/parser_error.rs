@@ -41,6 +41,7 @@ pub enum ParserError {
     },
     AccessSelfTypeWithoutImpl(Position),
     NoSuchAStruct(String, Position),
+    NoSuchAField(String, String, Position),
     NoSuchAConstant(String, Position),
     IsNotConstant(ExprAST, Position),
     CannotGetBlock(Position),
@@ -173,6 +174,10 @@ impl ParserError {
 
     pub fn no_such_a_struct(name: &str, pos: Position) -> ParserError {
         ParserError::NoSuchAStruct(name.to_string(), pos)
+    }
+
+    pub fn no_such_a_field(class_name: String, field_name: String, pos: Position) -> Self {
+        ParserError::NoSuchAField(class_name, field_name, pos)
     }
 
     pub fn no_such_a_constant(name: &str, pos: Position) -> ParserError {
@@ -355,6 +360,7 @@ impl fmt::Display for ParserError {
             Self::AlreadyTypeDefined { typ: _, pos: _, pre_type: _, pre_pos: _ } => write!(f, "already type defined"),
             Self::AccessSelfTypeWithoutImpl(_pos) => write!(f, "access self type without impl"),
             Self::NoSuchAStruct(name, _pos) => write!(f, "no such a struct '{}'", name),
+            Self::NoSuchAField(class_name, field_name, _pos) => write!(f, "no such a field 'field_name' in struct '{class_name}'"),
             Self::NoSuchAConstant(name, _pos) => write!(f, "no such a constant '{}'", name),
             Self::IsNotConstant(_expr, _pos) => write!(f, "is not constant"),
             Self::CannotGetBlock(_pos) => write!(f, "cannot get block"),

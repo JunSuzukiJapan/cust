@@ -1905,109 +1905,14 @@ println!("expr: {:?}", expr);
 
                             Ok(Some(ExprAST::StructStaticSymbol(name.clone(), elem_name.clone(), pos.clone())))
                         },
-                        Token::BraceLeft => {  // parse struct initializer
+                        Token::BraceLeft => {  // parse struct literal
                             // check symbol(name) is struct
-                            let typ = if let Some(cls) = defs.get_struct_type(name) {
-                                cls.clone()
+                            if let Some(cls) = defs.get_struct_type(name) {
+                                let typ = cls.clone();
+                                self.parse_struct_literal(typ, name, pos, iter, defs, labels)
                             }else{
                                 return Err(ParserError::no_such_a_struct(name, pos.clone()));
-                            };
-
-                            iter.next();  // skip '{'
-
-                            let mut map = HashMap::new();
-                            let mut all_const = true;
-                            let mut const_map = HashMap::new();
-
-                            'outer: loop {
-                                let (tok3, pos3) = iter.next().unwrap();
-                                if tok3.is_eof() { return Err(ParserError::illegal_end_of_input(pos3.clone())); }
-
-                                let field_name = match tok3 {
-                                    Token::BraceRight => {
-                                        break 'outer;
-                                    },
-                                    Token::Symbol(id) => {
-                                        id
-                                    },
-                                    _ => {
-                                        return Err(ParserError::not_symbol(pos3.clone()));
-                                    }
-                                };
-                                if map.contains_key(field_name) {
-                                    return Err(ParserError::duplicate_field_in_struct_initializer(field_name.to_string(), pos3.clone()));
-                                }
-
-                                self.parse_expected_token(iter, Token::Colon)?;  // skip ':'
-
-                                if let Some(expr) = self.parse_expression(iter, defs, labels)? {
-println!("expr: {expr:?}");
-                                    let maybe_const = expr.to_const(defs, pos3);
-                                    if maybe_const.is_err() {
-                                        all_const = false;
-                                    }else if all_const {
-                                        const_map.insert(field_name.to_string(), maybe_const.ok().unwrap());
-                                    }
-
-
-
-
-
-                                    map.insert(field_name.to_string(), Box::new(expr));
-                                }else{
-                                    return Err(ParserError::not_expr(iter.peek().unwrap().1.clone()));
-                                }
-
-                                let (tok4, pos4) = iter.peek().unwrap();
-                                if tok4.is_eof() { return Err(ParserError::illegal_end_of_input(pos4.clone())); }
-                                match tok4 {
-                                    Token::BraceRight => {
-                                        break 'outer;
-                                    },
-                                    Token::SemiColon => {
-                                        iter.next();  // skip ';'
-                                    },
-                                    _ => {
-                                        return Err(ParserError::syntax_error(pos4.clone()));
-                                    },
-                                }
                             }
-
-                            // check fields coount
-                            if let Some(fields) = typ.get_struct_fields() {
-                                if fields.len() != map.len() {
-                                    return Err(ParserError::number_of_elements_does_not_match(pos.clone()));
-                                }
-
-                                for field in fields {
-                                    let key = field.get_name().clone().unwrap();
-                                    if ! map.contains_key(&key) {
-
-
-
-
-
-
-
-
-                                        // return Err(ParserError::);
-                                        unimplemented!()
-                                    }
-                                }
-
-                            }else{
-                                if map.len() != 0 {
-                                    return Err(ParserError::number_of_elements_does_not_match(pos.clone()));
-                                }
-                            }
-
-                            let struct_init = if all_const {
-                                ExprAST::StructConstLiteral(typ, const_map, pos.clone())
-                            }else{
-                                ExprAST::StructLiteral(typ, map, pos.clone())
-                            };
-
-                            Ok(Some(struct_init))
                         },
                         _ => {
                             Ok(Some(ExprAST::Symbol(name.clone(), pos.clone())))
@@ -2057,6 +1962,90 @@ println!("expr: {expr:?}");
         }else{
             Ok(None)
         }
+    }
+
+    fn parse_struct_literal(&self, typ: Type, name: &str, pos: &Position, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ExprAST>, ParserError> {
+        iter.next();  // skip '{'
+
+        let mut map = HashMap::new();
+        let mut all_const = true;
+        let mut const_map = HashMap::new();
+
+        'outer: loop {
+            let (tok3, pos3) = iter.next().unwrap();
+            if tok3.is_eof() { return Err(ParserError::illegal_end_of_input(pos3.clone())); }
+
+            let field_name = match tok3 {
+                Token::BraceRight => {
+                    break 'outer;
+                },
+                Token::Symbol(id) => {
+                    id
+                },
+                _ => {
+                    return Err(ParserError::not_symbol(pos3.clone()));
+                }
+            };
+            if map.contains_key(field_name) {
+                return Err(ParserError::duplicate_field_in_struct_initializer(field_name.to_string(), pos3.clone()));
+            }
+
+            self.parse_expected_token(iter, Token::Colon)?;  // skip ':'
+
+            if let Some(expr) = self.parse_expression(iter, defs, labels)? {
+                let maybe_const = expr.to_const(defs, pos3);
+                if maybe_const.is_err() {
+                    all_const = false;
+                }else if all_const {
+                    const_map.insert(field_name.to_string(), maybe_const.ok().unwrap());
+                }
+
+                map.insert(field_name.to_string(), Box::new(expr));
+            }else{
+                return Err(ParserError::not_expr(iter.peek().unwrap().1.clone()));
+            }
+
+            let (tok4, pos4) = iter.peek().unwrap();
+            if tok4.is_eof() { return Err(ParserError::illegal_end_of_input(pos4.clone())); }
+            match tok4 {
+                Token::BraceRight => {
+                    break 'outer;
+                },
+                Token::SemiColon => {
+                    iter.next();  // skip ';'
+                },
+                _ => {
+                    return Err(ParserError::syntax_error(pos4.clone()));
+                },
+            }
+        }
+
+        // check fields coount
+        if let Some(fields) = typ.get_struct_fields() {
+            if fields.len() != map.len() {
+                return Err(ParserError::number_of_elements_does_not_match(pos.clone()));
+            }
+
+            for field in fields {
+                let key = field.get_name().clone().unwrap();
+                if ! map.contains_key(&key) {
+                    return Err(ParserError::no_such_a_field(name.to_string(), key.to_string(), pos.clone()));
+                }
+            }
+
+        }else{
+            if map.len() != 0 {
+                return Err(ParserError::number_of_elements_does_not_match(pos.clone()));
+            }
+        }
+
+        let struct_init = if all_const {
+            ExprAST::StructConstLiteral(typ, const_map, pos.clone())
+        }else{
+            ExprAST::StructLiteral(typ, map, pos.clone())
+        };
+
+        Ok(Some(struct_init))
     }
 
     fn parse_constant(&self, iter: &mut Peekable<Iter<(Token, Position)>>, _defs: &mut Defines) -> Result<Option<ExprAST>, ParserError> {
