@@ -144,8 +144,8 @@ pub enum Token {
     _Self,
     _self,
     Dyn,
-    Let,
-    Match,
+    // Let,
+    // Match,
 }
 
 impl Token {
@@ -299,8 +299,8 @@ impl fmt::Display for Token {
             Token::_Self => write!(f, "Self"),
             Token::_self => write!(f, "self"),
             Token::Dyn => write!(f, "dyn"),
-            Token::Let => write!(f, "let"),
-            Token::Match => write!(f, "match"),
+            // Token::Let => write!(f, "let"),
+            // Token::Match => write!(f, "match"),
         }
     }
 }

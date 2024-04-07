@@ -36,6 +36,8 @@ fn parse_expression_from_str(src: &str) -> Result<Option<ExprAST>, ParserError> 
 fn main() {
 
     let src = "
+        int printf(char* format, ...);
+
         union foo {
             int i_value;
             double d_value;
@@ -47,13 +49,24 @@ fn main() {
             Foo foo = foo {
                 i_value: 1;
             };
+            printf(\"foo.i_value: %d\\\n\", foo.i_value);
 
             int i = foo.i_value;
 
             foo.d_value = 3.14;
             double d = foo.d_value;
+            printf(\"foo.d_value: %f\\\n\", foo.d_value);
+
+            printf(\"i: %d, d: %f\\\n\", i, d);
 
             return i;
+        }
+    ";
+
+    let src = "
+        enum Option<T> {
+            Some(T),
+            None
         }
     ";
 

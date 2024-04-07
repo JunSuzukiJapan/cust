@@ -106,8 +106,8 @@ static Keywords: Lazy<HashMap<String, Token>> = Lazy::new(|| {
     m.insert(String::from("self"), Token::_self);
     m.insert(String::from("Self"), Token::_Self);
     m.insert(String::from("dyn"), Token::Dyn);
-    m.insert(String::from("let"), Token::Let);
-    m.insert(String::from("match"), Token::Match);
+    // m.insert(String::from("let"), Token::Let);
+    // m.insert(String::from("match"), Token::Match);
 
     m
 });
