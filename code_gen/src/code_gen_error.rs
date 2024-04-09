@@ -1,7 +1,7 @@
 use parser::{ExprAST, ParserError, NumberType};
 use super::{Position, Type};
 use std::error::Error;
-use std::fmt;
+use std::{fmt, mem};
 use inkwell::values::AnyValueEnum;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -103,6 +103,7 @@ pub enum CodeGenError {
     NoSuchAClassVar(String, String, Position),
     NoCurrentClass(Position),
     CannotAssignConstant(Position),
+    NoSuchAEnumMember(String, String, Position),
 }
 
 impl CodeGenError {
@@ -463,6 +464,10 @@ impl CodeGenError {
     pub fn cannot_assign_constant(pos: Position) -> Self {
         Self::CannotAssignConstant(pos)
     }
+
+    pub fn no_such_a_enum_member(enum_name: String, member_name: String, pos: Position) -> Self {
+        Self::NoSuchAEnumMember(enum_name, member_name, pos)
+    }
 }
 
 impl From<ParserError> for CodeGenError {
@@ -755,6 +760,9 @@ impl fmt::Display for CodeGenError {
             },
             Self::CannotAssignConstant(_pos) => {
                 write!(f, "cannot assign constant")
+            },
+            Self::NoSuchAEnumMember(enum_name, member_name, _pos) => {
+                write!(f, "no such a member '{member_name}' in enum '{enum_name}'")
             },
         }
         

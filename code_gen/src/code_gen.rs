@@ -5,7 +5,7 @@ use crate::parser::{Declaration, DeclarationSpecifier, CustFunctionType, Initial
 use crate::env::Class;
 use super::{CompiledValue, CodeGenError};
 use super::Env;
-use super::env::{BreakCatcher, ContinueCatcher};
+use super::env::{BreakCatcher, ContinueCatcher, TypeOrUnion};
 use super::caster::Caster;
 use super::type_util::TypeUtil;
 #[cfg(test)]
@@ -754,11 +754,25 @@ impl<'ctx> CodeGen<'ctx> {
                 let result = Caster::gen_cast(&self.builder, self.context, &value, &from, to_type, &**expr)?;
                 Ok(Some(CompiledValue::new(to_type.clone(), result)))
             },
-            ExprAST::StructStaticSymbol(struct_name, var_name, _pos) => {  // struct_name::var_name
+            ExprAST::StructStaticSymbol(struct_name, var_name, pos) => {  // struct_name::var_name
+                if let Some(type_or_union) = env.get_type(struct_name) {
+                    match type_or_union {
+                        TypeOrUnion::StandardEnum { i32_type, enumerator_list, index_map } => {
+                            let index = index_map.get(var_name).ok_or(CodeGenError::no_such_a_enum_member(struct_name.to_string(), var_name.to_string(), pos.clone()))?;
+                            let (name, value) = &enumerator_list[*index];
+                            return Ok(Some(CompiledValue::new(Type::Number(NumberType::Int), value.as_any_value_enum())))
+                        },
+                        _ => {
+                            ()
+                        },
+                    }
+                }
+
                 let (typ, ptr) = self.get_l_value(expr_ast, env, break_catcher, continue_catcher)?;
                 let basic_val = self.builder.build_load(ptr, &format!("access_to_field_{}_in_class_{}", var_name, struct_name))?;
                 let any_val = basic_val.as_any_value_enum();
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
+
             },
             ExprAST::SelfStaticSymbol(var_name, _pos) => {  // _Self::Symbol
                 let (typ, ptr) = self.get_l_value(expr_ast, env, break_catcher, continue_catcher)?;

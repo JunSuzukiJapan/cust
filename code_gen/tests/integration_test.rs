@@ -811,3 +811,57 @@ fn code_gen_const() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
+
+#[test]
+fn code_gen_enum2() -> Result<(), Box<dyn Error>> {
+    let src = "
+        int printf(char* format, ...);
+        typedef int bool;
+
+        enum Weekday {
+            Sunday,
+            Monday,
+            Tuesday,
+            Wednesday = 10,
+            Thursday,
+            Friday,
+            Saturday,
+        };
+
+        int test() {
+            printf(\"%d\\\n\", Weekday::Sunday);
+            printf(\"%d\\\n\", Monday);
+            printf(\"%d\\\n\", Tuesday);
+            printf(\"%d\\\n\", Wednesday);
+            printf(\"%d\\\n\", Thursday);
+            printf(\"%d\\\n\", Friday);
+            printf(\"%d\\\n\", Saturday);
+
+            return Sunday +
+                   Monday +
+                   Tuesday +
+                   Wednesday +
+                   Thursday +
+                   Friday +
+                   Saturday;
+        }
+    ";
+
+    // parse
+    let asts = parse_from_str(src).unwrap();
+    assert_eq!(4, asts.len());
+
+    // code gen
+    let context = Context::create();
+    let gen = CodeGen::try_new(&context, "test run").unwrap();
+
+    let mut env = Env::new();
+    for i in 0..asts.len() {
+        let _any_value = gen.gen_toplevel(&asts[i], &mut env, None, None)?;
+    }
+
+    let f: JitFunction<FuncType_void_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
+    assert_eq!(unsafe { f.call() }, 0 + 1 + 2 + 10 + 11 + 12 + 13);
+
+    Ok(())
+}
