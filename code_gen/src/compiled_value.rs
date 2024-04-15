@@ -1,21 +1,22 @@
 use inkwell::values::AnyValueEnum;
 use crate::parser::Type;
+use std::rc::Rc;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CompiledValue<'ctx> {
-    typ: Type,
+    typ: Rc<Type>,
     any_value: AnyValueEnum<'ctx>,
 }
 
 impl<'ctx> CompiledValue<'ctx> {
-    pub fn new(opt_type: Type, opt_any_value: AnyValueEnum<'ctx>) -> CompiledValue<'ctx> {
+    pub fn new(opt_type: Rc<Type>, opt_any_value: AnyValueEnum<'ctx>) -> CompiledValue<'ctx> {
         CompiledValue {
             typ: opt_type,
             any_value: opt_any_value,
         }
     }
 
-    pub fn get_type(&self) -> &Type {
+    pub fn get_type(&self) -> &Rc<Type> {
         &self.typ
     }
 

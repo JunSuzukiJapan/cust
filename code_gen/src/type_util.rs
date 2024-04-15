@@ -2,6 +2,7 @@ use crate::parser::{Type, NumberType, Pointer, BinOp, Position};
 use crate::Env;
 use inkwell::context::Context;
 use std::error::Error;
+use std::rc::Rc;
 use inkwell::types::{BasicTypeEnum, AnyTypeEnum, BasicType, BasicMetadataTypeEnum, IntType, PointerType};
 use inkwell::AddressSpace;
 use inkwell::types::AnyType;
@@ -174,7 +175,7 @@ impl TypeUtil {
         }
     }
 
-    pub fn get_type(expr_ast: &ExprAST, env: &Env) -> Result<Type, CodeGenError> {
+    pub fn get_type(expr_ast: &ExprAST, env: &Env) -> Result<Rc<Type>, CodeGenError> {
         match expr_ast {
             ExprAST::Assign(left, _right, _pos) => {
                 // (*left).get_type(env)
@@ -184,35 +185,37 @@ impl TypeUtil {
                 // (*left).get_type(env)
                 Self::get_type(&left, env)
             },
-            ExprAST::Char(_, _pos) => Ok(Type::Number(NumberType::Char)),
-            ExprAST::Int(_, _pos) => Ok(Type::Number(NumberType::Int)),
-            ExprAST::Short(_, _pos) => Ok(Type::Number(NumberType::Short)),
-            ExprAST::Long(_, _pos) => Ok(Type::Number(NumberType::Long)),
-            ExprAST::LongLong(_, _pos) => Ok(Type::Number(NumberType::LongLong)),
-            ExprAST::UChar(_, _pos) => Ok(Type::Number(NumberType::UnsignedChar)),
-            ExprAST::UInt(_, _pos) => Ok(Type::Number(NumberType::UnsignedInt)),
-            ExprAST::UShort(_, _pos) => Ok(Type::Number(NumberType::UnsignedShort)),
-            ExprAST::ULong(_, _pos) => Ok(Type::Number(NumberType::UnsignedLong)),
-            ExprAST::ULongLong(_, _pos) => Ok(Type::Number(NumberType::UnsignedLongLong)),
-            ExprAST::StringLiteral(_string, _pos) => Ok(Type::Pointer(Pointer::new(false, false), Box::new(Type::Number(NumberType::Char)))),
-            ExprAST::Float(_, _pos) => Ok(Type::Number(NumberType::Float)),
-            ExprAST::Double(_, _pos) => Ok(Type::Number(NumberType::Double)),
+            ExprAST::Char(_, _pos) => Ok(Rc::new(Type::Number(NumberType::Char))),
+            ExprAST::Int(_, _pos) => Ok(Rc::new(Type::Number(NumberType::Int))),
+            ExprAST::Short(_, _pos) => Ok(Rc::new(Type::Number(NumberType::Short))),
+            ExprAST::Long(_, _pos) => Ok(Rc::new(Type::Number(NumberType::Long))),
+            ExprAST::LongLong(_, _pos) => Ok(Rc::new(Type::Number(NumberType::LongLong))),
+            ExprAST::UChar(_, _pos) => Ok(Rc::new(Type::Number(NumberType::UnsignedChar))),
+            ExprAST::UInt(_, _pos) => Ok(Rc::new(Type::Number(NumberType::UnsignedInt))),
+            ExprAST::UShort(_, _pos) => Ok(Rc::new(Type::Number(NumberType::UnsignedShort))),
+            ExprAST::ULong(_, _pos) => Ok(Rc::new(Type::Number(NumberType::UnsignedLong))),
+            ExprAST::ULongLong(_, _pos) => Ok(Rc::new(Type::Number(NumberType::UnsignedLongLong))),
+            ExprAST::StringLiteral(_string, _pos) => Ok(Rc::new(Type::Pointer(Pointer::new(false, false), Box::new(Rc::new(Type::Number(NumberType::Char)))))),
+            ExprAST::Float(_, _pos) => Ok(Rc::new(Type::Number(NumberType::Float))),
+            ExprAST::Double(_, _pos) => Ok(Rc::new(Type::Number(NumberType::Double))),
             ExprAST::BinExpr(op, left, _right, _pos) => {
                 match op {
-                    BinOp::Equal | BinOp::NotEqual | BinOp::Less | BinOp::LessEqual | BinOp::Greater | BinOp::GreaterEqual => Ok(Type::Number(NumberType::_Bool)),
+                    BinOp::Equal | BinOp::NotEqual | BinOp::Less | BinOp::LessEqual | BinOp::Greater | BinOp::GreaterEqual => {
+                        Ok(Rc::new(Type::Number(NumberType::_Bool)))
+                    },
                     _ => Self::get_type(&left, env),
                 }
             },
             ExprAST::UnaryMinus(expr, _pos) => Self::get_type(&expr, env),
             ExprAST::UnaryTilda(expr, _pos) => Self::get_type(&expr, env),
             // ExprAST::UnaryNot(expr) => expr.get_type(env),
-            ExprAST::UnarySizeOfExpr(_expr, _pos) => Ok(Type::Number(NumberType::Int)),
-            ExprAST::UnarySizeOfTypeName(_typ, _pos) => Ok(Type::Number(NumberType::Int)),
+            ExprAST::UnarySizeOfExpr(_expr, _pos) => Ok(Rc::new(Type::Number(NumberType::Int))),
+            ExprAST::UnarySizeOfTypeName(_typ, _pos) => Ok(Rc::new(Type::Number(NumberType::Int))),
             ExprAST::ArrayAccess(expr, index_list, pos) => {
                 let index_len = index_list.len();
 
                 let typ = Self::get_type(&expr, env)?;
-                if let Type::Array { name: _, typ: item_type, size_list } = &typ {  // Array
+                if let Type::Array { name: _, typ: item_type, size_list } = typ.as_ref() {  // Array
                     let len = size_list.len();
 
                     if len == index_len {
@@ -222,20 +225,16 @@ impl TypeUtil {
                         return Err(CodeGenError::array_index_is_too_long(pos.clone()))
 
                     }else{  // len < index_len
-                        // let sz_list: Vec<usize> = size_list[len..].to_vec();
-                        // let ret_type = Type::Array { name: None, typ: item_type.clone(), size_list: sz_list };
-                        // Ok(ret_type)
-
                         let t = Type::new_pointer_type(*item_type.clone(), false, false);
-                        Ok(t)
+                        Ok(Rc::new(t))
                     }
-                }else if let Type::Pointer(_, elem_type) = &typ {             // Pointer
+                }else if let Type::Pointer(_, elem_type) = typ.as_ref() {             // Pointer
                     if index_len > 1 {
                         return Err(CodeGenError::array_index_is_too_long(pos.clone()));
                     }
 
                     let t = Type::new_pointer_type(*elem_type.clone(), false, false);
-                    Ok(t)
+                    Ok(Rc::new(t))
 
                 }else{
                     return Err(CodeGenError::not_array(*expr.clone(), pos.clone()));
@@ -251,13 +250,13 @@ impl TypeUtil {
             },
             ExprAST::StructStaticSymbol(class_name, var_name, pos) => {
                 let (typ, _sq, _global_value) = env.get_class_var(class_name, var_name).ok_or(CodeGenError::no_such_a_variable(&format!("{}::{}", class_name, var_name), pos.clone()))?;
-                Ok(typ.clone())
+                Ok(Rc::clone(typ))
             },
             ExprAST::_self(pos) => {
                 let (typ, _sq, _expr) = env.get_ptr("self").ok_or(CodeGenError::access_self_without_impl(pos.clone()))?;
-                Ok(typ.clone())
+                Ok(Rc::clone(typ))
             },
-            ExprAST::Not(_expr, _pos) => Ok(Type::Number(NumberType::_Bool)),
+            ExprAST::Not(_expr, _pos) => Ok(Rc::new(Type::Number(NumberType::_Bool))),
             // ExprAST::ExpressionPair(_, right, _pos) => TypeUtil::get_type(&right, env),
             ExprAST::Cast(typ, _, _pos) => Ok(typ.clone()),
             ExprAST::PreInc(name, _sym_pos, pos) => {
@@ -291,13 +290,13 @@ impl TypeUtil {
             ExprAST::UnaryGetAddress(boxed_ast, _pos) => {
                 let ast = &*boxed_ast;
                 let t = TypeUtil::get_type(ast, env)?;
-                Ok(Type::new_pointer_type(t, false, false))
+                Ok(Rc::new(Type::new_pointer_type(t, false, false)))
             },
             ExprAST::UnaryPointerAccess(boxed_ast, pos) => {  // *pointer
                 let ast = &**boxed_ast;
                 let typ = TypeUtil::get_type(ast, env)?;
 
-                match typ {
+                match typ.as_ref() {
                     Type::Pointer(_p, t) => {
                         Ok(*t.clone())
                     },
@@ -307,7 +306,7 @@ impl TypeUtil {
             ExprAST::MemberAccess(boxed_ast, field_name, pos) => {  // some_var.field
                 let ast = &*boxed_ast;
                 let typ = TypeUtil::get_type(ast, env)?;
-                match typ {
+                match typ.as_ref() {
                     Type::Struct { name: _, fields } => {
                         let t = fields.get_type(&field_name).ok_or(CodeGenError::type_has_not_member(&field_name, pos.clone()))?;
                         Ok(t.clone())
@@ -322,7 +321,7 @@ impl TypeUtil {
             ExprAST::PointerAccess(boxed_ast, field_name, pos) => {  // some_var->field
                 let ast = &*boxed_ast;
                 let typ = TypeUtil::get_type(ast, env)?;
-                match typ {
+                match typ.as_ref() {
                     Type::Struct { name: _, fields } => {
                         let t = fields.get_type(&field_name).ok_or(CodeGenError::type_has_not_member(&field_name, pos.clone()))?;
                         Ok(t.clone())
@@ -381,7 +380,7 @@ impl TypeUtil {
          }
     }
 
-    pub fn get_initializer_type(init: &Initializer, env: &Env) -> Result<Type, CodeGenError> {
+    pub fn get_initializer_type(init: &Initializer, env: &Env) -> Result<Rc<Type>, CodeGenError> {
         match init {
             Initializer::Simple(expr, _pos) => TypeUtil::get_type(expr, env),
             Initializer::Array(_init, typ, _pos) => Ok(typ.clone()),

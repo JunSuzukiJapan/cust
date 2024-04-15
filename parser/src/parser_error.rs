@@ -74,6 +74,10 @@ pub enum ParserError {
     NoTypeWhileParsingStructInitializer(Position),
     DuplicateFieldInStructInitializer(String, Position),
     NumberOfElementsDoesNotMatch(Position),
+    NotGenericType(Token, Position),
+    AlreadyGenericsTypeDefined(String, Position),
+    TaggedEnumCannotHaveValue(Position),
+    StandardEnumCannotBeTagged(Position),
 }
 
 impl ParserError {
@@ -315,6 +319,22 @@ impl ParserError {
     pub fn number_of_elements_does_not_match(pos: Position) -> Self {
         ParserError::NumberOfElementsDoesNotMatch(pos)
     }
+
+    pub fn not_generic_type(tok: Token, pos: Position) -> Self {
+        ParserError::NotGenericType(tok, pos)
+    }
+
+    pub fn already_generics_type_defined(name: String, pos: Position) -> Self {
+        ParserError::AlreadyGenericsTypeDefined(name, pos)
+    }
+
+    pub fn tagged_enum_cannot_have_value(pos: Position) -> Self {
+        ParserError::TaggedEnumCannotHaveValue(pos)
+    }
+
+    pub fn standard_enum_cannot_be_tagged(pos: Position) -> Self {
+        ParserError::StandardEnumCannotBeTagged(pos)
+    }
 }
 
 impl From<TokenizerError> for ParserError {
@@ -393,6 +413,10 @@ impl fmt::Display for ParserError {
             Self::NoTypeWhileParsingStructInitializer(_pos) => write!(f, "no type while parsing struct initializer"),
             Self::DuplicateFieldInStructInitializer(field_name, _pos) => write!(f, "duplicate field '{field_name}' in struct initializer"),
             Self::NumberOfElementsDoesNotMatch(_pos) => write!(f, "number of elements does not match"),
+            Self::NotGenericType(tok, _pos) => write!(f, "{tok:?} cannot not be generic type"),
+            Self::AlreadyGenericsTypeDefined(name, _pos) => write!(f, "already generics type '{name}' is defined"),
+            Self::TaggedEnumCannotHaveValue(_pos) => write!(f, "tagged enum cannot have value"),
+            Self::StandardEnumCannotBeTagged(_pos) => write!(f, "standard enum cannot be tagged"),
         }
     }
 }

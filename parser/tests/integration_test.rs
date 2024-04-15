@@ -2,6 +2,7 @@ mod common;
 
 mod tests {
     use super::common::*;
+    use std::rc::Rc;
 
     #[test]
     fn parse_constant() {
@@ -456,7 +457,7 @@ mod tests {
         let pointer = parser.parse_pointer(&mut iter, &mut defs);
         let pointer = pointer.unwrap().unwrap();
 
-        assert_eq!(typ, &Type::Number(NumberType::UnsignedShort));
+        assert_eq!(typ, &Type::Number(NumberType::UnsignedShort).into());
         assert_eq!(sq,  SpecifierQualifier {
             auto: false,
             register: false,
@@ -472,9 +473,9 @@ mod tests {
                 Pointer::new(false, true),
                 Box::new(Type::Pointer(
                     Pointer::new(true, false),
-                    Box::new(Type::Number(NumberType::UnsignedShort))
-                ))
-            )
+                    Box::new(Type::Number(NumberType::UnsignedShort).into())
+                ).into())
+            ).into()
         )
     }
 
@@ -490,14 +491,14 @@ mod tests {
                 let name = declarator.get_name();
                 let ret_type = specifiers.get_type();
                 assert_eq!(*name, "add".to_string());
-                assert_eq!(*ret_type, Type::Number(NumberType::Int));
+                assert_eq!(*ret_type, Type::Number(NumberType::Int).into());
                 assert_eq!(params.len(), 2);
 
                 let sq = SpecifierQualifier::new();
                 let mut defs = Defines::new();
-                let ds_x = DeclarationSpecifier::new(Type::Number(NumberType::Int), sq.clone());
+                let ds_x = DeclarationSpecifier::new(&Type::Number(NumberType::Int).into(), sq.clone());
                 let decl_x = Declarator::new(None, DirectDeclarator::Symbol(String::from("x"), Position::new(2, 24)));
-                let ds_y = DeclarationSpecifier::new(Type::Number(NumberType::Int), sq.clone());
+                let ds_y = DeclarationSpecifier::new(&Type::Number(NumberType::Int).into(), sq.clone());
                 let decl_y = Declarator::new(None, DirectDeclarator::Symbol(String::from("y"), Position::new(2, 31)));
                 let pos = Position::new(2, 25);
                 assert_eq!(params, Params::from_vec(vec![(ds_x, decl_x), (ds_y, decl_y)], false, &mut defs, &pos)?);
@@ -522,14 +523,14 @@ mod tests {
                 let name = declarator.get_name();
                 let ret_type = specifiers.get_type();
                 assert_eq!(*name, "add".to_string());
-                assert_eq!(*ret_type, Type::Number(NumberType::Int));
+                assert_eq!(*ret_type, Type::Number(NumberType::Int).into());
                 assert_eq!(params.len(), 2);
 
                 let sq = SpecifierQualifier::new();
                 let mut defs = Defines::new();
-                let ds_x = DeclarationSpecifier::new(Type::Number(NumberType::Int), sq.clone());
+                let ds_x = DeclarationSpecifier::new(&Type::Number(NumberType::Int).into(), sq.clone());
                 let decl_x = Declarator::new(None, DirectDeclarator::Symbol(String::from("x"), Position::new(2, 24)));
-                let ds_y = DeclarationSpecifier::new(Type::Number(NumberType::Int), sq.clone());
+                let ds_y = DeclarationSpecifier::new(&Type::Number(NumberType::Int).into(), sq.clone());
                 let decl_y = Declarator::new(None, DirectDeclarator::Symbol(String::from("y"), Position::new(2, 31)));
                 let pos = Position::new(2, 25);
                 assert_eq!(params, Params::from_vec(vec![(ds_x, decl_x), (ds_y, decl_y)], false, &mut defs, &pos)?);
@@ -572,7 +573,7 @@ mod tests {
                 let name = declarator.get_name();
                 let ret_type = specifiers.get_type();
                 assert_eq!(*name, "foo".to_string());
-                assert_eq!(*ret_type, Type::Number(NumberType::Int));
+                assert_eq!(*ret_type, Type::Number(NumberType::Int).into());
                 assert_eq!(params.len(), 0);
 
                 let mut defs = Defines::new();
@@ -580,7 +581,7 @@ mod tests {
                 assert_eq!(params, Params::from_vec(vec![], false, &mut defs, &pos)?);
 
                 let sq = SpecifierQualifier::new();
-                let specifier = DeclarationSpecifier::new(Type::Number(NumberType::Int), sq);
+                let specifier = DeclarationSpecifier::new(&Type::Number(NumberType::Int).into(), sq);
 
                 let mut v = Vec::new();
                 let declarator = Declarator::new(None, DirectDeclarator::Symbol(String::from("x"), Position::new(3, 20)));
@@ -656,7 +657,7 @@ mod tests {
                 let name = declarator.get_name();
                 let ret_type = specifiers.get_type();
                 assert_eq!(*name, "foo".to_string());
-                assert_eq!(*ret_type, Type::Void);
+                assert_eq!(*ret_type, Type::Void.into());
                 assert_eq!(params.len(), 0);
 
                 let mut defs = Defines::new();
@@ -664,7 +665,7 @@ mod tests {
                 assert_eq!(params, Params::from_vec(vec![], false, &mut defs, &pos)?);
 
                 let sq = SpecifierQualifier::new();
-                let specifier = DeclarationSpecifier::new(Type::Number(NumberType::Int), sq);
+                let specifier = DeclarationSpecifier::new(&Type::Number(NumberType::Int).into(), sq);
 
                 let mut v = Vec::new();
                 let declarator = Declarator::new(None, DirectDeclarator::Symbol(String::from("x"), Position::new(3, 20)));
@@ -672,24 +673,24 @@ mod tests {
                 v.push(declaration);
 
                 let pointer = Pointer::new(false, false);
-                let typ = Type::Number(NumberType::Int);
+                let typ = Rc::new(Type::Number(NumberType::Int));
                 assert_eq!(
                     pointer.make_type_to(&typ),
-                    Type::Pointer(Pointer::new(false, false), Box::new(typ.clone())));
+                    Type::Pointer(Pointer::new(false, false), Box::new(typ.clone())).into());
                 let declarator = Declarator::new(Some(pointer.clone()), DirectDeclarator::Symbol(String::from("y"), Position::new(3, 24)));
                 let declaration = Declaration::new(declarator, None);
                 v.push(declaration);
 
                 let handle = Pointer::new_with_next_pointer(false, false, pointer);
                 assert_eq!(
-                    handle.make_type_to(&typ),
+                    handle.make_type_to(&typ.into()),
                     Type::Pointer(
                         Pointer::new(false, false),
                         Box::new(Type::Pointer(
                             Pointer::new(false, false),
-                            Box::new(Type::Number(NumberType::Int))
-                        ))
-                    )
+                            Box::new(Type::Number(NumberType::Int).into())
+                        ).into())
+                    ).into()
                 );
                 let declarator = Declarator::new(Some(handle), DirectDeclarator::Symbol(String::from("z"), Position::new(3, 29)));
                 let declaration = Declaration::new(declarator, None);
@@ -754,21 +755,21 @@ mod tests {
             let field1 = StructField::NormalField {
                 name: Some("year".to_string()),
                 sq: sq.clone(),
-                typ: Type::Number(NumberType::Int)
+                typ: Type::Number(NumberType::Int).into()
             };
             assert_eq!(fields[0], field1);
 
             let field2 = StructField::NormalField {
                 name: Some("month".to_string()),
                 sq: sq.clone(),
-                typ: Type::Number(NumberType::Int)
+                typ: Type::Number(NumberType::Int).into()
             };
             assert_eq!(fields[1], field2);
 
             let field3 = StructField::NormalField {
                 name: Some("day".to_string()),
                 sq: sq.clone(),
-                typ: Type::Number(NumberType::Int)
+                typ: Type::Number(NumberType::Int).into()
             };
             assert_eq!(fields[2], field3);
 
@@ -779,10 +780,14 @@ mod tests {
         //
         // test 2nd statement
         //
-        if let ToplevelAST::TypeDef(name, Type::Struct {name: Some(id), fields}, _pos) = &list[1] {
-            assert_eq!(*name, "Date".to_string());
-            assert_eq!(*id, "date".to_string());
-            assert!(fields.has_fields());
+        if let ToplevelAST::TypeDef(name, rc_type, _pos) = &list[1] {
+            if let Type::Struct {name: Some(id), fields} = rc_type.as_ref() {
+                assert_eq!(*name, "Date".to_string());
+                assert_eq!(*id, "date".to_string());
+                assert!(fields.has_fields());
+            }else{
+                panic!("");
+            }
 
         }else{
             panic!("");
@@ -795,7 +800,7 @@ mod tests {
             let name = declarator.get_name();
             let ret_type = specifiers.get_type();
             assert_eq!(*name, "foo".to_string());
-            assert_eq!(*ret_type, Type::Void);
+            assert_eq!(*ret_type, Type::Void.into());
             assert_eq!(params.len(), 0);
 
             let mut defs = Defines::new();
@@ -809,26 +814,26 @@ mod tests {
             // Date date;
             //
             let sq = SpecifierQualifier::new();
-            let int_type = Type::Number(NumberType::Int);
+            let int_type = Rc::new(Type::Number(NumberType::Int));
             let mut field_list: Vec<StructDeclaration> = Vec::new();
 
             // member 'year'
             let declarator = StructDeclarator::new(Some(Declarator::new(None, DirectDeclarator::Symbol(String::from("year"), Position::new(3, 20)))), None);
             let declarator_list = vec![declarator];
-            field_list.push(StructDeclaration::new(sq.clone(), Some(int_type.clone()), declarator_list));
+            field_list.push(StructDeclaration::new(sq.clone(), Some(Rc::clone(&int_type)), declarator_list));
             // member 'month'
             let declarator = StructDeclarator::new(Some(Declarator::new(None, DirectDeclarator::Symbol(String::from("month"), Position::new(3, 26)))), None);
             let declarator_list = vec![declarator];
-            field_list.push(StructDeclaration::new(sq.clone(), Some(int_type.clone()), declarator_list));
+            field_list.push(StructDeclaration::new(sq.clone(), Some(Rc::clone(&int_type)), declarator_list));
             // member 'day'
             let declarator = StructDeclarator::new(Some(Declarator::new(None, DirectDeclarator::Symbol(String::from("day"), Position::new(4, 20)))), None);
             let declarator_list = vec![declarator];
-            field_list.push(StructDeclaration::new(sq.clone(), Some(int_type.clone()), declarator_list));
+            field_list.push(StructDeclaration::new(sq.clone(), Some(Rc::clone(&int_type)), declarator_list));
 
             let dummy_pos = Position::new(1, 1);
             let struct_definition = StructDefinition::try_new(Some("date".to_string()), Some(field_list), &dummy_pos)?;
-            let type_struct = Type::Struct { name: Some("date".to_string()), fields: struct_definition.clone() };
-            let specifier = DeclarationSpecifier::new(type_struct.clone(), sq);
+            let type_struct = Rc::new(Type::Struct { name: Some("date".to_string()), fields: struct_definition.clone() });
+            let specifier = DeclarationSpecifier::new(&Rc::clone(&type_struct), sq);
 
             let mut v = Vec::new();
             let declarator = Declarator::new(None, DirectDeclarator::Symbol(String::from("date"), Position::new(10, 21)));
@@ -895,11 +900,11 @@ mod tests {
             // Date* pointer = &date;
             if let AST::DefVar { specifiers, declarations: declaration, pos: _ } = &list[4] {
                 let typ = specifiers.get_type();
-                assert_eq!(*typ, type_struct.clone());
+                assert_eq!(*typ, type_struct.into());
 
 
                 let sq = SpecifierQualifier::new();
-                let specifiers2: DeclarationSpecifier = DeclarationSpecifier::new(typ.clone(), sq);
+                let specifiers2: DeclarationSpecifier = DeclarationSpecifier::new(typ.into(), sq);
                 assert_eq!(*specifiers, specifiers2);
 
                 assert_eq!(declaration.len(), 1);
@@ -995,7 +1000,7 @@ mod tests {
 
         match ast {
             ToplevelAST::GlobalDefVar { specifiers: DeclarationSpecifier {typ, specifier_qualifier}, declaration, pos: _ } => {
-                assert_eq!(typ, Type::Number(NumberType::Int));
+                assert_eq!(typ, Type::Number(NumberType::Int).into());
                 assert_eq!(specifier_qualifier, SpecifierQualifier::new());
 
                 assert_eq!(declaration.len(), 1);
@@ -1032,7 +1037,7 @@ mod tests {
 
         match ast {
             ToplevelAST::GlobalDefVar { specifiers: DeclarationSpecifier {typ, specifier_qualifier}, declaration, pos: _ } => {
-                assert_eq!(typ, Type::Number(NumberType::Int));
+                assert_eq!(typ, Type::Number(NumberType::Int).into());
                 assert_eq!(specifier_qualifier, SpecifierQualifier::new());
 
                 assert_eq!(declaration.len(), 1);
@@ -1082,9 +1087,9 @@ mod tests {
                         is_volatile: false,
                         next_pointer: None,
                     },
-                    Box::new(Type::Number(NumberType::Int)));
+                    Box::new(Type::Number(NumberType::Int).into()));
 
-                assert_eq!(typ, Type::Number(NumberType::Int));
+                assert_eq!(typ, Type::Number(NumberType::Int).into());
                 assert_eq!(specifier_qualifier, SpecifierQualifier::new());
 
                 assert_eq!(declaration.len(), 1);
@@ -1100,7 +1105,7 @@ mod tests {
                 let init_expr = decl.get_init_expr();
                 assert_eq!(*init_expr,
                     Some(Initializer::Simple(ExprAST::Cast(
-                        int_pointer_type,
+                        int_pointer_type.into(),
                         Box::new(ExprAST::CallFunction(
                             Box::new(ExprAST::Symbol("malloc".to_string(), Position::new(2, 29))),
                             vec![ExprAST::Int(1, Position::new(2, 36))], Position::new(2, 35))

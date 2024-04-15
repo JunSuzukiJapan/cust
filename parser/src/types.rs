@@ -1,17 +1,12 @@
 #![allow(dead_code)]
 
-// use crate::compiler::CodeGen;
-
 use super::{ParserError, StructDeclaration, SpecifierQualifier};
 use crate::Position;
 
-// use inkwell::AddressSpace;
-// use inkwell::context::Context;
-// use inkwell::types::{BasicTypeEnum, BasicMetadataTypeEnum, AnyTypeEnum, AnyType};
-// use inkwell::types::BasicType;
 use std::cmp::Ordering;
 use std::fmt;
 use std::collections::HashMap;
+use std::rc::Rc;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NumberType {
@@ -216,14 +211,14 @@ impl Pointer {
         self.is_volatile
     }
 
-    pub fn make_type_to(&self, typ: &Type) -> Type {
+    pub fn make_type_to(&self, typ: &Rc<Type>) -> Rc<Type> {
         if let Some(p) = &self.next_pointer {
             let next = p.make_type_to(typ);
             let mut t = self.clone();
             t.next_pointer = None;
-            Type::Pointer(t, Box::new(next))
+            Rc::new(Type::Pointer(t, Box::new(next)))
         }else{
-            Type::Pointer(self.clone(), Box::new(typ.clone()))
+            Rc::new(Type::Pointer(self.clone(), Box::new(Rc::clone(typ))))
         }
     }
 }
@@ -252,18 +247,18 @@ pub enum StructField {
     NormalField {
         name: Option<String>,
         sq: SpecifierQualifier,
-        typ: Type,
+        typ: Rc<Type>,
     },
     BitField {
         name: Option<String>,
         sq: SpecifierQualifier,
-        typ: Option<Type>,
+        typ: Option<Rc<Type>>,
         bit_size: usize,
     },
 }
 
 impl StructField {
-    pub fn new_normal_field(name: Option<String>, typ: Type, sq: SpecifierQualifier) -> StructField {
+    pub fn new_normal_field(name: Option<String>, typ: Rc<Type>, sq: SpecifierQualifier) -> StructField {
         StructField::NormalField {
             name: name,
             typ: typ,
@@ -271,7 +266,7 @@ impl StructField {
         }
     }
 
-    pub fn new_bit_field(name: Option<String>, typ: Option<Type>, sq: SpecifierQualifier, bit_size: usize) -> StructField {
+    pub fn new_bit_field(name: Option<String>, typ: Option<Rc<Type>>, sq: SpecifierQualifier, bit_size: usize) -> StructField {
         StructField::BitField {
             name: name,
             typ: typ,
@@ -280,7 +275,7 @@ impl StructField {
         }
     }
 
-    pub fn get_type(&self) -> Option<&Type> {
+    pub fn get_type(&self) -> Option<&Rc<Type>> {
         match self {
             StructField::NormalField {typ, ..} => Some(typ),
             StructField::BitField {typ, ..} => {
@@ -345,7 +340,7 @@ impl StructDefinition {
                     field = StructField::new_bit_field(field_name.clone(), typ.clone(), sq.clone(), *size);
                 }else{
                     if let Some(t) = typ {
-                        field = StructField::new_normal_field(field_name.clone(), t.clone(), sq.clone());
+                        field = StructField::new_normal_field(field_name.clone(), Rc::clone(t), sq.clone());
                     }else{
                         return Err(ParserError::no_type_for_struct_field(pos.clone()));
                     }
@@ -374,7 +369,7 @@ impl StructDefinition {
         }
     }
 
-    pub fn get_type(&self, name: &str) -> Option<&Type> {
+    pub fn get_type(&self, name: &str) -> Option<&Rc<Type>> {
         if let Some((fields, index_map)) = &self.fields_and_index_map {
             if let Some(index) = index_map.get(name) {
                 fields[*index].get_type()
@@ -417,10 +412,22 @@ impl StructDefinition {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Enumerator {
+    // EnumName::FieldName
     Const {
         name: String,
         const_value: u32,
     },
+    // EnumName::FieldName(Type1, Type2, ..)
+    TypeTuple {
+        name: String,
+        type_list: Vec<Rc<Type>>,
+    },
+    // EnumName::FieldName {name1: Type1, name2: Type2, ..}
+    TypeStruct {
+        name: String,
+        map: HashMap<String, Rc<Type>>,
+        type_list: Vec<Rc<Type>>,
+    }
 }
 
 impl Enumerator {
@@ -428,10 +435,16 @@ impl Enumerator {
         Enumerator::Const { name: name.to_string(), const_value: value }
     }
 
+    pub fn new_tuple(name: &str, list: Vec<Rc<Type>>) -> Enumerator {
+        Enumerator::TypeTuple { name: name.to_string(), type_list: list }
+    }
+
     #[inline]
     pub fn get_name(&self) -> &str {
         match self {
             Enumerator::Const { name, .. } => name,
+            Enumerator::TypeTuple { name, .. } => name,
+            Enumerator::TypeStruct { name, .. } => name,
         }
     }
 }
@@ -479,13 +492,13 @@ impl EnumDefinition {
 #[derive(Debug, Clone, PartialEq)]
 pub struct CustFunctionType {
     name: Option<String>,
-    ret_type: Box<Type>,
-    params_type: Vec<Type>,
+    ret_type: Box<Rc<Type>>,
+    params_type: Vec<Rc<Type>>,
     has_variadic: bool,
 }
 
 impl CustFunctionType {
-    pub fn new(name: Option<String>, ret_type: Type, params_type: Vec<Type>, has_variadic: bool) -> CustFunctionType {
+    pub fn new(name: Option<String>, ret_type: Rc<Type>, params_type: Vec<Rc<Type>>, has_variadic: bool) -> CustFunctionType {
         CustFunctionType {
             name,
             ret_type: Box::new(ret_type),
@@ -494,8 +507,24 @@ impl CustFunctionType {
         }
     }
 
-    pub fn get_return_type(&self) -> &Type {
+    pub fn get_return_type(&self) -> &Rc<Type> {
         &self.ret_type
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct GenericType {
+    name: String,
+}
+
+impl GenericType {
+    pub fn new(name: &str) -> GenericType {
+        GenericType { name: name.to_string() }
+    }
+
+    #[inline]
+    pub fn get_name(&self) -> &str {
+        &self.name
     }
 }
 
@@ -504,7 +533,7 @@ pub enum Type {
     Number(NumberType),
     Void,
     Symbol(String),
-    Pointer(Pointer, Box<Type>),
+    Pointer(Pointer, Box<Rc<Type>>),
     Function(CustFunctionType),
     Struct {
         name: Option<String>,
@@ -517,17 +546,18 @@ pub enum Type {
     BitField,  // only for union member
     Array {
         name: Option<String>,
-        typ: Box<Type>,
+        typ: Box<Rc<Type>>,
         size_list: Vec<usize>,
     },
     Enum {
         name: Option<String>,
         enum_def: EnumDefinition,
     },
+    GenericType(GenericType),
 }
 
 impl Type {
-    pub fn new_function_type(name: Option<String>, ret_type: Type, params_type: Vec<Type>, has_variadic: bool) -> Type {
+    pub fn new_function_type(name: Option<String>, ret_type: Rc<Type>, params_type: Vec<Rc<Type>>, has_variadic: bool) -> Type {
         let fun_type = CustFunctionType {
             name,
             ret_type: Box::new(ret_type),
@@ -537,7 +567,7 @@ impl Type {
         Type::Function(fun_type)
     }
 
-    pub fn new_pointer_type(typ: Type, is_const: bool, is_volatile: bool) -> Type {
+    pub fn new_pointer_type(typ: Rc<Type>, is_const: bool, is_volatile: bool) -> Type {
         let pointer = Pointer::new(is_const, is_volatile);
         Type::Pointer(pointer, Box::new(typ))
     }
@@ -585,7 +615,7 @@ impl Type {
         }
     }
 
-    pub fn get_array_item_type(&self) -> &Type {
+    pub fn get_array_item_type(&self) -> &Rc<Type> {
         match self {
             Type::Array { typ, .. } => &*typ,
             _ => panic!("not array when get array item type"),
@@ -693,7 +723,7 @@ impl Type {
                 Ok(Type::Number(nt.to_unsigned(pos)?))
             },
             Type::Pointer(p, typ) => {
-                Ok(Type::Pointer(p.clone(), Box::new(typ.to_unsigned(pos)?)))
+                Ok(Type::Pointer(p.clone(), Box::new(Rc::new(typ.to_unsigned(pos)?))))
             },
             _ => Err(ParserError::not_number_type_to_be_unsigned(self, pos.clone())),
         }
@@ -733,9 +763,9 @@ impl Type {
         }
     }
 
-    pub fn peel_off_pointer(&self) -> Option<Type> {
+    pub fn peel_off_pointer(&self) -> Option<Rc<Type>> {
         match self {
-            Self::Pointer(_, boxed_type) => Some((**boxed_type).clone()),
+            Self::Pointer(_, boxed_type) => Some(Rc::clone(&*boxed_type.as_ref())),
             _ => None,
         }
     }
@@ -817,19 +847,22 @@ impl fmt::Display for Type {
             Type::BitField => {
                 write!(f, "bit_field")
             },
+            Type::GenericType(g_type) => {
+                write!(f, "<generic type: {}>", g_type.get_name())
+            },
         }
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum TypeOrVariadic {
-    Type(Type),
+    Type(Rc<Type>),
     Variadic,
 }
 
 impl TypeOrVariadic {
     pub fn from_type(typ: Type) -> TypeOrVariadic {
-        TypeOrVariadic::Type(typ)
+        TypeOrVariadic::Type(Rc::new(typ))
     }
 
     pub fn new_variadic() -> TypeOrVariadic {
@@ -840,7 +873,7 @@ impl TypeOrVariadic {
         *self == TypeOrVariadic::Variadic
     }
 
-    pub fn get_type(&self) -> Option<&Type> {
+    pub fn get_type(&self) -> Option<&Rc<Type>> {
         match self {
             TypeOrVariadic::Type(typ) => Some(typ),
             _ => None,

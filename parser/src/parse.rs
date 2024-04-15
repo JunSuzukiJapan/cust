@@ -12,6 +12,7 @@ use super::{CustSelf, Function, FunProto, FunOrProt, Switch, Case};
 use std::slice::Iter;
 use std::iter::Peekable;
 use std::collections::{HashMap, HashSet};
+use std::rc::Rc;
 
 #[derive(Debug)]
 pub struct Parser;
@@ -19,6 +20,20 @@ pub struct Parser;
 impl Parser {
     pub fn new() -> Self {
         Parser
+    }
+
+    #[inline]
+    fn next_token<'a>(&self, iter: &'a mut Peekable<Iter<(Token, Position)>>) -> Result<(&'a Token, &'a Position), ParserError> {
+        let (tok, pos) = iter.next().unwrap();
+        if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
+        Ok((tok, pos))
+    }
+
+    #[inline]
+    fn peek_token<'a>(&self, iter: &'a mut Peekable<Iter<(Token, Position)>>) -> Result<(&'a Token, &'a Position), ParserError> {
+        let (tok, pos) = iter.peek().unwrap();
+        if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
+        Ok((tok, pos))
     }
 
     pub fn parse(input: Vec<(Token, Position)>) -> Result<Vec<ToplevelAST>, ParserError> {
@@ -71,7 +86,7 @@ impl Parser {
         for declaration in &declarations {
             let decl = declaration.get_declarator();
             let name = decl.get_name();
-            let array_type = Type::Array { name: Some(name.to_string()), typ: Box::new(typ.clone()), size_list: size_list.clone() };
+            let array_type = Type::Array { name: Some(name.to_string()), typ: Box::new(Rc::clone(typ)), size_list: size_list.clone() };
             let init = if let Some(expr) = declaration.get_init_expr() {
                 Some((*expr).clone())
             }else{
@@ -120,7 +135,7 @@ impl Parser {
         if *tok == Token::SemiColon {
             iter.next();  // skip ';'
 
-            match ds.get_type() {
+            match ds.get_type().as_ref() {
                 Type::Struct { name, fields } => {
                     return Ok(Some(ToplevelAST::DefineStruct{name: name.clone(), fields: fields.clone(), pos: pos.clone()}));
                 },
@@ -287,7 +302,7 @@ impl Parser {
 
         match type_or_variadic {
             TypeOrVariadic::Type(typ) => {
-                let ds = DeclarationSpecifier::new(typ, sq);
+                let ds = DeclarationSpecifier::new(&typ, sq);
                 Ok(DeclarationSpecifierOrVariadic::DS(ds))
             },
             TypeOrVariadic::Variadic => Ok(DeclarationSpecifierOrVariadic::Variadic),
@@ -298,7 +313,7 @@ impl Parser {
         let mut sq = SpecifierQualifier::new();
         let mut opt_signed: Option<(bool, Position)> = None;
         let mut opt_unsigned: Option<(bool, Position)> = None;
-        let mut opt_type: Option<(Type, Position)> = None;
+        let mut opt_type: Option<(Rc<Type>, Position)> = None;
         let mut opt_name: Option<String> = None;
 
         loop {
@@ -397,7 +412,7 @@ impl Parser {
                                         defs.set_struct(name, definition, pos3)?;
 
                                         opt_type = Some((
-                                            type_struct,
+                                            Rc::new(type_struct),
                                             pos.clone()
                                         ));
 
@@ -408,7 +423,8 @@ impl Parser {
                                             t.clone()
                                         }else{
                                             let definition = StructDefinition::try_new(Some(name.clone()), None, pos3)?;
-                                            Type::struct_from_struct_definition(Some(name.clone()), definition)
+                                            let typ = Type::struct_from_struct_definition(Some(name.clone()), definition);
+                                            Rc::new(typ)
                                         };
 
                                         opt_type = Some((
@@ -424,7 +440,7 @@ impl Parser {
                                 let definition = StructDefinition::try_new(None, Some(declaration), pos2)?;
                                 let type_struct = Type::struct_from_struct_definition(None, definition);
                                 opt_type = Some((
-                                    type_struct,
+                                    Rc::new(type_struct),
                                     pos.clone()
                                 ));
 
@@ -459,7 +475,7 @@ impl Parser {
                                         defs.set_union(name, definition, pos3)?;
 
                                         opt_type = Some((
-                                            type_union,
+                                            Rc::new(type_union),
                                             pos.clone()
                                         ));
 
@@ -470,7 +486,8 @@ impl Parser {
                                             t.clone()
                                         }else{
                                             let definition = StructDefinition::try_new(Some(name.clone()), None, pos2)?;
-                                            Type::union_from_struct_definition(Some(name.clone()), definition)
+                                            let typ = Type::union_from_struct_definition(Some(name.clone()), definition);
+                                            Rc::new(typ)
                                         };
 
                                         // let definition = StructDefinition::try_new(Some(name.clone()), None)?;
@@ -489,7 +506,7 @@ impl Parser {
                                 let definition = StructDefinition::try_new(None, Some(declaration), pos2)?;
                                 let type_struct = Type::union_from_struct_definition(None, definition);
                                 opt_type = Some((
-                                    type_struct,
+                                    Rc::new(type_struct),
                                     pos.clone()
                                 ));
 
@@ -504,38 +521,63 @@ impl Parser {
                     Token::Enum => {
                         iter.next();  // skip 'enum'
 
-                        // let (tok2, pos2) = iter.peek().ok_or(ParserError::illegal_end_of_input(pos.clone()))?;
                         let (tok2, pos2) = iter.peek().unwrap();
                         if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
                         match tok2 {
                             Token::Symbol(name) => {
                                 iter.next();  // skip Symbol
                 
-                                // let (tok3, _pos3) = iter.peek().ok_or(ParserError::illegal_end_of_input(pos.clone()))?;
                                 let (tok3, pos3) = iter.peek().unwrap();
                                 if tok3.is_eof() { return Err(ParserError::illegal_end_of_input(pos3.clone())); }
                                 match tok3 {
                                     Token::BraceLeft => {
                                         iter.next();  // skip '{'
                 
-                                        let enum_list = self.parse_enumerator_list(iter, defs, labels)?;
-                                        let definition = EnumDefinition::new(Some(name.clone()), Some(enum_list));
-                                        let type_struct = Type::enum_from_enum_definition(Some(name.clone()), definition.clone());
-                                        defs.set_enum(name, definition, pos3)?;
+                                        // let enum_list = self.parse_enumerator_list(iter, defs, labels)?;
+                                        // let definition = EnumDefinition::new(Some(name.clone()), Some(enum_list));
+                                        // let type_struct = Type::enum_from_enum_definition(Some(name.clone()), definition.clone());
+                                        // defs.set_enum(name, definition, pos3)?;
                 
+                                        // opt_type = Some((
+                                        //     type_struct,
+                                        //     pos.clone()
+                                        // ));
+                
+                                        // self.parse_expected_token(iter, Token::BraceRight)?;
+
+                                        let type_struct = self.parse_enum_body(name, pos3, iter, defs, labels)?;
                                         opt_type = Some((
-                                            type_struct,
+                                            Rc::new(type_struct),
                                             pos.clone()
                                         ));
-                
-                                        self.parse_expected_token(iter, Token::BraceRight)?;
+                                    },
+                                    Token::Less => {  // '<'
+                                        defs.add_new_generics();
+
+                                        let g_list = self.parse_generic_types(iter, defs)?;
+
+                                        self.parse_expected_token(iter, Token::BraceLeft)?;  // skip '{'
+
+                                        let type_struct = self.parse_enum_body(name, pos3, iter, defs, labels)?;
+                                        opt_type = Some((
+                                            Rc::new(type_struct),
+                                            pos.clone()
+                                        ));
+
+
+
+
+                                        defs.remove_generics();
+
+                                        unimplemented!("enum generics<{g_list:?}>")
                                     },
                                     _ => {
                                         let type_struct = if let Some(t) = defs.get_type(&name) {
-                                            t.clone()
+                                            Rc::clone(t)
                                         }else{
                                             let definition = EnumDefinition::new(Some(name.clone()), None);
-                                            Type::enum_from_enum_definition(Some(name.clone()), definition)
+                                            let typ = Type::enum_from_enum_definition(Some(name.clone()), definition);
+                                            Rc::new(typ)
                                         };
                 
                                         opt_type = Some((
@@ -551,7 +593,7 @@ impl Parser {
                                 let definition = EnumDefinition::new(None, Some(enum_list));
                                 let type_struct = Type::enum_from_enum_definition(None, definition);
                                 opt_type = Some((
-                                    type_struct,
+                                    Rc::new(type_struct),
                                     pos.clone()
                                 ));
                 
@@ -592,28 +634,28 @@ impl Parser {
                         if let Some((pre_type, pre_pos)) = &opt_type {
                             return Err(ParserError::already_type_defined(&Type::Void, pos.clone(), &pre_type, &pre_pos));
                         }
-                        opt_type = Some((Type::Void, pos.clone()));
+                        opt_type = Some((Rc::new(Type::Void), pos.clone()));
                     },
                     Token::_Bool => {
                         iter.next();
                         if let Some((pre_type, pre_pos)) = &opt_type {
                             return Err(ParserError::already_type_defined(&Type::Number(NumberType::_Bool), pos.clone(), &pre_type, &pre_pos));
                         }
-                        opt_type = Some((Type::Number(NumberType::_Bool), pos.clone()));
+                        opt_type = Some((Rc::new(Type::Number(NumberType::_Bool)), pos.clone()));
                     }
                     Token::Char => {
                         iter.next();
                         if let Some((pre_type, pre_pos)) = &opt_type {
                             return Err(ParserError::already_type_defined(&Type::Number(NumberType::Char), pos.clone(), &pre_type, &pre_pos));
                         }
-                        opt_type = Some((Type::Number(NumberType::Char), pos.clone()));
+                        opt_type = Some((Rc::new(Type::Number(NumberType::Char)), pos.clone()));
                     },
                     Token::Short => {
                         iter.next();
                         if let Some((pre_type, pre_pos)) = &opt_type {
-                            match pre_type {
+                            match pre_type.as_ref() {
                                 Type::Number(NumberType::Int) => {
-                                    opt_type = Some((Type::Number(NumberType::Short), pre_pos.clone()));
+                                    opt_type = Some((Rc::new(Type::Number(NumberType::Short)), pre_pos.clone()));
                                     continue;
                                 },
                                 _ => {
@@ -621,12 +663,12 @@ impl Parser {
                                 },
                             }
                         }
-                        opt_type = Some((Type::Number(NumberType::Short), pos.clone()));
+                        opt_type = Some((Rc::new(Type::Number(NumberType::Short)), pos.clone()));
                     },
                     Token::Int => {
                         iter.next();
                         if let Some((pre_type, pre_pos)) = &opt_type {
-                            match pre_type {
+                            match pre_type.as_ref() {
                                 Type::Number(NumberType::Short) | Type::Number(NumberType::Long) | Type::Number(NumberType::LongLong) => {
                                     continue;
                                 },
@@ -635,18 +677,18 @@ impl Parser {
                                 },
                             }
                         }
-                        opt_type = Some((Type::Number(NumberType::Int), pos.clone()));
+                        opt_type = Some((Rc::new(Type::Number(NumberType::Int)), pos.clone()));
                     },
                     Token::Long => {
                         iter.next();
                         if let Some((pre_type, pre_pos)) = &opt_type {
-                            match pre_type {
+                            match pre_type.as_ref() {
                                 Type::Number(NumberType::Int) => {
-                                    opt_type = Some((Type::Number(NumberType::Long), pre_pos.clone()));
+                                    opt_type = Some((Rc::new(Type::Number(NumberType::Long)), pre_pos.clone()));
                                     continue;
                                 },
                                 Type::Number(NumberType::Long) => {
-                                    opt_type = Some((Type::Number(NumberType::LongLong), pre_pos.clone()));
+                                    opt_type = Some((Rc::new(Type::Number(NumberType::LongLong)), pre_pos.clone()));
                                     continue;
                                 },
                                 _ => {
@@ -654,21 +696,21 @@ impl Parser {
                                 },
                             }
                         }
-                        opt_type = Some((Type::Number(NumberType::Long), pos.clone()));
+                        opt_type = Some((Rc::new(Type::Number(NumberType::Long)), pos.clone()));
                     },
                     Token::Float => {
                         iter.next();
                         if let Some((pre_type, pre_pos)) = &opt_type {
                             return Err(ParserError::already_type_defined(&Type::Number(NumberType::Float), pos.clone(), &pre_type, &pre_pos));
                         }
-                        opt_type = Some((Type::Number(NumberType::Float), pos.clone()));
+                        opt_type = Some((Rc::new(Type::Number(NumberType::Float)), pos.clone()));
                     },
                     Token::Double => {
                         iter.next();
                         if let Some((pre_type, pre_pos)) = &opt_type {
                             return Err(ParserError::already_type_defined(&Type::Number(NumberType::Double), pos.clone(), &pre_type, &pre_pos));
                         }
-                        opt_type = Some((Type::Number(NumberType::Double), pos.clone()));
+                        opt_type = Some((Rc::new(Type::Number(NumberType::Double)), pos.clone()));
                     },
                     _ => {
                         break;
@@ -683,12 +725,10 @@ impl Parser {
         let (typ, pos) = if let Some((typ, pos)) = opt_type {
             (typ, pos)
         }else{
-println!("opt_name: {:?}", opt_name);
-println!("defs: {:?}", defs);
             return Err(ParserError::no_type_defined(opt_name, iter.peek().unwrap().1.clone()));
         };
         let typ = if let Some((true, _)) = opt_unsigned {
-            typ.to_unsigned(&pos)?
+            Rc::new(typ.to_unsigned(&pos)?)
         }else{
             typ
         };
@@ -696,11 +736,58 @@ println!("defs: {:?}", defs);
         Ok((sq, TypeOrVariadic::Type(typ), pos))
     }
 
+    fn parse_enum_body(&self, name: &String, pos3: &Position, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Type, ParserError> {
+        let enum_list = self.parse_enumerator_list(iter, defs, labels)?;
+        let definition = EnumDefinition::new(Some(name.clone()), Some(enum_list));
+        let type_struct = Type::enum_from_enum_definition(Some(name.clone()), definition.clone());
+        defs.set_enum(name, definition, pos3)?;
+
+        // opt_type = Some((
+        //     type_struct,
+        //     pos.clone()
+        // ));
+
+        self.parse_expected_token(iter, Token::BraceRight)?;
+
+        Ok(type_struct)
+    }
+
+
+    fn parse_generic_types(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Vec<Rc<GenericType>>, ParserError> {
+        iter.next();  // skip '<'
+
+        let mut list = Vec::new();
+
+        loop {
+            let (tok, pos) = iter.peek().unwrap();
+            if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
+            if *tok == Token::Greater {
+                iter.next();  // skip '>'
+                break;
+            }
+
+            match tok {
+                Token::Symbol(name) => {
+                    iter.next();  // skip Symbol
+                    defs.check_exist(name, pos)?;
+
+                    let g_type = defs.add_generic_type(name, pos)?;
+
+                    list.push(g_type);
+                },
+                _ => {
+                    return Err(ParserError::not_generic_type(tok.clone(), pos.clone()));
+                }
+            }
+        }
+
+        Ok(list)
+    }
+
     fn parse_struct_declaration_list(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Vec<StructDeclaration>, ParserError> {
         let mut list: Vec<StructDeclaration> = Vec::new();
 
         loop {
-            // let (tok, _pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
             let (tok, pos) = iter.peek().unwrap();
             if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
             if *tok == Token::BraceRight {
@@ -729,7 +816,6 @@ println!("defs: {:?}", defs);
 
         let typ = type_or_variadic.get_type().unwrap();
 
-        // let (tok, _pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
         let (tok, pos) = iter.peek().unwrap();
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
         if *tok == Token::BraceRight {
@@ -740,7 +826,6 @@ println!("defs: {:?}", defs);
             let decl = self.parse_struct_declarator(&typ, iter, defs, labels)?;
             list.push(decl);
 
-            // let (next_token, _pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
             let (next_token, pos) = iter.peek().unwrap();
             if next_token.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
             if *next_token != Token::Comma {
@@ -752,10 +837,10 @@ println!("defs: {:?}", defs);
 
         self.parse_expected_token(iter, Token::SemiColon)?;
 
-        Ok(StructDeclaration::new(sq, Some(typ.clone()), list))
+        Ok(StructDeclaration::new(sq, Some(Rc::clone(typ)), list))
     }
 
-    fn parse_struct_declarator(&self, typ: &Type, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<StructDeclarator, ParserError> {
+    fn parse_struct_declarator(&self, typ: &Rc<Type>, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<StructDeclarator, ParserError> {
         let (tok, pos) = iter.peek().unwrap();
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
         if *tok == Token::Colon {
@@ -788,8 +873,10 @@ println!("defs: {:?}", defs);
         let mut list: Vec<Enumerator> = Vec::new();
         let mut value: u32 = 0;
 
+        let mut is_standard = false;  // when ```field_name = constant````, true
+        let mut is_tagged = false;  // (Types...) or {field: Type...}
+
         loop {
-            // let (tok, _pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
             let (tok, pos) = iter.peek().unwrap();
             if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
             if *tok == Token::BraceRight {
@@ -797,7 +884,6 @@ println!("defs: {:?}", defs);
                 break;
             }
 
-            // let (next_token, pos) = iter.next().ok_or(ParserError::illegal_end_of_input(None))?;
             let (next_token, pos) = iter.next().unwrap();
             if next_token.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
             let name = if let Token::Symbol(id) = next_token {
@@ -807,7 +893,6 @@ println!("defs: {:?}", defs);
             };
 
             let enumerator: Enumerator;
-            // let (tok2, pos2) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
             let (tok2, pos2) = iter.peek().unwrap();
             if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
             match tok2 {
@@ -816,12 +901,17 @@ println!("defs: {:?}", defs);
                 },
                 Token::Assign => {
                     iter.next();  // skip '='
+
+                    if is_tagged {
+                        return Err(ParserError::tagged_enum_cannot_have_value(pos2.clone()));
+                    }
+                    is_standard = true;
+
                     let const_val = self.parse_constant_expression(iter, defs, labels)?.ok_or(ParserError::enum_should_be_int(pos2.clone()))?;
                     let int_val = const_val.as_u32_value();
                     enumerator = Enumerator::new(name, int_val);
                     value = int_val;
 
-                    // let (tok3, _pos3) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
                     let (tok3, pos3) = iter.peek().unwrap();
                     if tok3.is_eof() { return Err(ParserError::illegal_end_of_input(pos3.clone())); }
                     if *tok3 == Token::Comma {
@@ -831,6 +921,17 @@ println!("defs: {:?}", defs);
                 Token::Comma => {
                     iter.next();  // skip ','
                     enumerator = Enumerator::new(name, value);
+                },
+                Token::ParenLeft => {
+                    iter.next();  // skip '('
+
+                    if is_standard {
+                        return Err(ParserError::standard_enum_cannot_be_tagged(pos2.clone()));
+                    }
+                    is_tagged = true;
+
+                    let type_list = self.parse_type_list(iter, defs)?;
+                    enumerator = Enumerator::new_tuple(name, type_list);
                 },
                 _ => {
                     return Err(ParserError::should_be(vec![Token::BraceRight, Token::Assign], tok2, pos2.clone()));
@@ -844,7 +945,49 @@ println!("defs: {:?}", defs);
         Ok(list)
     }
 
-    fn parse_declarator(&self, typ: &Type, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<(Declarator, Option<Initializer>), ParserError> {
+    fn parse_type_list(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Vec<Rc<Type>>, ParserError> {
+        let mut vec = Vec::new();
+
+        loop {
+            let (tok, pos) = iter.peek().unwrap();
+            if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
+
+            if *tok == Token::ParenRight {
+                iter.next();  // skip ')'
+                break;
+            }
+
+            let typ = self.parse_type(iter, defs)?;
+            vec.push(typ);
+        }
+
+        Ok(vec)
+    }
+
+    fn parse_type(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Rc<Type>, ParserError> {
+        let (tok, pos) = self.next_token(iter)?;
+
+        match tok {
+            Token::Symbol(name) => {
+                if let Some(typ) = defs.get_type(name) {
+
+
+
+                }else{
+                    return Err(ParserError::no_such_a_type(name, pos.clone()));
+                }
+            },
+            _ => {
+                return Err(ParserError::syntax_error(pos.clone()));
+            },
+        }
+
+
+
+        unimplemented!("parse type")
+    }
+
+    fn parse_declarator(&self, typ: &Rc<Type>, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<(Declarator, Option<Initializer>), ParserError> {
         let opt_pointer = self.parse_pointer(iter, defs)?;
         let (direct, initializer) = self.parse_direct_declarator(typ, iter, defs, labels)?;
         Ok((Declarator::new(opt_pointer, direct), initializer))
@@ -922,7 +1065,7 @@ println!("defs: {:?}", defs);
         }
     }
 
-    fn parse_direct_declarator(&self, typ: &Type, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<(DirectDeclarator, Option<Initializer>), ParserError> {
+    fn parse_direct_declarator(&self, typ: &Rc<Type>, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<(DirectDeclarator, Option<Initializer>), ParserError> {
         let (tok, pos) = iter.peek().unwrap();
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
 
@@ -948,7 +1091,7 @@ println!("defs: {:?}", defs);
         self.parse_direct_declarator_sub(typ, decl, iter, defs, labels)
     }
 
-    fn parse_direct_declarator_sub(&self, typ: &Type, decl: DirectDeclarator, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<(DirectDeclarator, Option<Initializer>), ParserError> {
+    fn parse_direct_declarator_sub(&self, typ: &Rc<Type>, decl: DirectDeclarator, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<(DirectDeclarator, Option<Initializer>), ParserError> {
         let (tok, pos) = iter.peek().unwrap();
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
         let cust_self;
@@ -963,7 +1106,7 @@ println!("defs: {:?}", defs);
                     return Err(ParserError::syntax_error(pos2.clone()));
                 }
 
-                cust_self = Some(CustSelf::Pointer(defs.get_self_type(pos)?.clone()));
+                cust_self = Some(CustSelf::Pointer(Rc::clone(defs.get_self_type(pos)?)));
             },
             _ => {
                 cust_self = None;
@@ -1614,7 +1757,7 @@ println!("defs: {:?}", defs);
         }
     }
 
-    fn calc_type(&self, typ: &Type, opt_abstract_decl: &Option<AbstractDeclarator>) -> Type {
+    fn calc_type(&self, typ: &Rc<Type>, opt_abstract_decl: &Option<AbstractDeclarator>) -> Rc<Type> {
         if let Some(abs_decl) = opt_abstract_decl {
             abs_decl.calc_type(typ)
         }else{
@@ -1632,7 +1775,7 @@ println!("defs: {:?}", defs);
 
         let cast_type = self.calc_type(&cast_type, &opt_abstract_decl);
 
-        Ok(Some(ExprAST::Cast(cast_type.clone(), Box::new(expr), pos.clone())))
+        Ok(Some(ExprAST::Cast(cast_type, Box::new(expr), pos.clone())))
     }
 
     fn parse_unary_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ExprAST>, ParserError> {
@@ -1733,8 +1876,8 @@ println!("expr: {:?}", expr);
                         Ok(Some(ExprAST::UnarySizeOfExpr(Box::new(expr), pos.clone())))
                     }else{
                         let (_sq, type_or_variadic, _opt_abstract_decl) = self.parse_type_name(iter, defs, labels)?;
-                        let type_name = type_or_variadic.get_type().ok_or(ParserError::no_type_defined(None, pos.clone()))?;
-                        Ok(Some(ExprAST::UnarySizeOfTypeName(type_name.clone(), pos.clone())))
+                        let typ = type_or_variadic.get_type().ok_or(ParserError::no_type_defined(None, pos.clone()))?;
+                        Ok(Some(ExprAST::UnarySizeOfTypeName(Rc::clone(typ), pos.clone())))
                     }
                 },
                 Token::ParenRight => {
@@ -1908,9 +2051,9 @@ println!("expr: {:?}", expr);
                         Token::BraceLeft => {  // parse struct literal
                             // check symbol(name) is struct
                             if let Some(cls) = defs.get_struct_type(name) {
-                                self.parse_struct_literal(cls.clone(), name, pos, iter, defs, labels)
+                                self.parse_struct_literal(Rc::clone(cls), name, pos, iter, defs, labels)
                             }else if let Some(uni) = defs.get_union_type(name) {
-                                self.parse_union_literal(uni.clone(), name, pos, iter, defs, labels)
+                                self.parse_union_literal(Rc::clone(uni), name, pos, iter, defs, labels)
                             }else{
                                 return Err(ParserError::no_such_a_struct(name, pos.clone()));
                             }
@@ -1965,7 +2108,7 @@ println!("expr: {:?}", expr);
         }
     }
 
-    fn parse_struct_literal(&self, typ: Type, name: &str, pos: &Position, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ExprAST>, ParserError> {
+    fn parse_struct_literal(&self, typ: Rc<Type>, name: &str, pos: &Position, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ExprAST>, ParserError> {
         iter.next();  // skip '{'
 
         let mut map = HashMap::new();
@@ -2049,7 +2192,7 @@ println!("expr: {:?}", expr);
         Ok(Some(struct_init))
     }
 
-    fn parse_union_literal(&self, typ: Type, name: &str, pos: &Position, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ExprAST>, ParserError> {
+    fn parse_union_literal(&self, typ: Rc<Type>, name: &str, pos: &Position, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ExprAST>, ParserError> {
         iter.next();  // skip '{'
 
         let mut hash_set = HashSet::new();
@@ -2391,7 +2534,7 @@ println!("expr: {:?}", expr);
                 return Err(ParserError::not_self_after_ref(pos2.clone()));
             }
 
-            cust_self = Some(CustSelf::Ref(defs.get_self_type(pos)?.clone()));
+            cust_self = Some(CustSelf::Ref(Rc::clone(defs.get_self_type(pos)?)));
 
             // let (tok3, _pos3) = iter.peek().ok_or(ParserError::illegal_end_of_input(pos.clone()))?;
             let (tok3, pos3) = iter.peek().unwrap();
@@ -2604,6 +2747,7 @@ println!("expr: {:?}", expr);
                 },
                 Token::Assign => {
                     let target_type = decl.make_type(typ);
+                    let target_type = Rc::new(target_type);
                     let init_expr = self.parse_initializer(&target_type, iter, defs, labels)?;
                     let declaration = Declaration::new(decl, Some(init_expr));
                     v.push(declaration);
@@ -2638,7 +2782,7 @@ println!("expr: {:?}", expr);
     // fn parse_init_declarator(&self, _typ: &Type, _iter: &mut Peekable<Iter<(Token, Position)>>, _defs: &mut Defines, _labels: &mut Option<&mut Vec<String>>) -> Result<Option<AST>, ParserError> {
     // }
 
-    fn parse_initializer(&self, target_type: &Type, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Initializer, ParserError> {
+    fn parse_initializer(&self, target_type: &Rc<Type>, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Initializer, ParserError> {
         let (tok, pos) = iter.peek().unwrap();
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
 
@@ -2653,7 +2797,7 @@ println!("expr: {:?}", expr);
         Ok(init_expr)
     }
 
-    fn parse_struct_initializer_list(&self, target_type: &Type, start_pos: &Position, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Initializer, ParserError> {
+    fn parse_struct_initializer_list(&self, target_type: &Rc<Type>, start_pos: &Position, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Initializer, ParserError> {
         let mut list: Vec<Box<Initializer>> = Vec::new();
 
         if ! target_type.is_struct() { return Err(ParserError::not_struct_type_when_parsing_struct_initializer(start_pos.clone())) }
@@ -2692,10 +2836,10 @@ println!("expr: {:?}", expr);
             index += 1;
         }
 
-        Ok(Initializer::Struct(list, target_type.clone(), start_pos.clone()))
+        Ok(Initializer::Struct(list, Rc::clone(target_type), start_pos.clone()))
     }
 
-    fn parse_array_initializer(&self, item_type: &Type, dimension: &mut Vec<Option<usize>>, index: usize, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Initializer, ParserError> {
+    fn parse_array_initializer(&self, item_type: &Rc<Type>, dimension: &mut Vec<Option<usize>>, index: usize, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Initializer, ParserError> {
         let (tok, pos) = iter.next().unwrap();  // skip '{'
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
         if *tok != Token::BraceLeft { return Err(ParserError::not_l_brace_parsing_array_initializer(tok.clone(), pos.clone())) }
@@ -3393,7 +3537,7 @@ println!("expr: {:?}", expr);
         if *tok == Token::SemiColon {
             iter.next();  // skip ';'
 
-            match ds.get_type() {
+            match ds.get_type().as_ref() {
                 Type::Struct { name, fields } => {
                     return Ok(Some(ToplevelAST::DefineStruct{name: name.clone(), fields: fields.clone(), pos: pos.clone()}));
                 },
@@ -3419,7 +3563,7 @@ println!("expr: {:?}", expr);
             let name = decl.get_name();
             defs.set_typedef(&name, typ, pos)?;
 
-            Ok(Some(ToplevelAST::TypeDef(name.to_string(), typ.clone(), pos.clone())))
+            Ok(Some(ToplevelAST::TypeDef(name.to_string(), Rc::clone(typ), pos.clone())))
         }else{
             let (tok, pos) = iter.peek().unwrap();
             if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }

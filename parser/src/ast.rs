@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 use std::collections::HashMap;
+use std::rc::Rc;
 
 use crate::ParserError;
 use super::{Type, Pointer, ConstExpr, Defines, StructDefinition, EnumDefinition};
@@ -8,7 +9,7 @@ use tokenizer::{Token, Position};
 
 #[derive(Debug, Clone)]
 pub struct DefVar {
-    def_vars: Vec<(String, Type)>,
+    def_vars: Vec<(String, Rc<Type>)>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -18,7 +19,7 @@ pub struct Block {
 
 #[derive(Debug, Clone)]
 struct BlockAnalyze<'a> {
-    def_vars: Vec<(Type, String)>,
+    def_vars: Vec<(Rc<Type>, String)>,
     inner_blocks: Vec<&'a Block>,
 }
 
@@ -241,26 +242,26 @@ impl SpecifierQualifier {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct DeclarationSpecifier {
-    pub typ: Type,
+    pub typ: Rc<Type>,
     pub specifier_qualifier: SpecifierQualifier,
 }
 
 impl DeclarationSpecifier {
-    pub fn new(typ: Type, sq: SpecifierQualifier) -> DeclarationSpecifier {
+    pub fn new(typ: &Rc<Type>, sq: SpecifierQualifier) -> DeclarationSpecifier {
         DeclarationSpecifier {
-            typ: typ,
+            typ: Rc::clone(typ),
             specifier_qualifier: sq,
         }
     }
 
     #[inline]
-    pub fn get_type(&self) -> &Type {
+    pub fn get_type(&self) -> &Rc<Type> {
         &self.typ
     }
 
     #[inline]
-    pub fn set_type(&mut self, typ: &Type) {
-        self.typ = typ.clone();
+    pub fn set_type(&mut self, typ: &Rc<Type>) {
+        self.typ = Rc::clone(typ);
     }
 
     #[inline]
@@ -357,12 +358,12 @@ impl Declarator {
         &*self.direct_declarator
     }
 
-    pub fn make_type(&self, typ: &Type) -> Type {
+    pub fn make_type(&self, typ: &Rc<Type>) -> Rc<Type> {
         let typ = self.direct_declarator.make_array_type(typ);
         if let Some(p) = self.get_pointer() {
             p.make_type_to(&typ)
         }else{
-            typ.clone()
+            typ
         }
     }
 }
@@ -385,11 +386,11 @@ impl DirectDeclarator {
         }
     }
 
-    pub fn make_array_type(&self, typ: &Type) -> Type {
+    pub fn make_array_type(&self, typ: &Rc<Type>) -> Rc<Type> {
         match self {
             Self::ArrayDef(dd, size_list, _pos) => {
                 let t = dd.make_array_type(typ);
-                Type::Array { name: None, typ: Box::new(t.clone()), size_list: size_list.clone() }
+                Rc::new(Type::Array { name: None, typ: Box::new(t), size_list: size_list.clone() })
             },
             Self::Enclosed(decl, _pos) => {
                 decl.make_type(typ)
@@ -476,12 +477,12 @@ impl StructDeclarator {
 #[derive(Debug, Clone, PartialEq)]
 pub struct StructDeclaration {
     specifier_qualifier: SpecifierQualifier,
-    typ: Option<Type>,
+    typ: Option<Rc<Type>>,
     declarator_list: Vec<StructDeclarator>,
 }
 
 impl StructDeclaration {
-    pub fn new(specifier_qualifier: SpecifierQualifier, typ: Option<Type>, declarator_list: Vec<StructDeclarator>) -> StructDeclaration {
+    pub fn new(specifier_qualifier: SpecifierQualifier, typ: Option<Rc<Type>>, declarator_list: Vec<StructDeclarator>) -> StructDeclaration {
         StructDeclaration {
             specifier_qualifier,
             typ,
@@ -493,7 +494,7 @@ impl StructDeclaration {
         &self.specifier_qualifier
     }
 
-    pub fn get_type(&self) -> &Option<Type> {
+    pub fn get_type(&self) -> &Option<Rc<Type>> {
         &self.typ
     }
 
@@ -516,20 +517,20 @@ impl AbstractDeclarator {
         }
     }
 
-    pub fn calc_type(&self, typ: &Type) -> Type {
+    pub fn calc_type(&self, typ: &Rc<Type>) -> Rc<Type> {
         if let Some(_ptr) = &self.pointer {
-            let t = Type::Pointer(Pointer::default(), Box::new(typ.clone()));
+            let t = Rc::new(Type::Pointer(Pointer::default(), Box::new(Rc::clone(typ))));
             if let Some(d_a_d) = &self.direct_abstract_declarator {
                 d_a_d.calc_type(&t)
             }else{
-                t.clone()
+                t
             }
 
         }else{
             if let Some(d_a_d) = &self.direct_abstract_declarator {
                 d_a_d.calc_type(typ)
             }else{
-                typ.clone()
+                Rc::clone(typ)
             }
         }
     }
@@ -560,7 +561,7 @@ impl DirectAbstractDeclarator {
         DirectAbstractDeclarator::ArrayAccess(Box::new(abs_decl), index)
     }
 
-    pub fn calc_type(&self, typ: &Type) -> Type {
+    pub fn calc_type(&self, typ: &Rc<Type>) -> Rc<Type> {
         match self {
             Self::Simple(opt_abs_decl) => {
                 if let Some(abs_decl) = opt_abs_decl {
@@ -709,8 +710,8 @@ impl Switch {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Initializer {
     Simple(ExprAST, Position),
-    Array(Vec<Box<Initializer>>, Type, Position),
-    Struct(Vec<Box<Initializer>>, Type, Position),
+    Array(Vec<Box<Initializer>>, Rc<Type>, Position),
+    Struct(Vec<Box<Initializer>>, Rc<Type>, Position),
 }
 
 impl Initializer {
@@ -755,9 +756,9 @@ pub enum ExprAST {
     UnaryMinus(Box<ExprAST>, Position),
     UnaryTilda(Box<ExprAST>, Position),
     UnarySizeOfExpr(Box<ExprAST>, Position),
-    UnarySizeOfTypeName(Type, Position),
+    UnarySizeOfTypeName(Rc<Type>, Position),
     // ExpressionPair(Box<ExprAST>, Box<ExprAST>, Position),
-    Cast(Type, Box<ExprAST>, Position),
+    Cast(Rc<Type>, Box<ExprAST>, Position),
     UnaryGetAddress(Box<ExprAST>, Position),
     UnaryPointerAccess(Box<ExprAST>, Position),  // *pointer
     MemberAccess(Box<ExprAST>, String, Position),
@@ -774,10 +775,10 @@ pub enum ExprAST {
     _self(Position),
     SelfStaticSymbol(String, Position),
     StructStaticSymbol(String, String, Position),  // struct_name::feature_name
-    StructLiteral(Type, HashMap<String, Box<ExprAST>>, Position),
-    StructConstLiteral(Type, HashMap<String, ConstExpr>, Position),
-    UnionLiteral(Type, Vec<(String, Box<ExprAST>)>, Position),
-    UnionConstLiteral(Type, Vec<(String, ConstExpr)>, Position),
+    StructLiteral(Rc<Type>, HashMap<String, Box<ExprAST>>, Position),
+    StructConstLiteral(Rc<Type>, HashMap<String, ConstExpr>, Position),
+    UnionLiteral(Rc<Type>, Vec<(String, Box<ExprAST>)>, Position),
+    UnionConstLiteral(Rc<Type>, Vec<(String, ConstExpr)>, Position),
 }
 
 impl ExprAST {
@@ -1038,7 +1039,7 @@ impl ExprAST {
 #[allow(non_camel_case_types)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum ToplevelAST {
-    TypeDef(String, Type, Position),
+    TypeDef(String, Rc<Type>, Position),
     DefineStruct {
         name: Option<String>,
         fields: StructDefinition,
@@ -1056,7 +1057,7 @@ pub enum ToplevelAST {
     },
     Impl {
         name: String,
-        typ: Type,
+        typ: Rc<Type>,
         for_type: Option<String>,
         defines: Vec<ImplElement>,
         pos: Position,
@@ -1071,7 +1072,7 @@ pub enum ToplevelAST {
 }
 
 impl ToplevelAST {
-    pub fn new_impl(impl_name: &str, impl_type: Type, for_something: Option<String>, defines: Vec<ImplElement>, pos: &Position) -> ToplevelAST {
+    pub fn new_impl(impl_name: &str, impl_type: Rc<Type>, for_something: Option<String>, defines: Vec<ImplElement>, pos: &Position) -> ToplevelAST {
         ToplevelAST::Impl { name: impl_name.to_string(), typ: impl_type, for_type: for_something, defines: defines, pos: pos.clone() }
     }
 
@@ -1183,7 +1184,7 @@ impl AST {
         Ok(Param(ds, decl, pos.clone()))
     }
 
-    pub fn get_type(&self) -> Type {
+    pub fn get_type(&self) -> Rc<Type> {
         let typ = self.0.get_type();
         self.1.make_type(typ)
     }
@@ -1205,13 +1206,13 @@ impl AST {
 
  #[derive(Debug, Clone, PartialEq)]
 pub enum CustSelf {
-    Pointer(Type),  // *self
-    Ref(Type),      // &self
-    Direct(Type),   // self
+    Pointer(Rc<Type>),  // *self
+    Ref(Rc<Type>),      // &self
+    Direct(Rc<Type>),   // self
 }
 
 impl CustSelf {
-    pub fn get_type(&self) -> &Type {
+    pub fn get_type(&self) -> &Rc<Type> {
         match self {
             CustSelf::Direct(typ) => typ,
             CustSelf::Pointer(typ) => typ,
@@ -1286,15 +1287,15 @@ impl Params {
         &self.params
     }
 
-    pub fn get_params_type(&self) -> Vec<Type> {
+    pub fn get_params_type(&self) -> Vec<Rc<Type>> {
         let mut v = Vec::new();
 
         if let Some(cust_self)  = &self._self {
-            v.push(cust_self.get_type().clone());
+            v.push(Rc::clone(cust_self.get_type()));
         }
 
         for param in &self.params {
-            v.push(param.get_type().clone());
+            v.push(param.get_type());
         }
         v
     }

@@ -28,6 +28,7 @@ use inkwell::types::AnyType;
 use inkwell::types::StructType;
 use std::error::Error;
 use std::collections::HashMap;
+use std::rc::Rc;
 
 // use inkwell::data_layout::DataLayout;
 
@@ -191,7 +192,7 @@ impl<'ctx> CodeGen<'ctx> {
                     let mut real_ret = self.gen_expr(expr, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(expr.get_position().clone()))?;
                     let real_ret_type = real_ret.get_type();
 
-                    if required_ret_type != real_ret_type {
+                    if required_ret_type.as_ref() != real_ret_type.as_ref() {
                         let casted = self.gen_implicit_cast(&real_ret.get_value(), &real_ret_type, &required_ret_type, expr.get_position())?;
                         real_ret = CompiledValue::new(real_ret.get_type().clone(), casted);
                     }
@@ -200,7 +201,7 @@ impl<'ctx> CodeGen<'ctx> {
                     result = self.builder.build_return(Some(&ret))?;
                 }else{
                     if ! required_ret_type.is_void() {
-                        return Err(Box::new(CodeGenError::return_type_mismatch(Type::Void, required_ret_type.clone(), pos.clone())));
+                        return Err(Box::new(CodeGenError::return_type_mismatch(Type::Void, required_ret_type.as_ref().clone(), pos.clone())));
                     }
 
                     result = self.builder.build_return(None)?;
@@ -335,22 +336,22 @@ impl<'ctx> CodeGen<'ctx> {
             ExprAST::Char(num, _pos) => {
                 let i8_type = self.context.i8_type();
                 let result = i8_type.const_int(*num as u64, true);
-                Ok(Some(CompiledValue::new(Type::Number(NumberType::Char), result.as_any_value_enum())))
+                Ok(Some(CompiledValue::new(Type::Number(NumberType::Char).into(), result.as_any_value_enum())))
             },
             ExprAST::Int(num, _pos) => {
                 let i32_type = self.context.i32_type();
                 let result = i32_type.const_int(*num as u64, true);
-                Ok(Some(CompiledValue::new(Type::Number(NumberType::Int), result.as_any_value_enum())))
+                Ok(Some(CompiledValue::new(Type::Number(NumberType::Int).into(), result.as_any_value_enum())))
             },
             ExprAST::Short(num, _pos) => {
                 let i16_type = self.context.i16_type();
                 let result = i16_type.const_int(*num as u64, true);
-                Ok(Some(CompiledValue::new(Type::Number(NumberType::Short), result.as_any_value_enum())))
+                Ok(Some(CompiledValue::new(Type::Number(NumberType::Short).into(), result.as_any_value_enum())))
             },
             ExprAST::Long(num, _pos) => {
                 let i64_type = self.context.i64_type();
                 let result = i64_type.const_int(*num as u64, true);
-                Ok(Some(CompiledValue::new(Type::Number(NumberType::Long), result.as_any_value_enum())))
+                Ok(Some(CompiledValue::new(Type::Number(NumberType::Long).into(), result.as_any_value_enum())))
             },
             ExprAST::LongLong(_num, _pos) => {
                 let _i128_type = self.context.i128_type();
@@ -362,22 +363,22 @@ impl<'ctx> CodeGen<'ctx> {
             ExprAST::UChar(num, _pos) => {
                 let i8_type = self.context.i8_type();
                 let result = i8_type.const_int(*num as u64, false);
-                Ok(Some(CompiledValue::new(Type::Number(NumberType::UnsignedChar), result.as_any_value_enum())))
+                Ok(Some(CompiledValue::new(Type::Number(NumberType::UnsignedChar).into(), result.as_any_value_enum())))
             },
             ExprAST::UInt(num, _pos) => {
                 let i32_type = self.context.i32_type();
                 let result = i32_type.const_int(*num as u64, false);
-                Ok(Some(CompiledValue::new(Type::Number(NumberType::UnsignedInt), result.as_any_value_enum())))
+                Ok(Some(CompiledValue::new(Type::Number(NumberType::UnsignedInt).into(), result.as_any_value_enum())))
             },
             ExprAST::UShort(num, _pos) => {
                 let i16_type = self.context.i16_type();
                 let result = i16_type.const_int(*num as u64, false);
-                Ok(Some(CompiledValue::new(Type::Number(NumberType::UnsignedShort), result.as_any_value_enum())))
+                Ok(Some(CompiledValue::new(Type::Number(NumberType::UnsignedShort).into(), result.as_any_value_enum())))
             },
             ExprAST::ULong(num, _pos) => {
                 let i64_type = self.context.i64_type();
                 let result = i64_type.const_int(*num as u64, false);
-                Ok(Some(CompiledValue::new(Type::Number(NumberType::UnsignedLong), result.as_any_value_enum())))
+                Ok(Some(CompiledValue::new(Type::Number(NumberType::UnsignedLong).into(), result.as_any_value_enum())))
             },
             ExprAST::ULongLong(_num, _pos) => {
                 let _i128_type = self.context.i128_type();
@@ -389,18 +390,18 @@ impl<'ctx> CodeGen<'ctx> {
             ExprAST::Float(num, _pos) => {
                 let f32_type = self.context.f32_type();
                 let result = f32_type.const_float(*num as f64);
-                Ok(Some(CompiledValue::new(Type::Number(NumberType::Double), result.as_any_value_enum())))
+                Ok(Some(CompiledValue::new(Type::Number(NumberType::Double).into(), result.as_any_value_enum())))
             },
             ExprAST::Double(num, _pos) => {
                 let f64_type = self.context.f64_type();
                 let result = f64_type.const_float(*num);
-                Ok(Some(CompiledValue::new(Type::Number(NumberType::Double), result.as_any_value_enum())))
+                Ok(Some(CompiledValue::new(Type::Number(NumberType::Double).into(), result.as_any_value_enum())))
             },
             ExprAST::StringLiteral(s, _pos) => {
                 // let result = self.context.const_string(s.as_bytes(), false);
                 let result = self.builder.build_global_string_ptr(s, &format!("global_str_{}", s))?;
                 let pointer = Pointer::new(false, false);
-                Ok(Some(CompiledValue::new(Type::Pointer(pointer, Box::new(Type::Number(NumberType::Char))), result.as_any_value_enum())))
+                Ok(Some(CompiledValue::new(Type::Pointer(pointer, Box::new(Type::Number(NumberType::Char).into())).into(), result.as_any_value_enum())))
             },
             ExprAST::PreInc(name, sym_pos, pos) => {
                 if let Some((typ, _sq, ptr)) = env.get_ptr(name) {
@@ -555,11 +556,11 @@ impl<'ctx> CodeGen<'ctx> {
                 let ptr = PointerValue::try_from(ptr).ok().ok_or(CodeGenError::cannot_get_pointer(pos.clone()))?;
                 let typ = Type::new_pointer_type(typ.clone(), false, false);
 
-                Ok(Some(CompiledValue::new(typ, ptr.into())))
+                Ok(Some(CompiledValue::new(Rc::new(typ), ptr.into())))
             },
             ExprAST::UnaryPointerAccess(boxed_ast, pos) => {  // *pointer
                 let ast = &**boxed_ast;
-                let ptr = self.gen_expr(&ast, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::not_pointer(&TypeUtil::get_type(&ast, env)?, pos.clone()))?;
+                let ptr = self.gen_expr(&ast, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::not_pointer(&TypeUtil::get_type(&ast, env)?.as_ref().clone(), pos.clone()))?;
                 let typ = ptr.get_type();
 
                 let basic_val = self.builder.build_load(ptr.get_value().into_pointer_value(), &format!("get_value_from_pointer"))?;
@@ -616,10 +617,10 @@ impl<'ctx> CodeGen<'ctx> {
             },
             ExprAST::ArrayAccess(_boxed_ast, _index, _pos) => {
                 let (typ, ptr) = self.get_l_value(expr_ast, env, break_catcher, continue_catcher)?;
-                if let Type::Array { typ, .. } = typ {
+                if let Type::Array { typ, .. } = typ.as_ref() {
                     let any_val = ptr.as_any_value_enum();
                     let t = Type::new_pointer_type(*typ.clone(), false, false);
-                    Ok(Some(CompiledValue::new(t, any_val)))
+                    Ok(Some(CompiledValue::new(t.into(), any_val)))
 
                 }else{
                     let basic_val = self.builder.build_load(ptr, "get_value_from_array")?;
@@ -633,10 +634,10 @@ impl<'ctx> CodeGen<'ctx> {
                     // let any_val = basic_val.as_any_value_enum();
                     // Ok(Some(CompiledValue::new(typ.clone(), any_val)))
 
-                    if let Type::Array { typ, .. } = typ {
+                    if let Type::Array { typ, .. } = typ.as_ref() {
                         let any_val = ptr.as_any_value_enum();
                         let t = Type::new_pointer_type(*typ.clone(), false, false);
-                        Ok(Some(CompiledValue::new(t, any_val)))
+                        Ok(Some(CompiledValue::new(Rc::new(t), any_val)))
     
                     }else{
                         let basic_val = self.builder.build_load(ptr, name)?;
@@ -645,10 +646,10 @@ impl<'ctx> CodeGen<'ctx> {
                     }
 
                 }else if let Some((typ, _sq, val)) = env.get_value(name) {
-                    if let Type::Array { typ, .. } = typ {
+                    if let Type::Array { typ, .. } = typ.as_ref() {
                         let any_val = val.as_any_value_enum();
                         let t = Type::new_pointer_type(*typ.clone(), false, false);
-                        Ok(Some(CompiledValue::new(t, any_val)))
+                        Ok(Some(CompiledValue::new(Rc::new(t), any_val)))
     
                     }else{
                         Ok(Some(CompiledValue::new(typ.clone(), val.as_any_value_enum())))
@@ -663,7 +664,7 @@ impl<'ctx> CodeGen<'ctx> {
                     let basic_val = self.builder.build_load(ptr, "get_self")?;
                     let any_val = basic_val.as_any_value_enum();
 
-                    Ok(Some(CompiledValue::new(typ.clone(), any_val)))
+                    Ok(Some(CompiledValue::new(Rc::clone(typ), any_val)))
                 }else{
                     Err(Box::new(CodeGenError::no_such_a_variable("self", pos.clone())))
                 }
@@ -671,15 +672,15 @@ impl<'ctx> CodeGen<'ctx> {
             ExprAST::UnarySizeOfExpr(expr, pos) => {
                 let typ = TypeUtil::get_type(&**expr, env)?;
                 let llvm_type = TypeUtil::to_llvm_any_type(&typ, self.context, pos)?;
-                let size = llvm_type.size_of().ok_or(CodeGenError::cannot_get_size_of(typ.clone(), pos.clone()))?;
+                let size = llvm_type.size_of().ok_or(CodeGenError::cannot_get_size_of(typ.as_ref().clone(), pos.clone()))?;
 
-                Ok(Some(CompiledValue::new(Type::Number(NumberType::Int), size.as_any_value_enum())))
+                Ok(Some(CompiledValue::new(Type::Number(NumberType::Int).into(), size.as_any_value_enum())))
             },
             ExprAST::UnarySizeOfTypeName(typ, pos) => {
                 let llvm_type = TypeUtil::to_llvm_any_type(typ, self.context, pos)?;
-                let size = llvm_type.size_of().ok_or(CodeGenError::cannot_get_size_of(typ.clone(), pos.clone()))?;
+                let size = llvm_type.size_of().ok_or(CodeGenError::cannot_get_size_of(typ.as_ref().clone(), pos.clone()))?;
 
-                Ok(Some(CompiledValue::new(Type::Number(NumberType::Int), size.as_any_value_enum())))
+                Ok(Some(CompiledValue::new(Type::Number(NumberType::Int).into(), size.as_any_value_enum())))
             },
             ExprAST::TernaryOperator(condition, then, _else, pos) => {
                 let (_fun_type, func) = env.get_current_function().ok_or(CodeGenError::no_current_function(pos.clone()))?;
@@ -760,7 +761,7 @@ impl<'ctx> CodeGen<'ctx> {
                         TypeOrUnion::StandardEnum { i32_type, enumerator_list, index_map } => {
                             let index = index_map.get(var_name).ok_or(CodeGenError::no_such_a_enum_member(struct_name.to_string(), var_name.to_string(), pos.clone()))?;
                             let (name, value) = &enumerator_list[*index];
-                            return Ok(Some(CompiledValue::new(Type::Number(NumberType::Int), value.as_any_value_enum())))
+                            return Ok(Some(CompiledValue::new(Type::Number(NumberType::Int).into(), value.as_any_value_enum())))
                         },
                         _ => {
                             ()
@@ -912,7 +913,7 @@ impl<'ctx> CodeGen<'ctx> {
 
             match init_expr {
                 Some(const_expr) => {
-                    match &typ {
+                    match typ.as_ref() {
                         Type::Struct { fields, .. } => {
                             self.gen_struct_init(&typ, &fields, ptr, &*const_expr, env, break_catcher, continue_catcher)?;
                         },
@@ -1062,7 +1063,7 @@ println!("is not array global. {:?}", init);
                             ExprAST::Symbol(name, _pos2) => {
                                 if let Some((fn_typ, _function)) = env.get_function(name) {
                                     let ret_type = fn_typ.get_return_type();
-                                    if typ != ret_type {
+                                    if typ != ret_type.as_ref() {
                                         return Err(Box::new(CodeGenError::initializer_is_not_struct(init.get_position().clone())));
                                     }
                                 }else{
@@ -1076,7 +1077,7 @@ println!("is not array global. {:?}", init);
                                 let class_name = typ2.get_type_name();
                                 if let Some((fn_typ, _function)) = env.get_member_function(&class_name, fun_name) {
                                     let ret_type = fn_typ.get_return_type();
-                                    if typ != ret_type {
+                                    if typ != ret_type.as_ref() {
                                         return Err(Box::new(CodeGenError::initializer_is_not_struct(init.get_position().clone())));
                                     }
                                 }else{
@@ -1095,7 +1096,7 @@ println!("is not array global. {:?}", init);
                             ExprAST::StructStaticSymbol(class_name, method_name, pos2) => {
                                 if let Some((fn_typ, _function)) = env.get_class_function(class_name, &method_name) {
                                     let ret_type = fn_typ.get_return_type();
-                                    if typ != ret_type {
+                                    if typ != ret_type.as_ref() {
                                         return Err(Box::new(CodeGenError::initializer_is_not_struct(init.get_position().clone())));
                                     }
                                 }else{
@@ -1112,7 +1113,7 @@ println!("is not array global. {:?}", init);
                         let _result = self.builder.build_store(target_struct_ptr, compiled_value.get_value().into_struct_value().as_basic_value_enum());
                     },
                     ExprAST::StructLiteral(typ2, map, pos2) => {
-                        if typ != typ2 {
+                        if typ != typ2.as_ref() {
                             return Err(Box::new(CodeGenError::mismatch_initializer_type(typ, typ2, pos2.clone())));
                         }
 
@@ -1138,7 +1139,7 @@ println!("is not array global. {:?}", init);
                         }
                     },
                     ExprAST::StructConstLiteral(typ2, const_map, pos2) => {
-                        if typ != typ2 {
+                        if typ != typ2.as_ref() {
                             return Err(Box::new(CodeGenError::mismatch_initializer_type(typ, typ2, pos2.clone())));
                         }
 
@@ -1212,7 +1213,7 @@ println!("is not array global. {:?}", init);
         for i in 0..init_len {
             let init_value = &init_value_list[i];
             let init_type = TypeUtil::get_initializer_type(init_value, env)?;
-            if *target_type != init_type {
+            if target_type != init_type.as_ref() {
                 return Err(Box::new(CodeGenError::mismatch_initializer_type(target_type, &init_type, init_value.get_position().clone())));
             }
 
@@ -1632,10 +1633,10 @@ println!("is not array global. {:?}", init);
             self.builder.build_call(*function, &v, &format!("call_function_printf_in_debug_print"))?
         }else{
             let name = "printf";
-            let ret_type = Type::Number(NumberType::Int);
+            let ret_type = Rc::new(Type::Number(NumberType::Int));
 
             let sq = SpecifierQualifier::new();
-            let ds = DeclarationSpecifier { typ: Type::Number(NumberType::Char), specifier_qualifier: sq };
+            let ds = DeclarationSpecifier { typ: Type::Number(NumberType::Char).into(), specifier_qualifier: sq };
 
             let pointer = Pointer::new(false, false);
             let dd = DirectDeclarator::Symbol("format".to_string(), dummy_pos.clone());
@@ -1807,7 +1808,7 @@ println!("is not array global. {:?}", init);
 
             match decl.get_init_expr() {
                 Some(initializer) => {
-                    match &typ {
+                    match typ.as_ref() {
                         Type::Struct { fields, .. } => {
                             self.gen_global_struct_init(&fields, ptr, &*initializer, env, break_catcher, continue_catcher)?;
                         },
@@ -1834,7 +1835,7 @@ println!("is not array global. {:?}", init);
     fn gen_global_def_var_sub<'b, 'c>(
         &self,
         name: &str,
-        base_type: &Type,
+        base_type: &Rc<Type>,
         sq: &SpecifierQualifier,
         decl: &Declaration,
         declarator: &Declarator,
@@ -1850,7 +1851,7 @@ println!("is not array global. {:?}", init);
 
         match decl.get_init_expr() {
             Some(initializer) => {
-                match &typ {
+                match typ.as_ref() {
                     Type::Struct { fields, .. } => {
                         self.gen_global_struct_init(&fields, ptr, &*initializer, env, break_catcher, continue_catcher)?;
                     },
@@ -1963,9 +1964,9 @@ println!("is not array global. {:?}", init);
     }
 
     pub fn union_from_struct_definition(_name: &Option<String>, struct_def: &StructDefinition, ctx: &'ctx Context, pos: &Position)
-      -> Result<(Vec<(Type, BasicTypeEnum<'ctx>)>, HashMap<String, usize>, u64, Option<BasicTypeEnum<'ctx>>), Box<dyn Error>>
+      -> Result<(Vec<(Rc<Type>, BasicTypeEnum<'ctx>)>, HashMap<String, usize>, u64, Option<BasicTypeEnum<'ctx>>), Box<dyn Error>>
     {
-        let mut list: Vec<(Type, BasicTypeEnum<'ctx>)> = Vec::new();
+        let mut list: Vec<(Rc<Type>, BasicTypeEnum<'ctx>)> = Vec::new();
         let mut index_map: HashMap<String, usize> = HashMap::new();
         let mut index = 0;
         let mut max_size = 0;
@@ -1976,7 +1977,7 @@ println!("is not array global. {:?}", init);
                 match field {
                     StructField::NormalField { name: field_name, sq: _, typ } => {
                         let t = TypeUtil::to_basic_type_enum(typ, ctx, pos)?;
-                        list.push((typ.clone(), t.clone()));
+                        list.push((Rc::clone(typ), t.clone()));
 
                         let size = Self::size_of(&t)?;
                         if size > max_size {
@@ -1999,9 +2000,9 @@ println!("is not array global. {:?}", init);
                         let t = t.as_basic_type_enum();
 
                         if let Some(typ2) = typ {
-                            list.push((typ2.clone(), t.clone()));
+                            list.push((Rc::clone(typ2), t.clone()));
                         }else{
-                            list.push((Type::BitField, t.clone()))
+                            list.push((Rc::new(Type::BitField), t.clone()))
                         }
 
                         if let Some(size) = t.size_of() {
@@ -2060,6 +2061,12 @@ println!("is not array global. {:?}", init);
 
                         index_map.insert(name.clone(), index);
                     },
+                    Enumerator::TypeTuple { name, type_list } => {
+                        unimplemented!()
+                    },
+                    Enumerator::TypeStruct { name, map, type_list } => {
+                        unimplemented!()
+                    },
                 }
 
                 index += 1;
@@ -2115,66 +2122,68 @@ println!("is not array global. {:?}", init);
         Ok(result)
     }
 
-    fn bit_size_check(opt_type: &Option<Type>, size: usize, pos: &Position) -> Result<(), CodeGenError> {
-        if let Some(Type::Number(typ)) = opt_type {
-            match typ {
-                NumberType::_Bool => {
-                    if size > 1 {
-                        return Err(CodeGenError::illegal_bit_size(typ, size, pos.clone()));
+    fn bit_size_check(opt_type: &Option<Rc<Type>>, size: usize, pos: &Position) -> Result<(), CodeGenError> {
+        if let Some(rc_type) = opt_type {
+            if let Type::Number(typ) = rc_type.as_ref() {
+                match typ {
+                    NumberType::_Bool => {
+                        if size > 1 {
+                            return Err(CodeGenError::illegal_bit_size(typ, size, pos.clone()));
+                        }
+                    },
+                    NumberType::Char => {
+                        if size > 8 {
+                            return Err(CodeGenError::illegal_bit_size(typ, size, pos.clone()));
+                        }
+                    },
+                    NumberType::Short => {
+                        if size > 16 {
+                            return Err(CodeGenError::illegal_bit_size(typ, size, pos.clone()));
+                        }
+                    },
+                    NumberType::Int => {
+                        if size > 32 {
+                            return Err(CodeGenError::illegal_bit_size(typ, size, pos.clone()));
+                        }
+                    },
+                    NumberType::Long => {
+                        if size > 64 {
+                            return Err(CodeGenError::illegal_bit_size(typ, size, pos.clone()));
+                        }
+                    },
+                    NumberType::LongLong => {
+                        if size > 128 {
+                            return Err(CodeGenError::illegal_bit_size(typ, size, pos.clone()));
+                        }
+                    },
+                    NumberType::UnsignedChar => {
+                        if size > 8 {
+                            return Err(CodeGenError::illegal_bit_size(typ, size, pos.clone()));
+                        }
+                    },
+                    NumberType::UnsignedShort => {
+                        if size > 16 {
+                            return Err(CodeGenError::illegal_bit_size(typ, size, pos.clone()));
+                        }
+                    },
+                    NumberType::UnsignedInt => {
+                        if size > 32 {
+                            return Err(CodeGenError::illegal_bit_size(typ, size, pos.clone()));
+                        }
+                    },
+                    NumberType::UnsignedLong => {
+                        if size > 64 {
+                            return Err(CodeGenError::illegal_bit_size(typ, size, pos.clone()));
+                        }
+                    },
+                    NumberType::UnsignedLongLong => {
+                        if size > 128 {
+                            return Err(CodeGenError::illegal_bit_size(typ, size, pos.clone()));
+                        }
+                    },
+                    NumberType::Float | NumberType::Double => {
+                        return Err(CodeGenError::cannot_use_float_for_bitsize(pos.clone()));
                     }
-                },
-                NumberType::Char => {
-                    if size > 8 {
-                        return Err(CodeGenError::illegal_bit_size(typ, size, pos.clone()));
-                    }
-                },
-                NumberType::Short => {
-                    if size > 16 {
-                        return Err(CodeGenError::illegal_bit_size(typ, size, pos.clone()));
-                    }
-                },
-                NumberType::Int => {
-                    if size > 32 {
-                        return Err(CodeGenError::illegal_bit_size(typ, size, pos.clone()));
-                    }
-                },
-                NumberType::Long => {
-                    if size > 64 {
-                        return Err(CodeGenError::illegal_bit_size(typ, size, pos.clone()));
-                    }
-                },
-                NumberType::LongLong => {
-                    if size > 128 {
-                        return Err(CodeGenError::illegal_bit_size(typ, size, pos.clone()));
-                    }
-                },
-                NumberType::UnsignedChar => {
-                    if size > 8 {
-                        return Err(CodeGenError::illegal_bit_size(typ, size, pos.clone()));
-                    }
-                },
-                NumberType::UnsignedShort => {
-                    if size > 16 {
-                        return Err(CodeGenError::illegal_bit_size(typ, size, pos.clone()));
-                    }
-                },
-                NumberType::UnsignedInt => {
-                    if size > 32 {
-                        return Err(CodeGenError::illegal_bit_size(typ, size, pos.clone()));
-                    }
-                },
-                NumberType::UnsignedLong => {
-                    if size > 64 {
-                        return Err(CodeGenError::illegal_bit_size(typ, size, pos.clone()));
-                    }
-                },
-                NumberType::UnsignedLongLong => {
-                    if size > 128 {
-                        return Err(CodeGenError::illegal_bit_size(typ, size, pos.clone()));
-                    }
-                },
-                NumberType::Float | NumberType::Double => {
-                    return Err(CodeGenError::cannot_use_float_for_bitsize(pos.clone()));
                 }
             }
         }
@@ -2277,7 +2286,7 @@ println!("is not array global. {:?}", init);
     }
 
     fn bin_expr_implicit_cast(&self, left: CompiledValue<'ctx>, right: CompiledValue<'ctx>) -> Result<(CompiledValue<'ctx>, CompiledValue<'ctx>), Box<dyn Error>> {
-        if let (Type::Number(left_type), Type::Number(right_type)) = (left.get_type(), right.get_type()) {
+        if let (Type::Number(left_type), Type::Number(right_type)) = (left.get_type().as_ref(), right.get_type().as_ref()) {
             if left_type == right_type {
                 Ok((left, right))
             }else if left_type < right_type {
@@ -2696,7 +2705,7 @@ println!("is not array global. {:?}", init);
         env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
-    ) -> Result<(Type, PointerValue<'ctx>), Box<dyn Error>> {
+    ) -> Result<(Rc<Type>, PointerValue<'ctx>), Box<dyn Error>> {
         match ast {
             ExprAST::Symbol(name, pos) => {
                 let (typ, sq, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(&name, pos.clone())))?;
@@ -2704,7 +2713,7 @@ println!("is not array global. {:?}", init);
                     return Err(Box::new(CodeGenError::cannot_assign_constant(pos.clone())));
                 }
 
-                Ok((typ.clone(), ptr))
+                Ok((Rc::clone(typ), ptr))
             },
             ExprAST::UnaryPointerAccess(boxed_ast, pos) => {  // *pointer
                 let ast = &**boxed_ast;
@@ -2713,7 +2722,7 @@ println!("is not array global. {:?}", init);
                 if let Some(type2) = typ.peel_off_pointer() {
                     let ptr = self.builder.build_load(ptr_to_ptr, "load_ptr")?;
 
-                    Ok((Type::new_pointer_type(type2.clone(), false, false), ptr.into_pointer_value()))
+                    Ok((Type::new_pointer_type(type2.clone(), false, false).into(), ptr.into_pointer_value()))
                 }else{
                     Err(Box::new(CodeGenError::not_pointer(&typ, pos.clone())))
                 }
@@ -2723,7 +2732,7 @@ println!("is not array global. {:?}", init);
                 let (_typ, ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
                 let typ = TypeUtil::get_type(ast, env)?;
 
-                match &typ {
+                match typ.as_ref() {
                     Type::Struct {name, fields} => {
                         let index = fields.get_index(member_name).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
                         let elem_type = fields.get_type(member_name).unwrap();
@@ -2769,7 +2778,7 @@ println!("is not array global. {:?}", init);
                                 }else{
                                     return Err(Box::new(CodeGenError::not_pointer(&expr_type, pos.clone())));
                                 };
-                                match &typ {
+                                match typ.as_ref() {
                                     Type::Struct {name, fields} => {
                                         let index = fields.get_index(member_name).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
                                         let elem_type = fields.get_type(member_name).unwrap();
@@ -2889,7 +2898,7 @@ println!("is not array global. {:?}", init);
                 //
                 // when Pointer
                 //
-                if let Type::Pointer(_, elem_type) = &expr_type {
+                if let Type::Pointer(_, elem_type) = expr_type.as_ref() {
                     if index_len > 1 {
                         return Err(Box::new(CodeGenError::array_index_is_too_long(pos.clone())));
                     }
@@ -2924,9 +2933,9 @@ println!("is not array global. {:?}", init);
                     let vec = array_dim[index_len..].to_vec();
                     result_type = Type::Array{
                         name: expr_type.get_array_name().clone(),
-                        typ: Box::new(item_type.clone()),
+                        typ: Box::new(Rc::clone(item_type)),
                         size_list: vec,
-                    };
+                    }.into();
                 }
 
                 let mut ptr = base_ptr;
@@ -2994,7 +3003,7 @@ println!("is not array global. {:?}", init);
         Ok(None)
     }
 
-    fn make_fun_type(name: &str, ret_type: &Type, params: &Params, _env: &Env) -> Result<CustFunctionType, CodeGenError> {
+    fn make_fun_type(name: &str, ret_type: &Rc<Type>, params: &Params, _env: &Env) -> Result<CustFunctionType, CodeGenError> {
         Ok(CustFunctionType::new(
             Some(name.to_string()),
             ret_type.clone(),
@@ -3064,7 +3073,7 @@ println!("is not array global. {:?}", init);
 
     fn gen_code_function<'b, 'c>(&self,
         fn_name: &str,
-        ret_type: &Type,
+        ret_type: &Rc<Type>,
         params: &'ctx Params,
         body: &'ctx Block,
         labels: &Vec<String>,
@@ -3076,7 +3085,7 @@ println!("is not array global. {:?}", init);
 
         let fn_type = self.make_function_type(&ret_type, params, env, pos)?;
         let has_variadic = false;
-        let cust_fn_type = CustFunctionType::new(Some(fn_name.to_string()), ret_type.clone(), params.get_params_type(), has_variadic);
+        let cust_fn_type = CustFunctionType::new(Some(fn_name.to_string()), Rc::clone(ret_type), params.get_params_type(), has_variadic);
         // TODO: 同名のプロトタイプが存在しないか確認する。
         //       存在した場合、プロトタイプと関数の型が一致するかチェックする。
 
@@ -3126,7 +3135,7 @@ println!("is not array global. {:?}", init);
             let ptr = self.builder.build_alloca(TypeUtil::to_basic_type_enum(&typ, self.context, param.get_position())?, name)?;
             let value = function.get_nth_param(i as u32).unwrap();
             self.builder.build_store(ptr, value)?;
-            env.insert_local(name, typ.clone(), sq.clone(), ptr);
+            env.insert_local(name, typ, sq.clone(), ptr);
         }
 
         // labels
@@ -3148,8 +3157,8 @@ println!("is not array global. {:?}", init);
             match last_stmt {
                 Some(AST::Return(None, _)) => Ok(()),  // do nothing
                 Some(AST::Return(Some(expr), pos)) => {
-                    let typ: Type = TypeUtil::get_type(expr, env)?;
-                    return Err(Box::new(CodeGenError::return_type_mismatch(fn_type.get_return_type().clone(), typ, pos.clone())));
+                    let typ: Rc<Type> = TypeUtil::get_type(expr, env)?;
+                    return Err(Box::new(CodeGenError::return_type_mismatch(fn_type.get_return_type().as_ref().clone(), typ.as_ref().clone(), pos.clone())));
                 },
                 _ => {
                     self.builder.build_return(None)?;
@@ -3175,7 +3184,7 @@ println!("is not array global. {:?}", init);
                 Some(AST::If(_cond, _then, _else, pos)) => {
                     let typ = self.calc_ret_type(last_stmt.unwrap(), env)?;
                     if typ.is_void() {
-                        Err(Box::new(CodeGenError::return_type_mismatch(ret_type.clone(), Type::Void, pos.clone())))
+                        Err(Box::new(CodeGenError::return_type_mismatch(ret_type.as_ref().clone(), Type::Void, pos.clone())))
                     }else{
                         if *ret_type == typ {
                             // 最後の文が、ifのとき、ラベルif.endの後にコードが生成されないのでセグフォが起きることへのケア
@@ -3183,7 +3192,7 @@ println!("is not array global. {:?}", init);
 
                             Ok(())
                         }else{
-                            Err(Box::new(CodeGenError::return_type_mismatch(ret_type.clone(), typ, pos.clone())))
+                            Err(Box::new(CodeGenError::return_type_mismatch(ret_type.as_ref().clone(), typ.as_ref().clone(), pos.clone())))
                         }
 
                     }
@@ -3192,12 +3201,12 @@ println!("is not array global. {:?}", init);
                     // if let Some(typ) = self.calc_ret_type(stmt, env)? {
                     let typ = self.calc_ret_type(stmt, env)?;
                     if typ.is_void() {
-                        Err(Box::new(CodeGenError::return_type_mismatch(ret_type.clone(), Type::Void, stmt.get_position().clone())))
+                        Err(Box::new(CodeGenError::return_type_mismatch(ret_type.as_ref().clone(), Type::Void, stmt.get_position().clone())))
                     }else{
                         if *ret_type == typ {
                             Ok(())
                         }else{
-                            Err(Box::new(CodeGenError::return_type_mismatch(ret_type.clone(), typ, stmt.get_position().clone())))
+                            Err(Box::new(CodeGenError::return_type_mismatch(ret_type.as_ref().clone(), typ.as_ref().clone(), stmt.get_position().clone())))
                         }
                     }
 
@@ -3210,15 +3219,13 @@ println!("is not array global. {:?}", init);
         }
     }
 
-    // fn calc_ret_type(&self, stmt: &AST, env: &Env) -> Result<Option<BasicTypeEnum>, Box<dyn Error>> {
-    fn calc_ret_type(&self, stmt: &AST, env: &Env) -> Result<Type, Box<dyn Error>> {
+    fn calc_ret_type(&self, stmt: &AST, env: &Env) -> Result<Rc<Type>, Box<dyn Error>> {
         match stmt {
             AST::Return(None, _pos) => {
-                Ok(Type::Void)
+                Ok(Rc::new(Type::Void))
             },
             AST::Return(Some(expr), _pos) => {
                 let typ = TypeUtil::get_type(&**expr, env)?;
-                // let expr_type = TypeUtil::to_basic_type_enum(&typ, self.context)?;
                 Ok(typ)
             },
             AST::If(_cond, if_then, if_else, pos) => {
@@ -3229,31 +3236,31 @@ println!("is not array global. {:?}", init);
                         let else_type = self.calc_ret_type(else_expr, env)?;
 
                         if else_type.is_void() {
-                            Ok(Type::Void)
+                            Ok(Rc::new(Type::Void))
                         }else{
-                            Err(Box::new(CodeGenError::mismatch_type_in_if(pos.clone(), then_type, else_type)))
+                            Err(Box::new(CodeGenError::mismatch_type_in_if(pos.clone(), then_type.as_ref().clone(), else_type.as_ref().clone())))
                         }
 
                     }else{
-                        Ok(Type::Void)
+                        Ok(Rc::new(Type::Void))
                     }
 
                 }else{
                     if let Some(else_expr) = if_else {
                         let else_type = self.calc_ret_type(else_expr, env)?;
                         if else_type.is_void() {
-                            Err(Box::new(CodeGenError::mismatch_type_in_if(pos.clone(), then_type, else_type)))
+                            Err(Box::new(CodeGenError::mismatch_type_in_if(pos.clone(), then_type.as_ref().clone(), else_type.as_ref().clone())))
                         }else{
                             Ok(else_type)
                         }
 
                     }else{
-                        Err(Box::new(CodeGenError::mismatch_type_in_if(pos.clone(), then_type, Type::Void)))
+                        Err(Box::new(CodeGenError::mismatch_type_in_if(pos.clone(), then_type.as_ref().clone(), Type::Void)))
                     }
                 }
             },
             AST::Block(blk, _pos) => {
-                let mut typ = Type::Void;
+                let mut typ = Rc::new(Type::Void);
 
                 for e in &blk.body {
                     typ = self.calc_ret_type(e, env)?;
@@ -3269,10 +3276,10 @@ println!("is not array global. {:?}", init);
                 Ok(typ)
             },
             AST::Switch(..) => {
-                Ok(Type::Void)
+                Ok(Rc::new(Type::Void))
             },
             _ => {
-                Ok(Type::Void)
+                Ok(Rc::new(Type::Void))
             },
         }
     }

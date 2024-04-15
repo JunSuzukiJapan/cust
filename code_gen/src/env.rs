@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 use std::error::Error;
+use std::rc::Rc;
 use inkwell::values::{PointerValue, FunctionValue, GlobalValue, AnyValueEnum, IntValue, BasicValueEnum, BasicValue};
 use inkwell::types::{StructType, AnyTypeEnum, AnyType, BasicTypeEnum, IntType, BasicType};
 use inkwell::basic_block::BasicBlock;
@@ -155,7 +156,7 @@ impl<'a> CompiledCase<'a> {
 pub enum TypeOrUnion<'ctx> {
     Type(AnyTypeEnum<'ctx>),
     Union{
-        type_list: Vec<(Type, BasicTypeEnum<'ctx>)>,
+        type_list: Vec<(Rc<Type>, BasicTypeEnum<'ctx>)>,
         index_map: HashMap<String, usize>,
         max_size: u64,
         max_size_type: Option<BasicTypeEnum<'ctx>>,
@@ -228,7 +229,7 @@ pub struct Interface {
 #[derive(Debug)]
 pub struct Class<'ctx> {
     name: String,
-    vars:HashMap<String, (Type, SpecifierQualifier, GlobalValue<'ctx>)>,
+    vars:HashMap<String, (Rc<Type>, SpecifierQualifier, GlobalValue<'ctx>)>,
     class_functions: HashMap<String, (CustFunctionType, FunctionValue<'ctx>)>,
     functions: HashMap<String, (CustFunctionType, FunctionValue<'ctx>)>,
     interfaces: HashMap<String, (Interface,                                   // interface
@@ -282,7 +283,7 @@ impl<'ctx> Class<'ctx> {
         self.functions.get(func_name)
     }
 
-    pub fn add_class_var(&mut self, var_name: &str, typ: Type, sq: SpecifierQualifier, ptr: GlobalValue<'ctx>, pos: &Position) -> Result<(), CodeGenError> {
+    pub fn add_class_var(&mut self, var_name: &str, typ: Rc<Type>, sq: SpecifierQualifier, ptr: GlobalValue<'ctx>, pos: &Position) -> Result<(), CodeGenError> {
         if self.vars.contains_key(var_name) {
             return Err(CodeGenError::already_class_var_defined(self.name.clone(), var_name.to_string(), pos.clone()));
         }
@@ -300,19 +301,19 @@ impl<'ctx> Class<'ctx> {
     }
 
     #[inline]
-    pub fn get_class_var(&self, var_name: &str) -> Option<&(Type, SpecifierQualifier, GlobalValue<'ctx>)> {
+    pub fn get_class_var(&self, var_name: &str) -> Option<&(Rc<Type>, SpecifierQualifier, GlobalValue<'ctx>)> {
         self.vars.get(var_name)
     }
 }
 
 #[derive(Debug)]
 pub struct Env<'ctx> {
-    global_def: HashMap<String, (Type, SpecifierQualifier, ConstOrGlobalValue<'ctx>)>,
+    global_def: HashMap<String, (Rc<Type>, SpecifierQualifier, ConstOrGlobalValue<'ctx>)>,
     global_functions: HashMap<String, (CustFunctionType, FunctionValue<'ctx>)>,
 
     classes: HashMap<String, Class<'ctx>>,
 
-    locals: Vec<Vec<HashMap<String, (Type, SpecifierQualifier, PointerValue<'ctx>)>>>,
+    locals: Vec<Vec<HashMap<String, (Rc<Type>, SpecifierQualifier, PointerValue<'ctx>)>>>,
     local_functions: Vec<Vec<HashMap<String, (CustFunctionType, FunctionValue<'ctx>)>>>,
     local_labels: Vec<Vec<HashMap<String, BasicBlock<'ctx>>>>,
     local_cases: Vec<Vec<Vec<CompiledCase<'ctx>>>>,
@@ -389,7 +390,7 @@ impl<'ctx> Env<'ctx> {
         self.local_cases.last_mut().unwrap().last_mut().unwrap().push(CompiledCase::new_default(block, code, insert_block, pos));
     }
 
-    pub fn insert_global_var(&mut self, key: &str, typ: Type, sq: SpecifierQualifier, ptr: GlobalValue<'ctx>) {
+    pub fn insert_global_var(&mut self, key: &str, typ: Rc<Type>, sq: SpecifierQualifier, ptr: GlobalValue<'ctx>) {
         if sq.is_volatile() {
             unimplemented!()
         }
@@ -419,7 +420,7 @@ impl<'ctx> Env<'ctx> {
         }
     }
 
-    pub fn insert_class_var(&mut self, class_name: &str, var_name: &str, typ: Type, sq: SpecifierQualifier, ptr: GlobalValue<'ctx>, pos: &Position) -> Result<(), CodeGenError> {
+    pub fn insert_class_var(&mut self, class_name: &str, var_name: &str, typ: Rc<Type>, sq: SpecifierQualifier, ptr: GlobalValue<'ctx>, pos: &Position) -> Result<(), CodeGenError> {
         let class_name = &self.get_real_class_name(class_name);
 
         if ! self.classes.contains_key(class_name) {
@@ -431,7 +432,7 @@ impl<'ctx> Env<'ctx> {
         Ok(())
     }
 
-    pub fn get_class_var(&self, class_name: &str, var_name: &str) -> Option<&(Type, SpecifierQualifier, GlobalValue<'ctx>)> {
+    pub fn get_class_var(&self, class_name: &str, var_name: &str) -> Option<&(Rc<Type>, SpecifierQualifier, GlobalValue<'ctx>)> {
         let class_name = &self.get_real_class_name(class_name);
 
         if ! self.classes.contains_key(class_name) {
@@ -441,12 +442,12 @@ impl<'ctx> Env<'ctx> {
         self.classes.get(class_name).unwrap().get_class_var(var_name)
     }
 
-    pub fn insert_global_enumerator(&mut self, key: &str, typ: Type, value: IntValue<'ctx>) {
+    pub fn insert_global_enumerator(&mut self, key: &str, typ: Rc<Type>, value: IntValue<'ctx>) {
         let sq = SpecifierQualifier::default_const();
         self.global_def.insert(key.to_string(), (typ, sq, ConstOrGlobalValue::Const { value: value.as_basic_value_enum() }));
     }
 
-    pub fn insert_local(&mut self, key: &str, typ: Type, sq: SpecifierQualifier, ptr: PointerValue<'ctx>) {
+    pub fn insert_local(&mut self, key: &str, typ: Rc<Type>, sq: SpecifierQualifier, ptr: PointerValue<'ctx>) {
         if sq.is_volatile() {
             unimplemented!()
         }
@@ -515,7 +516,7 @@ impl<'ctx> Env<'ctx> {
     pub fn insert_union(
         &mut self,
         key: &str,
-        type_list: Vec<(Type, BasicTypeEnum<'ctx>)>,
+        type_list: Vec<(Rc<Type>, BasicTypeEnum<'ctx>)>,
         index_map: HashMap<String, usize>,
         max_size: u64, max_size_type: Option<BasicTypeEnum<'ctx>>,
         pos: &Position
@@ -604,7 +605,7 @@ impl<'ctx> Env<'ctx> {
         }
 
         for (id, val) in &enumerator_list {
-            self.insert_global_enumerator(id, Type::Number(NumberType::Int), *val);
+            self.insert_global_enumerator(id, Rc::new(Type::Number(NumberType::Int)), *val);
         }
 
         let type_or_union = TypeOrUnion::StandardEnum { i32_type: *enum_type, enumerator_list: enumerator_list, index_map: index_map };
@@ -732,7 +733,7 @@ impl<'ctx> Env<'ctx> {
         None
     }
 
-    pub fn get_type_by_id(&self, key: &str) -> Option<&Type> {
+    pub fn get_type_by_id(&self, key: &str) -> Option<&Rc<Type>> {
         if let Some((typ, _sq, _ptr)) = self.get_ptr_from_local(key) {
             Some(typ)
         }else if let Some((typ, _sq, val)) = self.global_def.get(key) {
@@ -745,7 +746,7 @@ impl<'ctx> Env<'ctx> {
         }
     }
 
-    pub fn get_ptr(&self, key: &str) -> Option<(&Type, &SpecifierQualifier, PointerValue<'ctx>)> {
+    pub fn get_ptr(&self, key: &str) -> Option<(&Rc<Type>, &SpecifierQualifier, PointerValue<'ctx>)> {
         if let Some((typ, sq, ptr)) = self.get_ptr_from_local(key) {
             Some((typ, sq, *ptr))
         }else if let Some((typ, sq, val)) = self.global_def.get(key) {
@@ -758,7 +759,7 @@ impl<'ctx> Env<'ctx> {
         }
     }
 
-    pub fn get_value(&self, key: &str) -> Option<(&Type, &SpecifierQualifier, BasicValueEnum<'ctx>)> {
+    pub fn get_value(&self, key: &str) -> Option<(&Rc<Type>, &SpecifierQualifier, BasicValueEnum<'ctx>)> {
         if let Some((typ, sq, val)) = self.global_def.get(key) {
             match val {
                 ConstOrGlobalValue::Const { value } => Some((typ, sq, *value)),
@@ -769,7 +770,7 @@ impl<'ctx> Env<'ctx> {
         }
     }
 
-    fn get_ptr_from_local(&self, key: &str) -> Option<&(Type, SpecifierQualifier, PointerValue<'ctx>)> {
+    fn get_ptr_from_local(&self, key: &str) -> Option<&(Rc<Type>, SpecifierQualifier, PointerValue<'ctx>)> {
         let list = self.locals.last().unwrap();
         let mut index = list.len() - 1;
         loop {
@@ -784,7 +785,7 @@ impl<'ctx> Env<'ctx> {
         None
     }
 
-    pub fn get_self_ptr(&self) -> Option<(&Type, &SpecifierQualifier, PointerValue<'ctx>)> {
+    pub fn get_self_ptr(&self) -> Option<(&Rc<Type>, &SpecifierQualifier, PointerValue<'ctx>)> {
         if let Some((typ, sq, ptr)) = self.get_ptr_from_local("self") {
             Some((typ, sq, *ptr))
         }else{
