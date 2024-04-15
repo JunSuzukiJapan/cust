@@ -420,13 +420,13 @@ pub enum Enumerator {
     // EnumName::FieldName(Type1, Type2, ..)
     TypeTuple {
         name: String,
-        type_list: Vec<Rc<Type>>,
+        type_list: Vec<(Rc<Type>, u32)>,
     },
     // EnumName::FieldName {name1: Type1, name2: Type2, ..}
     TypeStruct {
         name: String,
-        map: HashMap<String, Rc<Type>>,
-        type_list: Vec<Rc<Type>>,
+        map: HashMap<String, (Rc<Type>, u32)>,
+        type_list: Vec<(Rc<Type>, u32)>,
     }
 }
 
@@ -435,7 +435,7 @@ impl Enumerator {
         Enumerator::Const { name: name.to_string(), const_value: value }
     }
 
-    pub fn new_tuple(name: &str, list: Vec<Rc<Type>>) -> Enumerator {
+    pub fn new_tuple(name: &str, list: Vec<(Rc<Type>, u32)>) -> Enumerator {
         Enumerator::TypeTuple { name: name.to_string(), type_list: list }
     }
 
@@ -450,23 +450,31 @@ impl Enumerator {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct EnumDefinition {
-    name: Option<String>,
-    fields: Option<Vec<Enumerator>>,
-    index_map: Option<HashMap<String, usize>>,
+pub enum EnumDefinition {
+    StandardEnum {
+        name: Option<String>,
+        fields: Option<Vec<Enumerator>>,
+        index_map: Option<HashMap<String, usize>>,
+    },
+    TupleEnum {
+
+    },
+    StructEnum {
+
+    },
 }
 
 impl EnumDefinition {
-    pub fn new(enum_name: Option<String>, enum_list: Option<Vec<Enumerator>>) -> EnumDefinition {
+    pub fn new_standard(enum_name: Option<String>, enum_list: Option<Vec<Enumerator>>) -> EnumDefinition {
         let index_map = Self::make_map_from_vec(&enum_list);
-        EnumDefinition {
+        EnumDefinition::StandardEnum {
             name: enum_name,
             fields: enum_list,
             index_map: index_map,
         }
     }
 
-    pub fn make_map_from_vec(enumerators: &Option<Vec<Enumerator>>) -> Option<HashMap<String, usize>> {
+    fn make_map_from_vec(enumerators: &Option<Vec<Enumerator>>) -> Option<HashMap<String, usize>> {
         if let Some(list) = enumerators {
             let mut index_map: HashMap<String, usize> = HashMap::new();
             let mut index = 0;
@@ -484,8 +492,16 @@ impl EnumDefinition {
         }
     }
 
-    pub fn get_fields(&self) -> & Option<Vec<Enumerator>> {
-        &self.fields
+    pub fn get_fields(&self) -> &Option<Vec<Enumerator>> {
+        match self {
+            EnumDefinition::StandardEnum { fields, .. } => &fields,
+            EnumDefinition::TupleEnum {  } => {
+                unimplemented!()
+            },
+            EnumDefinition::StructEnum {  } => {
+                unimplemented!()
+            },
+        }
     }
 }
 

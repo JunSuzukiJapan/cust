@@ -140,7 +140,7 @@ pub struct Defines {
     // globals
     global_maps: Maps,
     // generics types
-    generics: Vec<HashMap<String, Rc<GenericType>>>,
+    generics: Vec<HashMap<String, Rc<Type>>>,
 }
 
 impl Defines {
@@ -365,6 +365,15 @@ impl Defines {
     }
 
     pub fn get_type(&self, name: &str) -> Option<&Rc<Type>> {
+        // check generics
+        if self.generics.len() > 0 {
+            let map = self.generics.last().unwrap();
+
+            if let Some(rc_type) = map.get(name) {
+                return Some(&rc_type);
+            }
+        }
+
         // check locals
         if self.local_maps.last().unwrap().len() > 0 {
             let list = self.local_maps.last().unwrap();
@@ -574,14 +583,16 @@ impl Defines {
         Ok(())
     }
 
-    pub fn add_generic_type(&mut self, name: &str, pos: &Position) -> Result<Rc<GenericType>, ParserError> {
-        let g_type = GenericType::new(name);
-        let origin = Rc::new(g_type);
-        let clone = Rc::clone(&origin);
+    pub fn add_generic_type(&mut self, name: &str, pos: &Position) -> Result<Rc<Type>, ParserError> {
         let map = self.generics.last_mut().unwrap();
         if map.contains_key(name) {
             return Err(ParserError::already_generics_type_defined(name.to_string(), pos.clone()));
         }
+
+        let g_type = GenericType::new(name);
+        let typ = Type::GenericType(g_type);
+        let origin = Rc::new(typ);
+        let clone = Rc::clone(&origin);
         map.insert(name.to_string(), origin);
 
         Ok(clone)

@@ -67,6 +67,10 @@ fn main() {
         enum Option<T> {
             Some(T),
             None
+        };
+
+        int test() {
+            return 0;
         }
     ";
 

@@ -564,18 +564,13 @@ impl Parser {
                                             pos.clone()
                                         ));
 
-
-
-
                                         defs.remove_generics();
-
-                                        unimplemented!("enum generics<{g_list:?}>")
                                     },
                                     _ => {
                                         let type_struct = if let Some(t) = defs.get_type(&name) {
                                             Rc::clone(t)
                                         }else{
-                                            let definition = EnumDefinition::new(Some(name.clone()), None);
+                                            let definition = EnumDefinition::new_standard(Some(name.clone()), None);
                                             let typ = Type::enum_from_enum_definition(Some(name.clone()), definition);
                                             Rc::new(typ)
                                         };
@@ -590,7 +585,7 @@ impl Parser {
                             Token::BraceLeft => {
                                 iter.next();  // skip '{'
                                 let enum_list = self.parse_enumerator_list(iter, defs, labels)?;
-                                let definition = EnumDefinition::new(None, Some(enum_list));
+                                let definition = EnumDefinition::new_standard(None, Some(enum_list));
                                 let type_struct = Type::enum_from_enum_definition(None, definition);
                                 opt_type = Some((
                                     Rc::new(type_struct),
@@ -738,7 +733,7 @@ impl Parser {
 
     fn parse_enum_body(&self, name: &String, pos3: &Position, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Type, ParserError> {
         let enum_list = self.parse_enumerator_list(iter, defs, labels)?;
-        let definition = EnumDefinition::new(Some(name.clone()), Some(enum_list));
+        let definition = EnumDefinition::new_standard(Some(name.clone()), Some(enum_list));
         let type_struct = Type::enum_from_enum_definition(Some(name.clone()), definition.clone());
         defs.set_enum(name, definition, pos3)?;
 
@@ -753,7 +748,7 @@ impl Parser {
     }
 
 
-    fn parse_generic_types(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Vec<Rc<GenericType>>, ParserError> {
+    fn parse_generic_types(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Vec<Rc<Type>>, ParserError> {
         iter.next();  // skip '<'
 
         let mut list = Vec::new();
@@ -932,6 +927,12 @@ impl Parser {
 
                     let type_list = self.parse_type_list(iter, defs)?;
                     enumerator = Enumerator::new_tuple(name, type_list);
+
+                    let (tok3, pos3) = iter.peek().unwrap();
+                    if tok3.is_eof() { return Err(ParserError::illegal_end_of_input(pos3.clone())); }
+                    if *tok3 == Token::Comma {
+                        iter.next();  // skip ','
+                    }
                 },
                 _ => {
                     return Err(ParserError::should_be(vec![Token::BraceRight, Token::Assign], tok2, pos2.clone()));
@@ -945,8 +946,9 @@ impl Parser {
         Ok(list)
     }
 
-    fn parse_type_list(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Vec<Rc<Type>>, ParserError> {
+    fn parse_type_list(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Vec<(Rc<Type>, u32)>, ParserError> {
         let mut vec = Vec::new();
+        let mut tag_number = 0;
 
         loop {
             let (tok, pos) = iter.peek().unwrap();
@@ -958,7 +960,9 @@ impl Parser {
             }
 
             let typ = self.parse_type(iter, defs)?;
-            vec.push(typ);
+            vec.push((typ, tag_number));
+
+            tag_number += 1;
         }
 
         Ok(vec)
@@ -970,9 +974,7 @@ impl Parser {
         match tok {
             Token::Symbol(name) => {
                 if let Some(typ) = defs.get_type(name) {
-
-
-
+                    return Ok(Rc::clone(typ));
                 }else{
                     return Err(ParserError::no_such_a_type(name, pos.clone()));
                 }
@@ -981,10 +983,6 @@ impl Parser {
                 return Err(ParserError::syntax_error(pos.clone()));
             },
         }
-
-
-
-        unimplemented!("parse type")
     }
 
     fn parse_declarator(&self, typ: &Rc<Type>, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<(Declarator, Option<Initializer>), ParserError> {
