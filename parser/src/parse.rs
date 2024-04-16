@@ -587,10 +587,7 @@ impl Parser {
                                 let (enum_list, is_tagged) = self.parse_enumerator_list(iter, defs, labels)?;
                                 let definition;
                                 if is_tagged {
-
-
-
-                                    unimplemented!()
+                                    definition = EnumDefinition::new_tagged(None, Some(enum_list));
                                 }else{
                                     definition = EnumDefinition::new_standard(None, Some(enum_list));
                                 }
@@ -744,10 +741,7 @@ impl Parser {
 
         let definition;
         if is_tagged {
-
-
-
-            unimplemented!()
+            definition = EnumDefinition::new_tagged(Some(name.clone()), Some(enum_list));
         }else{
             definition = EnumDefinition::new_standard(Some(name.clone()), Some(enum_list));
         }
