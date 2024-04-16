@@ -1,7 +1,7 @@
 use parser::{ExprAST, ParserError, NumberType};
 use super::{Position, Type};
 use std::error::Error;
-use std::{fmt, mem};
+use std::fmt;
 use inkwell::values::AnyValueEnum;
 
 #[derive(Debug, Clone, PartialEq)]

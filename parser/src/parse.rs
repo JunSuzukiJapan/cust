@@ -584,8 +584,16 @@ impl Parser {
                             },
                             Token::BraceLeft => {
                                 iter.next();  // skip '{'
-                                let enum_list = self.parse_enumerator_list(iter, defs, labels)?;
-                                let definition = EnumDefinition::new_standard(None, Some(enum_list));
+                                let (enum_list, is_tagged) = self.parse_enumerator_list(iter, defs, labels)?;
+                                let definition;
+                                if is_tagged {
+
+
+
+                                    unimplemented!()
+                                }else{
+                                    definition = EnumDefinition::new_standard(None, Some(enum_list));
+                                }
                                 let type_struct = Type::enum_from_enum_definition(None, definition);
                                 opt_type = Some((
                                     Rc::new(type_struct),
@@ -732,15 +740,20 @@ impl Parser {
     }
 
     fn parse_enum_body(&self, name: &String, pos3: &Position, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Type, ParserError> {
-        let enum_list = self.parse_enumerator_list(iter, defs, labels)?;
-        let definition = EnumDefinition::new_standard(Some(name.clone()), Some(enum_list));
+        let (enum_list, is_tagged) = self.parse_enumerator_list(iter, defs, labels)?;
+
+        let definition;
+        if is_tagged {
+
+
+
+            unimplemented!()
+        }else{
+            definition = EnumDefinition::new_standard(Some(name.clone()), Some(enum_list));
+        }
+
         let type_struct = Type::enum_from_enum_definition(Some(name.clone()), definition.clone());
         defs.set_enum(name, definition, pos3)?;
-
-        // opt_type = Some((
-        //     type_struct,
-        //     pos.clone()
-        // ));
 
         self.parse_expected_token(iter, Token::BraceRight)?;
 
@@ -864,7 +877,7 @@ impl Parser {
         }
     }
 
-    fn parse_enumerator_list(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Vec<Enumerator>, ParserError> {
+    fn parse_enumerator_list(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<(Vec<Enumerator>, bool), ParserError> {
         let mut list: Vec<Enumerator> = Vec::new();
         let mut value: u32 = 0;
 
@@ -943,7 +956,7 @@ impl Parser {
             list.push(enumerator);
         }
 
-        Ok(list)
+        Ok((list, is_tagged))
     }
 
     fn parse_type_list(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Vec<(Rc<Type>, u32)>, ParserError> {

@@ -456,11 +456,10 @@ pub enum EnumDefinition {
         fields: Option<Vec<Enumerator>>,
         index_map: Option<HashMap<String, usize>>,
     },
-    TupleEnum {
-
-    },
-    StructEnum {
-
+    TaggedEnum {
+        name: Option<String>,
+        fields: Option<Vec<Enumerator>>,
+        index_map: Option<HashMap<String, usize>>,
     },
 }
 
@@ -468,6 +467,15 @@ impl EnumDefinition {
     pub fn new_standard(enum_name: Option<String>, enum_list: Option<Vec<Enumerator>>) -> EnumDefinition {
         let index_map = Self::make_map_from_vec(&enum_list);
         EnumDefinition::StandardEnum {
+            name: enum_name,
+            fields: enum_list,
+            index_map: index_map,
+        }
+    }
+
+    pub fn new_tagged(enum_name: Option<String>, enum_list: Option<Vec<Enumerator>>) -> EnumDefinition {
+        let index_map = Self::make_map_from_vec(&enum_list);
+        EnumDefinition::TaggedEnum {
             name: enum_name,
             fields: enum_list,
             index_map: index_map,
@@ -495,12 +503,7 @@ impl EnumDefinition {
     pub fn get_fields(&self) -> &Option<Vec<Enumerator>> {
         match self {
             EnumDefinition::StandardEnum { fields, .. } => &fields,
-            EnumDefinition::TupleEnum {  } => {
-                unimplemented!()
-            },
-            EnumDefinition::StructEnum {  } => {
-                unimplemented!()
-            },
+            EnumDefinition::TaggedEnum { fields, .. } => &fields,
         }
     }
 }

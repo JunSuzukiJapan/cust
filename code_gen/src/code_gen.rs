@@ -2047,15 +2047,12 @@ println!("is not array global. {:?}", init);
                     }
                 }
             },
-            EnumDefinition::TupleEnum {  } => {
+            EnumDefinition::TaggedEnum { fields, .. } => {
 
 
 
                 unimplemented!()
             },
-            EnumDefinition::StructEnum {  } => {
-                unimplemented!()
-            }
         }
 
         Ok(())
