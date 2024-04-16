@@ -2037,40 +2037,53 @@ println!("is not array global. {:?}", init);
         pos: &Position
     ) -> Result<(), Box<dyn Error>> {
 
-        let (enumerator_list, index_map) = self.enum_from_enum_definition(enum_def, env)?;
-        if let Some(id) = name {
-            let i32_type = self.context.i32_type();
-            env.insert_enum(id, &i32_type, enumerator_list, index_map, pos)?;
+        match enum_def {
+            EnumDefinition::StandardEnum { fields, .. } => {
+                if let Some(list) = fields {
+                    let (enumerator_list, index_map) = self.enum_from_enum_standard(list, env)?;
+                    if let Some(id) = name {
+                        let i32_type = self.context.i32_type();
+                        env.insert_enum(id, &i32_type, enumerator_list, index_map, pos)?;
+                    }
+                }
+            },
+            EnumDefinition::TupleEnum {  } => {
+
+
+
+                unimplemented!()
+            },
+            EnumDefinition::StructEnum {  } => {
+                unimplemented!()
+            }
         }
 
         Ok(())
     }
 
-    pub fn enum_from_enum_definition(&self, enum_def: &EnumDefinition, _env: &mut Env<'ctx>) -> Result<(Vec<(String, IntValue<'ctx>)>, HashMap<String, usize>), CodeGenError> {
+    pub fn enum_from_enum_standard(&self, fields: &Vec<Enumerator>, _env: &mut Env<'ctx>) -> Result<(Vec<(String, IntValue<'ctx>)>, HashMap<String, usize>), CodeGenError> {
         let mut enumerator_list: Vec<(String, IntValue<'ctx>)> = Vec::new();
         let mut index_map: HashMap<String, usize> = HashMap::new();
         let mut index: usize = 0;
 
-        if let Some(fields) = enum_def.get_fields() {
-            for field in fields {
-                match field {
-                    Enumerator::Const { name, const_value } => {
-                        let i32_type = self.context.i32_type();
-                        let i32_value = i32_type.const_int(*const_value as u64, false);
-                        enumerator_list.push((name.to_string(), i32_value));
+        for field in fields {
+            match field {
+                Enumerator::Const { name, const_value } => {
+                    let i32_type = self.context.i32_type();
+                    let i32_value = i32_type.const_int(*const_value as u64, false);
+                    enumerator_list.push((name.to_string(), i32_value));
 
-                        index_map.insert(name.clone(), index);
-                    },
-                    Enumerator::TypeTuple { name, type_list } => {
-                        unimplemented!()
-                    },
-                    Enumerator::TypeStruct { name, map, type_list } => {
-                        unimplemented!()
-                    },
-                }
-
-                index += 1;
+                    index_map.insert(name.clone(), index);
+                },
+                Enumerator::TypeTuple { name, type_list } => {
+                    panic!("standard enum do not have TypeTuple");
+                },
+                Enumerator::TypeStruct { name, map, type_list } => {
+                    panic!("standard enum do not have TypeStruct");
+                },
             }
+
+            index += 1;
         }
 
         Ok((enumerator_list, index_map))
