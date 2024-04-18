@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use crate::parser::{AST, ToplevelAST, ExprAST, BinOp, Type, Pointer, Block, Params, StructDefinition, StructField, NumberType, Function, FunProto, FunOrProt, EnumDefinition, Enumerator};
-use crate::parser::{Declaration, DeclarationSpecifier, CustFunctionType, Initializer, ImplElement, SpecifierQualifier};
+use crate::parser::{Declaration, DeclarationSpecifier, CustFunctionType, Initializer, ImplElement, SpecifierQualifier, StructLiteral};
 use crate::env::Class;
 use super::{CompiledValue, CodeGenError};
 use super::Env;
@@ -781,56 +781,60 @@ impl<'ctx> CodeGen<'ctx> {
                 let any_val = basic_val.as_any_value_enum();
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
-            ExprAST::StructLiteral(typ, map, pos) => {
-                let basic_type = env.basic_type_enum_from_type(&typ, self.context, pos)?;
-                let struct_ptr = self.builder.build_alloca(basic_type, "struct_leteral")?;
-                let struct_name = typ.get_type_name();
-
-                if let Some(fields) = typ.get_struct_fields() {
-                    let i32_type = self.context.i32_type();
-                    let const_zero = i32_type.const_int(0, false);
-
-                    let mut index = 0;
-                    for field in fields {
-                        let name = field.get_name().as_ref().unwrap();
-                        let expr_ast = map.get(name).unwrap();
-                        let any_value = self.gen_expr(expr_ast, env, break_catcher, continue_catcher)?.unwrap().get_value();
-                        let basic_value = BasicValueEnum::try_from(any_value).map_err(|_e| CodeGenError::system_error(pos.clone()))?;
-
-                        let const_index = i32_type.const_int(index, false);
-                        let indexes = vec![const_zero, const_index];
-                        let ptr = unsafe { self.builder.build_in_bounds_gep(struct_ptr, &indexes, "gep_for_struct_field")? };
-                        let _result = self.builder.build_store(ptr, basic_value);
-
-                        index += 1;
-                    }
+            ExprAST::StructLiteral(struct_literal) => {
+                match struct_literal {
+                    StructLiteral::NormalLiteral(typ, map, pos) => {
+                        let basic_type = env.basic_type_enum_from_type(&typ, self.context, pos)?;
+                        let struct_ptr = self.builder.build_alloca(basic_type, "struct_leteral")?;
+                        let struct_name = typ.get_type_name();
+        
+                        if let Some(fields) = typ.get_struct_fields() {
+                            let i32_type = self.context.i32_type();
+                            let const_zero = i32_type.const_int(0, false);
+        
+                            let mut index = 0;
+                            for field in fields {
+                                let name = field.get_name().as_ref().unwrap();
+                                let expr_ast = map.get(name).unwrap();
+                                let any_value = self.gen_expr(expr_ast, env, break_catcher, continue_catcher)?.unwrap().get_value();
+                                let basic_value = BasicValueEnum::try_from(any_value).map_err(|_e| CodeGenError::system_error(pos.clone()))?;
+        
+                                let const_index = i32_type.const_int(index, false);
+                                let indexes = vec![const_zero, const_index];
+                                let ptr = unsafe { self.builder.build_in_bounds_gep(struct_ptr, &indexes, "gep_for_struct_field")? };
+                                let _result = self.builder.build_store(ptr, basic_value);
+        
+                                index += 1;
+                            }
+                        }
+        
+                        let basic_val = self.builder.build_load(struct_ptr, &format!("load_struct_{}_literal", struct_name))?;
+                        let any_val = basic_val.as_any_value_enum();
+                        Ok(Some(CompiledValue::new(typ.clone(), any_val)))
+                    },
+                    StructLiteral::ConstLiteral(typ, const_map, pos) => {
+                        let basic_type = env.basic_type_enum_from_type(&typ, self.context, pos)?;
+                        let struct_ptr = self.builder.build_alloca(basic_type, "struct_leteral")?;
+                        let struct_name = typ.get_type_name();
+        
+                        let mut vec = Vec::new();
+                        if let Some(fields) = typ.get_struct_fields() {
+                            for field in fields {
+                                let name = field.get_name().as_ref().unwrap();
+                                let const_expr = const_map.get(name).unwrap();
+                                let basic_value = self.const_expr_to_basic_value_enum(const_expr, self.context);
+                                vec.push(basic_value);
+                            }
+        
+                            let values = self.context.const_struct(&vec, false);
+                            let _result = self.builder.build_store(struct_ptr, values.as_basic_value_enum());
+                        }
+        
+                        let basic_val = self.builder.build_load(struct_ptr, &format!("load_struct_{}_literal", struct_name))?;
+                        let any_val = basic_val.as_any_value_enum();
+                        Ok(Some(CompiledValue::new(typ.clone(), any_val)))
+                    },
                 }
-
-                let basic_val = self.builder.build_load(struct_ptr, &format!("load_struct_{}_literal", struct_name))?;
-                let any_val = basic_val.as_any_value_enum();
-                Ok(Some(CompiledValue::new(typ.clone(), any_val)))
-            },
-            ExprAST::StructConstLiteral(typ, const_map, pos) => {
-                let basic_type = env.basic_type_enum_from_type(&typ, self.context, pos)?;
-                let struct_ptr = self.builder.build_alloca(basic_type, "struct_leteral")?;
-                let struct_name = typ.get_type_name();
-
-                let mut vec = Vec::new();
-                if let Some(fields) = typ.get_struct_fields() {
-                    for field in fields {
-                        let name = field.get_name().as_ref().unwrap();
-                        let const_expr = const_map.get(name).unwrap();
-                        let basic_value = self.const_expr_to_basic_value_enum(const_expr, self.context);
-                        vec.push(basic_value);
-                    }
-
-                    let values = self.context.const_struct(&vec, false);
-                    let _result = self.builder.build_store(struct_ptr, values.as_basic_value_enum());
-                }
-
-                let basic_val = self.builder.build_load(struct_ptr, &format!("load_struct_{}_literal", struct_name))?;
-                let any_val = basic_val.as_any_value_enum();
-                Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
             ExprAST::UnionLiteral(typ, list, pos) => {
                 let basic_type = env.basic_type_enum_from_type(&typ, self.context, pos)?;
@@ -1112,48 +1116,52 @@ println!("is not array global. {:?}", init);
 
                         let _result = self.builder.build_store(target_struct_ptr, compiled_value.get_value().into_struct_value().as_basic_value_enum());
                     },
-                    ExprAST::StructLiteral(typ2, map, pos2) => {
-                        if typ != typ2.as_ref() {
-                            return Err(Box::new(CodeGenError::mismatch_initializer_type(typ, typ2, pos2.clone())));
-                        }
-
-                        if let Some(fields) = typ.get_struct_fields() {
-                            let i32_type = self.context.i32_type();
-                            let const_zero = i32_type.const_int(0, false);
-
-                            let mut index = 0;
-
-                            for field in fields {
-                                let name = field.get_name().as_ref().unwrap();
-                                let expr_ast = map.get(name).unwrap();
-                                let any_value = self.gen_expr(expr_ast, env, break_catcher, continue_catcher)?.unwrap().get_value();
-                                let basic_value = BasicValueEnum::try_from(any_value).map_err(|_e| CodeGenError::system_error(pos2.clone()))?;
-
-                                let const_index = i32_type.const_int(index, false);
-                                let indexes = vec![const_zero, const_index];
-                                let ptr = unsafe { self.builder.build_in_bounds_gep(target_struct_ptr, &indexes, "gep_for_struct_field")? };
-                                let _result = self.builder.build_store(ptr, basic_value);
-
-                                index += 1;
-                            }
-                        }
-                    },
-                    ExprAST::StructConstLiteral(typ2, const_map, pos2) => {
-                        if typ != typ2.as_ref() {
-                            return Err(Box::new(CodeGenError::mismatch_initializer_type(typ, typ2, pos2.clone())));
-                        }
-
-                        let mut vec = Vec::new();
-                        if let Some(fields) = typ.get_struct_fields() {
-                            for field in fields {
-                                let name = field.get_name().as_ref().unwrap();
-                                let const_expr = const_map.get(name).unwrap();
-                                let basic_value = self.const_expr_to_basic_value_enum(const_expr, self.context);
-                                vec.push(basic_value);
-                            }
-
-                            let values = self.context.const_struct(&vec, false);
-                            let _result = self.builder.build_store(target_struct_ptr, values.as_basic_value_enum());
+                    ExprAST::StructLiteral(struct_literal) => {
+                        match struct_literal {
+                            StructLiteral::NormalLiteral(typ2, map, pos2) => {
+                                if typ != typ2.as_ref() {
+                                    return Err(Box::new(CodeGenError::mismatch_initializer_type(typ, typ2, pos2.clone())));
+                                }
+        
+                                if let Some(fields) = typ.get_struct_fields() {
+                                    let i32_type = self.context.i32_type();
+                                    let const_zero = i32_type.const_int(0, false);
+        
+                                    let mut index = 0;
+        
+                                    for field in fields {
+                                        let name = field.get_name().as_ref().unwrap();
+                                        let expr_ast = map.get(name).unwrap();
+                                        let any_value = self.gen_expr(expr_ast, env, break_catcher, continue_catcher)?.unwrap().get_value();
+                                        let basic_value = BasicValueEnum::try_from(any_value).map_err(|_e| CodeGenError::system_error(pos2.clone()))?;
+        
+                                        let const_index = i32_type.const_int(index, false);
+                                        let indexes = vec![const_zero, const_index];
+                                        let ptr = unsafe { self.builder.build_in_bounds_gep(target_struct_ptr, &indexes, "gep_for_struct_field")? };
+                                        let _result = self.builder.build_store(ptr, basic_value);
+        
+                                        index += 1;
+                                    }
+                                }
+                            },
+                            StructLiteral::ConstLiteral(typ2, const_map, pos2) => {
+                                if typ != typ2.as_ref() {
+                                    return Err(Box::new(CodeGenError::mismatch_initializer_type(typ, typ2, pos2.clone())));
+                                }
+        
+                                let mut vec = Vec::new();
+                                if let Some(fields) = typ.get_struct_fields() {
+                                    for field in fields {
+                                        let name = field.get_name().as_ref().unwrap();
+                                        let const_expr = const_map.get(name).unwrap();
+                                        let basic_value = self.const_expr_to_basic_value_enum(const_expr, self.context);
+                                        vec.push(basic_value);
+                                    }
+        
+                                    let values = self.context.const_struct(&vec, false);
+                                    let _result = self.builder.build_store(target_struct_ptr, values.as_basic_value_enum());
+                                }
+                            },
                         }
                     },
                     _ => {
@@ -2039,12 +2047,10 @@ println!("is not array global. {:?}", init);
 
         match enum_def {
             EnumDefinition::StandardEnum { fields, .. } => {
-                if let Some(list) = fields {
-                    let (enumerator_list, index_map) = self.enum_from_enum_standard(list, env)?;
-                    if let Some(id) = name {
-                        let i32_type = self.context.i32_type();
-                        env.insert_enum(id, &i32_type, enumerator_list, index_map, pos)?;
-                    }
+                let (enumerator_list, index_map) = self.enum_from_enum_standard(fields, env)?;
+                if let Some(id) = name {
+                    let i32_type = self.context.i32_type();
+                    env.insert_enum_const(id, &i32_type, enumerator_list, index_map, pos)?;
                 }
             },
             EnumDefinition::TaggedEnum { fields, .. } => {
@@ -2075,7 +2081,7 @@ println!("is not array global. {:?}", init);
                 Enumerator::TypeTuple { name, type_list } => {
                     panic!("standard enum do not have TypeTuple");
                 },
-                Enumerator::TypeStruct { name, map, type_list } => {
+                Enumerator::TypeStruct { name, struct_type } => {
                     panic!("standard enum do not have TypeStruct");
                 },
             }

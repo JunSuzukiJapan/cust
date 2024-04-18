@@ -724,6 +724,28 @@ impl Initializer {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum StructLiteral {
+    NormalLiteral(Rc<Type>, HashMap<String, Box<ExprAST>>, Position),
+    ConstLiteral(Rc<Type>, HashMap<String, ConstExpr>, Position),
+}
+
+impl StructLiteral {
+    pub fn get_position(&self) -> &Position {
+        match self {
+            StructLiteral::NormalLiteral(_, _, pos) => pos,
+            StructLiteral::ConstLiteral(_, _, pos) => pos,
+        }
+    }
+
+    pub fn get_type(&self) -> &Rc<Type> {
+        match self {
+            StructLiteral::ConstLiteral(typ, _, _) => typ,
+            StructLiteral::NormalLiteral(typ, _, _) => typ,
+        }
+    }
+}
+
 #[allow(non_camel_case_types)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum ExprAST {
@@ -775,8 +797,7 @@ pub enum ExprAST {
     _self(Position),
     SelfStaticSymbol(String, Position),
     StructStaticSymbol(String, String, Position),  // struct_name::feature_name
-    StructLiteral(Rc<Type>, HashMap<String, Box<ExprAST>>, Position),
-    StructConstLiteral(Rc<Type>, HashMap<String, ConstExpr>, Position),
+    StructLiteral(StructLiteral),
     UnionLiteral(Rc<Type>, Vec<(String, Box<ExprAST>)>, Position),
     UnionConstLiteral(Rc<Type>, Vec<(String, ConstExpr)>, Position),
 }
@@ -837,8 +858,7 @@ impl ExprAST {
             // ExprAST::InitializerList(_, pos) => pos,
             ExprAST::CallFunction(_, _, pos) => pos,
             ExprAST::DefVar { specifiers: _, declarations: _, pos } => pos,
-            ExprAST::StructLiteral(_typ, _map, pos) => pos,
-            ExprAST::StructConstLiteral(_typ, _map, pos) => pos,
+            ExprAST::StructLiteral(literal) => literal.get_position(),
             ExprAST::UnionLiteral(_typ, _map, pos) => pos,
             ExprAST::UnionConstLiteral(_typ, _map, pos) => pos,        }
     }

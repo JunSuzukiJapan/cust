@@ -3,7 +3,7 @@
 use super::{Position, Token};
 use super::ParserError;
 use super::ast::{AST, ToplevelAST, ExprAST, Block, Param, Params, BinOp, TypeQualifier, DeclarationSpecifier, SpecifierQualifier, Declarator, DirectDeclarator, Initializer};
-use super::ast::{DeclarationSpecifierOrVariadic, Declaration, StructDeclaration, StructDeclarator, AbstractDeclarator, DirectAbstractDeclarator, ImplElement};
+use super::ast::{DeclarationSpecifierOrVariadic, Declaration, StructDeclaration, StructDeclarator, AbstractDeclarator, DirectAbstractDeclarator, ImplElement, StructLiteral};
 use super::ConstExpr;
 use super::types::*;
 use super::defines::*;
@@ -318,6 +318,7 @@ impl Parser {
 
         loop {
             if let Some((tok, pos)) = iter.peek() {
+println!("tok: {tok:?}");
                 match tok {
                     Token::Equal | Token::SemiColon | Token::ParenLeft | Token::BracketLeft | Token::Comma | Token::ParenRight => {
                         break;
@@ -532,18 +533,6 @@ impl Parser {
                                 match tok3 {
                                     Token::BraceLeft => {
                                         iter.next();  // skip '{'
-                
-                                        // let enum_list = self.parse_enumerator_list(iter, defs, labels)?;
-                                        // let definition = EnumDefinition::new(Some(name.clone()), Some(enum_list));
-                                        // let type_struct = Type::enum_from_enum_definition(Some(name.clone()), definition.clone());
-                                        // defs.set_enum(name, definition, pos3)?;
-                
-                                        // opt_type = Some((
-                                        //     type_struct,
-                                        //     pos.clone()
-                                        // ));
-                
-                                        // self.parse_expected_token(iter, Token::BraceRight)?;
 
                                         let type_struct = self.parse_enum_body(name, pos3, iter, defs, labels)?;
                                         opt_type = Some((
@@ -570,7 +559,7 @@ impl Parser {
                                         let type_struct = if let Some(t) = defs.get_type(&name) {
                                             Rc::clone(t)
                                         }else{
-                                            let definition = EnumDefinition::new_standard(Some(name.clone()), None);
+                                            let definition = EnumDefinition::new_standard(Some(name.clone()), Vec::new());
                                             let typ = Type::enum_from_enum_definition(Some(name.clone()), definition);
                                             Rc::new(typ)
                                         };
@@ -587,9 +576,9 @@ impl Parser {
                                 let (enum_list, is_tagged) = self.parse_enumerator_list(iter, defs, labels)?;
                                 let definition;
                                 if is_tagged {
-                                    definition = EnumDefinition::new_tagged(None, Some(enum_list));
+                                    definition = EnumDefinition::new_tagged(None, enum_list);
                                 }else{
-                                    definition = EnumDefinition::new_standard(None, Some(enum_list));
+                                    definition = EnumDefinition::new_standard(None, enum_list);
                                 }
                                 let type_struct = Type::enum_from_enum_definition(None, definition);
                                 opt_type = Some((
@@ -725,6 +714,7 @@ impl Parser {
         let (typ, pos) = if let Some((typ, pos)) = opt_type {
             (typ, pos)
         }else{
+println!("here.");
             return Err(ParserError::no_type_defined(opt_name, iter.peek().unwrap().1.clone()));
         };
         let typ = if let Some((true, _)) = opt_unsigned {
@@ -741,9 +731,9 @@ impl Parser {
 
         let definition;
         if is_tagged {
-            definition = EnumDefinition::new_tagged(Some(name.clone()), Some(enum_list));
+            definition = EnumDefinition::new_tagged(Some(name.clone()), enum_list);
         }else{
-            definition = EnumDefinition::new_standard(Some(name.clone()), Some(enum_list));
+            definition = EnumDefinition::new_standard(Some(name.clone()), enum_list);
         }
 
         let type_struct = Type::enum_from_enum_definition(Some(name.clone()), definition.clone());
@@ -898,16 +888,16 @@ impl Parser {
             let (tok2, pos2) = iter.peek().unwrap();
             if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
             match tok2 {
-                Token::BraceRight => {
+                Token::BraceRight => {  // '}'
                     enumerator = Enumerator::new(name, value);
                 },
-                Token::Assign => {
-                    iter.next();  // skip '='
-
+                Token::Assign => {      // '='
                     if is_tagged {
                         return Err(ParserError::tagged_enum_cannot_have_value(pos2.clone()));
                     }
                     is_standard = true;
+
+                    iter.next();  // skip '='
 
                     let const_val = self.parse_constant_expression(iter, defs, labels)?.ok_or(ParserError::enum_should_be_int(pos2.clone()))?;
                     let int_val = const_val.as_u32_value();
@@ -920,21 +910,42 @@ impl Parser {
                         iter.next();  // skip ','
                     }
                 },
-                Token::Comma => {
+                Token::Comma => {       // ','
                     iter.next();  // skip ','
                     enumerator = Enumerator::new(name, value);
                 },
-                Token::ParenLeft => {
-                    iter.next();  // skip '('
-
+                Token::ParenLeft => {   // '('
                     if is_standard {
                         return Err(ParserError::standard_enum_cannot_be_tagged(pos2.clone()));
                     }
                     is_tagged = true;
 
+                    iter.next();  // skip '('
+
                     let type_list = self.parse_type_list(iter, defs)?;
                     enumerator = Enumerator::new_tuple(name, type_list);
 
+                    let (tok3, pos3) = iter.peek().unwrap();
+                    if tok3.is_eof() { return Err(ParserError::illegal_end_of_input(pos3.clone())); }
+                    if *tok3 == Token::Comma {
+                        iter.next();  // skip ','
+                    }
+                },
+                Token::BraceLeft => {    // '{'
+                    if is_standard {
+                        return Err(ParserError::standard_enum_cannot_be_tagged(pos2.clone()));
+                    }
+                    is_tagged = true;
+
+                    iter.next();  // skip '{'
+
+                    let declaration = self.parse_struct_declaration_list(iter, defs, labels)?;
+                    let definition = StructDefinition::try_new(None, Some(declaration), pos2)?;
+
+                    self.parse_expected_token(iter, Token::BraceRight)?;
+
+                    enumerator = Enumerator::new_struct(name, definition);
+println!("enumerator: {enumerator:?}");
                     let (tok3, pos3) = iter.peek().unwrap();
                     if tok3.is_eof() { return Err(ParserError::illegal_end_of_input(pos3.clone())); }
                     if *tok3 == Token::Comma {
@@ -2042,21 +2053,47 @@ println!("expr: {:?}", expr);
                         Token::WColon => {
                             iter.next();  // skip '::'
 
-                            let (tok3, pos3) = iter.next().unwrap();
-                            if tok3.is_eof() { return Err(ParserError::illegal_end_of_input(pos3.clone())); }
+                            // let (tok3, pos3) = iter.next().unwrap();
+                            // if tok3.is_eof() { return Err(ParserError::illegal_end_of_input(pos3.clone())); }
 
-                            let elem_name = if let Token::Symbol(id) = tok3 {
-                                id
+                            // let elem_name = if let Token::Symbol(id) = tok3 {
+                            //     id
+                            // }else{
+                            //     return Err(ParserError::not_symbol(pos3.clone()));
+                            // };
+
+                            let opt_type = defs.get_type(name);
+                            if let Some(typ) = opt_type {
+                                let typ = Rc::clone(typ);  // lifetime対策
+
+                                let enum_init = self.parse_after_wcolon(&typ, name, iter, defs, labels)?;
+println!("enum_init: {enum_init:?}");
+                                match enum_init {
+                                    EnumInitializer::Symbol(elem_name) => {
+                                        Ok(Some(ExprAST::StructStaticSymbol(name.clone(), elem_name.clone(), pos.clone())))
+                                    },
+                                    EnumInitializer::Tuple(id, list) => {
+                                        unimplemented!()
+                                    },
+                                    EnumInitializer::Struct(id, expr) => {
+
+
+
+                                        unimplemented!()
+
+                                    },
+                                }
+
                             }else{
-                                return Err(ParserError::not_symbol(pos3.clone()));
-                            };
+                                return Err(ParserError::no_such_a_type(name, pos.clone()));
+                            }
 
-                            Ok(Some(ExprAST::StructStaticSymbol(name.clone(), elem_name.clone(), pos.clone())))
                         },
                         Token::BraceLeft => {  // parse struct literal
                             // check symbol(name) is struct
                             if let Some(cls) = defs.get_struct_type(name) {
-                                self.parse_struct_literal(Rc::clone(cls), name, pos, iter, defs, labels)
+                                let struct_literal = self.parse_struct_literal(Rc::clone(cls), name, pos, iter, defs, labels)?;
+                                Ok(Some(ExprAST::StructLiteral(struct_literal)))
                             }else if let Some(uni) = defs.get_union_type(name) {
                                 self.parse_union_literal(Rc::clone(uni), name, pos, iter, defs, labels)
                             }else{
@@ -2113,7 +2150,57 @@ println!("expr: {:?}", expr);
         }
     }
 
-    fn parse_struct_literal(&self, typ: Rc<Type>, name: &str, pos: &Position, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ExprAST>, ParserError> {
+    fn parse_after_wcolon(&self, typ: &Rc<Type>, enum_name: &str, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<EnumInitializer, ParserError> {
+        let (tok, pos) = iter.next().unwrap();
+        if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
+
+        let elem_name = if let Token::Symbol(id) = tok {
+            id
+        }else{
+            return Err(ParserError::not_symbol(pos.clone()));
+        };
+
+        let (tok2, pos2) = iter.peek().unwrap();
+        if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
+
+        match tok2 {
+            Token::ParenLeft => {  // '('
+                if typ.is_enum() {
+                    iter.next();  // skip '('
+
+
+
+
+                    unimplemented!()
+
+                }else{
+                    Ok(EnumInitializer::Symbol(elem_name.to_string()))
+                }
+            },
+            Token::BraceLeft => {  // '{'
+                if ! typ.is_enum() {
+                    return Ok(EnumInitializer::Symbol(elem_name.to_string()));
+                }
+
+                let enum_def = typ.get_enum_definition().unwrap();
+                let fields = enum_def.get_fields();
+                let index_map = enum_def.get_index_map().ok_or(ParserError::not_tagged_enum(pos.clone()))?;
+                let index = index_map.get(elem_name).ok_or(ParserError::no_such_a_field(enum_name.to_string(), elem_name.to_string(), pos.clone()))?;
+                let elem = &fields[*index];
+                let struct_type = elem.get_struct_type().ok_or(ParserError::not_struct_type_enum(enum_name.to_string(), elem_name.to_string(), pos.clone()))?;
+                let init = self.parse_struct_literal(Rc::clone(struct_type), enum_name, pos, iter, defs, labels)?;
+
+                // unimplemented!("init: {init:?}");
+
+                Ok(EnumInitializer::Struct(elem_name.to_string(), init))
+            },
+            _ => {
+                Ok(EnumInitializer::Symbol(elem_name.to_string()))
+            }
+        }
+    }
+
+    fn parse_struct_literal(&self, typ: Rc<Type>, name: &str, pos: &Position, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<StructLiteral, ParserError> {
         iter.next();  // skip '{'
 
         let mut map = HashMap::new();
@@ -2189,12 +2276,12 @@ println!("expr: {:?}", expr);
         }
 
         let struct_init = if all_const {
-            ExprAST::StructConstLiteral(typ, const_map, pos.clone())
+            StructLiteral::ConstLiteral(typ, const_map, pos.clone())
         }else{
-            ExprAST::StructLiteral(typ, map, pos.clone())
+            StructLiteral::NormalLiteral(typ, map, pos.clone())
         };
 
-        Ok(Some(struct_init))
+        Ok(struct_init)
     }
 
     fn parse_union_literal(&self, typ: Rc<Type>, name: &str, pos: &Position, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ExprAST>, ParserError> {

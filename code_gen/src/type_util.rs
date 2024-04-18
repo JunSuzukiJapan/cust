@@ -361,17 +361,15 @@ impl TypeUtil {
 
                 Ok(f_type.get_return_type().clone())
             },
-            ExprAST::StructLiteral(typ, _map, _pos) => {
-                Ok(typ.clone())
-            },
-            ExprAST::StructConstLiteral(typ, _map, _pos) => {
-                Ok(typ.clone())
+            ExprAST::StructLiteral(struct_literal) => {
+                let typ = struct_literal.get_type();
+                Ok(Rc::clone(typ))
             },
             ExprAST::UnionLiteral(typ, _map, _pos) => {
-                Ok(typ.clone())
+                Ok(Rc::clone(typ))
             },
             ExprAST::UnionConstLiteral(typ, _map, _pos) => {
-                Ok(typ.clone())
+                Ok(Rc::clone(typ))
             },
             ExprAST::DefVar { specifiers: _, declarations: _, pos: _ } => {
                 // maybe unreached???

@@ -78,6 +78,8 @@ pub enum ParserError {
     AlreadyGenericsTypeDefined(String, Position),
     TaggedEnumCannotHaveValue(Position),
     StandardEnumCannotBeTagged(Position),
+    NotTaggedEnum(Position),
+    NotStructTypeEnum(String, String, Position),
 }
 
 impl ParserError {
@@ -335,6 +337,14 @@ impl ParserError {
     pub fn standard_enum_cannot_be_tagged(pos: Position) -> Self {
         ParserError::StandardEnumCannotBeTagged(pos)
     }
+
+    pub fn not_tagged_enum(pos: Position) -> Self {
+        ParserError::NotTaggedEnum(pos)
+    }
+
+    pub fn not_struct_type_enum(enum_name: String, elem_name: String, pos: Position) -> Self {
+        ParserError::NotStructTypeEnum(enum_name, elem_name, pos)
+    }
 }
 
 impl From<TokenizerError> for ParserError {
@@ -417,6 +427,8 @@ impl fmt::Display for ParserError {
             Self::AlreadyGenericsTypeDefined(name, _pos) => write!(f, "already generics type '{name}' is defined"),
             Self::TaggedEnumCannotHaveValue(_pos) => write!(f, "tagged enum cannot have value"),
             Self::StandardEnumCannotBeTagged(_pos) => write!(f, "standard enum cannot be tagged"),
+            Self::NotTaggedEnum(_pos) => write!(f, "not tagged enum"),
+            Self::NotStructTypeEnum(enum_name, elem_name, _pos) => write!(f, "{enum_name}::{elem_name} is not struct type"),
         }
     }
 }

@@ -74,6 +74,26 @@ fn main() {
         }
     ";
 
+    let src = "
+        enum Foo {
+            Bar,
+            Zot {
+                int hoge;
+                int fuga;
+            }
+        };
+
+        int test() {
+            Foo foo;
+            foo = Foo::Zot {
+                hoge: 1;
+                fuga: 2;
+            };
+
+            return 0;
+        }
+    ";
+
     // tokenize
     let tokenized = Tokenizer::tokenize(src).unwrap();
     // parse

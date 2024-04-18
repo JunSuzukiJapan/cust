@@ -1,7 +1,8 @@
 #![allow(dead_code)]
 
 use super::{ParserError, StructDeclaration, SpecifierQualifier};
-use crate::Position;
+use crate::ast::StructLiteral;
+use crate::{ExprAST, Position};
 
 use std::cmp::Ordering;
 use std::fmt;
@@ -412,21 +413,27 @@ impl StructDefinition {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Enumerator {
+    //
     // EnumName::FieldName
+    //
     Const {
         name: String,
         const_value: u32,
     },
+    //
     // EnumName::FieldName(Type1, Type2, ..)
+    //
     TypeTuple {
         name: String,
         type_list: Vec<(Rc<Type>, u32)>,
     },
+    //
     // EnumName::FieldName {name1: Type1, name2: Type2, ..}
+    //
     TypeStruct {
         name: String,
-        map: HashMap<String, (Rc<Type>, u32)>,
-        type_list: Vec<(Rc<Type>, u32)>,
+        // definition: StructDefinition,
+        struct_type: Rc<Type>,
     }
 }
 
@@ -439,6 +446,11 @@ impl Enumerator {
         Enumerator::TypeTuple { name: name.to_string(), type_list: list }
     }
 
+    pub fn new_struct(name: &str, definition: StructDefinition) -> Enumerator {
+        let struct_type = Type::struct_from_struct_definition(None, definition);
+        Enumerator::TypeStruct { name: name.to_string(), struct_type: Rc::new(struct_type) }
+    }
+
     #[inline]
     pub fn get_name(&self) -> &str {
         match self {
@@ -447,24 +459,31 @@ impl Enumerator {
             Enumerator::TypeStruct { name, .. } => name,
         }
     }
+
+    pub fn get_struct_type(&self) -> Option<&Rc<Type>> {
+        match self {
+            Enumerator::TypeStruct { struct_type, .. } => Some(struct_type),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum EnumDefinition {
     StandardEnum {
         name: Option<String>,
-        fields: Option<Vec<Enumerator>>,
-        index_map: Option<HashMap<String, usize>>,
+        fields: Vec<Enumerator>,
+        index_map: HashMap<String, usize>,
     },
     TaggedEnum {
         name: Option<String>,
-        fields: Option<Vec<Enumerator>>,
-        index_map: Option<HashMap<String, usize>>,
+        fields: Vec<Enumerator>,
+        index_map: HashMap<String, usize>,
     },
 }
 
 impl EnumDefinition {
-    pub fn new_standard(enum_name: Option<String>, enum_list: Option<Vec<Enumerator>>) -> EnumDefinition {
+    pub fn new_standard(enum_name: Option<String>, enum_list: Vec<Enumerator>) -> EnumDefinition {
         let index_map = Self::make_map_from_vec(&enum_list);
         EnumDefinition::StandardEnum {
             name: enum_name,
@@ -473,7 +492,7 @@ impl EnumDefinition {
         }
     }
 
-    pub fn new_tagged(enum_name: Option<String>, enum_list: Option<Vec<Enumerator>>) -> EnumDefinition {
+    pub fn new_tagged(enum_name: Option<String>, enum_list: Vec<Enumerator>) -> EnumDefinition {
         let index_map = Self::make_map_from_vec(&enum_list);
         EnumDefinition::TaggedEnum {
             name: enum_name,
@@ -482,30 +501,40 @@ impl EnumDefinition {
         }
     }
 
-    fn make_map_from_vec(enumerators: &Option<Vec<Enumerator>>) -> Option<HashMap<String, usize>> {
-        if let Some(list) = enumerators {
-            let mut index_map: HashMap<String, usize> = HashMap::new();
-            let mut index = 0;
+    fn make_map_from_vec(enumerators: &Vec<Enumerator>) -> HashMap<String, usize> {
+        let mut index_map: HashMap<String, usize> = HashMap::new();
+        let mut index = 0;
 
-            for enumerator in list {
-                let id = enumerator.get_name();
-                index_map.insert(id.to_string(), index);
+        for enumerator in enumerators {
+            let id = enumerator.get_name();
+            index_map.insert(id.to_string(), index);
 
-                index += 1;
-            }
-
-            Some(index_map)
-        }else{
-            None
+            index += 1;
         }
+
+        index_map
     }
 
-    pub fn get_fields(&self) -> &Option<Vec<Enumerator>> {
+    pub fn get_fields(&self) -> &Vec<Enumerator> {
         match self {
             EnumDefinition::StandardEnum { fields, .. } => &fields,
             EnumDefinition::TaggedEnum { fields, .. } => &fields,
         }
     }
+
+    pub fn get_index_map(&self) -> Option<&HashMap<String, usize>> {
+        match self {
+            EnumDefinition::TaggedEnum { index_map, .. } => Some(index_map),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum EnumInitializer {
+    Symbol(String),
+    Tuple(String, Vec<ExprAST>),
+    Struct(String, StructLiteral),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -627,6 +656,46 @@ impl Type {
         }
     }
 
+    pub fn is_struct(&self) -> bool {
+        match self {
+            Type::Struct {..} => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_union(&self) -> bool {
+        match self {
+            Type::Union {..} => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_enum(&self) -> bool {
+        match self {
+            Type::Enum { .. } => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_number(&self) -> bool {
+        match self {
+            Type::Number(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_signed(&self) -> Result<bool, ParserError> {
+        match self {
+            // Type::Number(NumberType::_Bool) => Ok(false),
+            Type::Number(NumberType::Char) => Ok(true),
+            Type::Number(NumberType::Short) => Ok(true),
+            Type::Number(NumberType::Int) => Ok(true),
+            Type::Number(NumberType::Long) => Ok(true),
+            Type::Number(NumberType::LongLong) => Ok(true),
+            _ => Ok(false)
+        }
+    }
+
     pub fn get_array_dimension(&self) -> &Vec<usize> {
         match self {
             Type::Array { size_list, .. } => size_list,
@@ -648,13 +717,6 @@ impl Type {
         }
     }
 
-    pub fn is_struct(&self) -> bool {
-        match self {
-            Type::Struct {..} => true,
-            _ => false,
-        }
-    }
-
     pub fn get_struct_fields(&self) -> Option<&Vec<StructField>> {
         match self {
             Type::Struct {fields, ..} => fields.get_fields(),
@@ -665,6 +727,13 @@ impl Type {
     pub fn get_union_fields(&self) -> Option<&Vec<StructField>> {
         match self {
             Type::Union { name: _, fields } => fields.get_fields(),
+            _ => None,
+        }
+    }
+
+    pub fn get_enum_definition(&self) -> Option<&EnumDefinition> {
+        match self {
+            Type::Enum { enum_def, .. } => Some(enum_def),
             _ => None,
         }
     }
@@ -690,25 +759,6 @@ impl Type {
             Ok(&fun_type.ret_type)
         }else{
             Err(ParserError::not_function(self, pos.clone()))
-        }
-    }
-
-    pub fn is_number(&self) -> bool {
-        match self {
-            Type::Number(_) => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_signed(&self) -> Result<bool, ParserError> {
-        match self {
-            // Type::Number(NumberType::_Bool) => Ok(false),
-            Type::Number(NumberType::Char) => Ok(true),
-            Type::Number(NumberType::Short) => Ok(true),
-            Type::Number(NumberType::Int) => Ok(true),
-            Type::Number(NumberType::Long) => Ok(true),
-            Type::Number(NumberType::LongLong) => Ok(true),
-            _ => Ok(false)
         }
     }
 
@@ -772,13 +822,6 @@ impl Type {
                 }
             }
             _ => String::from("<<no such a type>>"),
-        }
-    }
-
-    pub fn is_union(&self) -> bool {
-        match self {
-            Type::Union {..} => true,
-            _ => false,
         }
     }
 
