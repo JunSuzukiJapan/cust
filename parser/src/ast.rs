@@ -746,6 +746,25 @@ impl StructLiteral {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum EnumLiteral {
+    // None,
+    Struct(StructLiteral),
+    Tuple,
+}
+
+impl EnumLiteral {
+    pub fn get_type(&self) -> &Rc<Type> {
+        match self {
+            // Self::None => &Rc::new(Type::Number(crate::NumberType::Int)),
+            Self::Struct(literal) => literal.get_type(),
+            Self::Tuple => {
+                unimplemented!()
+            },
+        }
+    }
+}
+
 #[allow(non_camel_case_types)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum ExprAST {
@@ -800,6 +819,7 @@ pub enum ExprAST {
     StructLiteral(StructLiteral),
     UnionLiteral(Rc<Type>, Vec<(String, Box<ExprAST>)>, Position),
     UnionConstLiteral(Rc<Type>, Vec<(String, ConstExpr)>, Position),
+    EnumLiteral(EnumLiteral, Position),
 }
 
 impl ExprAST {
@@ -860,7 +880,9 @@ impl ExprAST {
             ExprAST::DefVar { specifiers: _, declarations: _, pos } => pos,
             ExprAST::StructLiteral(literal) => literal.get_position(),
             ExprAST::UnionLiteral(_typ, _map, pos) => pos,
-            ExprAST::UnionConstLiteral(_typ, _map, pos) => pos,        }
+            ExprAST::UnionConstLiteral(_typ, _map, pos) => pos,
+            ExprAST::EnumLiteral(_, pos) => pos,
+        }
     }
 
     pub fn is_symbol(&self) -> bool {

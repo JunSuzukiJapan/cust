@@ -3,7 +3,8 @@
 use super::{Position, Token};
 use super::ParserError;
 use super::ast::{AST, ToplevelAST, ExprAST, Block, Param, Params, BinOp, TypeQualifier, DeclarationSpecifier, SpecifierQualifier, Declarator, DirectDeclarator, Initializer};
-use super::ast::{DeclarationSpecifierOrVariadic, Declaration, StructDeclaration, StructDeclarator, AbstractDeclarator, DirectAbstractDeclarator, ImplElement, StructLiteral};
+use super::ast::{DeclarationSpecifierOrVariadic, Declaration, StructDeclaration, StructDeclarator, AbstractDeclarator, DirectAbstractDeclarator, ImplElement};
+use super::ast::{StructLiteral, EnumLiteral};
 use super::ConstExpr;
 use super::types::*;
 use super::defines::*;
@@ -2053,15 +2054,6 @@ println!("expr: {:?}", expr);
                         Token::WColon => {
                             iter.next();  // skip '::'
 
-                            // let (tok3, pos3) = iter.next().unwrap();
-                            // if tok3.is_eof() { return Err(ParserError::illegal_end_of_input(pos3.clone())); }
-
-                            // let elem_name = if let Token::Symbol(id) = tok3 {
-                            //     id
-                            // }else{
-                            //     return Err(ParserError::not_symbol(pos3.clone()));
-                            // };
-
                             let opt_type = defs.get_type(name);
                             if let Some(typ) = opt_type {
                                 let typ = Rc::clone(typ);  // lifetime対策
@@ -2075,12 +2067,9 @@ println!("enum_init: {enum_init:?}");
                                     EnumInitializer::Tuple(id, list) => {
                                         unimplemented!()
                                     },
-                                    EnumInitializer::Struct(id, expr) => {
-
-
-
-                                        unimplemented!()
-
+                                    EnumInitializer::Struct(id, struct_literal) => {
+                                        let literal = EnumLiteral::Struct(struct_literal);
+                                        Ok(Some(ExprAST::EnumLiteral(literal, pos.clone())))
                                     },
                                 }
 
@@ -2189,8 +2178,6 @@ println!("enum_init: {enum_init:?}");
                 let elem = &fields[*index];
                 let struct_type = elem.get_struct_type().ok_or(ParserError::not_struct_type_enum(enum_name.to_string(), elem_name.to_string(), pos.clone()))?;
                 let init = self.parse_struct_literal(Rc::clone(struct_type), enum_name, pos, iter, defs, labels)?;
-
-                // unimplemented!("init: {init:?}");
 
                 Ok(EnumInitializer::Struct(elem_name.to_string(), init))
             },

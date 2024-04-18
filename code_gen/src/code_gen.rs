@@ -865,6 +865,12 @@ impl<'ctx> CodeGen<'ctx> {
                 let any_val = basic_val.as_any_value_enum();
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
+            ExprAST::EnumLiteral(literal, pos) => {
+
+
+
+                unimplemented!()
+            }
         }
     }
 
