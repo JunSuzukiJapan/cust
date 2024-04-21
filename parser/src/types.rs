@@ -825,7 +825,8 @@ impl Type {
                 if let Some(id) = name {
                     id.clone()
                 }else{
-                    panic!("no named struct")
+                    // panic!("no named struct")
+                    String::from("<no named struct>")
                 }
             }
             _ => String::from("<<no such a type>>"),
