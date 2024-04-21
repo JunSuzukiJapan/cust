@@ -30,7 +30,7 @@ use std::error::Error;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-// use inkwell::data_layout::DataLayout;
+type EnumTagType = u32;
 
 #[cfg(test)]
 #[allow(unused_macros)]
@@ -2043,32 +2043,163 @@ println!("is not array global. {:?}", init);
 
     pub fn gen_define_enum<'b, 'c>(
         &self,
-        name: &Option<String>,
+        enum_name: &Option<String>,
         enum_def: &EnumDefinition,
         env: &mut Env<'ctx>,
-        _break_catcher: Option<&'b BreakCatcher>,
-        _continue_catcher: Option<&'c ContinueCatcher>,
+        break_catcher: Option<&'b BreakCatcher>,
+        continue_catcher: Option<&'c ContinueCatcher>,
         pos: &Position
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<Option<AnyTypeEnum<'ctx>>, Box<dyn Error>> {
 
         match enum_def {
             EnumDefinition::StandardEnum { fields, .. } => {
                 let (enumerator_list, index_map) = self.enum_from_enum_standard(fields, env)?;
-                if let Some(id) = name {
+                if let Some(id) = enum_name {
                     let i32_type = self.context.i32_type();
                     env.insert_enum_const(id, &i32_type, enumerator_list, index_map, pos)?;
                 }
+
+                Ok(None)
             },
             EnumDefinition::TaggedEnum { fields, .. } => {
+                let (type_list, index_map, max_size, max_size_type) = Self::tagged_enum_from_enum_definition(enum_name, fields, env, break_catcher, continue_catcher, self.context, pos)?;
+                if let Some(id) = enum_name {
+                    env.insert_tagged_enum(id, type_list, index_map, max_size, max_size_type, pos)?;
+                }
+        
+                if let Some(t) = max_size_type {
+                    Ok(Some(t.as_any_type_enum()))
+                }else{
+                    Ok(None)
+                }
+            },
+        }
+    }
+
+    fn tagged_enum_from_enum_definition<'b, 'c>(
+        enum_name: &Option<String>,
+        fields: &Vec<Enumerator>,
+        env: &mut Env<'ctx>,
+        _break_catcher: Option<&'b BreakCatcher>,
+        _continue_catcher: Option<&'c ContinueCatcher>,
+        ctx: &'ctx Context,
+        pos: &Position
+    ) -> Result<(Vec<(Rc<Type>, BasicTypeEnum<'ctx>)>, HashMap<String, usize>, u64, Option<BasicTypeEnum<'ctx>>), Box<dyn Error>> {
+
+        let mut list = Vec::new();
+        let mut index_map: HashMap<String, usize> = HashMap::new();
+        let mut index = 0;
+        let mut max_size = 0;
+        let mut max_size_type: Option<BasicTypeEnum> = None;
+ 
+        let tag_type = Type::Number(NumberType::Int);
+        let tag_basic_type = TypeUtil::to_basic_type_enum(&tag_type, ctx, pos)?;
+        let rc_tag_type = Rc::new(tag_type);
+        let tag_size = Self::size_of(&tag_basic_type)?;
+
+        for field in fields {
+            match field {
+                Enumerator::Const { name, .. } => {
+                    list.push((Rc::clone(&rc_tag_type), tag_basic_type.clone()));
+
+                    let size = tag_size;
+                    if size > max_size {
+                        max_size = size;
+                        max_size_type = Some(tag_basic_type);
+                    }
+
+                    if max_size_type.is_none() {
+                        max_size = size;
+                        max_size_type = Some(tag_basic_type.clone())
+                    }
+
+                    index_map.insert(name.clone(), index);
+                },
+                Enumerator::TypeStruct { name, struct_type } => {
+                    let def = struct_type.get_struct_definition().unwrap();
+
+                    let typ = Type::struct_from_struct_definition(Some(name.to_string()), def.clone());
+                    let t = TypeUtil::to_basic_type_enum(&typ, ctx, pos)?;
+                    let t = Self::add_tag_type(tag_basic_type, t, ctx);
+                    list.push((Rc::new(typ), t.clone()));
+println!("tagged type: {t:?}");
+                    // let size = Self::size_of(&t)? + tag_size;
+                    let size = Self::size_of(&t)?;
+                    if size > max_size {
+                        max_size = size;
+                        max_size_type = Some(t);
+                    }
+
+                    if max_size_type.is_none() {
+                        max_size = size;
+                        max_size_type = Some(t.clone())
+                    }
+
+                    index_map.insert(name.clone(), index);
+                },
+                Enumerator::TypeTuple { name, type_list } => {
 
 
 
+
+
+                    unimplemented!()
+                },
+            }
+
+            index += 1;
+        }
+
+        Ok((list, index_map, max_size, max_size_type))
+    }
+
+    fn add_tag_type(tag_type: BasicTypeEnum,  typ: BasicTypeEnum, ctx: &'ctx Context) -> BasicTypeEnum<'ctx> {
+        let mut vec = Vec::new();
+
+        vec.push(tag_type);
+        vec.push(typ);
+
+        let struct_type = ctx.struct_type(&vec, false);
+        BasicTypeEnum::StructType(struct_type)
+    }
+
+/*
+    fn calc_enum_max_bytes(&self, fields: &Vec<Enumerator>, ctx: &'ctx Context, pos: &Position) -> Result<(usize, usize), CodeGenError> {
+        let mut index = 0;
+        let mut max = 0;
+        let mut max_index = 0;
+
+        for elem in fields {
+            let bytes = self.calc_enum_bytes(elem, ctx, pos)?;
+            if bytes > max {
+                max = bytes;
+                max_index = index;
+            }
+
+            index += 1;
+        }
+
+        Ok((max, max_index))
+    }
+
+    fn calc_enum_bytes(&self, field: &Enumerator, ctx: &'ctx Context, pos: &Position) -> Result<usize, CodeGenError> {
+        match field {
+            Enumerator::Const { .. } => {
+                let typ = Type::Number(NumberType::Int);
+                let llvm_type = TypeUtil::to_llvm_any_type(&typ, ctx, pos)?;
+                let size = llvm_type.size_of().ok_or(CodeGenError::cannot_get_size_of(typ.clone(), pos.clone()))?;
+                let size = size.get_zero_extended_constant().unwrap();
+                Ok(size as usize)
+            },
+            Enumerator::TypeStruct { name, struct_type } => {
+                unimplemented!()
+            },
+            Enumerator::TypeTuple { name, type_list } => {
                 unimplemented!()
             },
         }
-
-        Ok(())
     }
+*/
 
     pub fn enum_from_enum_standard(&self, fields: &Vec<Enumerator>, _env: &mut Env<'ctx>) -> Result<(Vec<(String, IntValue<'ctx>)>, HashMap<String, usize>), CodeGenError> {
         let mut enumerator_list: Vec<(String, IntValue<'ctx>)> = Vec::new();

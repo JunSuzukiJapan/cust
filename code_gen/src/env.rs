@@ -166,6 +166,13 @@ pub enum TypeOrUnion<'ctx> {
         enumerator_list: Vec<(String, IntValue<'ctx>)>,
         index_map: HashMap<String,usize>,
     },
+    TaggedEnum {
+        name: String,
+        type_list: Vec<(Rc<Type>, BasicTypeEnum<'ctx>)>,
+        index_map: HashMap<String, usize>,
+        max_size: u64,
+        max_size_type: Option<BasicTypeEnum<'ctx>>,
+    },
     TypeDefStruct(String, *const TypeOrUnion<'ctx>),
     TypeDefUnion(String, *const TypeOrUnion<'ctx>),
 }
@@ -198,6 +205,13 @@ impl<'ctx> TypeOrUnion<'ctx> {
                 }
             },
             TypeOrUnion::StandardEnum {i32_type, ..} => AnyTypeEnum::IntType(*i32_type),
+            TypeOrUnion::TaggedEnum { max_size_type, .. } => {
+                if let Some(t) = max_size_type {
+                    t.as_any_type_enum()
+                }else{
+                    panic!("no type in enum");
+                }
+            },
             TypeOrUnion::TypeDefStruct(_struct_name, raw_ptr) => {
                 let t = unsafe {
                     raw_ptr.as_ref().unwrap()
@@ -614,6 +628,25 @@ impl<'ctx> Env<'ctx> {
         Ok(())
     }
 
+    pub fn insert_tagged_enum(
+        &mut self,
+        key: &str,
+        type_list: Vec<(Rc<Type>, BasicTypeEnum<'ctx>)>,
+        index_map: HashMap<String, usize>,
+        max_size: u64,
+        max_size_type: Option<BasicTypeEnum<'ctx>>,
+        pos: &Position
+    ) -> Result<(), CodeGenError> {
+        if let Some(_any_type_enum) = self.types.get(key) {
+            return Err(CodeGenError::already_type_defined_in_enum(key, pos.clone()));
+        }
+
+        let type_or_union = TypeOrUnion::TaggedEnum { name: key.to_string(), type_list, index_map: index_map.clone(), max_size, max_size_type };
+        self.types.insert(key.to_string(), (TypeOrUnion::Type(type_or_union.as_any_type_enum()), Some(index_map)));
+
+        Ok(())
+    }
+
     pub fn basic_type_enum_from_type(&self, typ: &Type, ctx: &'ctx Context, pos: &Position) -> Result<BasicTypeEnum<'ctx>, Box<dyn Error>> {
         match typ {
             Type::Struct { name, fields } => {
@@ -640,14 +673,18 @@ impl<'ctx> Env<'ctx> {
                                 TypeOrUnion::StandardEnum { i32_type, .. } => {
                                     return Ok(i32_type.as_basic_type_enum());
                                 },
+                                TypeOrUnion::TaggedEnum { name, max_size_type, .. } => {
+                                    let t = max_size_type.ok_or(CodeGenError::enum_has_no_field(name.to_string(), pos.clone()))?;
+                                    if let Ok(basic_type) = BasicTypeEnum::try_from(t) {
+                                        return Ok(basic_type);
+                                    }else{
+                                        return Err(Box::new(CodeGenError::mismatch_type_enum_fields(name.to_string(), pos.clone())));
+                                    }
+                                },
                                 TypeOrUnion::TypeDefStruct(_name, raw_ptr) => {
-                                    // let t = self.get_type(name).unwrap();
-                                    // type_or_union = t;
                                     type_or_union = unsafe { raw_ptr.as_ref().unwrap() };
                                 },
                                 TypeOrUnion::TypeDefUnion(_name, raw_ptr) => {
-                                    // let t = self.get_type(name).unwrap();
-                                    // type_or_union = t;
                                     type_or_union = unsafe { raw_ptr.as_ref().unwrap() };
                                 },
                             }
@@ -686,6 +723,14 @@ impl<'ctx> Env<'ctx> {
                                 },
                                 TypeOrUnion::StandardEnum { i32_type, .. } => {
                                     return Ok(i32_type.as_basic_type_enum());
+                                },
+                                TypeOrUnion::TaggedEnum { name, max_size_type, .. } => {
+                                    let t = max_size_type.ok_or(CodeGenError::enum_has_no_field(name.to_string(), pos.clone()))?;
+                                    if let Ok(basic_type) = BasicTypeEnum::try_from(t) {
+                                        return Ok(basic_type);
+                                    }else{
+                                        return Err(Box::new(CodeGenError::mismatch_type_enum_fields(name.to_string(), pos.clone())));
+                                    }
                                 },
                                 TypeOrUnion::TypeDefStruct(_name, raw_ptr) => {
                                     // let t = self.get_type(name).unwrap();

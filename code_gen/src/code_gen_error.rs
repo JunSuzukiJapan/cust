@@ -12,9 +12,12 @@ pub enum CodeGenError {
     AlreadyTypeDefinedInStruct(String, Position),
     AlreadyTypeDefinedInUnion(String, Position),
     AlreadyTypeDefinedInTypedef(Type, String, Position),
+    AlreadyTypeDefinedInEnum(String, Position),
     UnionHasNoField(Option<String>, Position),
+    EnumHasNoField(String, Position),
     MismatchTypeUnionFields(Option<String>, Position),
     MismatchTypeStructFields(Option<String>, Position),
+    MismatchTypeEnumFields(String, Position),
     NoSuchAType(String, Position),
     CannotConvertToGlobalValue(Position),
     CannotConvertToLocalPointer(Position),
@@ -127,8 +130,16 @@ impl CodeGenError {
         Self::AlreadyTypeDefinedInTypedef(typ.clone(), key.to_string(), pos)
     }
 
+    pub fn already_type_defined_in_enum(key: &str, pos: Position) -> Self {
+        Self::AlreadyTypeDefinedInEnum(key.to_string(), pos)
+    }
+
     pub fn union_has_no_field(opt_id: Option<String>, pos: Position) -> Self {
         Self::UnionHasNoField(opt_id, pos)
+    }
+
+    pub fn enum_has_no_field(id: String, pos: Position) -> Self {
+        Self::EnumHasNoField(id, pos)
     }
 
     pub fn mismatch_type_union_fields(opt_id: Option<&str>, pos: Position) -> Self {
@@ -147,6 +158,10 @@ impl CodeGenError {
             None
         };
         Self::MismatchTypeStructFields(opt_name, pos)
+    }
+
+    pub fn mismatch_type_enum_fields(id: String, pos: Position) -> Self {
+        Self::MismatchTypeEnumFields(id, pos)
     }
 
     pub fn no_such_a_type(name: &str, pos: Position) -> Self {
@@ -495,12 +510,18 @@ impl fmt::Display for CodeGenError {
             Self::AlreadyTypeDefinedInTypedef(_typ, id, _pos) => {
                 write!(f, "already type defined {id}")
             },
+            Self::AlreadyTypeDefinedInEnum(id, _pos) => {
+                write!(f, "already type defined in enum. {id}")
+            },
             Self::UnionHasNoField(opt_id, _pos) => {
                 if let Some(id) = opt_id {
                     write!(f, "union {id} has no field")
                 }else{
                     write!(f, "union has no field")
                 }
+            },
+            Self::EnumHasNoField(id, _pos) => {
+                write!(f, "enum {id} has no field")
             },
             Self::MismatchTypeUnionFields(opt_id, _pos) => {
                 if let Some(id) = opt_id {
@@ -515,6 +536,9 @@ impl fmt::Display for CodeGenError {
                 }else{
                     write!(f, "mismatch type struct fields")
                 }
+            },
+            Self::MismatchTypeEnumFields(id, _pos) => {
+                write!(f, "mismatch type enum fields {id}")
             },
             Self::NoSuchAType(id, _pos) => {
                 write!(f, "no such a type '{id}'")

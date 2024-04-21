@@ -319,7 +319,6 @@ impl Parser {
 
         loop {
             if let Some((tok, pos)) = iter.peek() {
-println!("tok: {tok:?}");
                 match tok {
                     Token::Equal | Token::SemiColon | Token::ParenLeft | Token::BracketLeft | Token::Comma | Token::ParenRight => {
                         break;
@@ -946,7 +945,7 @@ println!("here.");
                     self.parse_expected_token(iter, Token::BraceRight)?;
 
                     enumerator = Enumerator::new_struct(name, definition);
-println!("enumerator: {enumerator:?}");
+
                     let (tok3, pos3) = iter.peek().unwrap();
                     if tok3.is_eof() { return Err(ParserError::illegal_end_of_input(pos3.clone())); }
                     if *tok3 == Token::Comma {
@@ -2059,7 +2058,6 @@ println!("expr: {:?}", expr);
                                 let typ = Rc::clone(typ);  // lifetime対策
 
                                 let enum_init = self.parse_after_wcolon(&typ, name, iter, defs, labels)?;
-println!("enum_init: {enum_init:?}");
                                 match enum_init {
                                     EnumInitializer::Symbol(elem_name) => {
                                         Ok(Some(ExprAST::StructStaticSymbol(name.clone(), elem_name.clone(), pos.clone())))

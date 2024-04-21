@@ -724,6 +724,13 @@ impl Type {
         }
     }
 
+    pub fn get_struct_definition(&self) -> Option<&StructDefinition> {
+        match self {
+            Type::Struct { fields, .. } => Some(fields),
+            _ => None,
+        }
+    }
+
     pub fn get_union_fields(&self) -> Option<&Vec<StructField>> {
         match self {
             Type::Union { name: _, fields } => fields.get_fields(),
