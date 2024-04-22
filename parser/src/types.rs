@@ -501,6 +501,13 @@ impl EnumDefinition {
         }
     }
 
+    pub fn is_standard(&self) -> bool {
+        match self {
+            EnumDefinition::StandardEnum { .. } => true,
+            _ => false,
+        }
+    }
+
     fn make_map_from_vec(enumerators: &Vec<Enumerator>) -> HashMap<String, usize> {
         let mut index_map: HashMap<String, usize> = HashMap::new();
         let mut index = 0;
@@ -598,7 +605,7 @@ pub enum Type {
         size_list: Vec<usize>,
     },
     Enum {
-        name: Option<String>,
+        name: String,
         enum_def: EnumDefinition,
     },
     GenericType(GenericType),
@@ -628,7 +635,7 @@ impl Type {
         Type::Union { name, fields }
     }
 
-    pub fn enum_from_enum_definition(name: Option<String>, enum_def: EnumDefinition) -> Type {
+    pub fn enum_from_enum_definition(name: String, enum_def: EnumDefinition) -> Type {
         Type::Enum { name: name, enum_def: enum_def }
     }
 
@@ -883,11 +890,7 @@ impl fmt::Display for Type {
                 write!(f, "union {}", name)
             },
             Type::Enum { name, enum_def: _} => {
-                if let Some(s) = name {
-                    write!(f, "Enum {}", s)
-                }else{
-                    write!(f, "Enum <no name>")
-                }
+                write!(f, "Enum {}", name)
             },
             Type::Array { name, typ: _, size_list } => {
                 if let Some(id) = name {

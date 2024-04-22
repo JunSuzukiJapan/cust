@@ -560,7 +560,7 @@ impl Parser {
                                             Rc::clone(t)
                                         }else{
                                             let definition = EnumDefinition::new_standard(Some(name.clone()), Vec::new());
-                                            let typ = Type::enum_from_enum_definition(Some(name.clone()), definition);
+                                            let typ = Type::enum_from_enum_definition(name.clone(), definition);
                                             Rc::new(typ)
                                         };
                 
@@ -571,23 +571,23 @@ impl Parser {
                                     },
                                 }
                             },
-                            Token::BraceLeft => {
-                                iter.next();  // skip '{'
-                                let (enum_list, is_tagged) = self.parse_enumerator_list(iter, defs, labels)?;
-                                let definition;
-                                if is_tagged {
-                                    definition = EnumDefinition::new_tagged(None, enum_list);
-                                }else{
-                                    definition = EnumDefinition::new_standard(None, enum_list);
-                                }
-                                let type_struct = Type::enum_from_enum_definition(None, definition);
-                                opt_type = Some((
-                                    Rc::new(type_struct),
-                                    pos.clone()
-                                ));
+                            // Token::BraceLeft => {
+                            //     iter.next();  // skip '{'
+                            //     let (enum_list, is_tagged) = self.parse_enumerator_list(iter, defs, labels)?;
+                            //     let definition;
+                            //     if is_tagged {
+                            //         definition = EnumDefinition::new_tagged(None, enum_list);
+                            //     }else{
+                            //         definition = EnumDefinition::new_standard(None, enum_list);
+                            //     }
+                            //     let type_struct = Type::enum_from_enum_definition(None, definition);
+                            //     opt_type = Some((
+                            //         Rc::new(type_struct),
+                            //         pos.clone()
+                            //     ));
                 
-                                self.parse_expected_token(iter, Token::BraceRight)?;
-                            },
+                            //     self.parse_expected_token(iter, Token::BraceRight)?;
+                            // },
                             _ => {
                                 println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                                 return Err(ParserError::syntax_error(pos2.clone()));
@@ -736,7 +736,7 @@ println!("here.");
             definition = EnumDefinition::new_standard(Some(name.clone()), enum_list);
         }
 
-        let type_struct = Type::enum_from_enum_definition(Some(name.clone()), definition.clone());
+        let type_struct = Type::enum_from_enum_definition(name.clone(), definition.clone());
         defs.set_enum(name, definition, pos3)?;
 
         self.parse_expected_token(iter, Token::BraceRight)?;

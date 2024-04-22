@@ -2085,7 +2085,7 @@ println!("is not array global. {:?}", init);
 
     pub fn gen_define_enum<'b, 'c>(
         &self,
-        enum_name: &Option<String>,
+        enum_name: &str,
         enum_def: &EnumDefinition,
         env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
@@ -2096,18 +2096,14 @@ println!("is not array global. {:?}", init);
         match enum_def {
             EnumDefinition::StandardEnum { fields, .. } => {
                 let (enumerator_list, index_map) = self.enum_from_enum_standard(fields, env)?;
-                if let Some(id) = enum_name {
-                    let i32_type = self.context.i32_type();
-                    env.insert_enum_const(id, &i32_type, enumerator_list, index_map, pos)?;
-                }
+                let i32_type = self.context.i32_type();
+                env.insert_enum_const(enum_name.into(), &i32_type, enumerator_list, index_map, pos)?;
 
                 Ok(None)
             },
             EnumDefinition::TaggedEnum { fields, .. } => {
                 let (type_list, index_map, max_size, max_size_type) = Self::tagged_enum_from_enum_definition(enum_name, fields, &self.enum_tag_type, env, break_catcher, continue_catcher, self.context, pos)?;
-                if let Some(id) = enum_name {
-                    env.insert_tagged_enum(id, type_list, index_map, max_size, max_size_type, pos)?;
-                }
+                env.insert_tagged_enum(enum_name.into(), type_list, index_map, max_size, max_size_type, pos)?;
         
                 if let Some(t) = max_size_type {
                     Ok(Some(t.as_any_type_enum()))
@@ -2119,7 +2115,7 @@ println!("is not array global. {:?}", init);
     }
 
     fn tagged_enum_from_enum_definition<'b, 'c>(
-        enum_name: &Option<String>,
+        enum_name: &str,
         fields: &Vec<Enumerator>,
         tag_type: &Rc<Type>,
         env: &mut Env<'ctx>,

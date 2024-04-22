@@ -754,8 +754,16 @@ impl<'ctx> Env<'ctx> {
                     Ok(max_size_type)
                 }
             },
-            Type::Enum { name: _, enum_def: _ } => {
-                Ok(BasicTypeEnum::IntType(ctx.i32_type()))
+            Type::Enum { name, enum_def } => {
+                if enum_def.is_standard() {
+                    Ok(BasicTypeEnum::IntType(ctx.i32_type()))
+                }else{
+
+
+
+
+                    unimplemented!()
+                }
             },
             _ => {
                 Ok(TypeUtil::to_basic_type_enum(typ, ctx, pos)?)

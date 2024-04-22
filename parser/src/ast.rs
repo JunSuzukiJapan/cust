@@ -1093,7 +1093,7 @@ pub enum ToplevelAST {
         pos: Position,
     },
     DefineEnum {
-        name: Option<String>,
+        name: String,
         fields: EnumDefinition,
         pos: Position,
     },

@@ -93,7 +93,7 @@ impl DefineType {
     }
 
     pub fn new_enum(name: &str, enum_def: EnumDefinition) -> DefineType {
-        let enum_type = Type::Enum { name: Some(name.to_string()), enum_def: enum_def };
+        let enum_type = Type::Enum { name: name.to_string(), enum_def: enum_def };
         DefineType::Enum {
             enum_type: Rc::new(enum_type),
         }
