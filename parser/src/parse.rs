@@ -2062,12 +2062,12 @@ println!("expr: {:?}", expr);
                                     EnumInitializer::Symbol(elem_name) => {
                                         Ok(Some(ExprAST::StructStaticSymbol(name.clone(), elem_name.clone(), pos.clone())))
                                     },
-                                    EnumInitializer::Tuple(id, list) => {
+                                    EnumInitializer::Tuple(id, index, list) => {
                                         unimplemented!()
                                     },
-                                    EnumInitializer::Struct(id, struct_literal) => {
+                                    EnumInitializer::Struct(id, index, struct_literal) => {
                                         let literal = EnumLiteral::Struct(struct_literal);
-                                        Ok(Some(ExprAST::EnumLiteral(literal, pos.clone())))
+                                        Ok(Some(ExprAST::EnumLiteral(typ, index, literal, pos.clone())))
                                     },
                                 }
 
@@ -2177,7 +2177,7 @@ println!("expr: {:?}", expr);
                 let struct_type = elem.get_struct_type().ok_or(ParserError::not_struct_type_enum(enum_name.to_string(), elem_name.to_string(), pos.clone()))?;
                 let init = self.parse_struct_literal(Rc::clone(struct_type), enum_name, pos, iter, defs, labels)?;
 
-                Ok(EnumInitializer::Struct(elem_name.to_string(), init))
+                Ok(EnumInitializer::Struct(elem_name.to_string(), *index as u64, init))
             },
             _ => {
                 Ok(EnumInitializer::Symbol(elem_name.to_string()))

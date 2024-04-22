@@ -20,7 +20,7 @@ use inkwell::context::Context;
 use inkwell::execution_engine::ExecutionEngine;
 use inkwell::module::Module;
 use inkwell::values::{AnyValue, AnyValueEnum, BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, GlobalValue, InstructionOpcode, InstructionValue, IntValue, PointerValue, StructValue};
-use inkwell::types::{BasicTypeEnum, AnyTypeEnum, FunctionType, BasicType, BasicMetadataTypeEnum};
+use inkwell::types::{BasicTypeEnum, AnyTypeEnum, FunctionType, BasicType, BasicMetadataTypeEnum, IntType};
 use inkwell::basic_block::BasicBlock;
 use inkwell::{IntPredicate, FloatPredicate};
 use inkwell::AddressSpace;
@@ -53,17 +53,24 @@ pub struct CodeGen<'ctx> {
     pub module: Module<'ctx>,
     pub builder: Builder<'ctx>,
     pub execution_engine: ExecutionEngine<'ctx>,
+    pub enum_tag_type: Rc<Type>,
+    pub enum_tag_llvm_type: IntType<'ctx>,
 }
 
 impl<'ctx> CodeGen<'ctx> {
     pub fn try_new(context: &'ctx Context, module_name: &str) -> Result<CodeGen<'ctx>, Box<dyn Error>> {
         let module = context.create_module(module_name);
         let execution_engine = module.create_jit_execution_engine(OptimizationLevel::None)?;
+        let enum_tag_type = Rc::new(Type::Number(NumberType::Long));
+        let enum_tag_llvm_type = context.i64_type();
+
         Ok(CodeGen {
             context: &context,
             module,
             builder: context.create_builder(),
             execution_engine,
+            enum_tag_type,
+            enum_tag_llvm_type,
         })
     }
 
@@ -818,22 +825,30 @@ impl<'ctx> CodeGen<'ctx> {
                 let any_val = basic_val.as_any_value_enum();
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
-            ExprAST::EnumLiteral(literal, pos) => {
+            ExprAST::EnumLiteral(typ, tag, literal, pos) => {
                 match literal {
                     EnumLiteral::Struct(struct_literal) => {
 println!("struct_literal: {struct_literal:?}");
                         let typ = struct_literal.get_type();
                         let pos = struct_literal.get_position();
 
-                        let tag_type = self.context.i32_type();
+                        let tag_type = self.enum_tag_llvm_type;
                         let basic_type = env.basic_type_enum_from_type(&typ, self.context, pos)?;
                         let vec: Vec<BasicTypeEnum> = vec!(tag_type.into(), basic_type);
                         let tagged_type = self.context.struct_type(&vec, false);
 
                         let tagged_ptr = self.builder.build_alloca(tagged_type, "struct_leteral")?;
-                        let struct_ptr = self.builder.build_struct_gep(tagged_ptr, 0, "struct_gep_in_tagged_enum")?;
+                        let tag_ptr = self.builder.build_struct_gep(tagged_ptr, 0, "struct_gep_in_tagged_enum")?;
+                        let struct_ptr = self.builder.build_struct_gep(tagged_ptr, 1, "struct_gep_in_tagged_enum")?;
 
-                        self.gen_struct_literal(struct_literal, struct_ptr, env, break_catcher, continue_catcher)
+                        let tag_value = tag_type.const_int(*tag as u64, false);
+                        let _ = self.builder.build_store(tag_ptr, tag_value);
+
+                        let _ = self.gen_struct_literal(struct_literal, struct_ptr, env, break_catcher, continue_catcher)?;
+
+                        let basic_val = self.builder.build_load(tagged_ptr, &format!("load_enum_literal"))?;
+                        let any_val = basic_val.as_any_value_enum();
+                        Ok(Some(CompiledValue::new(Rc::clone(typ), any_val)))
                     },
                     EnumLiteral::Tuple => {
                         unimplemented!()
@@ -852,9 +867,6 @@ println!("struct_literal: {struct_literal:?}");
     ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
         match struct_literal {
             StructLiteral::NormalLiteral(typ, map, pos) => {
-println!("typ: {typ:?}");
-                // let basic_type = env.basic_type_enum_from_type(&typ, self.context, pos)?;
-                // let struct_ptr = self.builder.build_alloca(basic_type, "struct_leteral")?;
                 let struct_name = typ.get_type_name();
 
                 if let Some(fields) = typ.get_struct_fields() {
@@ -882,8 +894,6 @@ println!("typ: {typ:?}");
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
             StructLiteral::ConstLiteral(typ, const_map, pos) => {
-                // let basic_type = env.basic_type_enum_from_type(&typ, self.context, pos)?;
-                // let struct_ptr = self.builder.build_alloca(basic_type, "struct_leteral")?;
                 let struct_name = typ.get_type_name();
 
                 let mut vec = Vec::new();
@@ -2094,7 +2104,7 @@ println!("is not array global. {:?}", init);
                 Ok(None)
             },
             EnumDefinition::TaggedEnum { fields, .. } => {
-                let (type_list, index_map, max_size, max_size_type) = Self::tagged_enum_from_enum_definition(enum_name, fields, env, break_catcher, continue_catcher, self.context, pos)?;
+                let (type_list, index_map, max_size, max_size_type) = Self::tagged_enum_from_enum_definition(enum_name, fields, &self.enum_tag_type, env, break_catcher, continue_catcher, self.context, pos)?;
                 if let Some(id) = enum_name {
                     env.insert_tagged_enum(id, type_list, index_map, max_size, max_size_type, pos)?;
                 }
@@ -2111,6 +2121,7 @@ println!("is not array global. {:?}", init);
     fn tagged_enum_from_enum_definition<'b, 'c>(
         enum_name: &Option<String>,
         fields: &Vec<Enumerator>,
+        tag_type: &Rc<Type>,
         env: &mut Env<'ctx>,
         _break_catcher: Option<&'b BreakCatcher>,
         _continue_catcher: Option<&'c ContinueCatcher>,
@@ -2118,15 +2129,14 @@ println!("is not array global. {:?}", init);
         pos: &Position
     ) -> Result<(Vec<(Rc<Type>, BasicTypeEnum<'ctx>)>, HashMap<String, usize>, u64, Option<BasicTypeEnum<'ctx>>), Box<dyn Error>> {
 
-        let mut list = Vec::new();
+        let mut list: Vec<(Rc<Type>, BasicTypeEnum<'ctx>)> = Vec::new();
         let mut index_map: HashMap<String, usize> = HashMap::new();
         let mut index = 0;
         let mut max_size = 0;
         let mut max_size_type: Option<BasicTypeEnum> = None;
  
-        let tag_type = Type::Number(NumberType::Int);
         let tag_basic_type = TypeUtil::to_basic_type_enum(&tag_type, ctx, pos)?;
-        let rc_tag_type = Rc::new(tag_type);
+        let rc_tag_type = Rc::clone(tag_type);
         let tag_size = Self::size_of(&tag_basic_type)?;
 
         for field in fields {

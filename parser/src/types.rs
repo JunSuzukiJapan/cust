@@ -533,8 +533,8 @@ impl EnumDefinition {
 #[derive(Debug, Clone, PartialEq)]
 pub enum EnumInitializer {
     Symbol(String),
-    Tuple(String, Vec<ExprAST>),
-    Struct(String, StructLiteral),
+    Tuple(String, u64, Vec<ExprAST>),
+    Struct(String, u64, StructLiteral),
 }
 
 #[derive(Debug, Clone, PartialEq)]
