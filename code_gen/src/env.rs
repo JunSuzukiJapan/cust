@@ -759,12 +759,47 @@ println!("insert enum '{key}'. type: {type_or_union:?}");
                     Ok(BasicTypeEnum::IntType(ctx.i32_type()))
                 }else{
                     if let Some(type_or_union) = self.get_type(name) {
-                        let llvm_type = type_or_union;
+                        let mut type_or_union = type_or_union;
+                        loop {
+                            match type_or_union {
+                                TypeOrUnion::Type(t) => {
+                                    if let Ok(basic_type) = BasicTypeEnum::try_from(*t) {
+                                        return Ok(basic_type);
+                                    }else{
+                                        return Err(Box::new(CodeGenError::mismatch_type_struct_fields(Some(name), pos.clone())));
+                                    }
+                                },
+                                TypeOrUnion::Union { max_size_type, .. } => {
+                                    let t = max_size_type.ok_or(CodeGenError::union_has_no_field(None, pos.clone()))?;
+                                    if let Ok(basic_type) = BasicTypeEnum::try_from(t) {
+                                        return Ok(basic_type);
+                                    }else{
+                                        return Err(Box::new(CodeGenError::mismatch_type_union_fields(Some(name), pos.clone())));
+                                    }
+                                },
+                                TypeOrUnion::StandardEnum { i32_type, .. } => {
+                                    return Ok(i32_type.as_basic_type_enum());
+                                },
+                                TypeOrUnion::TaggedEnum { name, max_size_type, .. } => {
+                                    let t = max_size_type.ok_or(CodeGenError::enum_has_no_field(name.to_string(), pos.clone()))?;
+                                    if let Ok(basic_type) = BasicTypeEnum::try_from(t) {
+                                        return Ok(basic_type);
+                                    }else{
+                                        return Err(Box::new(CodeGenError::mismatch_type_enum_fields(name.to_string(), pos.clone())));
+                                    }
+                                },
+                                TypeOrUnion::TypeDefStruct(_name, raw_ptr) => {
+                                    // let t = self.get_type(name).unwrap();
+                                    // type_or_union = t;
+                                    type_or_union = unsafe { raw_ptr.as_ref().unwrap() };
+                                },
+                                TypeOrUnion::TypeDefUnion(_name, raw_ptr) => {
+                                    // let t = self.get_type(name).unwrap();
+                                    // type_or_union = t;
+                                    type_or_union = unsafe { raw_ptr.as_ref().unwrap() };
+                                },                            }
+                        }
 
-
-println!("name: {name}. type_or_union: {type_or_union:?}");
-
-                        unimplemented!()
                     }else{
                         Err(Box::new(CodeGenError::no_such_a_type(name, pos.clone())))
                     }

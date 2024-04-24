@@ -75,7 +75,12 @@ fn main() {
     ";
 
     let src = "
-        enum Foo {
+        enum Dummy {
+            Foo {
+                float hoge;
+                int fuga;
+                int x;
+            },
             Bar,
             Zot {
                 int hoge;
@@ -84,8 +89,8 @@ fn main() {
         };
 
         int test() {
-            Foo foo;
-            foo = Foo::Zot {
+            Dummy dummy;
+            dummy = Dummy::Zot {
                 hoge: 1;
                 fuga: 2;
             };

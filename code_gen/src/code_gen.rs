@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+use crate::global::global;
 use crate::parser::{AST, ToplevelAST, ExprAST, BinOp, Type, Pointer, Block, Params, StructDefinition, StructField, NumberType, Function, FunProto, FunOrProt, EnumDefinition, Enumerator};
 use crate::parser::{Declaration, DeclarationSpecifier, CustFunctionType, Initializer, ImplElement, SpecifierQualifier, StructLiteral, EnumLiteral};
 use crate::env::Class;
@@ -61,7 +62,7 @@ impl<'ctx> CodeGen<'ctx> {
     pub fn try_new(context: &'ctx Context, module_name: &str) -> Result<CodeGen<'ctx>, Box<dyn Error>> {
         let module = context.create_module(module_name);
         let execution_engine = module.create_jit_execution_engine(OptimizationLevel::None)?;
-        let enum_tag_type = Rc::new(Type::Number(NumberType::Long));
+        let enum_tag_type = Rc::new(Type::Number(global().enum_tag_type.clone()));
         let enum_tag_llvm_type = context.i64_type();
 
         Ok(CodeGen {

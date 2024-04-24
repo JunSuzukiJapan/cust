@@ -1,3 +1,4 @@
+use crate::global::global;
 use crate::parser::{Type, NumberType, Pointer, BinOp, Position};
 use crate::Env;
 use inkwell::context::Context;
@@ -92,20 +93,14 @@ impl TypeUtil {
                 if enum_def.is_standard() {
                     Ok(BasicTypeEnum::IntType(ctx.i32_type()))
                 }else{
-                    // let (type_list, index_map, max_size, max_size_type) = CodeGen::tagged_enum_from_enum_definition(name, enum_def.fields, &self.enum_tag_type, self.context, pos)?;
+                    let enum_tag_type = Rc::new(Type::Number(global().enum_tag_type.clone()));
+                    let (_type_list, _index_map, _max_size, max_size_type) = CodeGen::tagged_enum_from_enum_definition(name, enum_def.get_fields(), &enum_tag_type, ctx, pos)?;
 
-                    // if let Some(typ) = max_size_type {
-                    //     Ok(typ)
-                    // }else{
-
-
-
-
-
-                    //     Err(Box::new(CodeGenError::enum_has_no_field(name.to_string(), pos.clone())))
-                    // }
-
-                    unimplemented!()
+                    if let Some(typ) = max_size_type {
+                        Ok(typ)
+                    }else{
+                        Err(Box::new(CodeGenError::enum_has_no_field(name.to_string(), pos.clone())))
+                    }
                 }
             },
             Type::Symbol(_name) => {
