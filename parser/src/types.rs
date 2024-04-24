@@ -471,19 +471,19 @@ impl Enumerator {
 #[derive(Debug, Clone, PartialEq)]
 pub enum EnumDefinition {
     StandardEnum {
-        name: Option<String>,
+        name: String,
         fields: Vec<Enumerator>,
         index_map: HashMap<String, usize>,
     },
     TaggedEnum {
-        name: Option<String>,
+        name: String,
         fields: Vec<Enumerator>,
         index_map: HashMap<String, usize>,
     },
 }
 
 impl EnumDefinition {
-    pub fn new_standard(enum_name: Option<String>, enum_list: Vec<Enumerator>) -> EnumDefinition {
+    pub fn new_standard(enum_name: String, enum_list: Vec<Enumerator>) -> EnumDefinition {
         let index_map = Self::make_map_from_vec(&enum_list);
         EnumDefinition::StandardEnum {
             name: enum_name,
@@ -492,7 +492,7 @@ impl EnumDefinition {
         }
     }
 
-    pub fn new_tagged(enum_name: Option<String>, enum_list: Vec<Enumerator>) -> EnumDefinition {
+    pub fn new_tagged(enum_name: String, enum_list: Vec<Enumerator>) -> EnumDefinition {
         let index_map = Self::make_map_from_vec(&enum_list);
         EnumDefinition::TaggedEnum {
             name: enum_name,

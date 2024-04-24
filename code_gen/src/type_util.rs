@@ -88,8 +88,25 @@ impl TypeUtil {
                     }
                 }
             },
-            Type::Enum { name: _, enum_def: _ } => {
-                Ok(BasicTypeEnum::IntType(ctx.i32_type()))
+            Type::Enum { name, enum_def } => {
+                if enum_def.is_standard() {
+                    Ok(BasicTypeEnum::IntType(ctx.i32_type()))
+                }else{
+                    // let (type_list, index_map, max_size, max_size_type) = CodeGen::tagged_enum_from_enum_definition(name, enum_def.fields, &self.enum_tag_type, self.context, pos)?;
+
+                    // if let Some(typ) = max_size_type {
+                    //     Ok(typ)
+                    // }else{
+
+
+
+
+
+                    //     Err(Box::new(CodeGenError::enum_has_no_field(name.to_string(), pos.clone())))
+                    // }
+
+                    unimplemented!()
+                }
             },
             Type::Symbol(_name) => {
                 Err(Box::new(CodeGenError::cannot_convert_to_basic_type(typ.to_string(), pos.clone())))

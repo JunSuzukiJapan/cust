@@ -642,8 +642,8 @@ impl<'ctx> Env<'ctx> {
         }
 
         let type_or_union = TypeOrUnion::TaggedEnum { name: key.to_string(), type_list, index_map: index_map.clone(), max_size, max_size_type };
-        self.types.insert(key.to_string(), (TypeOrUnion::Type(type_or_union.as_any_type_enum()), Some(index_map)));
-
+println!("insert enum '{key}'. type: {type_or_union:?}");
+        self.types.insert(key.to_string(), (type_or_union, Some(index_map)));
         Ok(())
     }
 
@@ -758,11 +758,16 @@ impl<'ctx> Env<'ctx> {
                 if enum_def.is_standard() {
                     Ok(BasicTypeEnum::IntType(ctx.i32_type()))
                 }else{
+                    if let Some(type_or_union) = self.get_type(name) {
+                        let llvm_type = type_or_union;
 
 
+println!("name: {name}. type_or_union: {type_or_union:?}");
 
-
-                    unimplemented!()
+                        unimplemented!()
+                    }else{
+                        Err(Box::new(CodeGenError::no_such_a_type(name, pos.clone())))
+                    }
                 }
             },
             _ => {

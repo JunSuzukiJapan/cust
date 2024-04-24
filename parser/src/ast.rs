@@ -744,6 +744,13 @@ impl StructLiteral {
             StructLiteral::NormalLiteral(typ, _, _) => typ,
         }
     }
+
+    pub fn is_const(&self) -> bool {
+        match self {
+            StructLiteral::ConstLiteral(..) => true,
+            _ => false,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

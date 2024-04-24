@@ -828,7 +828,6 @@ impl<'ctx> CodeGen<'ctx> {
             ExprAST::EnumLiteral(typ, tag, literal, pos) => {
                 match literal {
                     EnumLiteral::Struct(struct_literal) => {
-println!("struct_literal: {struct_literal:?}");
                         let typ = struct_literal.get_type();
                         let pos = struct_literal.get_position();
 
@@ -2102,7 +2101,7 @@ println!("is not array global. {:?}", init);
                 Ok(None)
             },
             EnumDefinition::TaggedEnum { fields, .. } => {
-                let (type_list, index_map, max_size, max_size_type) = Self::tagged_enum_from_enum_definition(enum_name, fields, &self.enum_tag_type, env, break_catcher, continue_catcher, self.context, pos)?;
+                let (type_list, index_map, max_size, max_size_type) = Self::tagged_enum_from_enum_definition(enum_name, fields, &self.enum_tag_type, self.context, pos)?;
                 env.insert_tagged_enum(enum_name.into(), type_list, index_map, max_size, max_size_type, pos)?;
         
                 if let Some(t) = max_size_type {
@@ -2114,13 +2113,10 @@ println!("is not array global. {:?}", init);
         }
     }
 
-    fn tagged_enum_from_enum_definition<'b, 'c>(
+    pub fn tagged_enum_from_enum_definition<'b, 'c>(
         enum_name: &str,
         fields: &Vec<Enumerator>,
         tag_type: &Rc<Type>,
-        env: &mut Env<'ctx>,
-        _break_catcher: Option<&'b BreakCatcher>,
-        _continue_catcher: Option<&'c ContinueCatcher>,
         ctx: &'ctx Context,
         pos: &Position
     ) -> Result<(Vec<(Rc<Type>, BasicTypeEnum<'ctx>)>, HashMap<String, usize>, u64, Option<BasicTypeEnum<'ctx>>), Box<dyn Error>> {

@@ -559,7 +559,7 @@ impl Parser {
                                         let type_struct = if let Some(t) = defs.get_type(&name) {
                                             Rc::clone(t)
                                         }else{
-                                            let definition = EnumDefinition::new_standard(Some(name.clone()), Vec::new());
+                                            let definition = EnumDefinition::new_standard(name.clone(), Vec::new());
                                             let typ = Type::enum_from_enum_definition(name.clone(), definition);
                                             Rc::new(typ)
                                         };
@@ -731,9 +731,9 @@ println!("here.");
 
         let definition;
         if is_tagged {
-            definition = EnumDefinition::new_tagged(Some(name.clone()), enum_list);
+            definition = EnumDefinition::new_tagged(name.clone(), enum_list);
         }else{
-            definition = EnumDefinition::new_standard(Some(name.clone()), enum_list);
+            definition = EnumDefinition::new_standard(name.clone(), enum_list);
         }
 
         let type_struct = Type::enum_from_enum_definition(name.clone(), definition.clone());
