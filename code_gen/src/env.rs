@@ -642,7 +642,6 @@ impl<'ctx> Env<'ctx> {
         }
 
         let type_or_union = TypeOrUnion::TaggedEnum { name: key.to_string(), type_list, index_map: index_map.clone(), max_size, max_size_type };
-println!("insert enum '{key}'. type: {type_or_union:?}");
         self.types.insert(key.to_string(), (type_or_union, Some(index_map)));
         Ok(())
     }
@@ -841,8 +840,10 @@ println!("insert enum '{key}'. type: {type_or_union:?}");
 
     pub fn get_ptr(&self, key: &str) -> Option<(&Rc<Type>, &SpecifierQualifier, PointerValue<'ctx>)> {
         if let Some((typ, sq, ptr)) = self.get_ptr_from_local(key) {
+println!("get_ptr. typ: {typ:?}");
             Some((typ, sq, *ptr))
         }else if let Some((typ, sq, val)) = self.global_def.get(key) {
+println!("2. get_ptr. typ: {typ:?}");
             match val {
                 ConstOrGlobalValue::GlobalValue { global } => Some((typ, sq, global.as_pointer_value())),
                 _ => None,

@@ -21,12 +21,13 @@ use inkwell::context::Context;
 use inkwell::execution_engine::ExecutionEngine;
 use inkwell::module::Module;
 use inkwell::values::{AnyValue, AnyValueEnum, BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, GlobalValue, InstructionOpcode, InstructionValue, IntValue, PointerValue, StructValue};
-use inkwell::types::{BasicTypeEnum, AnyTypeEnum, FunctionType, BasicType, BasicMetadataTypeEnum, IntType};
+use inkwell::types::{AnyTypeEnum, AsTypeRef, BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FunctionType, IntType, PointerType};
 use inkwell::basic_block::BasicBlock;
 use inkwell::{IntPredicate, FloatPredicate};
 use inkwell::AddressSpace;
 use inkwell::types::AnyType;
 use inkwell::types::StructType;
+use std::any::Any;
 use std::error::Error;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -102,32 +103,6 @@ impl<'ctx> CodeGen<'ctx> {
                     let name = declarator.get_name();
 
                     self.gen_global_def_var_sub(name, base_type, sq, decl, declarator, env, break_catcher, continue_catcher, pos)?;
-
-                    // let typ = declarator.make_type(base_type);
-                    // let basic_type = TypeUtil::to_basic_type_enum(&typ, self.context, ast.get_position())?;
-                    // let ptr = self.module.add_global(basic_type, Some(AddressSpace::default()), name);
-    
-                    // match decl.get_init_expr() {
-                    //     Some(initializer) => {
-                    //         match &typ {
-                    //             Type::Struct { fields, .. } => {
-                    //                 self.gen_global_struct_init(&fields, ptr, &*initializer, env, break_catcher, continue_catcher)?;
-                    //             },
-                    //             Type::Array { name: _, typ, size_list } => {
-                    //                 self.gen_global_array_init(&size_list, ptr, &*typ, &*initializer, env, break_catcher, continue_catcher)?;
-                    //             },
-                    //             _ => {
-                    //                 let init = self.gen_const_expr(initializer, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(pos.clone()))?;
-                    //                 let basic_value = self.try_as_basic_value(&init.get_value(), initializer.get_position())?;
-            
-                    //                 ptr.set_initializer(&basic_value);
-                    //             }
-                    //         }
-                    //     },
-                    //     None => (),  // do nothing
-                    // };
-    
-                    // env.insert_global_var(name, typ.clone(), ptr);
                 }
 
                 Ok(None)
@@ -2864,11 +2839,38 @@ println!("tagged type: {t:?}");
     ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
         let compiled_value = self.gen_expr(r_value, env, break_catcher, continue_catcher)?.ok_or(Box::new(CodeGenError::assign_illegal_value(r_value, r_value.get_position().clone())))?;
         let value = self.try_as_basic_value(&compiled_value.get_value(), l_value.get_position())?;
-        // let from_type = compiled_value.get_type();
-        let (_to_type, ptr) = self.get_l_value(l_value, env, break_catcher, continue_catcher)?;
+        let (ptr_type, ptr) = self.get_l_value(l_value, env, break_catcher, continue_catcher)?;
 
-        self.builder.build_store(ptr, value)?;
-        Ok(Some(compiled_value))
+        let value_type = value.get_type().as_any_type_enum();
+        let ptr_elem_type = ptr.get_type().get_element_type();
+        if value_type == ptr_elem_type {
+            self.builder.build_store(ptr, value)?;
+            Ok(Some(compiled_value))
+
+        }else{
+            // if ptr_type.is_tagged_enum() || ptr_type.is_union() {
+            //     // let ptr_type = unsafe { PointerType::new(value_type.as_type_ref()) };
+            //     let t = value_type.as_type_ref();
+            //     let address_space = 0;
+            //     let t = unsafe { llvm_sys::core::LLVMPointerType(t, address_space) };
+            //     let ptr_type = unsafe { PointerType::new(t) };
+            //     let ptr = self.builder.build_pointer_cast(ptr, ptr_type, "cast_ptr_to_value_typ_ptr")?;
+            //     self.builder.build_store(ptr, value)?;
+            //     Ok(Some(compiled_value))
+
+            // }else{
+            //     return Err(Box::new(CodeGenError::type_mismatch((**compiled_value.get_type()).clone(), (*ptr_type).clone(), l_value.get_position().clone())));
+            // }
+
+            // let ptr_type = unsafe { PointerType::new(value_type.as_type_ref()) };
+            let t = value_type.as_type_ref();
+            let address_space = 0;
+            let t = unsafe { llvm_sys::core::LLVMPointerType(t, address_space) };
+            let ptr_type = unsafe { PointerType::new(t) };
+            let ptr = self.builder.build_pointer_cast(ptr, ptr_type, "cast_ptr_to_value_typ_ptr")?;
+            self.builder.build_store(ptr, value)?;
+            Ok(Some(compiled_value))
+        }
     }
 
     fn gen_op_assign<'b, 'c>(&self,

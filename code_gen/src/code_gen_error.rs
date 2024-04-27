@@ -18,6 +18,11 @@ pub enum CodeGenError {
     MismatchTypeUnionFields(Option<String>, Position),
     MismatchTypeStructFields(Option<String>, Position),
     MismatchTypeEnumFields(String, Position),
+    TypeMismatch {
+        real_type: Type,
+        required_type: Type,
+        pos: Position,
+    },
     NoSuchAType(String, Position),
     CannotConvertToGlobalValue(Position),
     CannotConvertToLocalPointer(Position),
@@ -186,6 +191,14 @@ impl CodeGenError {
 
     pub fn return_without_function(pos: Position) -> Self {
         Self::ReturnWithoutFunction(pos)
+    }
+
+    pub fn type_mismatch(real_type: Type, required_type: Type, pos: Position) -> Self {
+        Self::TypeMismatch {
+            real_type: real_type,
+            required_type: required_type,
+            pos: pos,
+        }
     }
 
     pub fn return_type_mismatch(real_type: Type, required_type: Type, pos: Position) -> Self {
@@ -557,6 +570,14 @@ impl fmt::Display for CodeGenError {
             },
             Self::ReturnWithoutFunction(_pos) => {
                 write!(f, "return without function")
+            },
+            Self::TypeMismatch {
+                real_type,
+                required_type,
+                pos: _,
+            } =>
+            {
+                write!(f, "type mismatch required '{required_type}', but '{real_type}'")
             },
             Self::ReturnTypeMismatch {
                     real_type,

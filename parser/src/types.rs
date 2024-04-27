@@ -684,6 +684,18 @@ impl Type {
         }
     }
 
+    pub fn is_tagged_enum(&self) -> bool {
+        match self {
+            Type::Enum { enum_def, .. } => {
+                match enum_def {
+                    EnumDefinition::TaggedEnum { .. } => true,
+                    _ => false,
+                }
+            },
+            _ => false,
+        }
+    }
+
     pub fn is_number(&self) -> bool {
         match self {
             Type::Number(_) => true,

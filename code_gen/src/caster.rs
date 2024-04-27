@@ -1459,7 +1459,7 @@ impl Caster {
                 }else{
                     return Err(Box::new(CodeGenError::cannot_convert_to_basic_value(expr.clone(), expr.get_position().clone())));
                 };
-                let result = builder.build_bitcast(value, to, "ptr_to_ptr")?;
+                let result = builder.build_bit_cast(value, to, "ptr_to_ptr")?;
 
                 Ok(result.as_any_value_enum())
             },
