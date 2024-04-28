@@ -2848,28 +2848,24 @@ println!("tagged type: {t:?}");
             Ok(Some(compiled_value))
 
         }else{
-            // if ptr_type.is_tagged_enum() || ptr_type.is_union() {
-            //     // let ptr_type = unsafe { PointerType::new(value_type.as_type_ref()) };
-            //     let t = value_type.as_type_ref();
-            //     let address_space = 0;
-            //     let t = unsafe { llvm_sys::core::LLVMPointerType(t, address_space) };
-            //     let ptr_type = unsafe { PointerType::new(t) };
-            //     let ptr = self.builder.build_pointer_cast(ptr, ptr_type, "cast_ptr_to_value_typ_ptr")?;
-            //     self.builder.build_store(ptr, value)?;
-            //     Ok(Some(compiled_value))
+            if ptr_type.is_tagged_enum() {
+                // let ptr_type = unsafe { PointerType::new(value_type.as_type_ref()) };
+                let t = value_type.as_type_ref();
+                let address_space = 0;
+                let t = unsafe { llvm_sys::core::LLVMPointerType(t, address_space) };
+                let ptr_type = unsafe { PointerType::new(t) };
+                let ptr = self.builder.build_pointer_cast(ptr, ptr_type, "cast_ptr_to_value_typ_ptr")?;
+                self.builder.build_store(ptr, value)?;
+                Ok(Some(compiled_value))
 
-            // }else{
-            //     return Err(Box::new(CodeGenError::type_mismatch((**compiled_value.get_type()).clone(), (*ptr_type).clone(), l_value.get_position().clone())));
-            // }
+            }else{
+                let casted = self.gen_implicit_cast(&value.as_any_value_enum(), &compiled_value.get_type(), &ptr_type, r_value.get_position())?;
+                let compiled_value2 = CompiledValue::new(ptr_type.clone(), casted);
+                let value2 = self.try_as_basic_value(&compiled_value2.get_value(), l_value.get_position())?;
+                self.builder.build_store(ptr, value2)?;
 
-            // let ptr_type = unsafe { PointerType::new(value_type.as_type_ref()) };
-            let t = value_type.as_type_ref();
-            let address_space = 0;
-            let t = unsafe { llvm_sys::core::LLVMPointerType(t, address_space) };
-            let ptr_type = unsafe { PointerType::new(t) };
-            let ptr = self.builder.build_pointer_cast(ptr, ptr_type, "cast_ptr_to_value_typ_ptr")?;
-            self.builder.build_store(ptr, value)?;
-            Ok(Some(compiled_value))
+                Ok(Some(compiled_value2))
+            }
         }
     }
 
