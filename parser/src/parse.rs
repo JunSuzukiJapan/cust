@@ -714,7 +714,6 @@ impl Parser {
         let (typ, pos) = if let Some((typ, pos)) = opt_type {
             (typ, pos)
         }else{
-println!("here.");
             return Err(ParserError::no_type_defined(opt_name, iter.peek().unwrap().1.clone()));
         };
         let typ = if let Some((true, _)) = opt_unsigned {
@@ -1807,9 +1806,7 @@ println!("here.");
                     iter.next();  // skip '++'
 
                     println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-println!("peek: {:?}", iter.peek().unwrap());
                     let expr = self.parse_unary_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
-println!("expr: {:?}", expr);
                     if expr.is_symbol() {
                         let (sym, sym_pos) = expr.get_symbol()?;
                         let inc = ExprAST::PreInc(sym.clone(), sym_pos.clone(), pos.clone());
