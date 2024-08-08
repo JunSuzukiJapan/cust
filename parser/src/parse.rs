@@ -9,6 +9,7 @@ use super::ConstExpr;
 use super::types::*;
 use super::defines::*;
 use super::{CustSelf, Function, FunProto, FunOrProt, Switch, Case};
+use super::parse_pattern::*;
 
 use std::slice::Iter;
 use std::iter::Peekable;
@@ -3014,28 +3015,51 @@ impl Parser {
                 // selection statement
                 Token::If => {
                     iter.next();  // skip 'if'
-                    self.parse_expected_token(iter, Token::ParenLeft)?;  // skip '('
 
-                    println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                    let cond = self.parse_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
+                    let (next_tok, next_pos) = iter.peek().unwrap();
+                    if next_tok.is_symbol() {
+                        let sym_name = next_tok.get_symbol_name().unwrap();
 
-                    self.parse_expected_token(iter, Token::ParenRight)?;  // skip ')'
+                        if sym_name == "let" {
+                            iter.next();  // skip 'let'
 
-                    println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                    let then = self.parse_statement(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
+                            let _ = self.parse_pattern(iter, defs, labels)?;
 
-                    if let Some((tok2, pos2)) = iter.peek() {
-                        if *tok2 == Token::Else {
-                            iter.next();  // skip 'else'
 
+
+
+
+
+                            unimplemented!()
+
+                        }else{
                             println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                            let _else = self.parse_statement(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos2.clone()))?;
-                            Ok(Some(AST::If(Box::new(cond), Box::new(then), Some(Box::new(_else)), pos.clone())))
+                            return Err(ParserError::syntax_error(next_pos.clone()));
+                        }
+                    } else {
+                        self.parse_expected_token(iter, Token::ParenLeft)?;  // skip '('
+
+                        println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                        let cond = self.parse_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
+
+                        self.parse_expected_token(iter, Token::ParenRight)?;  // skip ')'
+
+                        println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                        let then = self.parse_statement(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
+
+                        if let Some((tok2, pos2)) = iter.peek() {
+                            if *tok2 == Token::Else {
+                                iter.next();  // skip 'else'
+
+                                println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                                let _else = self.parse_statement(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos2.clone()))?;
+                                Ok(Some(AST::If(Box::new(cond), Box::new(then), Some(Box::new(_else)), pos.clone())))
+                            }else{
+                                Ok(Some(AST::If(Box::new(cond), Box::new(then), None, pos.clone())))
+                            }
                         }else{
                             Ok(Some(AST::If(Box::new(cond), Box::new(then), None, pos.clone())))
                         }
-                    }else{
-                        Ok(Some(AST::If(Box::new(cond), Box::new(then), None, pos.clone())))
                     }
                 },
                 Token::Switch => {

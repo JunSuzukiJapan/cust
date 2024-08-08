@@ -16,8 +16,8 @@ pub enum Token {
     // UCharLiteral(u8),
     // ShortLiteral(i16),
     // UShortLiteral(u16),
-    IntLiteral(u128),
-    UIntLiteral(u32),
+    IntLiteral(i128),
+    UIntLiteral(u128),
     LongLiteral(i64),
     ULongLiteral(u64),
     LongLongLiteral(i128),
@@ -154,6 +154,20 @@ impl Token {
             Token::Char | Token::Double | Token::Float | Token::Int | Token::Long | Token::Short | Token::Void => true,
             // Token::Symbol(_name) => true,
             _ => false,
+        }
+    }
+
+    pub fn is_symbol(&self) -> bool {
+        match self {
+            Token::Symbol(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn get_symbol_name<'a>(&'a self) -> Option<&'a str> {
+        match self {
+            Token::Symbol(name) => Some(name),
+            _ => None,
         }
     }
 

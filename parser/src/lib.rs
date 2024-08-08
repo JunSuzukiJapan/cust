@@ -6,6 +6,8 @@ mod const_expr;
 mod ast;
 mod defines;
 mod parse;
+mod parse_pattern;
+mod pattern;
 
 pub use crate::tokenizer::{Position, Tokenizer, Token, TokenizerError};
 pub use parser_error::ParserError;
@@ -18,3 +20,4 @@ pub use defines::Defines;
 pub use types::{Type, NumberType, TypeOrVariadic, Pointer, StructDefinition, EnumDefinition, Enumerator, StructField, CustFunctionType};
 pub use const_expr::ConstExpr;
 pub use parse::Parser;
+pub use pattern::Pattern;

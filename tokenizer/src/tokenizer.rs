@@ -602,7 +602,7 @@ impl Tokenizer {
             _ => (),  // do nothing
         }
 
-        let mut i: u128 = 0;
+        let mut i: i128 = 0;
         
         loop {
             let c = if let Some(ch) = self.peek_char(ctx) {
@@ -612,7 +612,7 @@ impl Tokenizer {
             };
 
             if c.is_digit(10) {
-                i = (i * 10) + (c as u128 - '0' as u128);
+                i = (i * 10) + (c as i128 - '0' as i128);
             }else if c == '.' {
                 self.next_char(ctx);  // skip '.'
 
@@ -640,10 +640,10 @@ impl Tokenizer {
                                 self.next_char(ctx);  // skip 'l' or 'L'
                                 return Ok(Some((Token::ULongLiteral(i as u64), start_pos)));
                             }else{
-                                return Ok(Some((Token::UIntLiteral(i as u32), start_pos)));
+                                return Ok(Some((Token::UIntLiteral(i as u128), start_pos)));
                             }
                         }else{
-                            return  Ok(Some((Token::UIntLiteral(i as u32), start_pos)));
+                            return  Ok(Some((Token::UIntLiteral(i as u128), start_pos)));
                         }
                     },
                     'l' | 'L' => {
@@ -662,7 +662,7 @@ impl Tokenizer {
     }
 
     fn tokenize_digit_sub(&self, ctx: &mut TokenizerContext, base: u32, start_pos: Position) -> Result<Option<(Token, Position)>, TokenizerError> {
-        let mut i: u128 = 0;
+        let mut i: i128 = 0;
 
         loop {
             let opt_c = ctx.chars.peek();
@@ -673,7 +673,7 @@ impl Tokenizer {
             };
 
             if c.is_digit(base) {
-                i = (i * base as u128) + c.to_digit(base).unwrap() as u128;
+                i = (i * base as i128) + c.to_digit(base).unwrap() as i128;
             }else if *c == '.' {
                 self.next_char(ctx);  // skip '.'
                 return self.tokenize_float(ctx, i, start_pos);
@@ -689,7 +689,7 @@ impl Tokenizer {
         Ok(Some((Token::IntLiteral(i), start_pos)))
     }
 
-    fn tokenize_float(&self, ctx: &mut TokenizerContext, integer: u128, start_pos: Position) -> Result<Option<(Token, Position)>, TokenizerError> {
+    fn tokenize_float(&self, ctx: &mut TokenizerContext, integer: i128, start_pos: Position) -> Result<Option<(Token, Position)>, TokenizerError> {
         let mut f: f64 = 0f64;
         let mut ratio: f64 = 0.1;
 
