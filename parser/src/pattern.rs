@@ -9,5 +9,4 @@ pub enum Pattern {
     CharRange(u32, u32),
     Number(i128),
     NumberRange(i128, i128),
-    // CharRange(Char, Char),
 }

@@ -14,6 +14,10 @@ impl Parser {
         iter.next();
 
         match &*tok {
+            Token::Symbol(name) => {
+                let pat = Pattern::Var(name.to_string());
+                Ok((pat, pos.clone()))
+            },
             Token::CharLiteral(ch) => {
                 let pat = Pattern::Char(*ch);
 
