@@ -16,24 +16,41 @@ impl Parser {
         match &*tok {
             Token::CharLiteral(ch) => {
                 let pat = Pattern::Char(*ch);
+
+                let (tok2, pos2) = iter.peek().unwrap();
+                if *tok2 == Token::RangeEqual {
+                    iter.next();
+
+                    let (tok3, pos3) = iter.peek().unwrap();
+                    match tok3 {
+                        Token::CharLiteral(ch2) => {
+                            iter.next();
+
+                            let pat2 = Pattern::CharRange(*ch, *ch2);
+                            return Ok((pat2, pos.clone()));
+                        },
+                        _ => return Err(ParserError::syntax_error(pos3.clone())),
+                    }
+                }
+
                 Ok((pat, pos.clone()))
             },
             Token::IntLiteral(num) => {
                 let pat = Pattern::Number(*num);
 
                 let (tok2, pos2) = iter.peek().unwrap();
-                if tok2.is_symbol() {
-                    if tok2.get_symbol_name().unwrap() == "..=" {
-                        iter.next();
+                if *tok2 == Token::RangeEqual {
+                    iter.next();
 
-                        let (tok3, pos3) = iter.peek().unwrap();
-                        match tok3 {
-                            Token::IntLiteral(num2) => {
-                                let pat2 = Pattern::NumberRange(*num, *num2);
-                                return Ok((pat, pos.clone()));
-                            },
-                            _ => return Err(ParserError::syntax_error(pos3.clone())),
-                        }
+                    let (tok3, pos3) = iter.peek().unwrap();
+                    match tok3 {
+                        Token::IntLiteral(num2) => {
+                            iter.next();
+
+                            let pat2 = Pattern::NumberRange(*num, *num2);
+                            return Ok((pat2, pos.clone()));
+                        },
+                        _ => return Err(ParserError::syntax_error(pos3.clone())),
                     }
                 }
 

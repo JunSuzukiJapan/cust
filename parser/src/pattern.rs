@@ -6,6 +6,7 @@ pub enum Pattern {
     // Enum(EnumDefinition),
     Str(String),
     Char(u32),
+    CharRange(u32, u32),
     Number(i128),
     NumberRange(i128, i128),
     // CharRange(Char, Char),
