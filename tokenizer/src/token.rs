@@ -89,6 +89,7 @@ pub enum Token {
     BracketRight,  // ']'
 
     MemberSelection,  // '->'
+    RangeEqual,       // '..='
 
     //
     // Keywords
@@ -258,6 +259,7 @@ impl fmt::Display for Token {
             Token::BracketRight => write!(f, "]"),  // ']'
         
             Token::MemberSelection => write!(f, "->"),  // '->'
+            Token::RangeEqual => write!(f, "..="),      // '..='
         
             //
             // Keywords

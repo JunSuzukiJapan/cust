@@ -419,10 +419,10 @@ impl Tokenizer {
                         if *ch2 == '.' {
                             self.next_char(ctx);  // skip '.'
                             let ch3 = self.next_char(ctx).ok_or(TokenizerError::illegal_end_of_input(start_pos.clone()))?;
-                            if ch3 == '.' {
-                                Ok(Some((Token::TripleDot, start_pos)))
-                            }else{
-                                Err(TokenizerError::syntax_error(start_pos))
+                            match ch3 {
+                                '.' => Ok(Some((Token::TripleDot, start_pos))),
+                                '=' => Ok(Some((Token::RangeEqual, start_pos))),
+                                _ => Err(TokenizerError::syntax_error(start_pos)),
                             }
 
                         }else{
@@ -1334,11 +1334,11 @@ mod tests {
 
     #[test]
     fn tokenize_operator_others() {
-        let src = ": ; . -> () {} [] ::";
+        let src = ": ; . -> () {} [] :: ... ..=";
         let result = Tokenizer::tokenize(src);
         match result {
             Ok(v) => {
-                assert_eq!(v.len(), 12);
+                assert_eq!(v.len(), 14);
 
                 let (tok, pos) = &v[0];
                 assert_eq!(*tok, Token::Colon);
@@ -1385,8 +1385,16 @@ mod tests {
                 assert_eq!(*pos, Position {line: 1, column: 19});
 
                 let (tok, pos) = &v[11];
+                assert_eq!(*tok, Token::TripleDot);
+                assert_eq!(*pos, Position {line: 1, column: 22});
+
+                let (tok, pos) = &v[12];
+                assert_eq!(*tok, Token::RangeEqual);
+                assert_eq!(*pos, Position {line: 1, column: 26});
+
+                let (tok, pos) = &v[13];
                 assert_eq!(*tok, Token::EndOfInput);
-                assert_eq!(*pos, Position {line: 1, column: 21});
+                assert_eq!(*pos, Position {line: 1, column: 29});
             },
             Err(_) => panic!("can't tokenize {}", src),
         }
