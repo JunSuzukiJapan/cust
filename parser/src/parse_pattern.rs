@@ -99,12 +99,41 @@ impl Parser {
                 _ => return Err(ParserError::not_pattern(pos.clone())),
             }
 
-
             // '|' check
-            unimplemented!()
-
+            let (tok2, pos2) = iter.peek().unwrap();
+            if *tok2 == Token::BitOr {
+                iter.next();  // skip '|'
+            }else{
+                break;
+            }
         }
 
         Ok(v)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use tokenizer::*;
+    use super::*;
+
+    fn parse_pattern_from_str(src: &str) -> Result<Vec<(Pattern, Position)>, ParserError> {
+        let token_list = Tokenizer::tokenize(src).unwrap();
+        let mut iter = token_list.iter().peekable();
+        let parser = Parser::new();
+        let mut defs = Defines::new();
+        let mut labels = Vec::new();
+        parser.parse_pattern(&mut iter, &mut defs, &mut Some(&mut labels))
+    }
+
+    #[test]
+    fn parse_const_pattern() {
+        let src = "123";
+        let pat_vec = parse_pattern_from_str(src).unwrap();
+
+        assert_eq!(pat_vec.len(), 1);
+
+        let (pat, _pos) = pat_vec.first().unwrap();
+        assert_eq!(*pat, Pattern::Number(123));
     }
 }

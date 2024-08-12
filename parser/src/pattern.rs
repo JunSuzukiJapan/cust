@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Pattern {
     Var(String),
     Tuple(Vec<Box<Pattern>>),
