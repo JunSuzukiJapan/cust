@@ -136,4 +136,15 @@ mod tests {
         let (pat, _pos) = pat_vec.first().unwrap();
         assert_eq!(*pat, Pattern::Number(123));
     }
+
+    #[test]
+    fn parse_char_pattern() {
+        let src = "'a'";
+        let pat_vec = parse_pattern_from_str(src).unwrap();
+
+        assert_eq!(pat_vec.len(), 1);
+
+        let (pat, _pos) = pat_vec.first().unwrap();
+        assert_eq!(*pat, Pattern::Char('a'));
+    }
 }

@@ -5,8 +5,8 @@ pub enum Pattern {
     // Struct(StructDefinition),
     // Enum(EnumDefinition),
     Str(String),
-    Char(u32),
-    CharRange(u32, u32),
+    Char(char),
+    CharRange(char, char),
     Number(i128),
     NumberRange(i128, i128),
 }

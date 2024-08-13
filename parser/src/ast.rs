@@ -785,7 +785,7 @@ pub enum ExprAST {
     PreDecMemberAccess(Box<ExprAST>, Position),
     PostIncMemberAccess(Box<ExprAST>, Position),
     PostDecMemberAccess(Box<ExprAST>, Position),
-    Char(u32, Position),
+    Char(char, Position),
     Int(i128, Position),
     Short(i16, Position),
     Long(i64, Position),

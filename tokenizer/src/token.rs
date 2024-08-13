@@ -12,7 +12,7 @@ pub enum Token {
     //
     // Literal
     //
-    CharLiteral(u32),
+    CharLiteral(char),
     // UCharLiteral(u8),
     // ShortLiteral(i16),
     // UShortLiteral(u16),

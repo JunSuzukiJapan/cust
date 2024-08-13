@@ -776,7 +776,7 @@ impl Tokenizer {
                     if let Some(result) = self.next_char(ctx) {
                         if let Some(c) = self.next_char(ctx) {
                             if c == '\'' {
-                                Ok(Some((Token::CharLiteral(result as u32), start_pos)))
+                                Ok(Some((Token::CharLiteral(result), start_pos)))
                             }else{
                                 Err(TokenizerError::IllegalCharWhileParsingCharAfter(ctx.pos.clone(), c))
                             }
@@ -791,7 +791,7 @@ impl Tokenizer {
                 }else{
                     if let Some(c) = self.next_char(ctx) {
                         if c == '\'' {
-                            Ok(Some((Token::CharLiteral(result_ch as u32), start_pos)))
+                            Ok(Some((Token::CharLiteral(result_ch), start_pos)))
                         }else{
                             Err(TokenizerError::IllegalCharWhileParsingCharAfter(ctx.pos.clone(), c))
                         }
@@ -886,15 +886,15 @@ mod tests {
                 assert_eq!(v.len(), 4);
 
                 let (tok, pos) = &v[0];
-                assert_eq!(*tok, Token::CharLiteral('a' as u32));
+                assert_eq!(*tok, Token::CharLiteral('a'));
                 assert_eq!(*pos, Position {line: 1, column: 1});
 
                 let (tok, pos) = &v[1];
-                assert_eq!(*tok, Token::CharLiteral('錆' as u32));
+                assert_eq!(*tok, Token::CharLiteral('錆'));
                 assert_eq!(*pos, Position {line: 1, column: 5});
 
                 let (tok, pos) = &v[2];
-                assert_eq!(*tok, Token::CharLiteral('\\' as u32));
+                assert_eq!(*tok, Token::CharLiteral('\\'));
                 assert_eq!(*pos, Position {line: 1, column: 9});
 
                 let (tok, pos) = &v[3];
