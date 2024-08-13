@@ -127,7 +127,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_const_pattern() {
+    fn parse_num_pattern() {
         let src = "123";
         let pat_vec = parse_pattern_from_str(src).unwrap();
 
@@ -146,5 +146,41 @@ mod tests {
 
         let (pat, _pos) = pat_vec.first().unwrap();
         assert_eq!(*pat, Pattern::Char('a'));
+    }
+
+    #[test]
+    fn parse_str_pattern() {
+        let src = "\"hello\"";
+        let pat_vec = parse_pattern_from_str(src).unwrap();
+
+        assert_eq!(pat_vec.len(), 1);
+
+        let (pat, _pos) = pat_vec.first().unwrap();
+        assert_eq!(*pat, Pattern::Str("hello".to_string()));
+    }
+
+    #[test]
+    fn parse_var_pattern() {
+        let src = "some_var";
+        let pat_vec = parse_pattern_from_str(src).unwrap();
+
+        assert_eq!(pat_vec.len(), 1);
+
+        let (pat, _pos) = pat_vec.first().unwrap();
+        assert_eq!(*pat, Pattern::Var("some_var".to_string()));
+    }
+
+    #[test]
+    fn parse_char_or_pattern() {
+        let src = "'a' | 'b'";
+        let pat_vec = parse_pattern_from_str(src).unwrap();
+
+        assert_eq!(pat_vec.len(), 2);
+
+        let (pat, _pos) = &pat_vec[0];
+        assert_eq!(*pat, Pattern::Char('a'));
+
+        let (pat2, _pos2) = &pat_vec[1];
+        assert_eq!(*pat2, Pattern::Char('b'));
     }
 }
