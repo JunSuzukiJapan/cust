@@ -467,6 +467,10 @@ impl Tokenizer {
                     self.next_char(ctx);
                     Ok(Some((Token::BracketRight, start_pos)))
                 },
+                '@' => {
+                    self.next_char(ctx);
+                    Ok(Some((Token::At, start_pos)))
+                },
                 _ => {
                     let mut s = String::new();
                     while let Some(c) = self.peek_char(ctx) {
@@ -1329,6 +1333,25 @@ mod tests {
                 assert_eq!(*pos, Position {line: 1, column: 2});
             },
             Err(_) => panic!("can't tokenize {}", src),
+        }
+    }
+
+    #[test]
+    fn tokenize_at() {
+        let result = Tokenizer::tokenize("@");
+        match result {
+            Ok(v) => {
+                assert_eq!(v.len(), 2);
+
+                let (tok, pos) = &v[0];
+                assert_eq!(*tok, Token::At);
+                assert_eq!(*pos, Position {line: 1, column: 1});
+
+                let (tok, pos) = &v[1];
+                assert_eq!(*tok, Token::EndOfInput);
+                assert_eq!(*pos, Position {line: 1, column: 2});
+            },
+            Err(_err)  => panic!("can't tokenize '@'"),
         }
     }
 

@@ -134,6 +134,11 @@ impl Parser {
             let (tok2, pos2) = iter.peek().unwrap();
             if *tok2 == Token::BitOr {
                 iter.next();  // skip '|'
+            }else if *tok2 == Token::At {
+
+
+
+                unimplemented!()
             }else{
                 break;
             }
@@ -167,6 +172,17 @@ mod tests {
         let (pat, _pos) = pat_vec.first().unwrap();
         assert_eq!(*pat, Pattern::Number(123));
     }
+
+    // #[test]
+    // fn parse_num_at_pattern() {
+    //     let src = "123 @ x";
+    //     let pat_vec = parse_pattern_from_str(src).unwrap();
+
+    //     assert_eq!(pat_vec.len(), 1);
+
+    //     let (pat, _pos) = pat_vec.first().unwrap();
+    //     assert_eq!(*pat, Pattern::Number(123));
+    // }
 
     #[test]
     fn parse_char_pattern() {
@@ -242,4 +258,33 @@ mod tests {
         }
 
     }
+/*
+    #[test]
+    fn parse_tuple_pattern2() {
+        let src = "(1 | 2 @ x, ('a' | 'b' @ y, 'c' | 'd' @ z))";
+        let pat_vec = parse_pattern_from_str(src).unwrap();
+
+        assert_eq!(pat_vec.len(), 1);
+
+        if let (Pattern::Tuple(patterns_list), _pos) = &pat_vec[0] {
+            assert_eq!(patterns_list.len(), 2);
+
+            let patterns1 = &*patterns_list[0];
+            let patterns2 = &*patterns_list[1];
+            let patterns3 = &*patterns_list[2];
+
+            assert_eq!(patterns1.len(), 1);
+            assert_eq!(patterns2.len(), 1);
+            assert_eq!(patterns3.len(), 1);
+
+            assert_eq!(*patterns1[0], Pattern::Number(1));
+            assert_eq!(*patterns2[0], Pattern::Char('a'));
+            assert_eq!(*patterns3[0], Pattern::Str("Hello".to_string()));
+
+        } else {
+            panic!();
+        }
+
+    }
+*/
 }

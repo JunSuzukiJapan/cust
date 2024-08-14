@@ -90,6 +90,7 @@ pub enum Token {
 
     MemberSelection,  // '->'
     RangeEqual,       // '..='
+    At,               // '@'
 
     //
     // Keywords
@@ -237,7 +238,7 @@ impl fmt::Display for Token {
         
             Token::Tilda => write!(f, "~"),
             Token::Question => write!(f, "?"),
-        
+
             Token::Less => write!(f, "<"),
             Token::LessEqual => write!(f, "<="),
             Token::Greater => write!(f, ">"),
@@ -260,6 +261,7 @@ impl fmt::Display for Token {
         
             Token::MemberSelection => write!(f, "->"),  // '->'
             Token::RangeEqual => write!(f, "..="),      // '..='
+            Token::At => write!(f, "@"),                // '@'
         
             //
             // Keywords
