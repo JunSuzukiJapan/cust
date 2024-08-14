@@ -1,7 +1,7 @@
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Pattern {
     Var(String),
-    Tuple(Vec<Box<Pattern>>),
+    Tuple(Vec<Vec<Box<Pattern>>>),
     // Struct(StructDefinition),
     // Enum(EnumDefinition),
     Str(String),

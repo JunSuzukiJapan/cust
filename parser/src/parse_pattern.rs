@@ -1,4 +1,4 @@
-use crate::{ExprAST, Pattern};
+use crate::{pattern, ExprAST, Pattern};
 use super::{Position, Token};
 use super::ParserError;
 use super::parse::Parser;
@@ -63,11 +63,40 @@ impl Parser {
                     let pat = Pattern::Str(s.to_string());
                     v.push((pat, pos.clone()))
                 },
-                Token::ParenLeft => {
-                    // parse tuple pattern
+                Token::ParenLeft => {  // parse tuple pattern
+                    let mut patterns_lists = Vec::new();
 
+                    let (tok2, _pos2) = iter.peek().unwrap();
 
-                    unimplemented!()
+                    if *tok2 == Token::ParenRight {  // when "()"
+                        iter.next();  // skip ')'
+                    }else{
+
+                        loop {
+                            let pat = self.parse_pattern(iter, defs, labels)?;
+                            patterns_lists.push(pat);
+
+                            let (tok3, pos3) = iter.peek().unwrap();
+                            if *tok3 == Token::Comma {
+                                iter.next();  // skip ','
+                            }else if *tok3 == Token::ParenRight {  // when ')'
+                                iter.next();  // skip ')'
+                                break;
+                            }
+                        }
+                    }
+
+                    let mut pat_list = Vec::new();
+                    for patterns in &patterns_lists {
+                        let mut v = Vec::new();
+                        for (pat, _pos) in patterns {
+                            v.push(Box::new(pat.clone()));
+                        }
+                        pat_list.push(v);
+                    }
+
+                    let p = Pattern::Tuple(pat_list);
+                    v.push((p, pos.clone()));
                 },
                 Token::Symbol(name) => {
                     let pat = Pattern::Var(name.to_string());
@@ -182,5 +211,33 @@ mod tests {
 
         let (pat2, _pos2) = &pat_vec[1];
         assert_eq!(*pat2, Pattern::Char('b'));
+    }
+
+    #[test]
+    fn parse_tuple_pattern() {
+        let src = "(1 'a' \"Hello\")";
+        let pat_vec = parse_pattern_from_str(src).unwrap();
+
+        assert_eq!(pat_vec.len(), 1);
+
+        if let (Pattern::Tuple(patterns_list), _pos) = &pat_vec[0] {
+            assert_eq!(patterns_list.len(), 3);
+
+            let patterns1 = &*patterns_list[0];
+            let patterns2 = &*patterns_list[1];
+            let patterns3 = &*patterns_list[2];
+
+            assert_eq!(patterns1.len(), 1);
+            assert_eq!(patterns2.len(), 1);
+            assert_eq!(patterns3.len(), 1);
+
+            assert_eq!(*patterns1[0], Pattern::Number(1));
+            assert_eq!(*patterns2[0], Pattern::Char('a'));
+            assert_eq!(*patterns3[0], Pattern::Str("Hello".to_string()));
+
+        } else {
+            panic!();
+        }
+
     }
 }
