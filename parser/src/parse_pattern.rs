@@ -82,6 +82,8 @@ impl Parser {
                             }else if *tok3 == Token::ParenRight {  // when ')'
                                 iter.next();  // skip ')'
                                 break;
+                            }else{
+                                return Err(ParserError::syntax_error(pos3.clone()));
                             }
                         }
                     }
@@ -215,7 +217,7 @@ mod tests {
 
     #[test]
     fn parse_tuple_pattern() {
-        let src = "(1 'a' \"Hello\")";
+        let src = "(1, 'a', \"Hello\")";
         let pat_vec = parse_pattern_from_str(src).unwrap();
 
         assert_eq!(pat_vec.len(), 1);
