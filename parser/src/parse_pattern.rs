@@ -4,13 +4,15 @@ use super::ParserError;
 use super::parse::Parser;
 use super::defines::Defines;
 
+use std::f32::consts::E;
 use std::slice::Iter;
 use std::iter::Peekable;
 
 
 impl Parser {
-    pub fn parse_pattern(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Vec<(Pattern, Position)>, ParserError> {
+    pub fn parse_pattern(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<(Vec<(Pattern, Position)>, Option<String>), ParserError> {
         let mut v = Vec::new();
+        let mut name: Option<String> = None;
 
         loop {
             let (tok, pos) = iter.peek().unwrap();
@@ -89,7 +91,7 @@ impl Parser {
                     }
 
                     let mut pat_list = Vec::new();
-                    for patterns in &patterns_lists {
+                    for (patterns, _name) in &patterns_lists {
                         let mut v = Vec::new();
                         for (pat, _pos) in patterns {
                             v.push(Box::new(pat.clone()));
@@ -126,7 +128,9 @@ impl Parser {
 
                     v.push((pat, pos.clone()))
                 },
-                Token::EndOfInput => return Err(ParserError::illegal_end_of_input(pos.clone())),
+                Token::EndOfInput => {
+                    return Err(ParserError::illegal_end_of_input(pos.clone()));
+                },
                 _ => return Err(ParserError::not_pattern(pos.clone())),
             }
 
@@ -134,17 +138,29 @@ impl Parser {
             let (tok2, pos2) = iter.peek().unwrap();
             if *tok2 == Token::BitOr {
                 iter.next();  // skip '|'
+
             }else if *tok2 == Token::At {
+                iter.next();  // skip '@'
 
+                let (tok3, pos3) = iter.peek().unwrap();
+                if tok3.is_symbol() {
+                    iter.next();
 
+                    let str = tok3.get_symbol_name().unwrap();
+                    name = Some(str.to_string());
 
-                unimplemented!()
+                    break;
+
+                }else{
+                    return Err(ParserError::syntax_error(pos3.clone()));
+                }
+
             }else{
                 break;
             }
         }
 
-        Ok(v)
+        Ok((v, name))
     }
 }
 
@@ -153,7 +169,7 @@ mod tests {
     use tokenizer::*;
     use super::*;
 
-    fn parse_pattern_from_str(src: &str) -> Result<Vec<(Pattern, Position)>, ParserError> {
+    fn parse_pattern_from_str(src: &str) -> Result<(Vec<(Pattern, Position)>, Option<String>), ParserError> {
         let token_list = Tokenizer::tokenize(src).unwrap();
         let mut iter = token_list.iter().peekable();
         let parser = Parser::new();
@@ -165,7 +181,7 @@ mod tests {
     #[test]
     fn parse_num_pattern() {
         let src = "123";
-        let pat_vec = parse_pattern_from_str(src).unwrap();
+        let (pat_vec, _name) = parse_pattern_from_str(src).unwrap();
 
         assert_eq!(pat_vec.len(), 1);
 
@@ -173,21 +189,22 @@ mod tests {
         assert_eq!(*pat, Pattern::Number(123));
     }
 
-    // #[test]
-    // fn parse_num_at_pattern() {
-    //     let src = "123 @ x";
-    //     let pat_vec = parse_pattern_from_str(src).unwrap();
+    #[test]
+    fn parse_num_at_pattern() {
+        let src = "123 @ x";
+        let (pat_vec, name) = parse_pattern_from_str(src).unwrap();
 
-    //     assert_eq!(pat_vec.len(), 1);
+        assert_eq!(pat_vec.len(), 1);
+        assert_eq!(name.unwrap(), "x");
 
-    //     let (pat, _pos) = pat_vec.first().unwrap();
-    //     assert_eq!(*pat, Pattern::Number(123));
-    // }
+        let (pat, _pos) = pat_vec.first().unwrap();
+        assert_eq!(*pat, Pattern::Number(123));
+    }
 
     #[test]
     fn parse_char_pattern() {
         let src = "'a'";
-        let pat_vec = parse_pattern_from_str(src).unwrap();
+        let (pat_vec, _name) = parse_pattern_from_str(src).unwrap();
 
         assert_eq!(pat_vec.len(), 1);
 
@@ -196,9 +213,25 @@ mod tests {
     }
 
     #[test]
+    fn parse_char_at_pattern() {
+        let src = "'a' | 'b' | 'c' @ ch";
+        let (pat_vec, name) = parse_pattern_from_str(src).unwrap();
+
+        assert_eq!(pat_vec.len(), 3);
+        assert_eq!(name.unwrap(), "ch");
+
+        let (pat, _pos) = &pat_vec[0];
+        assert_eq!(*pat, Pattern::Char('a'));
+        let (pat, _pos) = &pat_vec[1];
+        assert_eq!(*pat, Pattern::Char('b'));
+        let (pat, _pos) = &pat_vec[2];
+        assert_eq!(*pat, Pattern::Char('c'));
+    }
+
+    #[test]
     fn parse_str_pattern() {
         let src = "\"hello\"";
-        let pat_vec = parse_pattern_from_str(src).unwrap();
+        let (pat_vec, _name) = parse_pattern_from_str(src).unwrap();
 
         assert_eq!(pat_vec.len(), 1);
 
@@ -209,7 +242,7 @@ mod tests {
     #[test]
     fn parse_var_pattern() {
         let src = "some_var";
-        let pat_vec = parse_pattern_from_str(src).unwrap();
+        let (pat_vec, _name) = parse_pattern_from_str(src).unwrap();
 
         assert_eq!(pat_vec.len(), 1);
 
@@ -220,7 +253,7 @@ mod tests {
     #[test]
     fn parse_char_or_pattern() {
         let src = "'a' | 'b'";
-        let pat_vec = parse_pattern_from_str(src).unwrap();
+        let (pat_vec, _name) = parse_pattern_from_str(src).unwrap();
 
         assert_eq!(pat_vec.len(), 2);
 
@@ -234,7 +267,7 @@ mod tests {
     #[test]
     fn parse_tuple_pattern() {
         let src = "(1, 'a', \"Hello\")";
-        let pat_vec = parse_pattern_from_str(src).unwrap();
+        let (pat_vec, _name) = parse_pattern_from_str(src).unwrap();
 
         assert_eq!(pat_vec.len(), 1);
 
@@ -262,7 +295,7 @@ mod tests {
     #[test]
     fn parse_tuple_pattern2() {
         let src = "(1 | 2 @ x, ('a' | 'b' @ y, 'c' | 'd' @ z))";
-        let pat_vec = parse_pattern_from_str(src).unwrap();
+        let (pat_vec, _name) = parse_pattern_from_str(src).unwrap();
 
         assert_eq!(pat_vec.len(), 1);
 
