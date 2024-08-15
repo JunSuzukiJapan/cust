@@ -90,13 +90,13 @@ impl Parser {
                         }
                     }
 
-                    let mut pat_list = Vec::new();
-                    for (patterns, _name) in &patterns_lists {
+                    let mut pat_list: Vec<(Vec<Box<Pattern>>, Option<String>)> = Vec::new();
+                    for (patterns, name) in &patterns_lists {
                         let mut v = Vec::new();
                         for (pat, _pos) in patterns {
                             v.push(Box::new(pat.clone()));
                         }
-                        pat_list.push(v);
+                        pat_list.push((v, name.clone()));
                     }
 
                     let p = Pattern::Tuple(pat_list);
@@ -274,13 +274,17 @@ mod tests {
         if let (Pattern::Tuple(patterns_list), _pos) = &pat_vec[0] {
             assert_eq!(patterns_list.len(), 3);
 
-            let patterns1 = &*patterns_list[0];
-            let patterns2 = &*patterns_list[1];
-            let patterns3 = &*patterns_list[2];
+            let (patterns1, name1) = &patterns_list[0];
+            let (patterns2, name2) = &patterns_list[1];
+            let (patterns3, name3) = &patterns_list[2];
 
             assert_eq!(patterns1.len(), 1);
             assert_eq!(patterns2.len(), 1);
             assert_eq!(patterns3.len(), 1);
+
+            assert_eq!(*name1, None);
+            assert_eq!(*name2, None);
+            assert_eq!(*name2, None);
 
             assert_eq!(*patterns1[0], Pattern::Number(1));
             assert_eq!(*patterns2[0], Pattern::Char('a'));
@@ -291,33 +295,54 @@ mod tests {
         }
 
     }
-/*
+
     #[test]
-    fn parse_tuple_pattern2() {
-        let src = "(1 | 2 @ x, ('a' | 'b' @ y, 'c' | 'd' @ z))";
-        let (pat_vec, _name) = parse_pattern_from_str(src).unwrap();
+    fn parse_tuple_at_pattern() {
+        let src = "(1 | 2 @ x, ('a' | 'b' @ y, 'c' | 'd' @ z) @ inner) @ outer";
+        let (pat_vec, outer_name) = parse_pattern_from_str(src).unwrap();
 
         assert_eq!(pat_vec.len(), 1);
+        assert_eq!(outer_name.unwrap(), "outer");
 
         if let (Pattern::Tuple(patterns_list), _pos) = &pat_vec[0] {
             assert_eq!(patterns_list.len(), 2);
 
-            let patterns1 = &*patterns_list[0];
-            let patterns2 = &*patterns_list[1];
-            let patterns3 = &*patterns_list[2];
+            let (patterns1, name1) = &patterns_list[0];
+            let (patterns2, name2) = &patterns_list[1];
 
-            assert_eq!(patterns1.len(), 1);
+            assert_eq!(patterns1.len(), 2);
             assert_eq!(patterns2.len(), 1);
-            assert_eq!(patterns3.len(), 1);
 
             assert_eq!(*patterns1[0], Pattern::Number(1));
-            assert_eq!(*patterns2[0], Pattern::Char('a'));
-            assert_eq!(*patterns3[0], Pattern::Str("Hello".to_string()));
+            assert_eq!(*patterns1[1], Pattern::Number(2));
+            assert_eq!(name1.as_ref().unwrap(), "x");
+            assert_eq!(name2.as_ref().unwrap(), "inner");
+
+            if let Pattern::Tuple(patterns_list2) = &*patterns2[0] {
+                assert_eq!(patterns_list2.len(), 2);
+
+                let (patterns1, name1) = &patterns_list2[0];
+                let (patterns2, name2) = &patterns_list2[1];
+
+                assert_eq!(patterns1.len(), 2);
+                assert_eq!(patterns2.len(), 2);
+
+                assert_eq!(*patterns1[0], Pattern::Char('a'));
+                assert_eq!(*patterns1[1], Pattern::Char('b'));
+                assert_eq!(name1.as_ref().unwrap(), "y");
+
+                assert_eq!(*patterns2[0], Pattern::Char('c'));
+                assert_eq!(*patterns2[1], Pattern::Char('d'));
+                assert_eq!(name2.as_ref().unwrap(), "z");
+
+            }else{
+                panic!();
+            }
 
         } else {
             panic!();
         }
 
     }
-*/
+
 }
