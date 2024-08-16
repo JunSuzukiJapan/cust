@@ -36,9 +36,9 @@ impl Parser {
                             },
                             _ => return Err(ParserError::syntax_error(pos3.clone())),
                         }
+                    }else{
+                        v.push((pat, pos.clone()));
                     }
-
-                    v.push((pat, pos.clone()));
                 },
                 Token::IntLiteral(num) => {
                     let pat = Pattern::Number(*num);
@@ -221,6 +221,17 @@ mod tests {
 
         let (pat, _pos) = pat_vec.first().unwrap();
         assert_eq!(*pat, Pattern::Char('a'));
+    }
+
+    #[test]
+    fn parse_char_range_pattern() {
+        let src = "'a' ..= 'e'";
+        let (pat_vec, _name) = parse_pattern_from_str(src).unwrap();
+println!("pat_vec: {pat_vec:?}");
+        assert_eq!(pat_vec.len(), 1);
+
+        let (pat, _pos) = &pat_vec[0];
+        assert_eq!(*pat, Pattern::CharRange('a', 'e'));
     }
 
     #[test]
