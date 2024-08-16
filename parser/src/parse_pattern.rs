@@ -57,9 +57,9 @@ impl Parser {
                             },
                             _ => return Err(ParserError::syntax_error(pos3.clone())),
                         }
+                    }else{
+                        v.push((pat, pos.clone()))
                     }
-
-                    v.push((pat, pos.clone()))
                 },
                 Token::StringLiteral(s) => {
                     let pat = Pattern::Str(s.to_string());
@@ -187,6 +187,17 @@ mod tests {
 
         let (pat, _pos) = pat_vec.first().unwrap();
         assert_eq!(*pat, Pattern::Number(123));
+    }
+
+    #[test]
+    fn parse_num_range_pattern() {
+        let src = "1 ..= 5";
+        let (pat_vec, _name) = parse_pattern_from_str(src).unwrap();
+
+        assert_eq!(pat_vec.len(), 1);
+
+        let (pat, _pos) = pat_vec.first().unwrap();
+        assert_eq!(*pat, Pattern::NumberRange(1, 5));
     }
 
     #[test]
