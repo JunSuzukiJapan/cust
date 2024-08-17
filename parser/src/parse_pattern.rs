@@ -1,3 +1,4 @@
+use crate::pattern::EnumPattern;
 use crate::{pattern, ExprAST, Pattern};
 use super::{Position, Token};
 use super::ParserError;
@@ -99,21 +100,23 @@ impl Parser {
                         pat_list.push((v, name.clone()));
                     }
 
-                    let p = Pattern::Tuple(pat_list);
-                    v.push((p, pos.clone()));
+                    let pat = Pattern::Tuple(pat_list);
+                    v.push((pat, pos.clone()));
                 },
                 Token::Symbol(name) => {
-                    let pat = Pattern::Var(name.to_string());
-
                     let (tok2, pos2) = iter.peek().unwrap();
                     match tok2 {
                         Token::WColon => {  // parse Enum pattern
-                            iter.next();
+                            iter.next();  // skip '::'
 
+                            let (tok3, pos3) = iter.next().unwrap();
+                            if ! tok3.is_symbol() {
+                                return Err(ParserError::syntax_error(pos3.clone()));
+                            }
+                            let sub_name = tok3.get_symbol_name().unwrap();
 
-
-
-                            unimplemented!()
+                            let pat = self.parse_enum_pattern(name, sub_name, iter, defs, labels)?;
+                            v.push((pat, pos.clone()));
                         },
                         Token::BraceLeft => {  // parse struct pattern
                             iter.next();
@@ -123,10 +126,11 @@ impl Parser {
 
                             unimplemented!()
                         },
-                        _ => (),  // do nothing
+                        _ => {
+                            let pat = Pattern::Var(name.to_string());
+                            v.push((pat, pos.clone()))
+                        },
                     }
-
-                    v.push((pat, pos.clone()))
                 },
                 Token::EndOfInput => {
                     return Err(ParserError::illegal_end_of_input(pos.clone()));
@@ -161,6 +165,29 @@ impl Parser {
         }
 
         Ok((v, name))
+    }
+
+    pub fn parse_enum_pattern(&self, name: &str, sub_name: &str, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Pattern, ParserError> {
+        let (tok, pos) = iter.peek().unwrap();
+        
+        match tok {
+            Token::ParenLeft => {
+
+
+
+                unimplemented!()
+            },
+            Token::BraceLeft => {
+
+
+
+                unimplemented!()
+            },
+            _ => {  // pattern 'Name::SubName'
+                let enum_pat = EnumPattern::Simple(name.to_string(), sub_name.to_string());
+                Ok(Pattern::Enum(enum_pat))
+            },
+        }
     }
 }
 
@@ -364,7 +391,28 @@ println!("pat_vec: {pat_vec:?}");
         } else {
             panic!();
         }
-
     }
 
+    #[test]
+    fn parse_enum_simple_pattern() {
+        let src = "EnumName::SubName";
+        let (pat_vec, _name) = parse_pattern_from_str(src).unwrap();
+
+        assert_eq!(pat_vec.len(), 1);
+
+        let (pat, _pos) = pat_vec.first().unwrap();
+        if let Pattern::Enum(enum_pat) = pat {
+            match enum_pat {
+                EnumPattern::Simple(name, sub_name) => {
+                    assert_eq!(name, "EnumName");
+                    assert_eq!(sub_name, "SubName");
+                },
+                _ => panic!()
+            }
+
+
+        }else{
+            panic!()
+        }
+    }
 }
