@@ -14,6 +14,6 @@ pub enum Pattern {
 #[derive(Debug, PartialEq, Clone)]
 pub enum EnumPattern {
     Simple(String, String),
-    Tuple,
-    Struct,
+    Tuple(String, String, Vec<(Vec<Box<Pattern>>, Option<String>)>),
+    Struct(String, String),
 }

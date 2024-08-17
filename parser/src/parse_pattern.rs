@@ -67,40 +67,7 @@ impl Parser {
                     v.push((pat, pos.clone()))
                 },
                 Token::ParenLeft => {  // parse tuple pattern
-                    let mut patterns_lists = Vec::new();
-
-                    let (tok2, _pos2) = iter.peek().unwrap();
-
-                    if *tok2 == Token::ParenRight {  // when "()"
-                        iter.next();  // skip ')'
-                    }else{
-
-                        loop {
-                            let pat = self.parse_pattern(iter, defs, labels)?;
-                            patterns_lists.push(pat);
-
-                            let (tok3, pos3) = iter.peek().unwrap();
-                            if *tok3 == Token::Comma {
-                                iter.next();  // skip ','
-                            }else if *tok3 == Token::ParenRight {  // when ')'
-                                iter.next();  // skip ')'
-                                break;
-                            }else{
-                                return Err(ParserError::syntax_error(pos3.clone()));
-                            }
-                        }
-                    }
-
-                    let mut pat_list: Vec<(Vec<Box<Pattern>>, Option<String>)> = Vec::new();
-                    for (patterns, name) in &patterns_lists {
-                        let mut v = Vec::new();
-                        for (pat, _pos) in patterns {
-                            v.push(Box::new(pat.clone()));
-                        }
-                        pat_list.push((v, name.clone()));
-                    }
-
-                    let pat = Pattern::Tuple(pat_list);
+                    let pat = self.parse_tuple_pattern(iter, defs, labels)?;
                     v.push((pat, pos.clone()));
                 },
                 Token::Symbol(name) => {
@@ -167,17 +134,61 @@ impl Parser {
         Ok((v, name))
     }
 
-    pub fn parse_enum_pattern(&self, name: &str, sub_name: &str, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Pattern, ParserError> {
+    fn parse_tuple_pattern(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Pattern, ParserError> {
+        let mut patterns_lists = Vec::new();
+
+        let (tok2, _pos2) = iter.peek().unwrap();
+
+        if *tok2 == Token::ParenRight {  // when "()"
+            iter.next();  // skip ')'
+        }else{
+
+            loop {
+                let pat = self.parse_pattern(iter, defs, labels)?;
+                patterns_lists.push(pat);
+
+                let (tok3, pos3) = iter.peek().unwrap();
+                if *tok3 == Token::Comma {
+                    iter.next();  // skip ','
+                }else if *tok3 == Token::ParenRight {  // when ')'
+                    iter.next();  // skip ')'
+                    break;
+                }else{
+                    return Err(ParserError::syntax_error(pos3.clone()));
+                }
+            }
+        }
+
+        let mut pat_list: Vec<(Vec<Box<Pattern>>, Option<String>)> = Vec::new();
+        for (patterns, name) in &patterns_lists {
+            let mut v = Vec::new();
+            for (pat, _pos) in patterns {
+                v.push(Box::new(pat.clone()));
+            }
+            pat_list.push((v, name.clone()));
+        }
+
+        let pat = Pattern::Tuple(pat_list);
+        Ok(pat)
+    }
+
+
+    fn parse_enum_pattern(&self, name: &str, sub_name: &str, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Pattern, ParserError> {
         let (tok, pos) = iter.peek().unwrap();
         
         match tok {
-            Token::ParenLeft => {
+            Token::ParenLeft => {  // Tuple pattern
+                iter.next();  // skip '('
 
+                if let Pattern::Tuple(list) = self.parse_tuple_pattern(iter, defs, labels)? {
+                    let enum_pat = EnumPattern::Tuple(name.to_string(), sub_name.to_string(), list);
+                    Ok(Pattern::Enum(enum_pat))
 
-
-                unimplemented!()
+                }else{
+                    panic!("system error");  // never reach
+                }
             },
-            Token::BraceLeft => {
+            Token::BraceLeft => {  // Struct pattern
 
 
 
@@ -254,7 +265,7 @@ mod tests {
     fn parse_char_range_pattern() {
         let src = "'a' ..= 'e'";
         let (pat_vec, _name) = parse_pattern_from_str(src).unwrap();
-println!("pat_vec: {pat_vec:?}");
+
         assert_eq!(pat_vec.len(), 1);
 
         let (pat, _pos) = &pat_vec[0];
@@ -342,7 +353,6 @@ println!("pat_vec: {pat_vec:?}");
         } else {
             panic!();
         }
-
     }
 
     #[test]
@@ -410,6 +420,48 @@ println!("pat_vec: {pat_vec:?}");
                 _ => panic!()
             }
 
+
+        }else{
+            panic!()
+        }
+    }
+
+    #[test]
+    fn parse_enum_tuple_pattern() {
+        let src = "EnumName::SubName(1, 'a', \"Hello\")";
+        let (pat_vec, _name) = parse_pattern_from_str(src).unwrap();
+
+        assert_eq!(pat_vec.len(), 1);
+
+        let (pat, _pos) = pat_vec.first().unwrap();
+        if let Pattern::Enum(enum_pat) = pat {
+            match enum_pat {
+                EnumPattern::Tuple(name, sub_name, patterns_list) => {
+                    assert_eq!(name, "EnumName");
+                    assert_eq!(sub_name, "SubName");
+
+                    assert_eq!(pat_vec.len(), 1);
+
+                    assert_eq!(patterns_list.len(), 3);
+        
+                    let (patterns1, name1) = &patterns_list[0];
+                    let (patterns2, name2) = &patterns_list[1];
+                    let (patterns3, name3) = &patterns_list[2];
+        
+                    assert_eq!(patterns1.len(), 1);
+                    assert_eq!(patterns2.len(), 1);
+                    assert_eq!(patterns3.len(), 1);
+        
+                    assert_eq!(*name1, None);
+                    assert_eq!(*name2, None);
+                    assert_eq!(*name2, None);
+        
+                    assert_eq!(*patterns1[0], Pattern::Number(1));
+                    assert_eq!(*patterns2[0], Pattern::Char('a'));
+                    assert_eq!(*patterns3[0], Pattern::Str("Hello".to_string()));
+            },
+                _ => panic!()
+            }
 
         }else{
             panic!()
