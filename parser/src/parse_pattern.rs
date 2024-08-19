@@ -1,18 +1,19 @@
-use crate::pattern::EnumPattern;
+use crate::pattern::{EnumPattern, StructPattern};
 use crate::{pattern, ExprAST, Pattern};
 use super::{Position, Token};
 use super::ParserError;
 use super::parse::Parser;
 use super::defines::Defines;
 
+use std::collections::HashMap;
 use std::f32::consts::E;
 use std::slice::Iter;
 use std::iter::Peekable;
 
 
 impl Parser {
-    pub fn parse_pattern(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<(Vec<(Pattern, Position)>, Option<String>), ParserError> {
-        let mut v = Vec::new();
+    pub fn parse_pattern(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<(Vec<(Box<Pattern>, Position)>, Option<String>), ParserError> {
+        let mut v: Vec<(Box<Pattern>, Position)> = Vec::new();
         let mut name: Option<String> = None;
 
         loop {
@@ -33,12 +34,12 @@ impl Parser {
                                 iter.next();
 
                                 let pat2 = Pattern::CharRange(*ch, *ch2);
-                                v.push((pat2, pos.clone()));
+                                v.push((Box::new(pat2), pos.clone()));
                             },
                             _ => return Err(ParserError::syntax_error(pos3.clone())),
                         }
                     }else{
-                        v.push((pat, pos.clone()));
+                        v.push((Box::new(pat), pos.clone()));
                     }
                 },
                 Token::IntLiteral(num) => {
@@ -54,21 +55,21 @@ impl Parser {
                                 iter.next();
 
                                 let pat2 = Pattern::NumberRange(*num, *num2);
-                                v.push((pat2, pos.clone()));
+                                v.push((Box::new(pat2), pos.clone()));
                             },
                             _ => return Err(ParserError::syntax_error(pos3.clone())),
                         }
                     }else{
-                        v.push((pat, pos.clone()))
+                        v.push((Box::new(pat), pos.clone()))
                     }
                 },
                 Token::StringLiteral(s) => {
                     let pat = Pattern::Str(s.to_string());
-                    v.push((pat, pos.clone()))
+                    v.push((Box::new(pat), pos.clone()))
                 },
                 Token::ParenLeft => {  // parse tuple pattern
                     let pat = self.parse_tuple_pattern(iter, defs, labels)?;
-                    v.push((pat, pos.clone()));
+                    v.push((Box::new(pat), pos.clone()));
                 },
                 Token::Symbol(name) => {
                     let (tok2, pos2) = iter.peek().unwrap();
@@ -83,19 +84,18 @@ impl Parser {
                             let sub_name = tok3.get_symbol_name().unwrap();
 
                             let pat = self.parse_enum_pattern(name, sub_name, iter, defs, labels)?;
-                            v.push((pat, pos.clone()));
+                            v.push((Box::new(pat), pos.clone()));
                         },
                         Token::BraceLeft => {  // parse struct pattern
-                            iter.next();
+                            iter.next();  // skip '{'
 
-
-
-
-                            unimplemented!()
+                            let struct_pat = self.parse_struct_pattern(name, iter, defs, labels)?;
+                            let pat = Pattern::Struct(struct_pat);
+                            v.push((Box::new(pat), pos.clone()));
                         },
                         _ => {
                             let pat = Pattern::Var(name.to_string());
-                            v.push((pat, pos.clone()))
+                            v.push((Box::new(pat), pos.clone()))
                         },
                     }
                 },
@@ -159,19 +159,9 @@ impl Parser {
             }
         }
 
-        let mut pat_list: Vec<(Vec<Box<Pattern>>, Option<String>)> = Vec::new();
-        for (patterns, name) in &patterns_lists {
-            let mut v = Vec::new();
-            for (pat, _pos) in patterns {
-                v.push(Box::new(pat.clone()));
-            }
-            pat_list.push((v, name.clone()));
-        }
-
-        let pat = Pattern::Tuple(pat_list);
+        let pat = Pattern::Tuple(patterns_lists);
         Ok(pat)
     }
-
 
     fn parse_enum_pattern(&self, name: &str, sub_name: &str, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Pattern, ParserError> {
         let (tok, pos) = iter.peek().unwrap();
@@ -189,10 +179,10 @@ impl Parser {
                 }
             },
             Token::BraceLeft => {  // Struct pattern
-
-
-
-                unimplemented!()
+                iter.next();  // skip '{'
+                let struct_pat = self.parse_struct_pattern(&format!("{name}::{sub_name}"), iter, defs, labels)?;
+                let enum_pat = EnumPattern::Struct(name.to_string(), sub_name.to_string(), struct_pat);
+                Ok(Pattern::Enum(enum_pat))
             },
             _ => {  // pattern 'Name::SubName'
                 let enum_pat = EnumPattern::Simple(name.to_string(), sub_name.to_string());
@@ -200,14 +190,59 @@ impl Parser {
             },
         }
     }
+
+    fn parse_struct_pattern(&self, name: &str, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<StructPattern, ParserError> {
+        let mut map: HashMap<String, Option<Vec<(Box<Pattern>, Position)>>> = HashMap::new();
+        let mut has_optional = false;
+
+        loop {
+            let (tok, pos) = iter.next().unwrap();
+
+            match tok {
+                Token::BraceRight => {
+                    break;
+                },
+                Token::Symbol(name) => {
+                    let (tok2, pos2) = iter.peek().unwrap();
+
+                    match tok2 {
+                        Token::Comma => {  // ','
+                            map.insert(name.to_string(), None);
+                        },
+                        Token::Colon => {  // ':'
+                            let (pat, _name) = self.parse_pattern(iter, defs, labels)?;
+                            map.insert(name.to_string(), Some(pat));
+                        },
+                        _ => ()  // do nothing
+                    }
+                },
+                Token::TripleDot => {
+                    has_optional = true;
+                    break;
+                },
+                _ => {
+                    return  Err(ParserError::syntax_error(pos.clone()));
+                }
+            }
+        }
+
+        let struct_pat = StructPattern {
+            name: name.to_string(),
+            map,
+            has_optional,
+        };
+
+        Ok(struct_pat)
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use pattern::StructPattern;
     use tokenizer::*;
     use super::*;
 
-    fn parse_pattern_from_str(src: &str) -> Result<(Vec<(Pattern, Position)>, Option<String>), ParserError> {
+    fn parse_pattern_from_str(src: &str) -> Result<(Vec<(Box<Pattern>, Position)>, Option<String>), ParserError> {
         let token_list = Tokenizer::tokenize(src).unwrap();
         let mut iter = token_list.iter().peekable();
         let parser = Parser::new();
@@ -223,8 +258,8 @@ mod tests {
 
         assert_eq!(pat_vec.len(), 1);
 
-        let (pat, _pos) = pat_vec.first().unwrap();
-        assert_eq!(*pat, Pattern::Number(123));
+        let (pat, _pos) = &pat_vec[0];
+        assert_eq!(**pat, Pattern::Number(123));
     }
 
     #[test]
@@ -234,8 +269,8 @@ mod tests {
 
         assert_eq!(pat_vec.len(), 1);
 
-        let (pat, _pos) = pat_vec.first().unwrap();
-        assert_eq!(*pat, Pattern::NumberRange(1, 5));
+        let (pat, _pos) = &pat_vec[0];
+        assert_eq!(**pat, Pattern::NumberRange(1, 5));
     }
 
     #[test]
@@ -246,8 +281,8 @@ mod tests {
         assert_eq!(pat_vec.len(), 1);
         assert_eq!(name.unwrap(), "x");
 
-        let (pat, _pos) = pat_vec.first().unwrap();
-        assert_eq!(*pat, Pattern::Number(123));
+        let (pat, _pos) = &pat_vec[0];
+        assert_eq!(**pat, Pattern::Number(123));
     }
 
     #[test]
@@ -257,8 +292,8 @@ mod tests {
 
         assert_eq!(pat_vec.len(), 1);
 
-        let (pat, _pos) = pat_vec.first().unwrap();
-        assert_eq!(*pat, Pattern::Char('a'));
+        let (pat, _pos) = &pat_vec[0];
+        assert_eq!(**pat, Pattern::Char('a'));
     }
 
     #[test]
@@ -269,7 +304,7 @@ mod tests {
         assert_eq!(pat_vec.len(), 1);
 
         let (pat, _pos) = &pat_vec[0];
-        assert_eq!(*pat, Pattern::CharRange('a', 'e'));
+        assert_eq!(**pat, Pattern::CharRange('a', 'e'));
     }
 
     #[test]
@@ -281,11 +316,11 @@ mod tests {
         assert_eq!(name.unwrap(), "ch");
 
         let (pat, _pos) = &pat_vec[0];
-        assert_eq!(*pat, Pattern::Char('a'));
+        assert_eq!(**pat, Pattern::Char('a'));
         let (pat, _pos) = &pat_vec[1];
-        assert_eq!(*pat, Pattern::Char('b'));
+        assert_eq!(**pat, Pattern::Char('b'));
         let (pat, _pos) = &pat_vec[2];
-        assert_eq!(*pat, Pattern::Char('c'));
+        assert_eq!(**pat, Pattern::Char('c'));
     }
 
     #[test]
@@ -295,8 +330,8 @@ mod tests {
 
         assert_eq!(pat_vec.len(), 1);
 
-        let (pat, _pos) = pat_vec.first().unwrap();
-        assert_eq!(*pat, Pattern::Str("hello".to_string()));
+        let (pat, _pos) = &pat_vec[0];
+        assert_eq!(**pat, Pattern::Str("hello".to_string()));
     }
 
     #[test]
@@ -306,8 +341,8 @@ mod tests {
 
         assert_eq!(pat_vec.len(), 1);
 
-        let (pat, _pos) = pat_vec.first().unwrap();
-        assert_eq!(*pat, Pattern::Var("some_var".to_string()));
+        let (pat, _pos) = &pat_vec[0];
+        assert_eq!(**pat, Pattern::Var("some_var".to_string()));
     }
 
     #[test]
@@ -318,10 +353,10 @@ mod tests {
         assert_eq!(pat_vec.len(), 2);
 
         let (pat, _pos) = &pat_vec[0];
-        assert_eq!(*pat, Pattern::Char('a'));
+        assert_eq!(**pat, Pattern::Char('a'));
 
         let (pat2, _pos2) = &pat_vec[1];
-        assert_eq!(*pat2, Pattern::Char('b'));
+        assert_eq!(**pat2, Pattern::Char('b'));
     }
 
     #[test]
@@ -331,7 +366,8 @@ mod tests {
 
         assert_eq!(pat_vec.len(), 1);
 
-        if let (Pattern::Tuple(patterns_list), _pos) = &pat_vec[0] {
+        let (pat, _pos) = &pat_vec[0];
+        if let Pattern::Tuple(patterns_list) = &**pat {
             assert_eq!(patterns_list.len(), 3);
 
             let (patterns1, name1) = &patterns_list[0];
@@ -346,9 +382,12 @@ mod tests {
             assert_eq!(*name2, None);
             assert_eq!(*name2, None);
 
-            assert_eq!(*patterns1[0], Pattern::Number(1));
-            assert_eq!(*patterns2[0], Pattern::Char('a'));
-            assert_eq!(*patterns3[0], Pattern::Str("Hello".to_string()));
+            let (pat1, _pos1) = &patterns1[0];
+            assert_eq!(**pat1, Pattern::Number(1));
+            let (pat2, _pos2) = &patterns2[0];
+            assert_eq!(**pat2, Pattern::Char('a'));
+            let (pat3, _pos3) = &patterns3[0];
+            assert_eq!(**pat3, Pattern::Str("Hello".to_string()));
 
         } else {
             panic!();
@@ -363,7 +402,8 @@ mod tests {
         assert_eq!(pat_vec.len(), 1);
         assert_eq!(outer_name.unwrap(), "outer");
 
-        if let (Pattern::Tuple(patterns_list), _pos) = &pat_vec[0] {
+        let (pat, _pos) = &pat_vec[0];
+        if let Pattern::Tuple(patterns_list) = &**pat {
             assert_eq!(patterns_list.len(), 2);
 
             let (patterns1, name1) = &patterns_list[0];
@@ -372,12 +412,15 @@ mod tests {
             assert_eq!(patterns1.len(), 2);
             assert_eq!(patterns2.len(), 1);
 
-            assert_eq!(*patterns1[0], Pattern::Number(1));
-            assert_eq!(*patterns1[1], Pattern::Number(2));
+            let (pat1, _pos1) = &patterns1[0];
+            assert_eq!(**pat1, Pattern::Number(1));
+            let (pat1_2, _pos1_2) = &patterns1[1];
+            assert_eq!(**pat1_2, Pattern::Number(2));
             assert_eq!(name1.as_ref().unwrap(), "x");
             assert_eq!(name2.as_ref().unwrap(), "inner");
 
-            if let Pattern::Tuple(patterns_list2) = &*patterns2[0] {
+            let (pat2, _pos2) = &patterns2[0];
+            if let Pattern::Tuple(patterns_list2) = &**pat2 {
                 assert_eq!(patterns_list2.len(), 2);
 
                 let (patterns1, name1) = &patterns_list2[0];
@@ -386,12 +429,16 @@ mod tests {
                 assert_eq!(patterns1.len(), 2);
                 assert_eq!(patterns2.len(), 2);
 
-                assert_eq!(*patterns1[0], Pattern::Char('a'));
-                assert_eq!(*patterns1[1], Pattern::Char('b'));
+                let (pat, _pos) = &patterns1[0];
+                assert_eq!(**pat, Pattern::Char('a'));
+                let (pat, _pos) = &patterns1[1];
+                assert_eq!(**pat, Pattern::Char('b'));
                 assert_eq!(name1.as_ref().unwrap(), "y");
 
-                assert_eq!(*patterns2[0], Pattern::Char('c'));
-                assert_eq!(*patterns2[1], Pattern::Char('d'));
+                let (pat, _pos) = &patterns2[0];
+                assert_eq!(**pat, Pattern::Char('c'));
+                let (pat, _pos) = &patterns2[1];
+                assert_eq!(**pat, Pattern::Char('d'));
                 assert_eq!(name2.as_ref().unwrap(), "z");
 
             }else{
@@ -410,8 +457,8 @@ mod tests {
 
         assert_eq!(pat_vec.len(), 1);
 
-        let (pat, _pos) = pat_vec.first().unwrap();
-        if let Pattern::Enum(enum_pat) = pat {
+        let (pat, _pos) = &pat_vec[0];
+        if let Pattern::Enum(enum_pat) = &**pat {
             match enum_pat {
                 EnumPattern::Simple(name, sub_name) => {
                     assert_eq!(name, "EnumName");
@@ -433,8 +480,8 @@ mod tests {
 
         assert_eq!(pat_vec.len(), 1);
 
-        let (pat, _pos) = pat_vec.first().unwrap();
-        if let Pattern::Enum(enum_pat) = pat {
+        let (pat, _pos) = &pat_vec[0];
+        if let Pattern::Enum(enum_pat) = &**pat {
             match enum_pat {
                 EnumPattern::Tuple(name, sub_name, patterns_list) => {
                     assert_eq!(name, "EnumName");
@@ -443,25 +490,52 @@ mod tests {
                     assert_eq!(pat_vec.len(), 1);
 
                     assert_eq!(patterns_list.len(), 3);
-        
+
                     let (patterns1, name1) = &patterns_list[0];
                     let (patterns2, name2) = &patterns_list[1];
                     let (patterns3, name3) = &patterns_list[2];
-        
+
                     assert_eq!(patterns1.len(), 1);
                     assert_eq!(patterns2.len(), 1);
                     assert_eq!(patterns3.len(), 1);
-        
+
                     assert_eq!(*name1, None);
                     assert_eq!(*name2, None);
                     assert_eq!(*name2, None);
-        
-                    assert_eq!(*patterns1[0], Pattern::Number(1));
-                    assert_eq!(*patterns2[0], Pattern::Char('a'));
-                    assert_eq!(*patterns3[0], Pattern::Str("Hello".to_string()));
+
+                    let (pat, _pos) = &patterns1[0];
+                    assert_eq!(**pat, Pattern::Number(1));
+                    let (pat, _pos) = &patterns2[0];
+                    assert_eq!(**pat, Pattern::Char('a'));
+                    let (pat, _pos) = &patterns3[0];
+                    assert_eq!(**pat, Pattern::Str("Hello".to_string()));
             },
                 _ => panic!()
             }
+
+        }else{
+            panic!()
+        }
+    }
+
+    #[test]
+    fn parse_struct_pattern() {
+        let src = "Foo {x, y:0, ...} ";
+        let (pat_vec, _name) = parse_pattern_from_str(src).unwrap();
+
+        assert_eq!(pat_vec.len(), 1);
+
+        let (pat, _pos) = &pat_vec[0];
+        if let Pattern::Struct(strct_pat) = &**pat {
+            match strct_pat {
+                StructPattern {name, map, has_optional} => {
+
+
+                    unimplemented!()
+                },
+                _ => panic!()
+            }
+
 
         }else{
             panic!()
