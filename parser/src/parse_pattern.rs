@@ -207,11 +207,19 @@ impl Parser {
 
                     match tok2 {
                         Token::Comma => {  // ','
+                            iter.next();  // skip ','
                             map.insert(name.to_string(), None);
                         },
                         Token::Colon => {  // ':'
+                            iter.next();  // skip ';'
+
                             let (pat, _name) = self.parse_pattern(iter, defs, labels)?;
                             map.insert(name.to_string(), Some(pat));
+
+                            let (tok3, _pos3) = iter.peek().unwrap();
+                            if *tok3 == Token::Comma {
+                                iter.next();  // skip ','
+                            }
                         },
                         _ => ()  // do nothing
                     }
@@ -529,9 +537,19 @@ mod tests {
         if let Pattern::Struct(strct_pat) = &**pat {
             match strct_pat {
                 StructPattern {name, map, has_optional} => {
+                    assert_eq!(name, "Foo");
+                    assert_eq!(*has_optional, true);
 
+                    assert_eq!(map.len(), 2);
+                    assert_eq!(map["x"], None);
 
-                    unimplemented!()
+                    if let Some(vec) = &map["y"] {
+                        assert_eq!(vec.len(), 1);
+                        assert_eq!(*vec[0].0, Pattern::Number(0));
+
+                    }else{
+                        panic!()
+                    }
                 },
                 _ => panic!()
             }
