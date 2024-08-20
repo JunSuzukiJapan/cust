@@ -528,7 +528,7 @@ mod tests {
 
     #[test]
     fn parse_struct_pattern() {
-        let src = "Foo {x, y:0, ...} ";
+        let src = "Foo {x, y: 0, ...} ";
         let (pat_vec, _name) = parse_pattern_from_str(src).unwrap();
 
         assert_eq!(pat_vec.len(), 1);
@@ -557,6 +557,53 @@ mod tests {
 
         }else{
             panic!()
+        }
+    }
+
+    #[test]
+    fn parse_enum_struct_pattern() {
+        let src = "Some::Foo {x, y: 0, z: 'a' | 'b'} ";
+        let (pat_vec, _name) = parse_pattern_from_str(src).unwrap();
+
+        assert_eq!(pat_vec.len(), 1);
+
+        let (pat, _pos) = &pat_vec[0];
+        if let Pattern::Enum(enum_pat) = &**pat {
+            match enum_pat {
+                EnumPattern::Struct(name, sub_name, struct_pat) => {
+                    assert_eq!(name, "Some");
+                    assert_eq!(sub_name, "Foo");
+
+                    match struct_pat {
+                        StructPattern {name, map, has_optional} => {
+                            assert_eq!(name, "Some::Foo");
+                            assert_eq!(*has_optional, false);
+        
+                            assert_eq!(map.len(), 3);
+                            assert_eq!(map["x"], None);
+        
+                            if let Some(vec) = &map["y"] {
+                                assert_eq!(vec.len(), 1);
+                                assert_eq!(*vec[0].0, Pattern::Number(0));
+        
+                            }else{
+                                panic!()
+                            }
+
+                            if let Some(vec) = &map["z"] {
+                                assert_eq!(vec.len(), 2);
+                                assert_eq!(*vec[0].0, Pattern::Char('a'));
+                                assert_eq!(*vec[1].0, Pattern::Char('b'));
+        
+                            }else{
+                                panic!()
+                            }
+                        },
+                        _ => panic!()
+                    }
+                },
+                _ => panic!(),
+            }
         }
     }
 }
