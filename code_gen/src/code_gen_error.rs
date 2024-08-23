@@ -508,7 +508,7 @@ impl fmt::Display for CodeGenError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::ParserError(err) => err.fmt(f),
-            Self::SystemError(pos) => {
+            Self::SystemError(_pos) => {
                 write!(f, "system error")
             },
             Self::ConditionIsNotNumber(expr_ast, _pos) => {

@@ -1,12 +1,11 @@
 use crate::pattern::{EnumPattern, StructPattern};
-use crate::{pattern, ExprAST, Pattern};
+use crate::Pattern;
 use super::{Position, Token};
 use super::ParserError;
 use super::parse::Parser;
 use super::defines::Defines;
 
 use std::collections::HashMap;
-use std::f32::consts::E;
 use std::slice::Iter;
 use std::iter::Peekable;
 
@@ -17,14 +16,13 @@ impl Parser {
         let mut name: Option<String> = None;
 
         loop {
-            let (tok, pos) = iter.peek().unwrap();
-            iter.next();
+            let (tok, pos) = iter.next().unwrap();
 
             match &*tok {
                 Token::CharLiteral(ch) => {
                     let pat = Pattern::Char(*ch);
 
-                    let (tok2, pos2) = iter.peek().unwrap();
+                    let (tok2, _pos2) = iter.peek().unwrap();
                     if *tok2 == Token::RangeEqual {
                         iter.next();
 
@@ -45,7 +43,7 @@ impl Parser {
                 Token::IntLiteral(num) => {
                     let pat = Pattern::Number(*num);
 
-                    let (tok2, pos2) = iter.peek().unwrap();
+                    let (tok2, _pos2) = iter.peek().unwrap();
                     if *tok2 == Token::RangeEqual {
                         iter.next();
 
@@ -72,7 +70,7 @@ impl Parser {
                     v.push((Box::new(pat), pos.clone()));
                 },
                 Token::Symbol(name) => {
-                    let (tok2, pos2) = iter.peek().unwrap();
+                    let (tok2, _pos2) = iter.peek().unwrap();
                     match tok2 {
                         Token::WColon => {  // parse Enum pattern
                             iter.next();  // skip '::'
@@ -93,6 +91,19 @@ impl Parser {
                             let pat = Pattern::Struct(struct_pat);
                             v.push((Box::new(pat), pos.clone()));
                         },
+                        Token::ParenLeft => {
+                            iter.next();  // skip '('
+
+                            let pat = self.parse_tuple_pattern(iter, defs, labels)?;
+                            if let Pattern::Tuple(list) = pat {
+                                let enum_pat = EnumPattern::Tuple("".into(), name.to_string(), list);
+                                let pat = Pattern::Enum(enum_pat);
+                                v.push((Box::new(pat), pos.clone()))
+
+                            }else{
+                                panic!()
+                            }
+                        },
                         _ => {
                             let pat = Pattern::Var(name.to_string());
                             v.push((Box::new(pat), pos.clone()))
@@ -106,7 +117,7 @@ impl Parser {
             }
 
             // '|' check
-            let (tok2, pos2) = iter.peek().unwrap();
+            let (tok2, _pos2) = iter.peek().unwrap();
             if *tok2 == Token::BitOr {
                 iter.next();  // skip '|'
 
@@ -164,7 +175,7 @@ impl Parser {
     }
 
     fn parse_enum_pattern(&self, name: &str, sub_name: &str, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Pattern, ParserError> {
-        let (tok, pos) = iter.peek().unwrap();
+        let (tok, _pos) = iter.peek().unwrap();
         
         match tok {
             Token::ParenLeft => {  // Tuple pattern
@@ -196,15 +207,17 @@ impl Parser {
         let mut has_optional = false;
 
         loop {
-            let (tok, pos) = iter.next().unwrap();
+            let (tok, pos) = iter.peek().unwrap();
 
             match tok {
                 Token::BraceRight => {
+                    iter.next();  // skip '}'
                     break;
                 },
                 Token::Symbol(name) => {
-                    let (tok2, pos2) = iter.peek().unwrap();
+                    iter.next();  // skip Symbol
 
+                    let (tok2, _pos2) = iter.peek().unwrap();
                     match tok2 {
                         Token::Comma => {  // ','
                             iter.next();  // skip ','
@@ -225,6 +238,8 @@ impl Parser {
                     }
                 },
                 Token::TripleDot => {
+                    iter.next();  // skip '...'
+
                     has_optional = true;
                     break;
                 },
@@ -246,9 +261,11 @@ impl Parser {
 
 #[cfg(test)]
 mod tests {
+    use crate::pattern;
+
+    use super::*;
     use pattern::StructPattern;
     use tokenizer::*;
-    use super::*;
 
     fn parse_pattern_from_str(src: &str) -> Result<(Vec<(Box<Pattern>, Position)>, Option<String>), ParserError> {
         let token_list = Tokenizer::tokenize(src).unwrap();
@@ -388,7 +405,7 @@ mod tests {
 
             assert_eq!(*name1, None);
             assert_eq!(*name2, None);
-            assert_eq!(*name2, None);
+            assert_eq!(*name3, None);
 
             let (pat1, _pos1) = &patterns1[0];
             assert_eq!(**pat1, Pattern::Number(1));
@@ -509,7 +526,7 @@ mod tests {
 
                     assert_eq!(*name1, None);
                     assert_eq!(*name2, None);
-                    assert_eq!(*name2, None);
+                    assert_eq!(*name3, None);
 
                     let (pat, _pos) = &patterns1[0];
                     assert_eq!(**pat, Pattern::Number(1));
@@ -535,25 +552,20 @@ mod tests {
 
         let (pat, _pos) = &pat_vec[0];
         if let Pattern::Struct(strct_pat) = &**pat {
-            match strct_pat {
-                StructPattern {name, map, has_optional} => {
-                    assert_eq!(name, "Foo");
-                    assert_eq!(*has_optional, true);
+            let StructPattern {name, map, has_optional} = strct_pat;
+            assert_eq!(name, "Foo");
+            assert_eq!(*has_optional, true);
 
-                    assert_eq!(map.len(), 2);
-                    assert_eq!(map["x"], None);
+            assert_eq!(map.len(), 2);
+            assert_eq!(map["x"], None);
 
-                    if let Some(vec) = &map["y"] {
-                        assert_eq!(vec.len(), 1);
-                        assert_eq!(*vec[0].0, Pattern::Number(0));
+            if let Some(vec) = &map["y"] {
+                assert_eq!(vec.len(), 1);
+                assert_eq!(*vec[0].0, Pattern::Number(0));
 
-                    }else{
-                        panic!()
-                    }
-                },
-                _ => panic!()
+            }else{
+                panic!()
             }
-
 
         }else{
             panic!()
@@ -574,32 +586,28 @@ mod tests {
                     assert_eq!(name, "Some");
                     assert_eq!(sub_name, "Foo");
 
-                    match struct_pat {
-                        StructPattern {name, map, has_optional} => {
-                            assert_eq!(name, "Some::Foo");
-                            assert_eq!(*has_optional, false);
-        
-                            assert_eq!(map.len(), 3);
-                            assert_eq!(map["x"], None);
-        
-                            if let Some(vec) = &map["y"] {
-                                assert_eq!(vec.len(), 1);
-                                assert_eq!(*vec[0].0, Pattern::Number(0));
-        
-                            }else{
-                                panic!()
-                            }
+                    let StructPattern {name, map, has_optional} = struct_pat;
+                    assert_eq!(name, "Some::Foo");
+                    assert_eq!(*has_optional, false);
 
-                            if let Some(vec) = &map["z"] {
-                                assert_eq!(vec.len(), 2);
-                                assert_eq!(*vec[0].0, Pattern::Char('a'));
-                                assert_eq!(*vec[1].0, Pattern::Char('b'));
-        
-                            }else{
-                                panic!()
-                            }
-                        },
-                        _ => panic!()
+                    assert_eq!(map.len(), 3);
+                    assert_eq!(map["x"], None);
+
+                    if let Some(vec) = &map["y"] {
+                        assert_eq!(vec.len(), 1);
+                        assert_eq!(*vec[0].0, Pattern::Number(0));
+
+                    }else{
+                        panic!()
+                    }
+
+                    if let Some(vec) = &map["z"] {
+                        assert_eq!(vec.len(), 2);
+                        assert_eq!(*vec[0].0, Pattern::Char('a'));
+                        assert_eq!(*vec[1].0, Pattern::Char('b'));
+
+                    }else{
+                        panic!()
                     }
                 },
                 _ => panic!(),

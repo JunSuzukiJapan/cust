@@ -383,7 +383,7 @@ impl TypeUtil {
             ExprAST::UnionConstLiteral(typ, _map, _pos) => {
                 Ok(Rc::clone(typ))
             },
-            ExprAST::EnumLiteral(typ, _index, literal, _pos) => {
+            ExprAST::EnumLiteral(typ, _index, _literal, _pos) => {
                 // let typ = literal.get_type();
                 Ok(Rc::clone(typ))
             },

@@ -27,7 +27,6 @@ use inkwell::{IntPredicate, FloatPredicate};
 use inkwell::AddressSpace;
 use inkwell::types::AnyType;
 use inkwell::types::StructType;
-use std::any::Any;
 use std::error::Error;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -243,6 +242,14 @@ impl<'ctx> CodeGen<'ctx> {
                 self.builder.position_at_end(end_block);
 
                 Ok(None)
+            },
+            AST::IfLet { pattern_list, expr, then, else_, pos } => {
+
+
+
+
+
+                unimplemented!()
             },
             AST::Loop {init_expr, pre_condition, body, update_expr, post_condition, pos} => {
                 self.gen_loop(init_expr, pre_condition, body, update_expr, post_condition, env, break_catcher, continue_catcher, pos)
@@ -741,9 +748,9 @@ impl<'ctx> CodeGen<'ctx> {
             ExprAST::StructStaticSymbol(struct_name, var_name, pos) => {  // struct_name::var_name
                 if let Some(type_or_union) = env.get_type(struct_name) {
                     match type_or_union {
-                        TypeOrUnion::StandardEnum { i32_type, enumerator_list, index_map } => {
+                        TypeOrUnion::StandardEnum { i32_type: _, enumerator_list, index_map } => {
                             let index = index_map.get(var_name).ok_or(CodeGenError::no_such_a_enum_member(struct_name.to_string(), var_name.to_string(), pos.clone()))?;
-                            let (name, value) = &enumerator_list[*index];
+                            let (_name, value) = &enumerator_list[*index];
                             return Ok(Some(CompiledValue::new(Type::Number(NumberType::Int).into(), value.as_any_value_enum())))
                         },
                         _ => {
@@ -801,7 +808,7 @@ impl<'ctx> CodeGen<'ctx> {
                 let any_val = basic_val.as_any_value_enum();
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
-            ExprAST::EnumLiteral(typ, tag, literal, pos) => {
+            ExprAST::EnumLiteral(_typ, tag, literal, _pos) => {
                 match literal {
                     EnumLiteral::Struct(struct_literal) => {
                         let typ = struct_literal.get_type();
@@ -868,7 +875,7 @@ impl<'ctx> CodeGen<'ctx> {
                 let any_val = basic_val.as_any_value_enum();
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
-            StructLiteral::ConstLiteral(typ, const_map, pos) => {
+            StructLiteral::ConstLiteral(typ, const_map, _pos) => {
                 let struct_name = typ.get_type_name();
 
                 let mut vec = Vec::new();
@@ -1201,7 +1208,7 @@ println!("is not array global. {:?}", init);
     }
 
 
-    fn const_expr_to_basic_value_enum(&self, const_expr: &ConstExpr, context: &Context) -> BasicValueEnum {
+    fn const_expr_to_basic_value_enum(&self, const_expr: &ConstExpr, _context: &Context) -> BasicValueEnum {
         match const_expr {
             ConstExpr::Int(n, _) => {
                 let i32_type = self.context.i32_type();
@@ -2063,8 +2070,8 @@ println!("is not array global. {:?}", init);
         enum_name: &str,
         enum_def: &EnumDefinition,
         env: &mut Env<'ctx>,
-        break_catcher: Option<&'b BreakCatcher>,
-        continue_catcher: Option<&'c ContinueCatcher>,
+        _break_catcher: Option<&'b BreakCatcher>,
+        _continue_catcher: Option<&'c ContinueCatcher>,
         pos: &Position
     ) -> Result<Option<AnyTypeEnum<'ctx>>, Box<dyn Error>> {
 
@@ -2090,7 +2097,7 @@ println!("is not array global. {:?}", init);
     }
 
     pub fn tagged_enum_from_enum_definition<'b, 'c>(
-        enum_name: &str,
+        _enum_name: &str,
         fields: &Vec<Enumerator>,
         tag_type: &Rc<Type>,
         ctx: &'ctx Context,
@@ -2225,10 +2232,10 @@ println!("tagged type: {t:?}");
 
                     index_map.insert(name.clone(), index);
                 },
-                Enumerator::TypeTuple { name, type_list } => {
+                Enumerator::TypeTuple { name: _, type_list: _ } => {
                     panic!("standard enum do not have TypeTuple");
                 },
-                Enumerator::TypeStruct { name, struct_type } => {
+                Enumerator::TypeStruct { name: _, struct_type: _ } => {
                     panic!("standard enum do not have TypeStruct");
                 },
             }

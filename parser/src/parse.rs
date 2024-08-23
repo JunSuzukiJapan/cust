@@ -9,7 +9,6 @@ use super::ConstExpr;
 use super::types::*;
 use super::defines::*;
 use super::{CustSelf, Function, FunProto, FunOrProt, Switch, Case};
-use super::parse_pattern::*;
 
 use std::slice::Iter;
 use std::iter::Peekable;
@@ -544,7 +543,7 @@ impl Parser {
                                     Token::Less => {  // '<'
                                         defs.add_new_generics();
 
-                                        let g_list = self.parse_generic_types(iter, defs)?;
+                                        let _g_list = self.parse_generic_types(iter, defs)?;
 
                                         self.parse_expected_token(iter, Token::BraceLeft)?;  // skip '{'
 
@@ -2063,7 +2062,7 @@ impl Parser {
                                     EnumInitializer::Tuple(id, index, list) => {
                                         unimplemented!()
                                     },
-                                    EnumInitializer::Struct(id, index, struct_literal) => {
+                                    EnumInitializer::Struct(_id, index, struct_literal) => {
                                         let literal = EnumLiteral::Struct(struct_literal);
                                         Ok(Some(ExprAST::EnumLiteral(typ, index, literal, pos.clone())))
                                     },
@@ -2267,7 +2266,7 @@ impl Parser {
         Ok(struct_init)
     }
 
-    fn parse_union_literal(&self, typ: Rc<Type>, name: &str, pos: &Position, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ExprAST>, ParserError> {
+    fn parse_union_literal(&self, typ: Rc<Type>, _name: &str, pos: &Position, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ExprAST>, ParserError> {
         iter.next();  // skip '{'
 
         let mut hash_set = HashSet::new();
@@ -2999,7 +2998,7 @@ impl Parser {
         Ok(block)
     }
 
-    fn parse_statement(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<AST>, ParserError> {
+    pub fn parse_statement(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<AST>, ParserError> {
         if let Some((tok, pos)) = iter.peek() {
             match tok {
                 // empty statement
@@ -3023,14 +3022,54 @@ impl Parser {
                         if sym_name == "let" {
                             iter.next();  // skip 'let'
 
-                            let _ = self.parse_pattern(iter, defs, labels)?;
 
+                            self.parse_expected_token(iter, Token::ParenLeft)?;  // skip '('
 
+                            let (pattern_list, _name) = self.parse_pattern(iter, defs, labels)?;
 
+                            self.parse_expected_token(iter, Token::Assign)?;  // skip '='
 
+                            let expr = self.parse_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
 
+                            self.parse_expected_token(iter, Token::ParenRight)?;  // skip ')'
 
-                            unimplemented!()
+                            // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                            let then = self.parse_statement(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
+    
+                            if let Some((tok2, pos2)) = iter.peek() {
+                                if *tok2 == Token::Else {
+                                    iter.next();  // skip 'else'
+    
+                                    // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                                    let _else = self.parse_statement(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos2.clone()))?;
+                                    let ast = AST::IfLet {
+                                        pattern_list,
+                                        expr: Box::new(expr),
+                                        then: Box::new(then),
+                                        else_: Some(Box::new(_else)),
+                                        pos: pos.clone(),
+                                    };
+                                    Ok(Some(ast))
+                                }else{
+                                    let ast = AST::IfLet {
+                                        pattern_list,
+                                        expr: Box::new(expr),
+                                        then: Box::new(then),
+                                        else_: None,
+                                        pos: pos.clone(),
+                                    };
+                                    Ok(Some(ast))
+                                }
+                            }else{
+                                let ast = AST::IfLet {
+                                    pattern_list,
+                                    expr: Box::new(expr),
+                                    then: Box::new(then),
+                                    else_: None,
+                                    pos: pos.clone(),
+                                };
+                                Ok(Some(ast))
+                            }
 
                         }else{
                             println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());

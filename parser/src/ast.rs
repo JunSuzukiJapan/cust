@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::ParserError;
+use crate::{ParserError, Pattern};
 use super::{Type, Pointer, ConstExpr, Defines, StructDefinition, EnumDefinition};
 use tokenizer::{Token, Position};
 
@@ -1155,6 +1155,13 @@ pub enum AST {
     Default(Box<AST>, Position),
     Switch(Switch, Position),
     If(Box<ExprAST>, Box<AST>, Option<Box<AST>>, Position),
+    IfLet {
+        pattern_list: Vec<(Box<Pattern>, Position)>,
+        expr: Box<ExprAST>,
+        then: Box<AST>,
+        else_: Option<Box<AST>>,
+        pos: Position,
+    },
     Loop {
         init_expr: Option<Box<ExprAST>>,
         pre_condition: Option<Box<ExprAST>>,
@@ -1212,6 +1219,7 @@ impl AST {
             AST::Expr(_, pos) => pos,
             AST::Goto(_, pos) => pos,
             AST::If(_, _, _, pos) => pos,
+            AST::IfLet { pattern_list: _, expr: _, then: _, else_:_, pos } => pos,
             AST::Labeled(_, _, pos) => pos,
             AST::Loop { init_expr: _, pre_condition: _, body: _, update_expr: _, post_condition: _, pos } => pos,
             AST::Return(_, pos) => pos,
