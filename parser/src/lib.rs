@@ -20,4 +20,4 @@ pub use defines::Defines;
 pub use types::{Type, NumberType, TypeOrVariadic, Pointer, StructDefinition, EnumDefinition, Enumerator, StructField, CustFunctionType};
 pub use const_expr::ConstExpr;
 pub use parse::Parser;
-pub use pattern::Pattern;
+pub use pattern::{Pattern, EnumPattern, StructPattern};

@@ -1,6 +1,8 @@
 mod common;
 
 mod tests {
+    use std::thread::panicking;
+
     use super::common::*;
 
     fn parse_pattern_from_str(src: &str) -> Result<(Vec<(Box<Pattern>, Position)>, Option<String>), ParserError> {
@@ -32,8 +34,89 @@ mod tests {
         ";
     
         // parse
-        let asts = parse_stmt_from_str(src).unwrap();
+        let ast = parse_stmt_from_str(src).unwrap().unwrap();
 
-        unimplemented!()
+        if let AST::IfLet { pattern_list, expr, then, else_, pos: _ } = ast {
+            //
+            // check pattern_list
+            //
+            assert_eq!(pattern_list.len(), 1);
+            let (pat, _pos) = &pattern_list[0];
+            if let Pattern::Enum(enum_pat) = &**pat {
+                match enum_pat {
+                    EnumPattern::Tuple(name, sub_name, patterns_list) => {
+                        assert_eq!(name, "");
+                        assert_eq!(sub_name, "Some");
+
+                        let (patterns1, name1) = &patterns_list[0];
+
+                        assert_eq!(patterns1.len(), 1);
+                        assert_eq!(*name1, None);
+
+                        let (pat, _pos) = &patterns1[0];
+                        assert_eq!(**pat, Pattern::Var("value".to_string()));
+                    },
+                    _ => {
+                        panic!()
+                    }
+                }
+            }else{
+                panic!()
+            }
+
+            //
+            // check expr
+            //
+            if let ExprAST::Symbol(name, _pos) = *expr {
+                assert_eq!(name, "variable");
+            }else{
+                panic!()
+            }
+
+            //
+            // check then
+            //
+            if let AST::Block(blk, _) = *then {
+                let list = blk.body;
+                assert_eq!(list.len(), 1);
+
+                if let AST::Expr(expr, _pos) = &list[0] {
+                    if let ExprAST::Int(num, _) = **expr {
+                        assert_eq!(num, 1);
+                    }else{
+                        panic!()
+                    }
+
+                }else{
+                    panic!()
+                }
+            }else{
+                panic!()
+            }
+
+            //
+            // check else_
+            //
+            if let AST::Block(blk, _) = *else_.unwrap() {
+                let list = blk.body;
+                assert_eq!(list.len(), 1);
+
+                if let AST::Expr(expr, _pos) = &list[0] {
+                    if let ExprAST::Int(num, _) = **expr {
+                        assert_eq!(num, 2);
+                    }else{
+                        panic!()
+                    }
+
+                }else{
+                    panic!()
+                }
+            }else{
+                panic!()
+            }
+
+        }else{
+            panic!()
+        }
     }
 }

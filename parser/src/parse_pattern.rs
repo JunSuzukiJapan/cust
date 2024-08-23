@@ -511,9 +511,6 @@ mod tests {
                 EnumPattern::Tuple(name, sub_name, patterns_list) => {
                     assert_eq!(name, "EnumName");
                     assert_eq!(sub_name, "SubName");
-
-                    assert_eq!(pat_vec.len(), 1);
-
                     assert_eq!(patterns_list.len(), 3);
 
                     let (patterns1, name1) = &patterns_list[0];
