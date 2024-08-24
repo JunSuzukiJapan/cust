@@ -89,6 +89,7 @@ pub enum Token {
     BracketRight,  // ']'
 
     MemberSelection,  // '->'
+    WhenMatch,        // '=>'
     RangeEqual,       // '..='
     At,               // '@'
 
@@ -258,7 +259,8 @@ impl fmt::Display for Token {
             Token::BraceRight => write!(f, "}}"),   // '}'
             Token::BracketLeft => write!(f, "["),   // '['
             Token::BracketRight => write!(f, "]"),  // ']'
-        
+
+            Token::WhenMatch => write!(f, "=>"),        // '=>'
             Token::MemberSelection => write!(f, "->"),  // '->'
             Token::RangeEqual => write!(f, "..="),      // '..='
             Token::At => write!(f, "@"),                // '@'

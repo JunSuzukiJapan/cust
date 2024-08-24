@@ -1162,6 +1162,11 @@ pub enum AST {
         else_: Option<Box<AST>>,
         pos: Position,
     },
+    Match {
+        expr: Box<ExprAST>,
+        pattern_list_list: Vec<(Vec<(Box<Pattern>, Position)>, Box<AST>)>,
+        pos: Position,
+    },
     Loop {
         init_expr: Option<Box<ExprAST>>,
         pre_condition: Option<Box<ExprAST>>,
@@ -1220,6 +1225,7 @@ impl AST {
             AST::Goto(_, pos) => pos,
             AST::If(_, _, _, pos) => pos,
             AST::IfLet { pattern_list: _, expr: _, then: _, else_:_, pos } => pos,
+            AST::Match { expr: _, pattern_list_list: _, pos } => pos,
             AST::Labeled(_, _, pos) => pos,
             AST::Loop { init_expr: _, pre_condition: _, body: _, update_expr: _, post_condition: _, pos } => pos,
             AST::Return(_, pos) => pos,

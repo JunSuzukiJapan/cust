@@ -315,6 +315,9 @@ impl Tokenizer {
                         if c == '=' {
                             self.next_char(ctx);
                             Ok(Some((Token::Equal, start_pos)))
+                        }else if c == '>' {
+                            self.next_char(ctx);
+                            Ok(Some((Token::WhenMatch, start_pos)))
                         }else{
                             Ok(Some((Token::Assign, start_pos)))
                         }

@@ -3033,14 +3033,12 @@ impl Parser {
 
                             self.parse_expected_token(iter, Token::ParenRight)?;  // skip ')'
 
-                            // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                             let then = self.parse_statement(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
     
                             if let Some((tok2, pos2)) = iter.peek() {
                                 if *tok2 == Token::Else {
                                     iter.next();  // skip 'else'
     
-                                    // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                                     let _else = self.parse_statement(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos2.clone()))?;
                                     let ast = AST::IfLet {
                                         pattern_list,
@@ -3078,19 +3076,16 @@ impl Parser {
                     } else {
                         self.parse_expected_token(iter, Token::ParenLeft)?;  // skip '('
 
-                        // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                         let cond = self.parse_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
 
                         self.parse_expected_token(iter, Token::ParenRight)?;  // skip ')'
 
-                        // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                         let then = self.parse_statement(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
 
                         if let Some((tok2, pos2)) = iter.peek() {
                             if *tok2 == Token::Else {
                                 iter.next();  // skip 'else'
 
-                                // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                                 let _else = self.parse_statement(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos2.clone()))?;
                                 Ok(Some(AST::If(Box::new(cond), Box::new(then), Some(Box::new(_else)), pos.clone())))
                             }else{
@@ -3148,32 +3143,88 @@ impl Parser {
                 Token::Do => {
                     iter.next();                                           // skip 'do'
 
-                    let stmt = self.parse_statement(iter, defs, labels)?;
+                    let (next_tok, next_pos) = iter.peek().unwrap();
+                    if next_tok.is_symbol() {
+                        let sym_name = next_tok.get_symbol_name().unwrap();
 
-                    self.parse_expected_token(iter, Token::While)?;        // skip 'while'
-                    self.parse_expected_token(iter, Token::ParenLeft)?;    // skip '('
+                        if sym_name == "match" {
+                            iter.next();  // skip 'match'
 
-                    let cond = self.parse_expression(iter, defs, labels)?;
+                            self.parse_expected_token(iter, Token::ParenLeft)?;  // skip '('
+                            let expr = self.parse_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
+                            self.parse_expected_token(iter, Token::ParenRight)?;  // skip ')'
 
-                    self.parse_expected_token(iter, Token::ParenRight)?;    // skip ')'
-                    self.parse_expected_token(iter, Token::SemiColon)?;     // skip ';'
+                            self.parse_expected_token(iter, Token::BraceLeft)?;  // skip '{'
 
-                    Ok(Some(AST::Loop {
-                        init_expr: None,
-                        pre_condition: None,
-                        body: if let Some(stmt) = stmt {
-                            Some(Box::new(stmt))
+                            let mut list = Vec::new();
+                            loop {
+                                let (tok2, _pos2) = iter.peek().unwrap();
+
+                                if *tok2 == Token::BraceRight {
+                                    iter.next();  // skip '}'
+                                    break;
+                                }
+
+                                let (pattern_list, _name) = self.parse_pattern(iter, defs, labels)?;
+ 
+                                self.parse_expected_token(iter, Token::WhenMatch)?;  // skip '=>'
+
+                                let then = self.parse_statement(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
+
+                                list.push((pattern_list, Box::new(then)));
+
+                                let (tok3, _pos3) = iter.peek().unwrap();
+                                match tok3 {
+                                    Token::Comma => {
+                                        iter.next();  // skip '<'
+                                    },
+                                    Token::BraceRight => {},  // do nothing
+                                    _ => {
+                                        return Err(ParserError::syntax_error(next_pos.clone()));
+                                    }
+                                }
+                            }
+
+                            let ast = AST::Match {
+                                expr: Box::new(expr),
+                                pattern_list_list: list,
+                                pos: pos.clone(),
+                            };
+                            Ok(Some(ast))
+
                         }else{
-                            None
-                        },
-                        update_expr: None,
-                        post_condition: if let Some(expr) = cond {
-                            Some(Box::new(expr))
-                        }else{
-                            None
-                        },
-                        pos: pos.clone(),
-                    }))
+                            // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
+                            return Err(ParserError::syntax_error(next_pos.clone()));
+                        }
+                    } else {
+  
+                        let stmt = self.parse_statement(iter, defs, labels)?;
+
+                        self.parse_expected_token(iter, Token::While)?;        // skip 'while'
+                        self.parse_expected_token(iter, Token::ParenLeft)?;    // skip '('
+
+                        let cond = self.parse_expression(iter, defs, labels)?;
+
+                        self.parse_expected_token(iter, Token::ParenRight)?;    // skip ')'
+                        self.parse_expected_token(iter, Token::SemiColon)?;     // skip ';'
+
+                        Ok(Some(AST::Loop {
+                            init_expr: None,
+                            pre_condition: None,
+                            body: if let Some(stmt) = stmt {
+                                Some(Box::new(stmt))
+                            }else{
+                                None
+                            },
+                            update_expr: None,
+                            post_condition: if let Some(expr) = cond {
+                                Some(Box::new(expr))
+                            }else{
+                                None
+                            },
+                            pos: pos.clone(),
+                        }))
+                    }
                 },
                 Token::For => {
                     self.parse_for(iter, defs, &pos, labels)
