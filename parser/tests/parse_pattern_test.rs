@@ -1,8 +1,6 @@
 mod common;
 
 mod tests {
-    use std::thread::panicking;
-
     use super::common::*;
 
     fn parse_pattern_from_str(src: &str) -> Result<(Vec<(Box<Pattern>, Position)>, Option<String>), ParserError> {
