@@ -2,7 +2,8 @@ extern crate parser;
 extern crate tokenizer;
 
 mod code_gen;
-mod gen_code_stmt;
+mod code_gen_stmt;
+mod code_gen_expr;
 mod code_gen_enum;
 mod code_gen_struct;
 mod compiled_value;

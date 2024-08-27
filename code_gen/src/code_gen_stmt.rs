@@ -1,34 +1,15 @@
-use crate::global::global;
-use crate::parser::{AST, ToplevelAST, ExprAST, BinOp, Type, Pointer, Block, Params, StructDefinition, StructField, NumberType, Function, FunProto, FunOrProt, EnumDefinition, Enumerator};
-use crate::parser::{Declaration, DeclarationSpecifier, CustFunctionType, Initializer, ImplElement, SpecifierQualifier, StructLiteral, EnumLiteral};
-use crate::env::Class;
+use crate::parser::{AST, ExprAST, Type, Block};
 use super::{CompiledValue, CodeGenError};
 use super::Env;
-use super::env::{BreakCatcher, ContinueCatcher, TypeOrUnion};
-use super::caster::Caster;
-use super::type_util::TypeUtil;
-use crate::parser::Declarator;
-use crate::parser::{Switch, Case, ConstExpr};
+use super::env::{BreakCatcher, ContinueCatcher};
+use crate::parser::{Switch, Case};
 use crate::Position;
 use crate::CodeGen;
 
-use inkwell::OptimizationLevel;
-use inkwell::builder::Builder;
-use inkwell::context::Context;
-use inkwell::execution_engine::ExecutionEngine;
-use inkwell::module::Module;
-use inkwell::values::{AnyValue, AnyValueEnum, BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, GlobalValue, InstructionOpcode, InstructionValue, IntValue, PointerValue, StructValue};
-use inkwell::types::{AnyTypeEnum, AsTypeRef, BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FunctionType, IntType, PointerType};
+use inkwell::values::{AnyValue, AnyValueEnum, InstructionOpcode, InstructionValue};
 use inkwell::basic_block::BasicBlock;
-use inkwell::{IntPredicate, FloatPredicate};
-use inkwell::AddressSpace;
-use inkwell::types::AnyType;
-use inkwell::types::StructType;
+use inkwell::{IntPredicate};
 use std::error::Error;
-use std::collections::HashMap;
-use std::rc::Rc;
-
-type EnumTagType = u32;
 
 impl<'ctx> CodeGen<'ctx> {
 
@@ -459,4 +440,42 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(None)
     }
 
+
+    pub fn last_is_jump_statement(&self, block: BasicBlock) -> bool {
+        if let Some(inst) = block.get_last_instruction() {
+            let op_code = inst.get_opcode();
+            match op_code {
+                InstructionOpcode::Br | InstructionOpcode::Return => true,
+                _ => false,
+            }
+        }else{
+            false
+        }
+    }
+
+    pub fn gen_block<'b, 'c>(&self,
+        block: &'ctx Block,
+        env: &mut Env<'ctx>,
+        break_catcher: Option<&'b BreakCatcher>,
+        continue_catcher: Option<&'c ContinueCatcher>
+    ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
+        env.add_new_local();
+        let result = self.gen_block_sub(block, env, break_catcher, continue_catcher);
+        env.remove_local();
+
+        result
+    }
+
+    fn gen_block_sub<'b, 'c>(&self,
+        block: &'ctx Block,
+        env: &mut Env<'ctx>,
+        break_catcher: Option<&'b BreakCatcher>,
+        continue_catcher: Option<&'c ContinueCatcher>
+    ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
+        for ast in block.body.iter() {
+            let _any_value = self.gen_stmt(ast, env, break_catcher, continue_catcher)?;
+        }
+
+        Ok(None)
+    }
 }
