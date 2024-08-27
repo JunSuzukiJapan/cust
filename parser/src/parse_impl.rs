@@ -1,17 +1,14 @@
 use super::{Position, Token};
 use super::ParserError;
-use super::ast::{AST, ToplevelAST, ExprAST, Block, Param, Params, BinOp, TypeQualifier, DeclarationSpecifier, SpecifierQualifier, Declarator, DirectDeclarator, Initializer};
-use super::ast::{DeclarationSpecifierOrVariadic, Declaration, StructDeclaration, StructDeclarator, AbstractDeclarator, DirectAbstractDeclarator, ImplElement};
-use super::ast::{StructLiteral, EnumLiteral};
-use super::ConstExpr;
+use super::ast::{ToplevelAST, DeclarationSpecifier, Declarator, DirectDeclarator, Initializer};
+use super::ast::{Declaration, ImplElement};
 use super::types::*;
 use super::defines::*;
-use super::{CustSelf, Function, FunProto, FunOrProt, Switch, Case};
+use super::{Function, FunProto, FunOrProt};
 use super::parse::Parser;
 
 use std::slice::Iter;
 use std::iter::Peekable;
-use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 impl Parser {
