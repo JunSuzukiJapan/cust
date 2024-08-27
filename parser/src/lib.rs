@@ -6,6 +6,7 @@ mod const_expr;
 mod ast;
 mod defines;
 mod parse;
+mod parse_impl;
 mod parse_pattern;
 mod pattern;
 
