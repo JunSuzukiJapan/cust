@@ -92,6 +92,7 @@ pub enum Token {
     WhenMatch,        // '=>'
     RangeEqual,       // '..='
     At,               // '@'
+    Dollar,           // '$'
 
     //
     // Keywords
@@ -264,6 +265,7 @@ impl fmt::Display for Token {
             Token::MemberSelection => write!(f, "->"),  // '->'
             Token::RangeEqual => write!(f, "..="),      // '..='
             Token::At => write!(f, "@"),                // '@'
+            Token::Dollar => write!(f, "$"),            // '$'
         
             //
             // Keywords

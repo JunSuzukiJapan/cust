@@ -65,7 +65,9 @@ impl Parser {
                     let pat = Pattern::Str(s.to_string());
                     v.push((Box::new(pat), pos.clone()))
                 },
-                Token::ParenLeft => {  // parse tuple pattern
+                Token::Dollar => {  // parse tuple pattern
+                    self.parse_expected_token(iter, Token::ParenLeft)?;  // skip '('
+
                     let pat = self.parse_tuple_pattern(iter, defs, labels)?;
                     v.push((Box::new(pat), pos.clone()));
                 },
@@ -386,7 +388,7 @@ mod tests {
 
     #[test]
     fn parse_tuple_pattern() {
-        let src = "(1, 'a', \"Hello\")";
+        let src = "$(1, 'a', \"Hello\")";
         let (pat_vec, _name) = parse_pattern_from_str(src).unwrap();
 
         assert_eq!(pat_vec.len(), 1);
@@ -421,7 +423,7 @@ mod tests {
 
     #[test]
     fn parse_tuple_at_pattern() {
-        let src = "(1 | 2 @ x, ('a' | 'b' @ y, 'c' | 'd' @ z) @ inner) @ outer";
+        let src = "$(1 | 2 @ x, $('a' | 'b' @ y, 'c' | 'd' @ z) @ inner) @ outer";
         let (pat_vec, outer_name) = parse_pattern_from_str(src).unwrap();
 
         assert_eq!(pat_vec.len(), 1);

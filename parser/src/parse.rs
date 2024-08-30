@@ -2125,6 +2125,14 @@ impl Parser {
                         Ok(result)
                     }
                 },
+                Token::Dollar => {  // parse tuple leteral
+                    iter.next();  // skip '$'
+
+
+
+
+                    unimplemented!()
+                },
                 _ => {
                     self.parse_constant(iter, defs)
                 },

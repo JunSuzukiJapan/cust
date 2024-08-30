@@ -9,8 +9,6 @@ use super::Env;
 use super::env::{BreakCatcher, ContinueCatcher};
 use super::caster::Caster;
 use super::type_util::TypeUtil;
-#[cfg(test)]
-use crate::parser::{DirectDeclarator, Defines, Param};
 use crate::parser::Declarator;
 use crate::parser::{ConstExpr};
 use crate::Position;
@@ -25,6 +23,8 @@ use inkwell::types::{AnyTypeEnum, BasicMetadataTypeEnum, BasicType, BasicTypeEnu
 use inkwell::AddressSpace;
 use std::error::Error;
 use std::rc::Rc;
+
+#[cfg(test)] use crate::parser::{DirectDeclarator, Defines, Param};
 
 type EnumTagType = u32;
 

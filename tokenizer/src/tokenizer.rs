@@ -474,6 +474,10 @@ impl Tokenizer {
                     self.next_char(ctx);
                     Ok(Some((Token::At, start_pos)))
                 },
+                '$' => {
+                    self.next_char(ctx);
+                    Ok(Some((Token::Dollar, start_pos)))
+                },
                 _ => {
                     let mut s = String::new();
                     while let Some(c) = self.peek_char(ctx) {

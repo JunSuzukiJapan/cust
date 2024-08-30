@@ -754,10 +754,27 @@ impl StructLiteral {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct TupleLiteral {
+    typ: Rc<Type>,
+    list: Vec<Box<AST>>,
+    pos: Position,
+}
+
+impl TupleLiteral {
+    pub fn get_position(&self) -> &Position {
+        &self.pos
+    }
+
+    pub fn get_type(&self) -> &Rc<Type> {
+        &self.typ
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum EnumLiteral {
     // None,
     Struct(StructLiteral),
-    Tuple,
+    Tuple(TupleLiteral),
 }
 
 impl EnumLiteral {
@@ -765,9 +782,7 @@ impl EnumLiteral {
         match self {
             // Self::None => &Rc::new(Type::Number(crate::NumberType::Int)),
             Self::Struct(literal) => literal.get_type(),
-            Self::Tuple => {
-                unimplemented!()
-            },
+            Self::Tuple(literal) => literal.get_type(),
         }
     }
 }

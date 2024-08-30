@@ -535,8 +535,17 @@ impl<'ctx> CodeGen<'ctx> {
                         let any_val = basic_val.as_any_value_enum();
                         Ok(Some(CompiledValue::new(Rc::clone(typ), any_val)))
                     },
-                    EnumLiteral::Tuple => {
+                    EnumLiteral::Tuple(literal) => {
+
+
+
+
+
+
+
                         unimplemented!()
+
+
                     },
                 }
             }
@@ -1277,6 +1286,9 @@ impl<'ctx> CodeGen<'ctx> {
             if left_type == right_type {
                 Ok((left, right))
             }else if left_type < right_type {
+
+
+
                 unimplemented!()
             }else{  // left_type > right_type
 
