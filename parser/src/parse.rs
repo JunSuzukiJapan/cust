@@ -2125,13 +2125,32 @@ impl Parser {
                         Ok(result)
                     }
                 },
-                Token::Dollar => {  // parse tuple leteral
+                Token::Dollar => {  // parse tuple literal
                     iter.next();  // skip '$'
 
+                    self.parse_expected_token(iter, Token::ParenLeft)?;  // skip '('
 
+                    let mut list = Vec::new();
+                    loop {
+                        let (tok2, _pos2) = iter.peek().unwrap();
+                        if *tok2 == Token::ParenRight {
+                            break;
+                        }
 
+                        // let result = self.parse_expression(iter, defs, labels)?.unwrap();
+                        let result = self.parse_assignment_expression(iter, defs, labels)?.unwrap();
+                        list.push(Box::new(result));
 
-                    unimplemented!()
+                        let (tok3, _pos3) = iter.peek().unwrap();
+                        if *tok3 == Token::Comma {
+                            iter.next();  // skip ','
+                        }
+                    }
+
+                    self.parse_expected_token(iter, Token::ParenRight)?;  // skip ')'
+
+                    let result = ExprAST::TupleLiteral(list, pos.clone());
+                    Ok(Some(result))
                 },
                 _ => {
                     self.parse_constant(iter, defs)

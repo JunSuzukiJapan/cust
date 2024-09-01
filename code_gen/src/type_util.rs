@@ -3,6 +3,7 @@ use crate::parser::{Type, NumberType, Pointer, BinOp, Position};
 use crate::Env;
 use inkwell::context::Context;
 use std::error::Error;
+use std::f32::consts::E;
 use std::rc::Rc;
 use inkwell::types::{BasicTypeEnum, AnyTypeEnum, BasicType, BasicMetadataTypeEnum, IntType, PointerType};
 use inkwell::AddressSpace;
@@ -386,6 +387,17 @@ impl TypeUtil {
             ExprAST::EnumLiteral(typ, _index, _literal, _pos) => {
                 // let typ = literal.get_type();
                 Ok(Rc::clone(typ))
+            },
+            ExprAST::TupleLiteral(expr_list, _pos) => {
+                let mut type_list = Vec::new();
+
+                for e in expr_list {
+                    let typ = TypeUtil::get_type(e, env)?;
+                    type_list.push(typ);
+                }
+
+                let t = Type::Tuple(type_list);
+                Ok(Rc::new(t))
             },
             ExprAST::DefVar { specifiers: _, declarations: _, pos: _ } => {
                 // maybe unreached???

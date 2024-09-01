@@ -608,6 +608,7 @@ pub enum Type {
         name: String,
         enum_def: EnumDefinition,
     },
+    Tuple(Vec<Rc<Type>>),
     GenericType(GenericType),
 }
 
@@ -931,6 +932,9 @@ impl fmt::Display for Type {
             },
             Type::BitField => {
                 write!(f, "bit_field")
+            },
+            Type::Tuple(type_list) => {
+                write!(f, "tuple")
             },
             Type::GenericType(g_type) => {
                 write!(f, "<generic type: {}>", g_type.get_name())
