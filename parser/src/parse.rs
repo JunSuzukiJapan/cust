@@ -2138,7 +2138,7 @@ impl Parser {
                         }
 
                         // let result = self.parse_expression(iter, defs, labels)?.unwrap();
-                        let result = self.parse_assignment_expression(iter, defs, labels)?.unwrap();
+                        let result = self.parse_assignment_expression(iter, defs, labels)?.unwrap();  // カンマ演算子避け
                         list.push(Box::new(result));
 
                         let (tok3, _pos3) = iter.peek().unwrap();
