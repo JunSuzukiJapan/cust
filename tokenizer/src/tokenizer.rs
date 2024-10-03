@@ -475,8 +475,30 @@ impl Tokenizer {
                     Ok(Some((Token::At, start_pos)))
                 },
                 '$' => {
-                    self.next_char(ctx);
-                    Ok(Some((Token::Dollar, start_pos)))
+                    self.next_char(ctx);  // skip '$'
+
+                    if let Some(ch2) = ctx.chars.peek() {
+                        match ch2 {
+                            '(' => {
+                                self.next_char(ctx);  // skip '('
+                                Ok(Some((Token::TupleStart, start_pos)))
+                            },
+                            '<' => {
+                                self.next_char(ctx);  // skip '<'
+                                Ok(Some((Token::TupleTypeStart, start_pos)))
+                            },
+                            '"' => {
+                                self.next_char(ctx);  // skip '"'
+                                Ok(Some((Token::StringStart, start_pos)))
+                            },
+                            _ => {
+                                Ok(Some((Token::Dollar, start_pos)))
+                            },
+                        }
+
+                    }else{
+                        Ok(Some((Token::Dollar, start_pos)))
+                    }
                 },
                 _ => {
                     let mut s = String::new();

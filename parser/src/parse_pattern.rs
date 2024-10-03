@@ -65,9 +65,15 @@ impl Parser {
                     let pat = Pattern::Str(s.to_string());
                     v.push((Box::new(pat), pos.clone()))
                 },
+                /*
                 Token::Dollar => {  // parse tuple pattern
                     self.parse_expected_token(iter, Token::ParenLeft)?;  // skip '('
 
+                    let pat = self.parse_tuple_pattern(iter, defs, labels)?;
+                    v.push((Box::new(pat), pos.clone()));
+                },
+                */
+                Token::TupleStart => {
                     let pat = self.parse_tuple_pattern(iter, defs, labels)?;
                     v.push((Box::new(pat), pos.clone()));
                 },

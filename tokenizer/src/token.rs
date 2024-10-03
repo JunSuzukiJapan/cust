@@ -93,6 +93,9 @@ pub enum Token {
     RangeEqual,       // '..='
     At,               // '@'
     Dollar,           // '$'
+    TupleStart,       // '$('
+    TupleTypeStart,   // '$<'
+    StringStart,      // '$"'
 
     //
     // Keywords
@@ -266,6 +269,9 @@ impl fmt::Display for Token {
             Token::RangeEqual => write!(f, "..="),      // '..='
             Token::At => write!(f, "@"),                // '@'
             Token::Dollar => write!(f, "$"),            // '$'
+            Token::TupleStart => write!(f, "$("),       // '$('
+            Token::TupleTypeStart => write!(f, "$<"),   // '$<'
+            Token::StringStart => write!(f, "$\""),     // '$"'
         
             //
             // Keywords
