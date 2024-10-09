@@ -701,6 +701,43 @@ impl Parser {
                         }
                         opt_type = Some((Rc::new(Type::Number(NumberType::Double)), pos.clone()));
                     },
+                    Token::TupleTypeStart => {  // '$<'
+                        iter.next();
+
+                        let mut list = Vec::new();
+
+                        let (tok2, _pos2) = iter.peek().unwrap();
+                        if *tok2 != Token::Greater {  // NOT '>'
+                            loop {
+                                let (_sq, tv, _pos3) = self.parse_type_specifier_qualifier(iter, defs, labels)?;
+                                if let TypeOrVariadic::Type(typ) = tv {
+                                    let pointer = self.parse_pointer(iter, defs)?;
+                                    if let Some(ptr) = pointer {
+                                        let typ2 = Type::Pointer(ptr, Box::new(typ));
+                                        list.push(Rc::new(typ2));
+                                    }else{
+                                        list.push(typ);
+                                    }
+
+                                }else{
+                                    panic!()
+                                }
+
+                                let (tok3, pos3) = iter.peek().unwrap();
+                                if *tok3 == Token::Comma {  // skip ','
+                                    iter.next();
+                                } else if *tok3 == Token::Greater {
+                                    iter.next();
+                                    break;
+                                } else {
+                                    return Err(ParserError::syntax_error(pos3.clone()));
+                                }
+                            }
+                        }
+
+                        let typ = Type::Tuple(list);
+                        opt_type = Some((Rc::new(typ), pos.clone()));
+                    },
                     _ => {
                         break;
                     },

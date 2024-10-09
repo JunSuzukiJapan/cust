@@ -95,7 +95,8 @@ pub enum Token {
     Dollar,           // '$'
     TupleStart,       // '$('
     TupleTypeStart,   // '$<'
-    StringStart,      // '$"'
+    // UnicodeStringStart,  // $"
+    // UnicodeCharStart,    // $'
 
     //
     // Keywords
@@ -271,7 +272,7 @@ impl fmt::Display for Token {
             Token::Dollar => write!(f, "$"),            // '$'
             Token::TupleStart => write!(f, "$("),       // '$('
             Token::TupleTypeStart => write!(f, "$<"),   // '$<'
-            Token::StringStart => write!(f, "$\""),     // '$"'
+            // Token::UnicodeStringStart => write!(f, "$\""),     // '$"'
         
             //
             // Keywords

@@ -487,10 +487,14 @@ impl Tokenizer {
                                 self.next_char(ctx);  // skip '<'
                                 Ok(Some((Token::TupleTypeStart, start_pos)))
                             },
-                            '"' => {
-                                self.next_char(ctx);  // skip '"'
-                                Ok(Some((Token::StringStart, start_pos)))
-                            },
+                            // '"' => {
+                            //     self.next_char(ctx);  // skip '"'
+                            //     Ok(Some((Token::UnicodeStringStart, start_pos)))
+                            // },
+                            // '\'' => {
+                            //     self.next_char(ctx);  // skip '\''
+                            //     Ok(Some((Token::UnicodeCharStart, start_pos)))
+                            // },
                             _ => {
                                 Ok(Some((Token::Dollar, start_pos)))
                             },
