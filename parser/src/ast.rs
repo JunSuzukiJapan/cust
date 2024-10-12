@@ -843,6 +843,7 @@ pub enum ExprAST {
     UnionConstLiteral(Rc<Type>, Vec<(String, ConstExpr)>, Position),
     EnumLiteral(Rc<Type>, u64, EnumLiteral, Position),
     TupleLiteral(Vec<Box<ExprAST>>, Position),
+    TupleMemberAccess(Box<ExprAST>, usize, Position),  // tpl.0
 }
 
 impl ExprAST {
@@ -906,6 +907,7 @@ impl ExprAST {
             ExprAST::UnionConstLiteral(_typ, _map, pos) => pos,
             ExprAST::EnumLiteral(_, _, _, pos) => pos,
             ExprAST::TupleLiteral(_, pos) => pos,
+            ExprAST::TupleMemberAccess(_, _, pos) => pos,
         }
     }
 

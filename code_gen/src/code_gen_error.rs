@@ -112,6 +112,8 @@ pub enum CodeGenError {
     NoCurrentClass(Position),
     CannotAssignConstant(Position),
     NoSuchAEnumMember(String, String, Position),
+    TupleIndexTooBig(usize, usize, Position),  // (expected, real, Position)
+    NotTupleInTupleAccessByIndex(ExprAST, Position),
 }
 
 impl CodeGenError {
@@ -496,6 +498,14 @@ impl CodeGenError {
     pub fn no_such_a_enum_member(enum_name: String, member_name: String, pos: Position) -> Self {
         Self::NoSuchAEnumMember(enum_name, member_name, pos)
     }
+
+    pub fn tuple_index_too_big(expected: usize, real: usize, pos: Position) -> Self {
+        Self::TupleIndexTooBig(expected, real, pos)
+    }
+
+    pub fn not_tuple_in_tuple_access_by_index(expr: ExprAST, pos: Position) -> Self {
+        Self::not_tuple_in_tuple_access_by_index(expr, pos)
+    }
 }
 
 impl From<ParserError> for CodeGenError {
@@ -808,6 +818,12 @@ impl fmt::Display for CodeGenError {
             },
             Self::NoSuchAEnumMember(enum_name, member_name, _pos) => {
                 write!(f, "no such a member '{member_name}' in enum '{enum_name}'")
+            },
+            Self::TupleIndexTooBig(expected, real, _pos) => {
+                write!(f, "tuple index too big. expected: {expected}, real: {real}")
+            },
+            Self::NotTupleInTupleAccessByIndex(expr, _pos) => {
+                write!(f, "not tuple in tuple access by index")
             },
         }
         

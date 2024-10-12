@@ -399,6 +399,21 @@ impl TypeUtil {
                 let t = Type::Tuple(type_list);
                 Ok(Rc::new(t))
             },
+            ExprAST::TupleMemberAccess(expr_ast, index, pos) => {
+                let typ = TypeUtil::get_type(expr_ast, env)?;
+                let ptr = Rc::as_ptr(&typ);
+                if let Type::Tuple(vec) = unsafe{&*ptr} {
+                    let len = vec.len();
+                    if *index >= len {
+                        return Err(CodeGenError::tuple_index_too_big(len, *index, pos.clone()));
+                    }
+
+                    Ok(Rc::clone(&vec[*index]))
+
+                }else{
+                    Err(CodeGenError::not_tuple_in_tuple_access_by_index(*expr_ast.clone(), pos.clone()))
+                }
+            },
             ExprAST::DefVar { specifiers: _, declarations: _, pos: _ } => {
                 // maybe unreached???
                 unimplemented!()

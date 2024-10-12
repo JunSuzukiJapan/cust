@@ -557,6 +557,13 @@ impl<'ctx> CodeGen<'ctx> {
 
                 unimplemented!()
             },
+            ExprAST::TupleMemberAccess(expr, index, _pos) => {
+
+
+
+
+                unimplemented!()
+            },
         }
     }
 
