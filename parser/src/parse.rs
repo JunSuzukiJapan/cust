@@ -1982,7 +1982,9 @@ impl Parser {
                                 Token::IntLiteral(num) => {
                                     ast = ExprAST::TupleMemberAccess(Box::new(ast), *num as usize, pos.clone());
                                 },
-                                _ => return Err(ParserError::no_id_after_dot(pos2.clone())),
+                                _ => {
+                                    return Err(ParserError::no_id_after_dot(pos2.clone()));
+                                },
                             }
                         },
                         Token::MemberSelection => {
