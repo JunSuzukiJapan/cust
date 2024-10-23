@@ -4,130 +4,66 @@
 extern crate tokenizer;
 extern crate parser;
 extern crate code_gen;
+extern crate clap;
 
-use parser::{Parser, ExprAST, Tokenizer, ParserError, Defines};
+use std::fs::File;
+use std::io::prelude::*;
+use std::path::Path;
+use inkwell::context::Context;
+use clap::*;
+
+use parser::{ExprAST, Tokenizer, ParserError, Defines};
 use code_gen::{CodeGen, Env};
 
-// use inkwell::AddressSpace;
-use inkwell::context::Context;
-use inkwell::execution_engine::JitFunction;
-// use inkwell::types::BasicType;
-// use inkwell::values::{AnyValue, FunctionValue};
-// use inkwell::execution_engine::FunctionLookupError;
-
-type FuncType = unsafe extern "C" fn(i64, i64) -> i64;
-type NoArgFunc = unsafe extern "C" fn() -> u64;
-type FuncType_i32_i32 = unsafe extern "C" fn(i32) -> i32;
-type FuncType_void_i32 = unsafe extern "C" fn() -> i32;
-// type FuncType_i64_i64 = unsafe extern "C" fn(i64) -> i64;
-// type FuncType_i64i64_i64 = unsafe extern "C" fn(i64, i64) -> i64;
-// type FuncType_i64i64i64_i64 = unsafe extern "C" fn(i64, i64, i64) -> i64;
-type FuncType_void_void = unsafe extern "C" fn() -> i64;
+#[derive(clap::Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    /// Name of source file
+    #[arg(short)]
+    compile: String,
+}
 
 fn parse_expression_from_str(src: &str) -> Result<Option<ExprAST>, ParserError> {
     let token_list = Tokenizer::tokenize(src).unwrap();
     let mut iter = token_list.iter().peekable();
-    let parser = Parser::new();
+    let parser = parser::Parser::new();
     let mut defs = Defines::new();
     let mut labels = Vec::new();
     parser.parse_expression(&mut iter, &mut defs, &mut Some(&mut labels))
 }
 
 fn main() {
+    let args = Args::parse();
+    let filename = args.compile;
 
-    let src = "
-        int printf(char* format, ...);
+    let path = Path::new(&filename);
+    let stem = path.file_stem().unwrap().to_str().unwrap();
+    let dest = path.with_extension("llvm");
 
-        union foo {
-            int i_value;
-            double d_value;
-        };
+println!("cano: {}", path.canonicalize().unwrap().to_str().unwrap());
+println!("stem: {stem}");
+println!("dest: {}", dest.to_str().unwrap());
 
-        typedef union foo Foo;
-
-        int test() {
-            Foo foo = foo {
-                i_value: 1;
-            };
-            printf(\"foo.i_value: %d\\\n\", foo.i_value);
-
-            int i = foo.i_value;
-
-            foo.d_value = 3.14;
-            double d = foo.d_value;
-            printf(\"foo.d_value: %f\\\n\", foo.d_value);
-
-            printf(\"i: %d, d: %f\\\n\", i, d);
-
-            return i;
-        }
-    ";
-
-    let src = "
-        enum Option<T> {
-            Some(T),
-            None
-        };
-
-        int test() {
-            return 0;
-        }
-    ";
-
-    let src = "
-        enum Dummy {
-            Foo {
-                float hoge;
-                int fuga;
-                int x;
-            },
-            Bar,
-            Zot {
-                int hoge;
-                int fuga;
-            }
-        };
-
-        int test() {
-            Dummy dummy;
-            dummy = Dummy::Zot {
-                hoge: 1;
-                fuga: 2;
-            };
-
-            return 0;
-        }
-    ";
+    // read file
+    let mut f = File::open(filename).expect("file not found");
+    let mut src = String::new();
+    f.read_to_string(&mut src)
+        .expect("something went wrong reading the file");  // error while read file
 
     // tokenize
-    let tokenized = Tokenizer::tokenize(src).unwrap();
+    let token_list = Tokenizer::tokenize(&src).unwrap();
+
     // parse
-    let asts = Parser::parse(tokenized).unwrap();
+    let asts = parser::Parser::parse(token_list).unwrap();
 
     // code gen
     let context = Context::create();
     let gen = CodeGen::try_new(&context, "test run").unwrap();
-    println!("<<code parsed.>>");
     let mut env = Env::new();
-
-    // for index in 0..asts.len() {
-    //     let _any_value = gen.gen_code(&asts[index], &mut env, None, None).unwrap();
-    // }
     gen.gen_toplevels(&asts, &mut env).unwrap();
 
-    gen.module.print_to_stderr();
+    // gen.module.print_to_stderr();
+    gen.module.print_to_file(dest).expect("something went wrong writing the file");
 
-    println!("<<get llvm function>>");
-    // let f: JitFunction<FuncType_void_void> = unsafe { gen.execution_engine.get_function("test").unwrap() };
-    // let f: JitFunction<FuncType_i32_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
-    // let f: JitFunction<NoArgFunc> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
-    let f: JitFunction<FuncType_void_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
-    println!("<<call llvm function>>");
-    let result = unsafe { f.call() };
-    // let result = unsafe { f.call(1) };
-    // assert_eq!(result, 1);
-    println!("result: {result}");
-    println!("<<end call llvm function>>");
 
-    println!("<<all end>>");
 }

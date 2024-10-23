@@ -421,6 +421,7 @@ impl Tokenizer {
                     if let Some(ch2) = ctx.chars.peek() {
                         if *ch2 == '.' {
                             self.next_char(ctx);  // skip '.'
+
                             let ch3 = self.next_char(ctx).ok_or(TokenizerError::illegal_end_of_input(start_pos.clone()))?;
                             match ch3 {
                                 '.' => Ok(Some((Token::TripleDot, start_pos))),

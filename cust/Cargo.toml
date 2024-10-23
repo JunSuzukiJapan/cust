@@ -11,3 +11,4 @@ tokenizer = { path = "../tokenizer" }
 parser = { path = "../parser" }
 code_gen = { path = "../code_gen" }
 inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "master", features = ["llvm12-0"] }
+clap = { version = "4.5.20", features = ["derive"] }
