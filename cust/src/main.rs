@@ -40,10 +40,6 @@ fn main() {
     let stem = path.file_stem().unwrap().to_str().unwrap();
     let dest = path.with_extension("llvm");
 
-println!("cano: {}", path.canonicalize().unwrap().to_str().unwrap());
-println!("stem: {stem}");
-println!("dest: {}", dest.to_str().unwrap());
-
     // read file
     let mut f = File::open(filename).expect("file not found");
     let mut src = String::new();
@@ -62,8 +58,6 @@ println!("dest: {}", dest.to_str().unwrap());
     let mut env = Env::new();
     gen.gen_toplevels(&asts, &mut env).unwrap();
 
-    // gen.module.print_to_stderr();
+    // write to file
     gen.module.print_to_file(dest).expect("something went wrong writing the file");
-
-
 }
