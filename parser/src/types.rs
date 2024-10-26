@@ -933,7 +933,7 @@ impl fmt::Display for Type {
             Type::BitField => {
                 write!(f, "bit_field")
             },
-            Type::Tuple(type_list) => {
+            Type::Tuple(_type_list) => {
                 write!(f, "tuple")
             },
             Type::GenericType(g_type) => {

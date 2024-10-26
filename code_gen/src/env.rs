@@ -10,7 +10,7 @@ use inkwell::context::Context;
 use parser::FunProto;
 use tokenizer::Position;
 use crate::parser::{Type, ConstExpr, NumberType, ExprAST, CustFunctionType, SpecifierQualifier};
-use crate::CodeGenError;
+use crate::{type_util, CodeGenError};
 use super::type_util::TypeUtil;
 
 use super::CodeGen;
@@ -803,6 +803,9 @@ impl<'ctx> Env<'ctx> {
                         Err(Box::new(CodeGenError::no_such_a_type(name, pos.clone())))
                     }
                 }
+            },
+            Type::Tuple(_type_list) => {
+                TypeUtil::to_basic_type_enum(typ, ctx, pos)
             },
             _ => {
                 Ok(TypeUtil::to_basic_type_enum(typ, ctx, pos)?)

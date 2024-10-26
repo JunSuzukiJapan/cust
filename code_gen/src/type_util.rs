@@ -108,6 +108,18 @@ impl TypeUtil {
                 Err(Box::new(CodeGenError::cannot_convert_to_basic_type(typ.to_string(), pos.clone())))
 
             },
+            Type::Tuple(type_list) => {
+                let mut vec = Vec::new();
+
+                for t in type_list {
+                    let t2 = TypeUtil::to_basic_type_enum(t, ctx, pos)?;
+                    vec.push(t2);
+                }
+
+                let any_type = ctx.struct_type(&vec, false);
+                let basic_type = BasicTypeEnum::try_from(any_type).unwrap();
+                Ok(basic_type)
+            },
             _ => {
                 Err(Box::new(CodeGenError::cannot_convert_to_basic_type(typ.to_string(), pos.clone())))
             },
