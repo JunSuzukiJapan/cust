@@ -218,4 +218,23 @@ mod tests {
             panic!()
         }
     }
+
+    #[test]
+    fn parse_global_define_tuple() {
+        let src = "$<int, int> tpl = $(1, 2);";
+
+        // parse
+        let ast = parse_external_declaration_from_str(src).unwrap().unwrap();
+
+        if let ToplevelAST::GlobalDefVar { specifiers, declaration, pos } = ast {
+
+
+
+
+
+
+        }else{
+            panic!()
+        }
+    }
 }

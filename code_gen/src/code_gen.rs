@@ -21,6 +21,7 @@ use inkwell::module::Module;
 use inkwell::values::{AnyValue, AnyValueEnum, BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, GlobalValue, PointerValue, StructValue};
 use inkwell::types::{AnyTypeEnum, BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FunctionType, IntType};
 use inkwell::AddressSpace;
+use parser::ExprAST;
 use std::error::Error;
 use std::rc::Rc;
 
@@ -307,6 +308,89 @@ impl<'ctx> CodeGen<'ctx> {
 
         Ok(None)
     }
+
+    pub fn gen_global_tuple_init<'b, 'c>(&self,
+        type_list: &Vec<Rc<Type>>,
+        target_tuple_ptr: GlobalValue<'ctx>,
+        init: &Initializer,
+        env: &mut Env<'ctx>,
+        break_catcher: Option<&'b BreakCatcher>,
+        continue_catcher: Option<&'c ContinueCatcher>
+    ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
+
+        let init_value_list = if let Initializer::Simple(ExprAST::TupleLiteral(expr_list, _pos), _pos2) = init {
+            expr_list
+        }else{
+            return Err(Box::new(CodeGenError::initializer_is_not_tuple(init.get_position().clone())));
+        };
+
+        // let init_value_list = if let Initializer::Struct(list, _typ, _pos) = init {
+        //     list
+        // }else{
+        //     return Err(Box::new(CodeGenError::initializer_is_not_struct(init.get_position().clone())));
+        // };
+
+        let target_len = type_list.len();
+        let init_len = init_value_list.len();
+        if target_len < init_len {
+            return  Err(Box::new(CodeGenError::initial_list_is_too_long(init.get_position().clone())));
+        }
+
+        if target_len == 0 {
+            return Ok(None);
+        }
+
+        //
+        // target_len > 0
+        //
+
+        let values = self.make_tuple_init_value(type_list, init.get_position(), init_value_list, env, break_catcher, continue_catcher)?;
+        target_tuple_ptr.set_initializer(&values.as_basic_value_enum());
+
+        Ok(None)
+    }
+
+
+    pub fn make_tuple_init_value<'b, 'c>(&self,
+        type_list: &Vec<Rc<Type>>,
+        init_pos: &Position,
+        init_value_list: &Vec<Box<ExprAST>>,
+        env: &mut Env<'ctx>,
+        break_catcher: Option<&'b BreakCatcher>,
+        continue_catcher: Option<&'c ContinueCatcher>
+    ) -> Result<StructValue<'ctx>, Box<dyn Error>> {
+
+        let target_len = type_list.len();
+        let init_len = init_value_list.len();
+        if target_len < init_len {
+            return  Err(Box::new(CodeGenError::initial_list_is_too_long(init_pos.clone())));
+        }
+
+        let mut vec = Vec::new();
+        for i in 0..target_len {
+            let field_type = &type_list[i];
+
+            if i < init_len {
+                let init_value = &init_value_list[i];
+                let init_type = TypeUtil::get_type(&init_value, env)?;
+                if **field_type != *init_type {
+                    return Err(Box::new(CodeGenError::mismatch_initializer_type(&field_type, &init_type, init_value.get_position().clone())));
+                }
+
+                let compiled_val = self.gen_expr(&**init_value, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::mismatch_initializer_type(&field_type, &init_type, init_value.get_position().clone()))?;
+                let value = self.try_as_basic_value(&compiled_val.get_value(), init_value.get_position())?;
+                vec.push(value);
+
+            }else{  // zero clear
+                let zero_value = self.const_zero(&field_type, init_pos)?;
+                vec.push(zero_value);
+            }
+        }
+
+        let values = self.context.const_struct(&vec, false);
+        Ok(values)
+    }
+
 
     pub fn gen_initializer<'b, 'c>(&self,
         init: &Initializer,
@@ -711,6 +795,9 @@ impl<'ctx> CodeGen<'ctx> {
                     },
                     Type::Array { name: _, typ, size_list } => {
                         self.gen_global_array_init(&size_list, ptr, &*typ, &*initializer, env, break_catcher, continue_catcher)?;
+                    },
+                    Type::Tuple(type_list) => {
+                        self.gen_global_tuple_init(&type_list, ptr, &*initializer, env, break_catcher, continue_catcher)?;
                     },
                     _ => {
                         let init = self.gen_const_expr(initializer, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(pos.clone()))?;

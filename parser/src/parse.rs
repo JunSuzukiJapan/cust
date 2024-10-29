@@ -702,6 +702,7 @@ impl Parser {
                         opt_type = Some((Rc::new(Type::Number(NumberType::Double)), pos.clone()));
                     },
                     Token::TupleTypeStart => {  // '$<'
+println!("TupleTypeStart");
                         iter.next();
 
                         let mut list = Vec::new();

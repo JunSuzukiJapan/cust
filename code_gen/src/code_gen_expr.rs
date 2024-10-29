@@ -478,13 +478,13 @@ impl<'ctx> CodeGen<'ctx> {
                 let typ = struct_literal.get_type();
                 let pos = struct_literal.get_position();
                 let basic_type = env.basic_type_enum_from_type(&typ, self.context, pos)?;
-                let struct_ptr = self.builder.build_alloca(basic_type, "struct_leteral")?;
+                let struct_ptr = self.builder.build_alloca(basic_type, "struct_literal")?;
 
                 self.gen_struct_literal(struct_literal, struct_ptr, env, break_catcher, continue_catcher)
             },
             ExprAST::UnionLiteral(typ, list, pos) => {
                 let basic_type = env.basic_type_enum_from_type(&typ, self.context, pos)?;
-                let union_ptr = self.builder.build_alloca(basic_type, "union_leteral")?;
+                let union_ptr = self.builder.build_alloca(basic_type, "union_literal")?;
                 let union_name = typ.get_type_name();
 
                 for (_field_name, expr_ast2) in list {
@@ -499,7 +499,7 @@ impl<'ctx> CodeGen<'ctx> {
             },
             ExprAST::UnionConstLiteral(typ, const_list, pos) => {
                 let basic_type = env.basic_type_enum_from_type(&typ, self.context, pos)?;
-                let union_ptr = self.builder.build_alloca(basic_type, "union_leteral")?;
+                let union_ptr = self.builder.build_alloca(basic_type, "union_literal")?;
                 let union_name = typ.get_type_name();
 
                 for (_field_name, const_expr) in const_list {
@@ -522,7 +522,7 @@ impl<'ctx> CodeGen<'ctx> {
                         let vec: Vec<BasicTypeEnum> = vec!(tag_type.into(), basic_type);
                         let tagged_type = self.context.struct_type(&vec, false);
 
-                        let tagged_ptr = self.builder.build_alloca(tagged_type, "struct_leteral")?;
+                        let tagged_ptr = self.builder.build_alloca(tagged_type, "enum_literal")?;
                         let tag_ptr = self.builder.build_struct_gep(tagged_ptr, 0, "struct_gep_in_tagged_enum")?;
                         let struct_ptr = self.builder.build_struct_gep(tagged_ptr, 1, "struct_gep_in_tagged_enum")?;
 
@@ -549,20 +549,93 @@ impl<'ctx> CodeGen<'ctx> {
                     },
                 }
             },
-            ExprAST::TupleLiteral(list, _pos) => {
+            ExprAST::TupleLiteral(list, pos) => {
+                //
+                // codegen each element
+                //
+                let mut expr_list = Vec::new();
+                let mut type_list = Vec::new();
+                let mut cust_type_list = Vec::new();
 
+                for expr in list {
+                    let expr = self.gen_expr(expr, env, break_catcher, continue_catcher)?.unwrap();
+                    let typ = expr.get_type();
+                    let t = TypeUtil::to_basic_type_enum(&typ, &self.context, pos)?;
 
+                    expr_list.push(expr.get_value());
+                    type_list.push(t);
+                    cust_type_list.push(typ.clone());
+                }
 
+                let any_type = self.context.struct_type(&type_list, false);
+                let basic_type = BasicTypeEnum::try_from(any_type).unwrap();
+                let tuple_ptr = self.builder.build_alloca(basic_type, "tuple_literal")?;
 
+                //
+                // store each element to tuple structure
+                //
+                let i32_type = self.context.i32_type();
+                let const_zero = i32_type.const_int(0, false);
+                let mut index = 0;
+                for any_value in expr_list {
+                    let basic_value = BasicValueEnum::try_from(any_value).map_err(|_e| CodeGenError::system_error(pos.clone()))?;
+                    let const_index = i32_type.const_int(index, false);
+                    let indexes = vec![const_zero, const_index];
+                    let ptr = unsafe { self.builder.build_in_bounds_gep(tuple_ptr, &indexes, "gep_for_tuple_element")? };
+                    let _result = self.builder.build_store(ptr, basic_value);
 
-                unimplemented!()
+                    index += 1;
+                }
+
+                //
+                // return result
+                //
+                let basic_val = self.builder.build_load(tuple_ptr, &format!("load_tuple_literal"))?;
+                let any_val = basic_val.as_any_value_enum();
+                let tuple_type = Type::Tuple(cust_type_list);
+                Ok(Some(CompiledValue::new(Rc::new(tuple_type), any_val)))
             },
-            ExprAST::TupleMemberAccess(expr, index, _pos) => {
+            ExprAST::TupleMemberAccess(arg_expr, index, pos) => {
+                //
+                // is expr tuple?
+                //
+                let tuple_type = TypeUtil::get_type(&arg_expr, env)?;
+                if ! tuple_type.is_tuple() {
+                    return Err(Box::new(CodeGenError::not_tuple_in_tuple_access_by_index(*arg_expr.clone(), pos.clone())));
+                }
 
+                //
+                // check size
+                //
+                let size = tuple_type.get_tuple_size().unwrap();
+                if size <= *index {
+                    return Err(Box::new(CodeGenError::tuple_index_too_big(size, *index, pos.clone())));
+                }
 
+                //
+                // code gen
+                //
+                let i32_type = self.context.i32_type();
+                let const_zero = i32_type.const_int(0, false);
 
+                let const_index = i32_type.const_int(*index as u64, false);
+                let indexes = vec![const_zero, const_index];
 
-                unimplemented!()
+                let (_typ, tuple_ptr) = self.get_l_value(&arg_expr, env, break_catcher, continue_catcher)?;
+                let ptr = unsafe { self.builder.build_in_bounds_gep(tuple_ptr, &indexes, "gep_for_tuple_element")? };
+                let basic_val = self.builder.build_load(ptr, "load_tuple_element")?;
+                let any_val = basic_val.as_any_value_enum();
+
+                let elem_type = {
+                    match &*tuple_type {
+                        Type::Tuple(list) => {
+                            &list[*index]
+                        },
+                        _ => panic!(),
+                    }
+                };
+
+                Ok(Some(CompiledValue::new(Rc::clone(&elem_type), any_val)))
             },
         }
     }

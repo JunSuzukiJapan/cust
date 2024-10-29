@@ -2,6 +2,7 @@ use parser::{ExprAST, ParserError, NumberType};
 use super::{Position, Type};
 use std::error::Error;
 use std::fmt;
+use std::rc::Rc;
 use inkwell::values::AnyValueEnum;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -19,8 +20,8 @@ pub enum CodeGenError {
     MismatchTypeStructFields(Option<String>, Position),
     MismatchTypeEnumFields(String, Position),
     TypeMismatch {
-        real_type: Type,
-        required_type: Type,
+        real_type: Rc<Type>,
+        required_type: Rc<Type>,
         pos: Position,
     },
     NoSuchAType(String, Position),
@@ -48,6 +49,7 @@ pub enum CodeGenError {
     InitializerIsNone(Position),
     InitializerIsNotArray(Position),
     InitializerIsNotStruct(Position),
+    InitializerIsNotTuple(Position),
     InitialListIsTooLong(Position),
     CannotInitStructMember(Position),
     CannotGetZeroValue(Position),
@@ -195,7 +197,7 @@ impl CodeGenError {
         Self::ReturnWithoutFunction(pos)
     }
 
-    pub fn type_mismatch(real_type: Type, required_type: Type, pos: Position) -> Self {
+    pub fn type_mismatch(real_type: Rc<Type>, required_type: Rc<Type>, pos: Position) -> Self {
         Self::TypeMismatch {
             real_type: real_type,
             required_type: required_type,
@@ -265,6 +267,10 @@ impl CodeGenError {
 
     pub fn initializer_is_not_struct(pos: Position) -> Self {
         Self::InitializerIsNotStruct(pos)
+    }
+
+    pub fn initializer_is_not_tuple(pos: Position) -> Self {
+        Self::InitializerIsNotTuple(pos)
     }
 
     pub fn initial_list_is_too_long(pos: Position) -> Self {
@@ -638,6 +644,9 @@ impl fmt::Display for CodeGenError {
             },
             Self::InitializerIsNotStruct(_pos) => {
                 write!(f, "initializer is not struct")
+            },
+            Self::InitializerIsNotTuple(_pos) => {
+                write!(f, "initializer is not tuple")
             },
             Self::InitialListIsTooLong(_pos) => {
                 write!(f, "initial list is too long")

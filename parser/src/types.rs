@@ -697,6 +697,20 @@ impl Type {
         }
     }
 
+    pub fn is_tuple(&self) -> bool {
+        match self {
+            Type::Tuple(..) => true,
+            _ => false,
+        }
+    }
+
+    pub fn get_tuple_size(&self) -> Option<usize> {
+        match self {
+            Type::Tuple(vec) => Some(vec.len()),
+            _ => None,
+        }
+    }
+
     pub fn is_number(&self) -> bool {
         match self {
             Type::Number(_) => true,

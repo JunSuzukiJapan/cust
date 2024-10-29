@@ -305,7 +305,7 @@ impl Parser {
                 },
                 Token::Auto | Token::Register | Token::Static | Token::Extern | Token::Typedef |
                 Token::Void | Token::Char | Token::Short | Token::Int | Token::Long | Token::Float |
-                Token::Double | Token::Signed | Token::Unsigned | Token::Struct | Token::Enum =>
+                Token::Double | Token::Signed | Token::Unsigned | Token::Struct | Token::Enum | Token::TupleTypeStart =>
                 {
                     self.parse_declaration(iter, defs, labels, pos)
                 },
