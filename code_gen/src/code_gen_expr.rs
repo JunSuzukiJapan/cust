@@ -13,6 +13,7 @@ use inkwell::basic_block::BasicBlock;
 use inkwell::{IntPredicate, FloatPredicate};
 use inkwell::AddressSpace;
 use inkwell::types::AnyType;
+use parser::Position;
 use std::error::Error;
 use std::rc::Rc;
 
@@ -595,45 +596,10 @@ impl<'ctx> CodeGen<'ctx> {
                 let tuple_type = Type::Tuple(cust_type_list);
                 Ok(Some(CompiledValue::new(Rc::new(tuple_type), any_val)))
             },
-            ExprAST::TupleMemberAccess(arg_expr, index, pos) => {
-                //
-                // is expr tuple?
-                //
-                let tuple_type = TypeUtil::get_type(&arg_expr, env)?;
-                if ! tuple_type.is_tuple() {
-                    return Err(Box::new(CodeGenError::not_tuple_in_tuple_access_by_index(*arg_expr.clone(), pos.clone())));
-                }
-
-                //
-                // check size
-                //
-                let size = tuple_type.get_tuple_size().unwrap();
-                if size <= *index {
-                    return Err(Box::new(CodeGenError::tuple_index_too_big(size, *index, pos.clone())));
-                }
-
-                //
-                // code gen
-                //
-                let i32_type = self.context.i32_type();
-                let const_zero = i32_type.const_int(0, false);
-
-                let const_index = i32_type.const_int(*index as u64, false);
-                let indexes = vec![const_zero, const_index];
-
-                let (_typ, tuple_ptr) = self.get_l_value(&arg_expr, env, break_catcher, continue_catcher)?;
-                let ptr = unsafe { self.builder.build_in_bounds_gep(tuple_ptr, &indexes, "gep_for_tuple_element")? };
+            ExprAST::TupleMemberAccess(tpl, index, pos) => {
+                let (elem_type, ptr) = self.get_indexed_tuple_ptr_and_type(tpl, *index, pos, env, break_catcher, continue_catcher)?;
                 let basic_val = self.builder.build_load(ptr, "load_tuple_element")?;
                 let any_val = basic_val.as_any_value_enum();
-
-                let elem_type = {
-                    match &*tuple_type {
-                        Type::Tuple(list) => {
-                            &list[*index]
-                        },
-                        _ => panic!(),
-                    }
-                };
 
                 Ok(Some(CompiledValue::new(Rc::clone(&elem_type), any_val)))
             },
@@ -1363,10 +1329,62 @@ impl<'ctx> CodeGen<'ctx> {
                     return Err(Box::new(CodeGenError::no_such_a_class_var(struct_name.clone(), var_name.clone(), pos.clone())));
                 }
             },
+            ExprAST::TupleMemberAccess(tpl, index, pos) => {
+                self.get_indexed_tuple_ptr_and_type(tpl, *index, pos, env, break_catcher, continue_catcher)
+            },
             _ => {
                 Err(Box::new(CodeGenError::has_not_l_value(format!("{:?}", ast), ast.get_position().clone())))
             }
         }
+    }
+
+    fn get_indexed_tuple_ptr_and_type<'b, 'c>(
+        &self,
+        tpl: &ExprAST,
+        index: usize,
+        pos: &Position,
+        env: &mut Env<'ctx>,
+        break_catcher: Option<&'b BreakCatcher>,
+        continue_catcher: Option<&'c ContinueCatcher>
+    ) -> Result<(Rc<Type>, PointerValue<'ctx>), Box<dyn Error>> {
+        //
+        // is expr tuple?
+        //
+        let tuple_type = TypeUtil::get_type(&tpl, env)?;
+        if ! tuple_type.is_tuple() {
+            return Err(Box::new(CodeGenError::not_tuple_in_tuple_access_by_index(tpl.clone(), pos.clone())));
+        }
+
+        //
+        // check size
+        //
+        let size = tuple_type.get_tuple_size().unwrap();
+        if size <= index {
+            return Err(Box::new(CodeGenError::tuple_index_too_big(size, index, pos.clone())));
+        }
+
+        //
+        // code gen
+        //
+        let i32_type = self.context.i32_type();
+        let const_zero = i32_type.const_int(0, false);
+
+        let const_index = i32_type.const_int(index as u64, false);
+        let indexes = vec![const_zero, const_index];
+
+        let (_typ, tuple_ptr) = self.get_l_value(&tpl, env, break_catcher, continue_catcher)?;
+        let ptr = unsafe { self.builder.build_in_bounds_gep(tuple_ptr, &indexes, "gep_for_tuple_element")? };
+
+        let elem_type = {
+            match &*tuple_type {
+                Type::Tuple(list) => {
+                    &list[index]
+                },
+                _ => panic!(),
+            }
+        };
+
+        Ok((Rc::clone(elem_type), ptr))
     }
 
     fn bin_expr_implicit_cast(&self, left: CompiledValue<'ctx>, right: CompiledValue<'ctx>) -> Result<(CompiledValue<'ctx>, CompiledValue<'ctx>), Box<dyn Error>> {
