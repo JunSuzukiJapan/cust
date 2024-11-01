@@ -615,23 +615,17 @@ impl<'ctx> CodeGen<'ctx> {
 
         match init {
             Initializer::Simple(expr, _pos) => self.gen_expr(expr, env, break_catcher, continue_catcher),
-            Initializer::Array(_list, _typ, _pos) => {
-
-
-
-
-
-
-                unimplemented!()
+            Initializer::Array(_list, typ, _pos) => {  // maybe not reached
+                // let any_value = self.gen_initializer(init, env, break_catcher, continue_catcher)?;
+                // let compiled_value = CompiledValue::new(Rc::clone(typ), any_value);
+                // Ok(Some(compiled_value))
+                panic!("This process should be done in a function gen_def_var")
             },
-            Initializer::Struct(_list, _typ, _pos) => {
-
-
-
-
-
-
-                unimplemented!()
+            Initializer::Struct(_list, typ, _pos) => {  // maybe not reached
+                // let any_value = self.gen_initializer(init, env, break_catcher, continue_catcher)?;
+                // let compiled_value = CompiledValue::new(Rc::clone(typ), any_value);
+                // Ok(Some(compiled_value))
+                panic!("This process should be done in a function gen_def_var")
             }
         }
     }

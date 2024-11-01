@@ -324,12 +324,6 @@ impl<'ctx> CodeGen<'ctx> {
             return Err(Box::new(CodeGenError::initializer_is_not_tuple(init.get_position().clone())));
         };
 
-        // let init_value_list = if let Initializer::Struct(list, _typ, _pos) = init {
-        //     list
-        // }else{
-        //     return Err(Box::new(CodeGenError::initializer_is_not_struct(init.get_position().clone())));
-        // };
-
         let target_len = type_list.len();
         let init_len = init_value_list.len();
         if target_len < init_len {
@@ -349,7 +343,6 @@ impl<'ctx> CodeGen<'ctx> {
 
         Ok(None)
     }
-
 
     pub fn make_tuple_init_value<'b, 'c>(&self,
         type_list: &Vec<Rc<Type>>,
@@ -390,7 +383,6 @@ impl<'ctx> CodeGen<'ctx> {
         let values = self.context.const_struct(&vec, false);
         Ok(values)
     }
-
 
     pub fn gen_initializer<'b, 'c>(&self,
         init: &Initializer,
