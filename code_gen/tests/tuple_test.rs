@@ -135,7 +135,7 @@ fn code_gen_tuple_in_struct() {
 
 
 #[test]
-fn code_gen_pre_increment_member() {
+fn code_gen_pre_and_post_increment_member() {
     let src = "
         int printf(char* format, ...);
 
@@ -154,7 +154,7 @@ fn code_gen_pre_increment_member() {
             foo.tpl.1 = 4;
 
             ++foo.tpl.0;
-            ++foo.tpl.1;
+            foo.tpl.1++;
 
             return foo.x + foo.tpl.0 + foo.tpl.1;
         }
