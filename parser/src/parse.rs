@@ -148,7 +148,7 @@ impl Parser {
                 }
                 _ => {
                     // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                    return Err(ParserError::syntax_error(pos.clone()));
+                    return Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()));
                 },
             }
         }
@@ -194,7 +194,7 @@ impl Parser {
                     },
                     _ => {
                         // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                        Err(ParserError::syntax_error(pos.clone()))
+                        Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()))
                     },
                 }
             },
@@ -247,7 +247,7 @@ impl Parser {
                     },
                     _ => {
                         // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                        Err(ParserError::syntax_error(pos.clone()))
+                        Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()))
                     },
                 }
             },
@@ -291,7 +291,7 @@ impl Parser {
                     _ => {
                         defs.remove_function_local();
                         // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                        Err(ParserError::syntax_error(pos.clone()))
+                        Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()))
                     },
                 }
             },
@@ -449,7 +449,7 @@ impl Parser {
                             },
                             _ => {
                                 // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                                return Err(ParserError::syntax_error(pos2.clone()));
+                                return Err(ParserError::syntax_error(file!(), line!(), column!(), pos2.clone()));
                             }
                         }
                     },
@@ -515,7 +515,7 @@ impl Parser {
                             },
                             _ => {
                                 // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                                return Err(ParserError::syntax_error(pos2.clone()));
+                                return Err(ParserError::syntax_error(file!(), line!(), column!(), pos2.clone()));
                             }
                         }
                     },
@@ -590,7 +590,7 @@ impl Parser {
                             // },
                             _ => {
                                 // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                                return Err(ParserError::syntax_error(pos2.clone()));
+                                return Err(ParserError::syntax_error(file!(), line!(), column!(), pos2.clone()));
                             }
                         }
                     },
@@ -731,7 +731,7 @@ println!("TupleTypeStart");
                                     iter.next();
                                     break;
                                 } else {
-                                    return Err(ParserError::syntax_error(pos3.clone()));
+                                    return Err(ParserError::syntax_error(file!(), line!(), column!(), pos3.clone()));
                                 }
                             }
                         }
@@ -1035,7 +1035,7 @@ println!("TupleTypeStart");
                 }
             },
             _ => {
-                return Err(ParserError::syntax_error(pos.clone()));
+                return Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()));
             },
         }
     }
@@ -1137,7 +1137,7 @@ println!("TupleTypeStart");
             },
             _ => {
                 // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                return Err(ParserError::syntax_error(pos.clone()))
+                return Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()))
             }
         }
 
@@ -1156,7 +1156,7 @@ println!("TupleTypeStart");
                 if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
                 if *tok2 != Token::_self {
                     // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                    return Err(ParserError::syntax_error(pos2.clone()));
+                    return Err(ParserError::syntax_error(file!(), line!(), column!(), pos2.clone()));
                 }
 
                 cust_self = Some(CustSelf::Pointer(Rc::clone(defs.get_self_type(pos)?)));
@@ -1269,11 +1269,11 @@ println!("TupleTypeStart");
                     iter.next();  // skip '?'
 
                     // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                    let then_expr = self.parse_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
+                    let then_expr = self.parse_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()))?;
 
                     self.parse_expected_token(iter, Token::Colon)?;
                     // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                    let else_expr = self.parse_conditional_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
+                    let else_expr = self.parse_conditional_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()))?;
 
                     Ok(Some(ExprAST::TernaryOperator(Box::new(expr), Box::new(then_expr), Box::new(else_expr), pos.clone())))
 
@@ -1326,7 +1326,7 @@ println!("TupleTypeStart");
                             }
                         }else{
                             // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                            return Err(ParserError::syntax_error(pos.clone()));
+                            return Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()));
                         }
                     },
                     _ => break,
@@ -1377,7 +1377,7 @@ println!("TupleTypeStart");
                             }
                         }else{
                             // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                            return Err(ParserError::syntax_error(pos.clone()));
+                            return Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()));
                         }
                     },
                     _ => break,
@@ -1428,7 +1428,7 @@ println!("TupleTypeStart");
                             }
                         }else{
                             // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                            return Err(ParserError::syntax_error(pos.clone()));
+                            return Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()));
                         }
                     },
                     _ => break,
@@ -1478,7 +1478,7 @@ println!("TupleTypeStart");
                             }
                         }else{
                             // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                            return Err(ParserError::syntax_error(pos.clone()));
+                            return Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()));
                         }
                     },
                     _ => break,
@@ -1529,7 +1529,7 @@ println!("TupleTypeStart");
                             }
                         }else{
                             // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                            return Err(ParserError::syntax_error(pos.clone()));
+                            return Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()));
                         }
                     },
                     _ => break,
@@ -1579,7 +1579,7 @@ println!("TupleTypeStart");
                             }
                         }else{
                             // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                            return Err(ParserError::syntax_error(pos.clone()));
+                            return Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()));
                         }
                     },
                     _ => break,
@@ -1629,7 +1629,7 @@ println!("TupleTypeStart");
                             }
                         }else{
                             // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                            return Err(ParserError::syntax_error(pos.clone()));
+                            return Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()));
                         }
                     },
                     _ => break,
@@ -1679,7 +1679,7 @@ println!("TupleTypeStart");
                             }
                         }else{
                             // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                            return Err(ParserError::syntax_error(pos.clone()));
+                            return Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()));
                         }
                     },
                     _ => break,
@@ -1729,7 +1729,7 @@ println!("TupleTypeStart");
                             }
                         }else{
                             // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                            return Err(ParserError::syntax_error(pos.clone()));
+                            return Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()));
                         }
                     },
                     _ => break,
@@ -1778,7 +1778,7 @@ println!("TupleTypeStart");
                             }
                         }else{
                             // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                            return Err(ParserError::syntax_error(pos.clone()));
+                            return Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()));
                         }
                     },
                     _ => break,
@@ -1824,7 +1824,7 @@ println!("TupleTypeStart");
         self.parse_expected_token(iter, Token::ParenRight)?;
 
         // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-        let expr = self.parse_cast_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
+        let expr = self.parse_cast_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()))?;
 
         let cast_type = self.calc_type(&cast_type, &opt_abstract_decl);
 
@@ -1844,7 +1844,7 @@ println!("TupleTypeStart");
                     iter.next();  // skip '++'
 
                     // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                    let expr = self.parse_unary_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
+                    let expr = self.parse_unary_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()))?;
                     if expr.is_symbol() {
                         let (sym, sym_pos) = expr.get_symbol()?;
                         let inc = ExprAST::PreInc(sym.clone(), sym_pos.clone(), pos.clone());
@@ -1854,14 +1854,14 @@ println!("TupleTypeStart");
                         Ok(Some(inc))
                     }else{
                         // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                        Err(ParserError::syntax_error(pos.clone()))
+                        Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()))
                     }
                },
                 Token::Dec => {
                     iter.next();  // skip '--'
 
                     // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                    let expr = self.parse_unary_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
+                    let expr = self.parse_unary_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()))?;
 
                     if expr.is_symbol() {
                         let (sym, sym_pos) = expr.get_symbol()?;
@@ -1873,7 +1873,7 @@ println!("TupleTypeStart");
                         Ok(Some(inc))
                     }else{
                         // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                        Err(ParserError::syntax_error(pos.clone()))
+                        Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()))
                     }
 
                 },
@@ -1936,7 +1936,7 @@ println!("TupleTypeStart");
                 },
                 _ => {
                     // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                    Err(ParserError::syntax_error(pos.clone()))
+                    Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()))
                 },
             }
         }
@@ -2012,7 +2012,7 @@ println!("TupleTypeStart");
                                 ast = ExprAST::PostIncMemberAccess(Box::new(ast.clone()), pos.clone());
                             }else{
                                 // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                                return Err(ParserError::syntax_error(pos.clone()));
+                                return Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()));
                             }
                         },
                         Token::Dec => {
@@ -2025,7 +2025,7 @@ println!("TupleTypeStart");
                                 ast = ExprAST::PostDecMemberAccess(Box::new(ast.clone()), pos.clone());
                             }else{
                                 // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                                return Err(ParserError::syntax_error(pos.clone()));
+                                return Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()));
                             }
                         },
     
@@ -2330,7 +2330,7 @@ println!("TupleTypeStart");
                     iter.next();  // skip ';'
                 },
                 _ => {
-                    return Err(ParserError::syntax_error(pos4.clone()));
+                    return Err(ParserError::syntax_error(file!(), line!(), column!(), pos4.clone()));
                 },
             }
         }
@@ -2417,7 +2417,7 @@ println!("TupleTypeStart");
                     iter.next();  // skip ';'
                 },
                 _ => {
-                    return Err(ParserError::syntax_error(pos4.clone()));
+                    return Err(ParserError::syntax_error(file!(), line!(), column!(), pos4.clone()));
                 },
             }
         }
@@ -2551,7 +2551,7 @@ println!("TupleTypeStart");
                             }
                         }else{
                             // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                            return Err(ParserError::syntax_error(pos.clone()));
+                            return Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()));
                         }
                     },
                     _ => break,
@@ -2571,11 +2571,11 @@ println!("TupleTypeStart");
                     Token::Question => {
                         iter.next();  // skip '?'
                         // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                        let then_expr = self.parse_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
+                        let then_expr = self.parse_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()))?;
 
                         self.parse_expected_token(iter, Token::Colon)?;
                         // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                        let else_expr = self.parse_conditional_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
+                        let else_expr = self.parse_conditional_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()))?;
     
                         return Ok(Some(ExprAST::TernaryOperator(Box::new(ast), Box::new(then_expr), Box::new(else_expr), pos.clone())));
                     },
@@ -2613,70 +2613,70 @@ println!("TupleTypeStart");
                     Token::AddAssign => {
                         iter.next(); // skip '+='
                         // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                        let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
+                        let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()))?;
 
                         result = ExprAST::OpAssign(BinOp::Add, Box::new(result.clone()), Box::new(r_value), pos.clone());
                     },
                     Token::SubAssign => {
                         iter.next(); // skip '-='
                         // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                        let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
+                        let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()))?;
 
                         result = ExprAST::OpAssign(BinOp::Sub, Box::new(result.clone()), Box::new(r_value), pos.clone());
                     },
                     Token::MulAssign => {
                         iter.next(); // skip '*='
                         // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                        let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
+                        let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()))?;
 
                         result = ExprAST::OpAssign(BinOp::Mul, Box::new(result.clone()), Box::new(r_value), pos.clone());
                     },
                     Token::DivAssign => {
                         iter.next(); // skip '/='
                         // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                        let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
+                        let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()))?;
 
                         result = ExprAST::OpAssign(BinOp::Div, Box::new(result.clone()), Box::new(r_value), pos.clone());
                     },
                     Token::ModAssign => {
                         iter.next(); // skip '%='
                         // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                        let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
+                        let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()))?;
 
                         result = ExprAST::OpAssign(BinOp::Mod, Box::new(result.clone()), Box::new(r_value), pos.clone());
                     },
                     Token::ShiftLeftAssign => {
                         iter.next(); // skip '%='
                         // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                        let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
+                        let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()))?;
 
                         result = ExprAST::OpAssign(BinOp::ShiftLeft, Box::new(result.clone()), Box::new(r_value), pos.clone());
                     },
                     Token::ShiftRightAssign => {
                         iter.next(); // skip '%='
                         // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                        let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
+                        let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()))?;
 
                         result = ExprAST::OpAssign(BinOp::ShiftRight, Box::new(result.clone()), Box::new(r_value), pos.clone());
                     },
                     Token::BitAndAssign => {
                         iter.next(); // skip '%='
                         // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                        let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
+                        let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()))?;
 
                         result = ExprAST::OpAssign(BinOp::BitAnd, Box::new(result.clone()), Box::new(r_value), pos.clone());
                     },
                     Token::BitOrAssign => {
                         iter.next(); // skip '%='
                         // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                        let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
+                        let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()))?;
 
                         result = ExprAST::OpAssign(BinOp::BitOr, Box::new(result.clone()), Box::new(r_value), pos.clone());
                     },
                     Token::BitXorAssign => {
                         iter.next(); // skip '%='
                         // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                        let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
+                        let r_value = self.parse_assignment_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()))?;
 
                         result = ExprAST::OpAssign(BinOp::BitXor, Box::new(result.clone()), Box::new(r_value), pos.clone());
                     },
@@ -2732,7 +2732,7 @@ println!("TupleTypeStart");
                         has_variadic = true;
                     }else{
                         // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                        return Err(ParserError::syntax_error(pos.clone()));
+                        return Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()));
                     }
                 },
                 Token::ParenRight => {
@@ -2775,7 +2775,7 @@ println!("TupleTypeStart");
                     Token::ParenRight => (),  // do nothing
                     _ => {
                         // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                        return Err(ParserError::syntax_error(pos.clone()));
+                        return Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()));
                     }
                 }
             },
@@ -2940,7 +2940,7 @@ println!("TupleTypeStart");
                 },
                 _ => {
                     // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                    return Err(ParserError::syntax_error(pos.clone()));
+                    return Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()));
                 }
             }
         }
@@ -3116,7 +3116,7 @@ println!("TupleTypeStart");
             },
             _ => {
                 // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                Err(ParserError::syntax_error(pos.clone()))
+                Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()))
             },
         }
     }

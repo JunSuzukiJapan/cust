@@ -17,7 +17,7 @@ impl Parser {
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
         if *tok != Token::Impl {
             // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-            return Err(ParserError::syntax_error(pos.clone()));
+            return Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()));
         }
 
         iter.next();  // skip 'impl'
@@ -74,7 +74,7 @@ impl Parser {
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
         if *tok != Token::BraceLeft {
             // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-            return Err(ParserError::syntax_error(pos.clone()));
+            return Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()));
         }
         iter.next();  // skip '{'
 
@@ -98,19 +98,19 @@ impl Parser {
                 // syntax check
                 match toplevel_ast {
                     ToplevelAST::DefineEnum { name: _, fields: _, pos } => {
-                        return Err(ParserError::syntax_error(pos.clone()));
+                        return Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()));
                     },
                     ToplevelAST::DefineStruct { name: _, fields: _, pos } => {
-                        return Err(ParserError::syntax_error(pos.clone()));
+                        return Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()));
                     },
                     ToplevelAST::DefineUnion { name: _, fields: _, pos } => {
-                        return Err(ParserError::syntax_error(pos.clone()));
+                        return Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()));
                     },
                     ToplevelAST::Impl { name: _, typ: _, for_type: _, defines: _, pos } => {
-                        return Err(ParserError::syntax_error(pos.clone()));
+                        return Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()));
                     },
                     ToplevelAST::TypeDef(_, _, pos) => {
-                        return Err(ParserError::syntax_error(pos.clone()));
+                        return Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()));
                     },
                     ToplevelAST::GlobalDefVar { specifiers, declaration, pos: _ } => {
                         let elem = ImplElement::DefVar {
@@ -163,7 +163,7 @@ impl Parser {
                 }
                 _ => {
                     // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                    return Err(ParserError::syntax_error(pos.clone()));
+                    return Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()));
                 },
             }
         }
@@ -209,7 +209,7 @@ impl Parser {
                     },
                     _ => {
                         // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                        Err(ParserError::syntax_error(pos.clone()))
+                        Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()))
                     },
                 }
             },
@@ -231,7 +231,7 @@ impl Parser {
                     },
                     _ => {
                         // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                        Err(ParserError::syntax_error(pos.clone()))
+                        Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()))
                     },
                 }
             },
@@ -275,7 +275,7 @@ impl Parser {
                     _ => {
                         defs.remove_function_local();
                         // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                        Err(ParserError::syntax_error(pos.clone()))
+                        Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()))
                     },
                 }
             },

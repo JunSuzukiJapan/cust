@@ -18,7 +18,7 @@ pub enum ParserError {
     NotNumberType(Type, Position),
     NotNumberTypeToBeUnsigned(Type, Position),
     CannotToBeUnsigned(NumberType, Position),
-    SyntaxError(Position),
+    SyntaxError(String, u32, u32, Position),
     IllegalEndOfInput(Position),
     WithoutExpectedToken{expected_token: Token, real_token: Token, pos: Position},
     NoSuchAOperator{token_type: Token, pos: Position},
@@ -115,8 +115,8 @@ impl ParserError {
         ParserError::NotNumberTypeToBeUnsigned(typ.clone(), pos)
     }
 
-    pub fn syntax_error(pos: Position) -> ParserError {
-        ParserError::SyntaxError(pos)
+    pub fn syntax_error(filename: &str, line: u32, column: u32, pos: Position) -> ParserError {
+        ParserError::SyntaxError(filename.into(), line, column, pos)
     }
 
     pub fn illegal_end_of_input(pos: Position) -> ParserError {
@@ -371,7 +371,8 @@ impl fmt::Display for ParserError {
             Self::NotNumberType(_typ, _pos) => write!(f, "not number type"),
             Self::NotNumberTypeToBeUnsigned(_typ, _pos) => write!(f, "not number type to be unsigned"),
             Self::CannotToBeUnsigned(_number_type, _pos) => write!(f, "cannot to be unsigned"),
-            Self::SyntaxError(_pos) => write!(f, "syntax error"),
+            // Self::SyntaxError(_filename, _line, _column, _pos) => write!(f, "syntax error"),
+            Self::SyntaxError(filename, line, column, pos) => write!(f, "syntax error. {filename}:{line}:{column}"),
             Self::IllegalEndOfInput(_pos) => write!(f, "illegal end of input"),
             Self::WithoutExpectedToken{expected_token: _, real_token: _, pos: _} => write!(f, "without expected token"),
             Self::NoSuchAOperator{token_type: _, pos: _} => write!(f, "no such a operator"),

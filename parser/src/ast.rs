@@ -921,6 +921,7 @@ impl ExprAST {
     pub fn is_member_access(&self) -> bool {
         match self {
             ExprAST::MemberAccess(_, _, _) | ExprAST::PointerAccess(_, _, _) => true,
+            ExprAST::TupleMemberAccess(_, _, _) => true,
             _ => false,
         }
     }

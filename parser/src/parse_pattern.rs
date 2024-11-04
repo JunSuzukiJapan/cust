@@ -34,7 +34,7 @@ impl Parser {
                                 let pat2 = Pattern::CharRange(*ch, *ch2);
                                 v.push((Box::new(pat2), pos.clone()));
                             },
-                            _ => return Err(ParserError::syntax_error(pos3.clone())),
+                            _ => return Err(ParserError::syntax_error(file!(), line!(), column!(), pos3.clone())),
                         }
                     }else{
                         v.push((Box::new(pat), pos.clone()));
@@ -55,7 +55,7 @@ impl Parser {
                                 let pat2 = Pattern::NumberRange(*num, *num2);
                                 v.push((Box::new(pat2), pos.clone()));
                             },
-                            _ => return Err(ParserError::syntax_error(pos3.clone())),
+                            _ => return Err(ParserError::syntax_error(file!(), line!(), column!(), pos3.clone())),
                         }
                     }else{
                         v.push((Box::new(pat), pos.clone()))
@@ -85,7 +85,7 @@ impl Parser {
 
                             let (tok3, pos3) = iter.next().unwrap();
                             if ! tok3.is_symbol() {
-                                return Err(ParserError::syntax_error(pos3.clone()));
+                                return Err(ParserError::syntax_error(file!(), line!(), column!(), pos3.clone()));
                             }
                             let sub_name = tok3.get_symbol_name().unwrap();
 
@@ -142,7 +142,7 @@ impl Parser {
                     break;
 
                 }else{
-                    return Err(ParserError::syntax_error(pos3.clone()));
+                    return Err(ParserError::syntax_error(file!(), line!(), column!(), pos3.clone()));
                 }
 
             }else{
@@ -173,7 +173,7 @@ impl Parser {
                     iter.next();  // skip ')'
                     break;
                 }else{
-                    return Err(ParserError::syntax_error(pos3.clone()));
+                    return Err(ParserError::syntax_error(file!(), line!(), column!(), pos3.clone()));
                 }
             }
         }
@@ -252,7 +252,7 @@ impl Parser {
                     break;
                 },
                 _ => {
-                    return  Err(ParserError::syntax_error(pos.clone()));
+                    return  Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()));
                 }
             }
         }

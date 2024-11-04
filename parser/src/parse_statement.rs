@@ -40,17 +40,17 @@ impl Parser {
 
                             self.parse_expected_token(iter, Token::Assign)?;  // skip '='
 
-                            let expr = self.parse_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
+                            let expr = self.parse_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()))?;
 
                             self.parse_expected_token(iter, Token::ParenRight)?;  // skip ')'
 
-                            let then = self.parse_statement(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
+                            let then = self.parse_statement(iter, defs, labels)?.ok_or(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()))?;
     
                             if let Some((tok2, pos2)) = iter.peek() {
                                 if *tok2 == Token::Else {
                                     iter.next();  // skip 'else'
     
-                                    let _else = self.parse_statement(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos2.clone()))?;
+                                    let _else = self.parse_statement(iter, defs, labels)?.ok_or(ParserError::syntax_error(file!(), line!(), column!(), pos2.clone()))?;
                                     let ast = AST::IfLet {
                                         pattern_list,
                                         expr: Box::new(expr),
@@ -82,22 +82,22 @@ impl Parser {
 
                         }else{
                             // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                            return Err(ParserError::syntax_error(next_pos.clone()));
+                            return Err(ParserError::syntax_error(file!(), line!(), column!(), next_pos.clone()));
                         }
                     } else {
                         self.parse_expected_token(iter, Token::ParenLeft)?;  // skip '('
 
-                        let cond = self.parse_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
+                        let cond = self.parse_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()))?;
 
                         self.parse_expected_token(iter, Token::ParenRight)?;  // skip ')'
 
-                        let then = self.parse_statement(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
+                        let then = self.parse_statement(iter, defs, labels)?.ok_or(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()))?;
 
                         if let Some((tok2, pos2)) = iter.peek() {
                             if *tok2 == Token::Else {
                                 iter.next();  // skip 'else'
 
-                                let _else = self.parse_statement(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos2.clone()))?;
+                                let _else = self.parse_statement(iter, defs, labels)?.ok_or(ParserError::syntax_error(file!(), line!(), column!(), pos2.clone()))?;
                                 Ok(Some(AST::If(Box::new(cond), Box::new(then), Some(Box::new(_else)), pos.clone())))
                             }else{
                                 Ok(Some(AST::If(Box::new(cond), Box::new(then), None, pos.clone())))
@@ -162,7 +162,7 @@ impl Parser {
                             iter.next();  // skip 'match'
 
                             self.parse_expected_token(iter, Token::ParenLeft)?;  // skip '('
-                            let expr = self.parse_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
+                            let expr = self.parse_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()))?;
                             self.parse_expected_token(iter, Token::ParenRight)?;  // skip ')'
 
                             self.parse_expected_token(iter, Token::BraceLeft)?;  // skip '{'
@@ -180,7 +180,7 @@ impl Parser {
  
                                 self.parse_expected_token(iter, Token::WhenMatch)?;  // skip '=>'
 
-                                let then = self.parse_statement(iter, defs, labels)?.ok_or(ParserError::syntax_error(pos.clone()))?;
+                                let then = self.parse_statement(iter, defs, labels)?.ok_or(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()))?;
 
                                 list.push((pattern_list, Box::new(then)));
 
@@ -191,7 +191,7 @@ impl Parser {
                                     },
                                     Token::BraceRight => {},  // do nothing
                                     _ => {
-                                        return Err(ParserError::syntax_error(next_pos.clone()));
+                                        return Err(ParserError::syntax_error(file!(), line!(), column!(), next_pos.clone()));
                                     }
                                 }
                             }
@@ -205,7 +205,7 @@ impl Parser {
 
                         }else{
                             // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                            return Err(ParserError::syntax_error(next_pos.clone()));
+                            return Err(ParserError::syntax_error(file!(), line!(), column!(), next_pos.clone()));
                         }
                     } else {
   
@@ -455,7 +455,7 @@ impl Parser {
                             }
                         }else{
                             // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                            return Err(ParserError::syntax_error(pos.clone()));
+                            return Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()));
                         }
                     },
                     _ => break,
@@ -500,7 +500,7 @@ impl Parser {
             s
         }else{
             // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-            return Err(ParserError::syntax_error(iter.peek().unwrap().1.clone()));
+            return Err(ParserError::syntax_error(file!(), line!(), column!(), iter.peek().unwrap().1.clone()));
         };
         let case = Case::new(constant_condition, Box::new(stmt), pos.clone());
         Ok(Some(AST::Case(case, pos.clone())))
@@ -514,7 +514,7 @@ impl Parser {
             s
         }else{
             // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-            return Err(ParserError::syntax_error(iter.peek().unwrap().1.clone()))?;
+            return Err(ParserError::syntax_error(file!(), line!(), column!(), iter.peek().unwrap().1.clone()))?;
         };
         Ok(Some(AST::Default(Box::new(stmt), pos.clone())))
     }
