@@ -6,6 +6,7 @@ mod code_gen_stmt;
 mod code_gen_expr;
 mod code_gen_enum;
 mod code_gen_struct;
+mod code_gen_match;
 mod compiled_value;
 mod env;
 mod caster;

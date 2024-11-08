@@ -51,7 +51,7 @@ impl<'ctx> CodeGen<'ctx> {
                 }
                 Ok(Some(result.as_any_value_enum()))
             },
-            AST::If(condition, then, _else, pos) => {
+            AST::If(condition, then, else_, pos) => {
                 let (_fun_type, func) = env.get_current_function().ok_or(CodeGenError::no_current_function(pos.clone()))?;
                 let func = func.clone();
                 let cond_block = self.context.append_basic_block(func, "if.cond");
@@ -85,7 +85,7 @@ impl<'ctx> CodeGen<'ctx> {
 
                 // else block
                 self.builder.position_at_end(else_block);
-                if let Some(expr) = _else {
+                if let Some(expr) = else_ {
                     self.gen_stmt(expr, env, break_catcher, continue_catcher)?;
                     if let Some(blk) = self.builder.get_insert_block() {
                         if ! self.last_is_jump_statement(blk) {
@@ -105,12 +105,7 @@ impl<'ctx> CodeGen<'ctx> {
                 Ok(None)
             },
             AST::IfLet { pattern_list, expr, then, else_, pos } => {
-
-
-
-
-
-                unimplemented!()
+                self.gen_if_let(pattern_list, expr, then, else_, pos, env, break_catcher, continue_catcher)
             },
             AST::Match { expr, pattern_list_list, pos } => {
 
