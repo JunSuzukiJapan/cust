@@ -10,11 +10,13 @@ use common::*;
 fn code_gen_if_let() {
     let src = "
         int test(int x){
+            int y = 0;
             if let (x = x) {
-                return x * x;
+                x = x * x;
+                y = x;
             }
 
-            return 100;
+            return x + y;
         }
     ";
 
@@ -31,7 +33,7 @@ fn code_gen_if_let() {
     }
 
     let f: JitFunction<FuncType_i32_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
-    assert_eq!(unsafe { f.call(3) }, 9);
+    assert_eq!(unsafe { f.call(3) }, 12);
 }
 
 #[test]
