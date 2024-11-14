@@ -1,26 +1,22 @@
-use crate::parser::{AST, ExprAST, Type, StructDefinition, StructField};
+use crate::parser::{AST, ExprAST, Type};
 use crate::parser::Pattern;
 use super::{CompiledValue, CodeGenError};
 use super::Env;
 use super::env::{BreakCatcher, ContinueCatcher};
-use super::type_util::TypeUtil;
 use crate::Position;
 use crate::CodeGen;
 
-use inkwell::context::Context;
-use inkwell::values::{AnyValue, AnyValueEnum, BasicMetadataValueEnum, BasicValue, BasicValueEnum, GlobalValue, PointerValue, StructValue};
-use inkwell::types::{AnyTypeEnum, BasicType, BasicTypeEnum};
-use inkwell::types::AnyType;
-use inkwell::types::StructType;
+use inkwell::values::{AnyValue, AnyValueEnum, FunctionValue};
+use inkwell::IntPredicate;
 use parser::{NumberType, SpecifierQualifier};
 use std::error::Error;
-use std::collections::HashMap;
 use std::rc::Rc;
 
 impl<'ctx> CodeGen<'ctx> {
     pub fn gen_if_let<'b, 'c>(
         &self,
         pattern_list: &Vec<(Box<Pattern>, Position)>,
+        pattern_name: &Option<String>,
         condition: &ExprAST,
         then: &'ctx AST,
         else_: &'ctx Option<Box<AST>>,
@@ -44,7 +40,7 @@ impl<'ctx> CodeGen<'ctx> {
 
         // match patterns
         let cond = self.gen_expr(condition, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::condition_is_not_number(condition, (*condition).get_position().clone()))?;
-        let matched = self.gen_pattern_match(pattern_list, &cond, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::condition_is_not_number(condition, (*condition).get_position().clone()))?;
+        let matched = self.gen_pattern_match(pattern_list, pattern_name, &cond, env, func, break_catcher, continue_catcher)?.ok_or(CodeGenError::condition_is_not_number(condition, (*condition).get_position().clone()))?;
         let mut comparison = matched.get_value().into_int_value();
         let i1_type = self.context.bool_type();
         comparison = self.builder.build_int_cast(comparison, i1_type, "cast to i1")?;  // cast to i1
@@ -90,8 +86,10 @@ impl<'ctx> CodeGen<'ctx> {
 
     fn gen_pattern_match<'b, 'c>(&self,
         pattern_list: &Vec<(Box<Pattern>, Position)>,
+        pattern_name: &Option<String>,
         value: &CompiledValue<'ctx>,
         env: &mut Env<'ctx>,
+        func: FunctionValue<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
@@ -99,11 +97,41 @@ impl<'ctx> CodeGen<'ctx> {
         let zero = bool_type.const_zero();
         let one = bool_type.const_all_ones();
 
+        let all_end_block  = self.context.append_basic_block(func, "match.all_end");
+
         let mut condition = zero;
         for (pat, pos) in pattern_list {
             match &**pat {
                 Pattern::Char(ch) => {
-                    unimplemented!()
+                    let then_block = self.context.append_basic_block(func, "match.then");
+                    let else_block  = self.context.append_basic_block(func, "match.else");
+
+                    let i8_type = self.context.i8_type();
+                    let result = i8_type.const_int(*ch as u64, true);
+                    let c = CompiledValue::new(Type::Number(NumberType::Char).into(), result.as_any_value_enum());
+
+                    let (left, right) = self.bin_expr_implicit_cast(c, value.clone())?;
+                    let left_value = left.get_value();
+                    let right_value = right.get_value();
+    
+                    let comparison = self.builder.build_int_compare(IntPredicate::EQ, left_value.into_int_value(), right_value.into_int_value(), "match_compare_char")?;
+                    self.builder.build_conditional_branch(comparison, then_block, else_block)?;
+
+                    //
+                    // matched
+                    //
+                    self.builder.position_at_end(then_block);
+
+                    // '@' 以降に対応する。
+
+
+
+                    self.builder.build_unconditional_branch(all_end_block)?;
+
+                    //
+                    // not matched
+                    //
+                    self.builder.position_at_end(else_block);
                 },
                 Pattern::CharRange(_, _) => {
                     unimplemented!()
@@ -141,10 +169,14 @@ impl<'ctx> CodeGen<'ctx> {
 
                     env.insert_local(name, Rc::clone(typ), sq, ptr);
 
+                    self.builder.build_unconditional_branch(all_end_block)?;
+
                     break;
                 },
             }
         }
+
+        self.builder.position_at_end(all_end_block);
 
         let num_type = Type::Number(NumberType::_Bool);
         let any_value: AnyValueEnum = condition.into();

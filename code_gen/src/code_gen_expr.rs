@@ -1381,7 +1381,7 @@ impl<'ctx> CodeGen<'ctx> {
         Ok((Rc::clone(elem_type), ptr))
     }
 
-    fn bin_expr_implicit_cast(&self, left: CompiledValue<'ctx>, right: CompiledValue<'ctx>) -> Result<(CompiledValue<'ctx>, CompiledValue<'ctx>), Box<dyn Error>> {
+    pub fn bin_expr_implicit_cast(&self, left: CompiledValue<'ctx>, right: CompiledValue<'ctx>) -> Result<(CompiledValue<'ctx>, CompiledValue<'ctx>), Box<dyn Error>> {
         if let (Type::Number(left_type), Type::Number(right_type)) = (left.get_type().as_ref(), right.get_type().as_ref()) {
             if left_type == right_type {
                 Ok((left, right))

@@ -211,7 +211,7 @@ impl Parser {
     }
 
     fn parse_struct_pattern(&self, name: &str, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<StructPattern, ParserError> {
-        let mut map: HashMap<String, Option<Vec<(Box<Pattern>, Position)>>> = HashMap::new();
+        let mut map: HashMap<String, Option<(Vec<(Box<Pattern>, Position)>, Option<String>)>> = HashMap::new();
         let mut has_optional = false;
 
         loop {
@@ -234,8 +234,8 @@ impl Parser {
                         Token::Colon => {  // ':'
                             iter.next();  // skip ';'
 
-                            let (pat, _name) = self.parse_pattern(iter, defs, labels)?;
-                            map.insert(name.to_string(), Some(pat));
+                            let (pat, pattern_name) = self.parse_pattern(iter, defs, labels)?;
+                            map.insert(name.to_string(), Some((pat, pattern_name)));
 
                             let (tok3, _pos3) = iter.peek().unwrap();
                             if *tok3 == Token::Comma {
@@ -565,8 +565,8 @@ mod tests {
             assert_eq!(map["x"], None);
 
             if let Some(vec) = &map["y"] {
-                assert_eq!(vec.len(), 1);
-                assert_eq!(*vec[0].0, Pattern::Number(0));
+                assert_eq!(vec.0.len(), 1);
+                assert_eq!(*vec.0[0].0, Pattern::Number(0));
 
             }else{
                 panic!()
@@ -599,17 +599,17 @@ mod tests {
                     assert_eq!(map["x"], None);
 
                     if let Some(vec) = &map["y"] {
-                        assert_eq!(vec.len(), 1);
-                        assert_eq!(*vec[0].0, Pattern::Number(0));
+                        assert_eq!(vec.0.len(), 1);
+                        assert_eq!(*vec.0[0].0, Pattern::Number(0));
 
                     }else{
                         panic!()
                     }
 
                     if let Some(vec) = &map["z"] {
-                        assert_eq!(vec.len(), 2);
-                        assert_eq!(*vec[0].0, Pattern::Char('a'));
-                        assert_eq!(*vec[1].0, Pattern::Char('b'));
+                        assert_eq!(vec.0.len(), 2);
+                        assert_eq!(*vec.0[0].0, Pattern::Char('a'));
+                        assert_eq!(*vec.0[1].0, Pattern::Char('b'));
 
                     }else{
                         panic!()

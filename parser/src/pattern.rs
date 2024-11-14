@@ -24,6 +24,6 @@ pub enum EnumPattern {
 #[derive(Debug, PartialEq, Clone)]
 pub struct StructPattern {
     pub name: String,
-    pub map: HashMap<String, Option<Vec<(Box<Pattern>, Position)>>>,
+    pub map: HashMap<String, Option<(Vec<(Box<Pattern>, Position)>, Option<String>)>>,
     pub has_optional: bool,
 }

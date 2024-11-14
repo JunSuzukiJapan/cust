@@ -104,8 +104,8 @@ impl<'ctx> CodeGen<'ctx> {
 
                 Ok(None)
             },
-            AST::IfLet { pattern_list, expr, then, else_, pos } => {
-                self.gen_if_let(pattern_list, expr, then, else_, pos, env, break_catcher, continue_catcher)
+            AST::IfLet { pattern_list, pattern_name, expr, then, else_, pos } => {
+                self.gen_if_let(pattern_list, pattern_name, expr, then, else_, pos, env, break_catcher, continue_catcher)
             },
             AST::Match { expr, pattern_list_list, pos } => {
 

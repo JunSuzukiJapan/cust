@@ -34,11 +34,12 @@ mod tests {
         // parse
         let ast = parse_stmt_from_str(src).unwrap().unwrap();
 
-        if let AST::IfLet { pattern_list, expr, then, else_, pos: _ } = ast {
+        if let AST::IfLet { pattern_list, pattern_name, expr, then, else_, pos: _ } = ast {
             //
             // check pattern_list
             //
             assert_eq!(pattern_list.len(), 1);
+            assert_eq!(pattern_name, None);
             let (pat, _pos) = &pattern_list[0];
             if let Pattern::Enum(enum_pat) = &**pat {
                 match enum_pat {
@@ -155,7 +156,7 @@ mod tests {
             //
             // check 1st pattern block
             //
-            let (pattern_list, ast) = &pattern_list_list[0];
+            let ((pattern_list, pattern_name), ast) = &pattern_list_list[0];
 
             // check pattern
             assert_eq!(pattern_list.len(), 1);
@@ -205,7 +206,7 @@ mod tests {
             //
             // check 2nd pattern block
             //
-            let (pattern_list, ast) = &pattern_list_list[1];
+            let ((pattern_list, pattern_name), ast) = &pattern_list_list[1];
 
             // check pattern
             assert_eq!(pattern_list.len(), 1);
@@ -238,7 +239,7 @@ mod tests {
             //
             // check 3rd pattern block
             //
-            let (pattern_list, ast) = &pattern_list_list[2];
+            let ((pattern_list, pattern_name), ast) = &pattern_list_list[2];
 
             // check pattern
             assert_eq!(pattern_list.len(), 1);
