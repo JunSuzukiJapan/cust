@@ -40,7 +40,7 @@ impl<'ctx> CodeGen<'ctx> {
 
         // match patterns
         let cond = self.gen_expr(condition, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::condition_is_not_number(condition, (*condition).get_position().clone()))?;
-        let matched = self.gen_pattern_match(pattern_list, pattern_name, &cond, env, func)?.ok_or(CodeGenError::condition_is_not_number(condition, (*condition).get_position().clone()))?;
+        let matched = self.gen_pattern_match(pattern_list, pattern_name, pos, &cond, env, func)?.ok_or(CodeGenError::condition_is_not_number(condition, (*condition).get_position().clone()))?;
         let mut comparison = matched.get_value().into_int_value();
         let i1_type = self.context.bool_type();
         comparison = self.builder.build_int_cast(comparison, i1_type, "cast to i1")?;  // cast to i1
@@ -87,6 +87,7 @@ impl<'ctx> CodeGen<'ctx> {
     fn gen_pattern_match<'b, 'c>(&self,
         pattern_list: &Vec<(Box<Pattern>, Position)>,
         pattern_name: &Option<String>,
+        pattern_pos: &Position,
         value: &CompiledValue<'ctx>,
         env: &mut Env<'ctx>,
         func: FunctionValue<'ctx>
@@ -119,22 +120,6 @@ impl<'ctx> CodeGen<'ctx> {
                     // matched
                     //
                     self.builder.position_at_end(then_block);
-
-                    // '@' 以降に対応する。
-                    if let Some(alias_name) = pattern_name {
-                        let sq = SpecifierQualifier::default();
-
-                        let typ = value.get_type();
-                        let basic_type = env.basic_type_enum_from_type(&typ, self.context, pos)?;
-                        let ptr = self.builder.build_alloca(basic_type, alias_name)?;
-    
-                        let any_value = value.get_value();
-                        let basic_value = self.try_as_basic_value(&any_value, pos)?;
-                        self.builder.build_store(ptr, basic_value)?;
-    
-                        env.insert_local(alias_name, Rc::clone(typ), sq, ptr);
-                    }
-
                     self.builder.build_unconditional_branch(all_end_block)?;
 
                     //
@@ -178,21 +163,6 @@ impl<'ctx> CodeGen<'ctx> {
 
                     env.insert_local(name, Rc::clone(typ), sq, ptr);
 
-                    // '@' 以降に対応する。
-                    if let Some(alias_name) = pattern_name {
-                        let sq = SpecifierQualifier::default();
-
-                        let typ = value.get_type();
-                        let basic_type = env.basic_type_enum_from_type(&typ, self.context, pos)?;
-                        let ptr = self.builder.build_alloca(basic_type, alias_name)?;
-    
-                        let any_value = value.get_value();
-                        let basic_value = self.try_as_basic_value(&any_value, pos)?;
-                        self.builder.build_store(ptr, basic_value)?;
-    
-                        env.insert_local(alias_name, Rc::clone(typ), sq, ptr);
-                    }
-
                     self.builder.build_unconditional_branch(all_end_block)?;
 
                     break;
@@ -201,6 +171,21 @@ impl<'ctx> CodeGen<'ctx> {
         }
 
         self.builder.position_at_end(all_end_block);
+
+        // '@' 以降に対応する。
+        if let Some(alias_name) = pattern_name {
+            let sq = SpecifierQualifier::default();
+
+            let typ = value.get_type();
+            let basic_type = env.basic_type_enum_from_type(&typ, self.context, pattern_pos)?;
+            let ptr = self.builder.build_alloca(basic_type, alias_name)?;
+
+            let any_value = value.get_value();
+            let basic_value = self.try_as_basic_value(&any_value, pattern_pos)?;
+            self.builder.build_store(ptr, basic_value)?;
+
+            env.insert_local(alias_name, Rc::clone(typ), sq, ptr);
+        }
 
         let num_type = Type::Number(NumberType::_Bool);
         let any_value: AnyValueEnum = condition.into();
