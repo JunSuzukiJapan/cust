@@ -119,6 +119,7 @@ impl<'ctx> CodeGen<'ctx> {
                     //
                     // matched
                     //
+                    condition = one;
                     self.builder.position_at_end(then_block);
                     self.builder.build_unconditional_branch(all_end_block)?;
 
@@ -163,12 +164,14 @@ impl<'ctx> CodeGen<'ctx> {
 
                     env.insert_local(name, Rc::clone(typ), sq, ptr);
 
-                    self.builder.build_unconditional_branch(all_end_block)?;
+                    // self.builder.build_unconditional_branch(all_end_block)?;
 
                     break;
                 },
             }
         }
+
+        self.builder.build_unconditional_branch(all_end_block)?;
 
         self.builder.position_at_end(all_end_block);
 

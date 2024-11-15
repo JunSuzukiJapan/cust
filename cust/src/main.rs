@@ -37,7 +37,6 @@ fn main() {
     let filename = args.compile;
 
     let path = Path::new(&filename);
-    let stem = path.file_stem().unwrap().to_str().unwrap();
     let dest = path.with_extension("llvm");
 
     // read file
