@@ -40,7 +40,7 @@ impl<'ctx> CodeGen<'ctx> {
 
         // match patterns
         let cond = self.gen_expr(condition, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::condition_is_not_number(condition, (*condition).get_position().clone()))?;
-        let matched = self.gen_pattern_match(pattern_list, pattern_name, &cond, env, func, break_catcher, continue_catcher)?.ok_or(CodeGenError::condition_is_not_number(condition, (*condition).get_position().clone()))?;
+        let matched = self.gen_pattern_match(pattern_list, pattern_name, &cond, env, func)?.ok_or(CodeGenError::condition_is_not_number(condition, (*condition).get_position().clone()))?;
         let mut comparison = matched.get_value().into_int_value();
         let i1_type = self.context.bool_type();
         comparison = self.builder.build_int_cast(comparison, i1_type, "cast to i1")?;  // cast to i1
@@ -89,9 +89,7 @@ impl<'ctx> CodeGen<'ctx> {
         pattern_name: &Option<String>,
         value: &CompiledValue<'ctx>,
         env: &mut Env<'ctx>,
-        func: FunctionValue<'ctx>,
-        break_catcher: Option<&'b BreakCatcher>,
-        continue_catcher: Option<&'c ContinueCatcher>
+        func: FunctionValue<'ctx>
     ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
         let bool_type = self.context.bool_type();
         let zero = bool_type.const_zero();
@@ -104,18 +102,18 @@ impl<'ctx> CodeGen<'ctx> {
             match &**pat {
                 Pattern::Char(ch) => {
                     let then_block = self.context.append_basic_block(func, "match.then");
-                    let else_block  = self.context.append_basic_block(func, "match.else");
+                    let next_block  = self.context.append_basic_block(func, "match.next");
 
                     let i8_type = self.context.i8_type();
-                    let result = i8_type.const_int(*ch as u64, true);
-                    let c = CompiledValue::new(Type::Number(NumberType::Char).into(), result.as_any_value_enum());
+                    let i8_ch = i8_type.const_int(*ch as u64, true);
+                    let c = CompiledValue::new(Type::Number(NumberType::Char).into(), i8_ch.as_any_value_enum());
 
                     let (left, right) = self.bin_expr_implicit_cast(c, value.clone())?;
                     let left_value = left.get_value();
                     let right_value = right.get_value();
     
                     let comparison = self.builder.build_int_compare(IntPredicate::EQ, left_value.into_int_value(), right_value.into_int_value(), "match_compare_char")?;
-                    self.builder.build_conditional_branch(comparison, then_block, else_block)?;
+                    self.builder.build_conditional_branch(comparison, then_block, next_block)?;
 
                     //
                     // matched
@@ -123,15 +121,26 @@ impl<'ctx> CodeGen<'ctx> {
                     self.builder.position_at_end(then_block);
 
                     // '@' 以降に対応する。
+                    if let Some(alias_name) = pattern_name {
+                        let sq = SpecifierQualifier::default();
 
-
+                        let typ = value.get_type();
+                        let basic_type = env.basic_type_enum_from_type(&typ, self.context, pos)?;
+                        let ptr = self.builder.build_alloca(basic_type, alias_name)?;
+    
+                        let any_value = value.get_value();
+                        let basic_value = self.try_as_basic_value(&any_value, pos)?;
+                        self.builder.build_store(ptr, basic_value)?;
+    
+                        env.insert_local(alias_name, Rc::clone(typ), sq, ptr);
+                    }
 
                     self.builder.build_unconditional_branch(all_end_block)?;
 
                     //
                     // not matched
                     //
-                    self.builder.position_at_end(else_block);
+                    self.builder.position_at_end(next_block);
                 },
                 Pattern::CharRange(_, _) => {
                     unimplemented!()
@@ -168,6 +177,21 @@ impl<'ctx> CodeGen<'ctx> {
                     self.builder.build_store(ptr, basic_value)?;
 
                     env.insert_local(name, Rc::clone(typ), sq, ptr);
+
+                    // '@' 以降に対応する。
+                    if let Some(alias_name) = pattern_name {
+                        let sq = SpecifierQualifier::default();
+
+                        let typ = value.get_type();
+                        let basic_type = env.basic_type_enum_from_type(&typ, self.context, pos)?;
+                        let ptr = self.builder.build_alloca(basic_type, alias_name)?;
+    
+                        let any_value = value.get_value();
+                        let basic_value = self.try_as_basic_value(&any_value, pos)?;
+                        self.builder.build_store(ptr, basic_value)?;
+    
+                        env.insert_local(alias_name, Rc::clone(typ), sq, ptr);
+                    }
 
                     self.builder.build_unconditional_branch(all_end_block)?;
 
