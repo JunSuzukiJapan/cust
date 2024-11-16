@@ -31,6 +31,9 @@ impl Parser {
                             Token::CharLiteral(ch2) => {
                                 iter.next();
 
+                                if ch > ch2 {
+                                    return Err(ParserError::left_greater_than_right_in_char_range(*ch, *ch2, pos3.clone()));
+                                }
                                 let pat2 = Pattern::CharRange(*ch, *ch2);
                                 v.push((Box::new(pat2), pos.clone()));
                             },

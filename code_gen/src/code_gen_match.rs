@@ -95,10 +95,11 @@ impl<'ctx> CodeGen<'ctx> {
         let bool_type = self.context.bool_type();
         let zero = bool_type.const_zero();
         let one = bool_type.const_all_ones();
+        let condition_ptr = self.builder.build_alloca(bool_type, "matched")?;
+        self.builder.build_store(condition_ptr, zero)?;
 
         let all_end_block  = self.context.append_basic_block(func, "match.all_end");
 
-        let mut condition = zero;
         for (pat, pos) in pattern_list {
             match &**pat {
                 Pattern::Char(ch) => {
@@ -119,8 +120,8 @@ impl<'ctx> CodeGen<'ctx> {
                     //
                     // matched
                     //
-                    condition = one;
                     self.builder.position_at_end(then_block);
+                    self.builder.build_store(condition_ptr, one)?;
                     self.builder.build_unconditional_branch(all_end_block)?;
 
                     //
@@ -128,7 +129,12 @@ impl<'ctx> CodeGen<'ctx> {
                     //
                     self.builder.position_at_end(next_block);
                 },
-                Pattern::CharRange(_, _) => {
+                Pattern::CharRange(ch1, ch2) => {
+
+
+
+
+
                     unimplemented!()
                 },
                 Pattern::Enum(_) => {
@@ -150,7 +156,7 @@ impl<'ctx> CodeGen<'ctx> {
                     unimplemented!()
                 },
                 Pattern::Var(name) => {
-                    condition = one;
+                    self.builder.build_store(condition_ptr, one)?;
 
                     let sq = SpecifierQualifier::default();
 
@@ -191,7 +197,7 @@ impl<'ctx> CodeGen<'ctx> {
         }
 
         let num_type = Type::Number(NumberType::_Bool);
-        let any_value: AnyValueEnum = condition.into();
-        Ok(Some(CompiledValue::new(Rc::new(num_type), any_value)))
+        let result_any_value: AnyValueEnum = self.builder.build_load(condition_ptr, "get_condition")?.as_any_value_enum();
+        Ok(Some(CompiledValue::new(Rc::new(num_type), result_any_value)))
     }
 }
