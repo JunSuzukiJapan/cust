@@ -130,12 +130,46 @@ impl<'ctx> CodeGen<'ctx> {
                     self.builder.position_at_end(next_block);
                 },
                 Pattern::CharRange(ch1, ch2) => {
+                    let greater_than_block = self.context.append_basic_block(func, "match.greater");
+                    let less_than_block = self.context.append_basic_block(func, "match.less");
+                    let next_block  = self.context.append_basic_block(func, "match.next");
 
+                    let i8_type = self.context.i8_type();
+                    let i8_ch = i8_type.const_int(*ch1 as u64, true);
+                    let c = CompiledValue::new(Type::Number(NumberType::Char).into(), i8_ch.as_any_value_enum());
 
+                    let (other, target) = self.bin_expr_implicit_cast(c, value.clone())?;
+                    let other_value = other.get_value();
+                    let target_value = target.get_value();
+    
+                    let comparison = self.builder.build_int_compare(IntPredicate::UGE, target_value.into_int_value(), other_value.into_int_value(), "match_compare_char")?;
+                    self.builder.build_conditional_branch(comparison, greater_than_block, next_block)?;
 
+                    //
+                    // 1st matched
+                    //
+                    self.builder.position_at_end(greater_than_block);
+                    let i8_ch2 = i8_type.const_int(*ch2 as u64, true);
+                    let c2 = CompiledValue::new(Type::Number(NumberType::Char).into(), i8_ch2.as_any_value_enum());
 
+                    let (other, target) = self.bin_expr_implicit_cast(c2, value.clone())?;
+                    let other_value = other.get_value();
+                    let target_value = target.get_value();
+    
+                    let comparison = self.builder.build_int_compare(IntPredicate::ULE, target_value.into_int_value(), other_value.into_int_value(), "match_compare_char")?;
+                    self.builder.build_conditional_branch(comparison, less_than_block, next_block)?;
 
-                    unimplemented!()
+                    //
+                    // 2nd matched
+                    //
+                    self.builder.position_at_end(less_than_block);
+                    self.builder.build_store(condition_ptr, one)?;
+                    self.builder.build_unconditional_branch(all_end_block)?;
+
+                    //
+                    // not matched
+                    //
+                    self.builder.position_at_end(next_block);
                 },
                 Pattern::Enum(_) => {
                     unimplemented!()
