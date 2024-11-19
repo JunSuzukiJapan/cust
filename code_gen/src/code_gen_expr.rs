@@ -1386,15 +1386,9 @@ impl<'ctx> CodeGen<'ctx> {
             if left_type == right_type {
                 Ok((left, right))
             }else if left_type < right_type {
-
-
-
-                unimplemented!()
+                Ok((right.clone(), right))
             }else{  // left_type > right_type
-
-
-
-                unimplemented!()
+                Ok((left.clone(), left))
             }
         }else{
             Ok((left, right))

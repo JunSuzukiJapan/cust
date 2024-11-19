@@ -96,7 +96,7 @@ impl<'ctx> CodeGen<'ctx> {
         let zero = bool_type.const_zero();
         let one = bool_type.const_all_ones();
         let condition_ptr = self.builder.build_alloca(bool_type, "matched")?;
-        self.builder.build_store(condition_ptr, zero)?;
+        self.builder.build_store(condition_ptr, zero)?;  // set return value false
 
         let all_end_block  = self.context.append_basic_block(func, "match.all_end");
 
@@ -175,7 +175,31 @@ impl<'ctx> CodeGen<'ctx> {
                     unimplemented!()
                 },
                 Pattern::Number(num) => {
-                    unimplemented!()
+                    let then_block = self.context.append_basic_block(func, "match.then");
+                    let next_block  = self.context.append_basic_block(func, "match.next");
+
+                    let i128_type = self.context.i128_type();
+                    let i128_num = i128_type.const_int(*num as u64, true);
+                    let n = CompiledValue::new(Type::Number(NumberType::LongLong).into(), i128_num.as_any_value_enum());
+
+                    let (left, right) = self.bin_expr_implicit_cast(n, value.clone())?;
+                    let left_value = left.get_value();
+                    let right_value = right.get_value();
+println!("int match");
+                    let comparison = self.builder.build_int_compare(IntPredicate::EQ, left_value.into_int_value(), right_value.into_int_value(), "match_compare_number")?;
+                    self.builder.build_conditional_branch(comparison, then_block, next_block)?;
+
+                    //
+                    // matched
+                    //
+                    self.builder.position_at_end(then_block);
+                    self.builder.build_store(condition_ptr, one)?;  // set return value true
+                    self.builder.build_unconditional_branch(all_end_block)?;
+
+                    //
+                    // not matched
+                    //
+                    self.builder.position_at_end(next_block);
                 },
                 Pattern::NumberRange(_, _) => {
                     unimplemented!()

@@ -868,7 +868,19 @@ impl Tokenizer {
                         },
                         '\\' => {
                             if let Some(c) = self.next_char(ctx) {
-                                s.push(c);
+                                match c {
+                                    // 'a' => s.push('\a'),
+                                    // 'b' => s.push('\b'),
+                                    // 'f' => s.push('\f'),
+                                    'n' => s.push('\n'),
+                                    'r' => s.push('\r'),
+                                    't' => s.push('\t'),
+                                    // 'v' => s.push('\v'),
+                                    '0' => s.push('\0'),
+                                    'o' => self.read_oct(&mut s, ctx)?,
+                                    'x' => self.read_hex(&mut s, ctx)?,
+                                    _ => s.push(c),
+                                }
                             }else{
                                 return Err(TokenizerError::IllegalEndOfInputWhileParsingString(ctx.pos.clone()));
                             }
@@ -885,6 +897,76 @@ impl Tokenizer {
         }else{
             Err(TokenizerError::IllegalEndOfInputWhileParsingString(ctx.pos.clone()))
         }
+    }
+
+    fn read_oct(&self, s: &mut String, ctx: &mut TokenizerContext) -> Result<(), TokenizerError> {
+        let mut oct = 0;
+
+        if let Some(c) = self.next_char(ctx) {
+            match c {
+                '0' ..= '7' => {
+                    oct = (c as u8 - '0' as u8) * 8;
+                },
+                _ => return Err(TokenizerError::NotOct(c, ctx.pos.clone()))
+            }
+        }else{
+            return Err(TokenizerError::IllegalEndOfInputWhileParsingString(ctx.pos.clone()));
+        }
+        if let Some(c) = self.next_char(ctx) {
+            match c {
+                '0' ..= '7' => {
+                    oct += c as u8 - '0' as u8;
+                },
+                _ => return Err(TokenizerError::NotOct(c, ctx.pos.clone()))
+            }
+        }else{
+            return Err(TokenizerError::IllegalEndOfInputWhileParsingString(ctx.pos.clone()));
+        }
+
+        s.push(oct as char);
+
+        Ok(())
+    }
+
+    fn read_hex(&self, s: &mut String, ctx: &mut TokenizerContext) -> Result<(), TokenizerError> {
+        let mut hex: u8 = 0;
+
+        if let Some(c) = self.next_char(ctx) {
+            match c {
+                '0' ..= '9' => {
+                    hex = (c as u8 - '0' as u8) * 16;
+                },
+                'a' ..= 'f' => {
+                    hex = (c as u8 - 'a' as u8 + 10) * 16;
+                },
+                'A' ..= 'F' => {
+                    hex = (c as u8 - 'A' as u8 + 10) * 16;
+                },
+                _ => return Err(TokenizerError::NotHex(c, ctx.pos.clone()))
+            }
+        }else{
+            return Err(TokenizerError::IllegalEndOfInputWhileParsingString(ctx.pos.clone()));
+        }
+        if let Some(c) = self.next_char(ctx) {
+            match c {
+                '0' ..= '9' => {
+                    hex += c as u8 - '0' as u8;
+                },
+                'a' ..= 'f' => {
+                    hex += c as u8 - 'a' as u8 + 10;
+                },
+                'A' ..= 'F' => {
+                    hex += c as u8 - 'A' as u8 + 10;
+                },
+                _ => return Err(TokenizerError::NotHex(c, ctx.pos.clone()))
+            }
+        }else{
+            return Err(TokenizerError::IllegalEndOfInputWhileParsingString(ctx.pos.clone()));
+        }
+
+        s.push(hex as char);
+
+        Ok(())
     }
 }
 

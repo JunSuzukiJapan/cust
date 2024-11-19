@@ -14,6 +14,8 @@ pub enum TokenizerError {
     IllegalEndOfInputWhileParsingCharAfter(Position, char),
     IllegalCharWhileParsingString(Position),
     IllegalEndOfInputWhileParsingString(Position),
+    NotOct(char, Position),
+    NotHex(char, Position),
 }
 
 impl TokenizerError {
@@ -36,6 +38,8 @@ impl TokenizerError {
             Self::IllegalEndOfInputWhileParsingCharAfter(pos, _char) => pos,
             Self::IllegalCharWhileParsingString(pos) => pos,
             Self::IllegalEndOfInputWhileParsingString(pos) => pos,
+            Self::NotOct(_, pos) => pos,
+            Self::NotHex(_, pos) => pos,
         }
     }
 }
@@ -52,6 +56,8 @@ impl fmt::Display for TokenizerError {
             Self::IllegalEndOfInputWhileParsingCharAfter(_pos, char) => write!(f, "illegal end of input while parsing char after '{}'", char),
             Self::IllegalCharWhileParsingString(_pos) => write!(f, "illegal char while parsing string."),
             Self::IllegalEndOfInputWhileParsingString(_pos) => write!(f, "illegal end of input while parsing string."),
+            Self::NotOct(ch, _pos) => write!(f, "{ch} is not octal number"),
+            Self::NotHex(ch, _pos) => write!(f, "{ch} is not hex number"),
         }
     }
 }
