@@ -116,6 +116,7 @@ pub enum CodeGenError {
     NoSuchAEnumMember(String, String, Position),
     TupleIndexTooBig(usize, usize, Position),  // (expected, real, Position)
     NotTupleInTupleAccessByIndex(ExprAST, Position),
+    FloatOrDoubleCannotConvertToIntType(Position),
 }
 
 impl CodeGenError {
@@ -512,6 +513,10 @@ impl CodeGenError {
     pub fn not_tuple_in_tuple_access_by_index(expr: ExprAST, pos: Position) -> Self {
         Self::not_tuple_in_tuple_access_by_index(expr, pos)
     }
+
+    pub fn float_or_double_cannot_convert_to_int_type(pos: Position) -> Self {
+        Self::float_or_double_cannot_convert_to_int_type(pos)
+    }
 }
 
 impl From<ParserError> for CodeGenError {
@@ -834,6 +839,9 @@ impl fmt::Display for CodeGenError {
             Self::NotTupleInTupleAccessByIndex(expr, _pos) => {
                 write!(f, "not tuple in tuple access by index")
             },
+            Self::FloatOrDoubleCannotConvertToIntType(_pos) => {
+                write!(f, "float or double cannot convert to int type")
+            }
         }
         
     }

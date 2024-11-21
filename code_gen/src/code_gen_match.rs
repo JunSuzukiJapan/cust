@@ -6,7 +6,7 @@ use super::env::{BreakCatcher, ContinueCatcher};
 use crate::Position;
 use crate::CodeGen;
 
-use inkwell::values::{AnyValue, AnyValueEnum, FunctionValue};
+use inkwell::values::{AnyValue, AnyValueEnum, FunctionValue, IntValue};
 use inkwell::IntPredicate;
 use parser::{NumberType, SpecifierQualifier};
 use std::error::Error;
@@ -110,7 +110,7 @@ impl<'ctx> CodeGen<'ctx> {
                     let i8_ch = i8_type.const_int(*ch as u64, true);
                     let c = CompiledValue::new(Type::Number(NumberType::Char).into(), i8_ch.as_any_value_enum());
 
-                    let (left, right) = self.bin_expr_implicit_cast(c, value.clone())?;
+                    let (left, right) = self.bin_expr_implicit_cast(c, value.clone(), pos)?;
                     let left_value = left.get_value();
                     let right_value = right.get_value();
     
@@ -138,7 +138,7 @@ impl<'ctx> CodeGen<'ctx> {
                     let i8_ch = i8_type.const_int(*ch1 as u64, true);
                     let c = CompiledValue::new(Type::Number(NumberType::Char).into(), i8_ch.as_any_value_enum());
 
-                    let (other, target) = self.bin_expr_implicit_cast(c, value.clone())?;
+                    let (other, target) = self.bin_expr_implicit_cast(c, value.clone(), pos)?;
                     let other_value = other.get_value();
                     let target_value = target.get_value();
     
@@ -152,7 +152,7 @@ impl<'ctx> CodeGen<'ctx> {
                     let i8_ch2 = i8_type.const_int(*ch2 as u64, true);
                     let c2 = CompiledValue::new(Type::Number(NumberType::Char).into(), i8_ch2.as_any_value_enum());
 
-                    let (other, target) = self.bin_expr_implicit_cast(c2, value.clone())?;
+                    let (other, target) = self.bin_expr_implicit_cast(c2, value.clone(), pos)?;
                     let other_value = other.get_value();
                     let target_value = target.get_value();
     
@@ -178,14 +178,16 @@ impl<'ctx> CodeGen<'ctx> {
                     let then_block = self.context.append_basic_block(func, "match.then");
                     let next_block  = self.context.append_basic_block(func, "match.next");
 
-                    let i128_type = self.context.i128_type();
-                    let i128_num = i128_type.const_int(*num as u64, true);
-                    let n = CompiledValue::new(Type::Number(NumberType::LongLong).into(), i128_num.as_any_value_enum());
+                    let i64_type = self.context.i64_type();
+                    let i64_num = i64_type.const_int(*num as u64, true);
+                    let n = CompiledValue::new(Type::Number(NumberType::LongLong).into(), i64_num.as_any_value_enum());
 
-                    let (left, right) = self.bin_expr_implicit_cast(n, value.clone())?;
+                    let (left, right) = self.bin_expr_implicit_cast(n, value.clone(), pos)?;
                     let left_value = left.get_value();
                     let right_value = right.get_value();
 println!("int match");
+println!("left_value: {:?}", left_value.into_int_value());
+println!("right_value: {:?}", right_value.into_int_value());
                     let comparison = self.builder.build_int_compare(IntPredicate::EQ, left_value.into_int_value(), right_value.into_int_value(), "match_compare_number")?;
                     self.builder.build_conditional_branch(comparison, then_block, next_block)?;
 

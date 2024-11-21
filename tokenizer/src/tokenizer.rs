@@ -876,8 +876,7 @@ impl Tokenizer {
                                     'r' => s.push('\r'),
                                     't' => s.push('\t'),
                                     // 'v' => s.push('\v'),
-                                    '0' => s.push('\0'),
-                                    'o' => self.read_oct(&mut s, ctx)?,
+                                    '0' ..= '7' => self.read_oct(&mut s, c, ctx)?,
                                     'x' => self.read_hex(&mut s, ctx)?,
                                     _ => s.push(c),
                                 }
@@ -899,28 +898,25 @@ impl Tokenizer {
         }
     }
 
-    fn read_oct(&self, s: &mut String, ctx: &mut TokenizerContext) -> Result<(), TokenizerError> {
+    fn read_oct(&self, s: &mut String, first_ch: char, ctx: &mut TokenizerContext) -> Result<(), TokenizerError> {
         let mut oct = 0;
 
-        if let Some(c) = self.next_char(ctx) {
-            match c {
-                '0' ..= '7' => {
-                    oct = (c as u8 - '0' as u8) * 8;
-                },
-                _ => return Err(TokenizerError::NotOct(c, ctx.pos.clone()))
+        loop {
+            if let Some(c) = self.peek_char(ctx) {
+                match c {
+                    '0' ..= '7' => {
+                        self.next_char(ctx);
+
+                        oct *= 8;
+                        oct += c as u8 - '0' as u8;
+                    },
+                    _ => {
+                        break;
+                    }
+                }
+            }else{
+                return Err(TokenizerError::IllegalEndOfInputWhileParsingString(ctx.pos.clone()));
             }
-        }else{
-            return Err(TokenizerError::IllegalEndOfInputWhileParsingString(ctx.pos.clone()));
-        }
-        if let Some(c) = self.next_char(ctx) {
-            match c {
-                '0' ..= '7' => {
-                    oct += c as u8 - '0' as u8;
-                },
-                _ => return Err(TokenizerError::NotOct(c, ctx.pos.clone()))
-            }
-        }else{
-            return Err(TokenizerError::IllegalEndOfInputWhileParsingString(ctx.pos.clone()));
         }
 
         s.push(oct as char);

@@ -50,6 +50,24 @@ impl NumberType {
             _ => Ok(self.clone())
         }
     }
+
+    pub fn is_signed(&self) -> bool {
+        match self {
+            NumberType::Char => false,
+            NumberType::Double => true,
+            NumberType::Float => true,
+            NumberType::Int => true,
+            NumberType::Long => true,
+            NumberType::LongLong => true,
+            NumberType::Short => true,
+            NumberType::UnsignedChar => false,
+            NumberType::UnsignedInt => false,
+            NumberType::UnsignedLong => false,
+            NumberType::UnsignedLongLong => false,
+            NumberType::UnsignedShort => false,
+            NumberType::_Bool => false,
+        }
+    }
 }
 
 impl PartialOrd for NumberType {

@@ -13,4 +13,5 @@ llvm-sys = "*"
 # inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "master", features = ["llvm12-0"] }
 # inkwell = "0.4.0"
 # inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "master", features = ["llvm17-0"] }
-inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "master" }
+# inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "master" }
+inkwell = { version = "0.5.0", features = ["llvm18-0"] }

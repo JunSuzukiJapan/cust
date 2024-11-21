@@ -12,7 +12,7 @@ use inkwell::types::{AsTypeRef,  BasicType, BasicTypeEnum, PointerType};
 use inkwell::basic_block::BasicBlock;
 use inkwell::{IntPredicate, FloatPredicate};
 use inkwell::AddressSpace;
-use inkwell::types::AnyType;
+use inkwell::types::{AnyType, IntType};
 use parser::Position;
 use std::error::Error;
 use std::rc::Rc;
@@ -642,7 +642,7 @@ impl<'ctx> CodeGen<'ctx> {
             BinOp::Add => {
                 let left = self.gen_expr(&left_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(left_arg.get_position().clone()))?;
                 let right = self.gen_expr(&right_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(right_arg.get_position().clone()))?;
-                let (left, right) = self.bin_expr_implicit_cast(left, right)?;
+                let (left, right) = self.bin_expr_implicit_cast(left, right, right_arg.get_position())?;
                 let left_type = left.get_type();
                 let left_value = left.get_value();
                 let right_value = right.get_value();
@@ -660,7 +660,7 @@ impl<'ctx> CodeGen<'ctx> {
             BinOp::Sub => {
                 let left = self.gen_expr(&left_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(left_arg.get_position().clone()))?;
                 let right = self.gen_expr(&right_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(right_arg.get_position().clone()))?;
-                let (left, right) = self.bin_expr_implicit_cast(left, right)?;
+                let (left, right) = self.bin_expr_implicit_cast(left, right, right_arg.get_position())?;
                 let left_type = left.get_type();
                 let left_value = left.get_value();
                 let right_value = right.get_value();
@@ -678,7 +678,7 @@ impl<'ctx> CodeGen<'ctx> {
             BinOp::Mul => {
                 let left = self.gen_expr(&left_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(left_arg.get_position().clone()))?;
                 let right = self.gen_expr(&right_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(right_arg.get_position().clone()))?;
-                let (left, right) = self.bin_expr_implicit_cast(left, right)?;
+                let (left, right) = self.bin_expr_implicit_cast(left, right, right_arg.get_position())?;
                 let left_type = left.get_type();
                 let left_value = left.get_value();
                 let right_value = right.get_value();
@@ -696,7 +696,7 @@ impl<'ctx> CodeGen<'ctx> {
             BinOp::Div => {
                 let left = self.gen_expr(&left_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(left_arg.get_position().clone()))?;
                 let right = self.gen_expr(&right_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(right_arg.get_position().clone()))?;
-                let (left, right) = self.bin_expr_implicit_cast(left, right)?;
+                let (left, right) = self.bin_expr_implicit_cast(left, right, right_arg.get_position())?;
                 let left_type = left.get_type();
                 let left_value = left.get_value();
                 let right_value = right.get_value();
@@ -719,7 +719,7 @@ impl<'ctx> CodeGen<'ctx> {
             BinOp::Mod => {
                 let left = self.gen_expr(&left_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(left_arg.get_position().clone()))?;
                 let right = self.gen_expr(&right_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(right_arg.get_position().clone()))?;
-                let (left, right) = self.bin_expr_implicit_cast(left, right)?;
+                let (left, right) = self.bin_expr_implicit_cast(left, right, right_arg.get_position())?;
                 let left_type = left.get_type();
                 let left_value = left.get_value();
                 let right_value = right.get_value();
@@ -742,7 +742,7 @@ impl<'ctx> CodeGen<'ctx> {
             BinOp::Equal => {
                 let left = self.gen_expr(&left_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(left_arg.get_position().clone()))?;
                 let right = self.gen_expr(&right_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(right_arg.get_position().clone()))?;
-                let (left, right) = self.bin_expr_implicit_cast(left, right)?;
+                let (left, right) = self.bin_expr_implicit_cast(left, right, right_arg.get_position())?;
                 let left_type = left.get_type();
                 let left_value = left.get_value();
                 let right_value = right.get_value();
@@ -760,7 +760,7 @@ impl<'ctx> CodeGen<'ctx> {
             BinOp::NotEqual => {
                 let left = self.gen_expr(&left_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(left_arg.get_position().clone()))?;
                 let right = self.gen_expr(&right_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(right_arg.get_position().clone()))?;
-                let (left, right) = self.bin_expr_implicit_cast(left, right)?;
+                let (left, right) = self.bin_expr_implicit_cast(left, right, right_arg.get_position())?;
                 let left_type = left.get_type();
                 let left_value = left.get_value();
                 let right_value = right.get_value();
@@ -778,7 +778,7 @@ impl<'ctx> CodeGen<'ctx> {
             BinOp::Less => {
                 let left = self.gen_expr(&left_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(left_arg.get_position().clone()))?;
                 let right = self.gen_expr(&right_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(right_arg.get_position().clone()))?;
-                let (left, right) = self.bin_expr_implicit_cast(left, right)?;
+                let (left, right) = self.bin_expr_implicit_cast(left, right, right_arg.get_position())?;
                 let left_type = left.get_type();
                 let left_value = left.get_value();
                 let right_value = right.get_value();
@@ -801,7 +801,7 @@ impl<'ctx> CodeGen<'ctx> {
             BinOp::LessEqual => {
                 let left = self.gen_expr(&left_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(left_arg.get_position().clone()))?;
                 let right = self.gen_expr(&right_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(right_arg.get_position().clone()))?;
-                let (left, right) = self.bin_expr_implicit_cast(left, right)?;
+                let (left, right) = self.bin_expr_implicit_cast(left, right, right_arg.get_position())?;
                 let left_type = left.get_type();
                 let left_value = left.get_value();
                 let right_value = right.get_value();
@@ -824,7 +824,7 @@ impl<'ctx> CodeGen<'ctx> {
             BinOp::Greater => {
                 let left = self.gen_expr(&left_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(left_arg.get_position().clone()))?;
                 let right = self.gen_expr(&right_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(right_arg.get_position().clone()))?;
-                let (left, right) = self.bin_expr_implicit_cast(left, right)?;
+                let (left, right) = self.bin_expr_implicit_cast(left, right, right_arg.get_position())?;
                 let left_type = left.get_type();
                 let left_value = left.get_value();
                 let right_value = right.get_value();
@@ -847,7 +847,7 @@ impl<'ctx> CodeGen<'ctx> {
             BinOp::GreaterEqual => {
                 let left = self.gen_expr(&left_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(left_arg.get_position().clone()))?;
                 let right = self.gen_expr(&right_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(right_arg.get_position().clone()))?;
-                let (left, right) = self.bin_expr_implicit_cast(left, right)?;
+                let (left, right) = self.bin_expr_implicit_cast(left, right, right_arg.get_position())?;
                 let left_type = left.get_type();
                 let left_value = left.get_value();
                 let right_value = right.get_value();
@@ -870,7 +870,7 @@ impl<'ctx> CodeGen<'ctx> {
             BinOp::And => {
                 let left = self.gen_expr(&left_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(left_arg.get_position().clone()))?;
                 let right = self.gen_expr(&right_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(right_arg.get_position().clone()))?;
-                let (left, right) = self.bin_expr_implicit_cast(left, right)?;
+                let (left, right) = self.bin_expr_implicit_cast(left, right, right_arg.get_position())?;
                 let left_type = left.get_type();
                 let left_value = left.get_value();
                 let right_value = right.get_value();
@@ -885,7 +885,7 @@ impl<'ctx> CodeGen<'ctx> {
             BinOp::Or => {
                 let left = self.gen_expr(&left_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(left_arg.get_position().clone()))?;
                 let right = self.gen_expr(&right_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(right_arg.get_position().clone()))?;
-                let (left, right) = self.bin_expr_implicit_cast(left, right)?;
+                let (left, right) = self.bin_expr_implicit_cast(left, right, right_arg.get_position())?;
                 let left_type = left.get_type();
                 let left_value = left.get_value();
                 let right_value = right.get_value();
@@ -1381,17 +1381,36 @@ impl<'ctx> CodeGen<'ctx> {
         Ok((Rc::clone(elem_type), ptr))
     }
 
-    pub fn bin_expr_implicit_cast(&self, left: CompiledValue<'ctx>, right: CompiledValue<'ctx>) -> Result<(CompiledValue<'ctx>, CompiledValue<'ctx>), Box<dyn Error>> {
+    pub fn bin_expr_implicit_cast(&self, left: CompiledValue<'ctx>, right: CompiledValue<'ctx>, pos: &Position) -> Result<(CompiledValue<'ctx>, CompiledValue<'ctx>), Box<dyn Error>> {
         if let (Type::Number(left_type), Type::Number(right_type)) = (left.get_type().as_ref(), right.get_type().as_ref()) {
             if left_type == right_type {
                 Ok((left, right))
             }else if left_type < right_type {
-                Ok((right.clone(), right))
+println!("<");
+
+
+
+Ok((right.clone(), right))
             }else{  // left_type > right_type
-                Ok((left.clone(), left))
+                let typ = self.as_int_type(left_type, &left, pos)?;
+                let other = right.get_value().into_int_value().const_cast(typ, left_type.is_signed());
+                let other = CompiledValue::new(Rc::clone(left.get_type()), other.as_any_value_enum());
+                Ok((left.clone(), other))
             }
         }else{
             Ok((left, right))
+        }
+    }
+
+    fn as_int_type(&self, num_type: &NumberType, value: &CompiledValue<'ctx>, pos: &Position) -> Result<IntType<'ctx>, Box<dyn Error>> {
+        match num_type {
+            NumberType::Char | NumberType::UnsignedChar => Ok(self.context.i8_type()),
+            NumberType::Int | NumberType::UnsignedInt => Ok(self.context.i32_type()),
+            NumberType::Long | NumberType::UnsignedLong => Ok(self.context.i32_type()),
+            NumberType::LongLong | NumberType::UnsignedLongLong => Ok(self.context.i64_type()),
+            NumberType::Short | NumberType::UnsignedShort => Ok(self.context.i16_type()),
+            NumberType::_Bool => Ok(self.context.bool_type()),
+            _ => Err(Box::new(CodeGenError::float_or_double_cannot_convert_to_int_type(pos.clone()))),
         }
     }
 }

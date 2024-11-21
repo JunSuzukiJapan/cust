@@ -2,7 +2,7 @@ use crate::parser::Type;
 
 use inkwell::builder::Builder;
 use inkwell::context::Context;
-use inkwell::values::{AnyValueEnum, AnyValue, BasicValueEnum};
+use inkwell::values::{AnyValue, AnyValueEnum, BasicValueEnum, FloatValue};
 
 use parser::{NumberType, ExprAST};
 use super::type_util::TypeUtil;
@@ -80,12 +80,14 @@ impl Caster {
             },
             (Type::Number(NumberType::Char), Type::Number(NumberType::Float)) => {
                 let f32_type = ctx.f32_type();
-                let result = value.into_int_value().const_signed_to_float(f32_type);
+                // let result = value.into_int_value().const_signed_to_float(f32_type);
+                let result = builder.build_signed_int_to_float(value.into_int_value(), f32_type, "cast char to float")?;
                 Ok(result.as_any_value_enum())
             },
             (Type::Number(NumberType::Char), Type::Number(NumberType::Double)) => {
                 let f64_type = ctx.f64_type();
-                let result = value.into_int_value().const_signed_to_float(f64_type);
+                // let result = value.into_int_value().const_signed_to_float(f64_type);
+                let result = builder.build_unsigned_int_to_float(value.into_int_value(), f64_type, "cast char to double")?;
                 Ok(result.as_any_value_enum())
             },
             //
@@ -138,12 +140,14 @@ impl Caster {
             },
             (Type::Number(NumberType::Short), Type::Number(NumberType::Float)) => {
                 let f32_type = ctx.f32_type();
-                let result = value.into_int_value().const_signed_to_float(f32_type);
+                // let result = value.into_int_value().const_signed_to_float(f32_type);
+                let result = builder.build_signed_int_to_float(value.into_int_value(), f32_type, "cast short to float")?;
                 Ok(result.as_any_value_enum())
             },
             (Type::Number(NumberType::Short), Type::Number(NumberType::Double)) => {
                 let f64_type = ctx.f64_type();
-                let result = value.into_int_value().const_signed_to_float(f64_type);
+                // let result = value.into_int_value().const_signed_to_float(f64_type);
+                let result = builder.build_unsigned_int_to_float(value.into_int_value(), f64_type, "cast short to double")?;
                 Ok(result.as_any_value_enum())
             },
             //
@@ -196,12 +200,14 @@ impl Caster {
             },
             (Type::Number(NumberType::Int), Type::Number(NumberType::Float)) => {
                 let f32_type = ctx.f32_type();
-                let result = value.into_int_value().const_signed_to_float(f32_type);
+                // let result = value.into_int_value().const_signed_to_float(f32_type);
+                let result = builder.build_signed_int_to_float(value.into_int_value(), f32_type, "cast int to float")?;
                 Ok(result.as_any_value_enum())
             },
             (Type::Number(NumberType::Int), Type::Number(NumberType::Double)) => {
                 let f64_type = ctx.f64_type();
-                let result = value.into_int_value().const_signed_to_float(f64_type);
+                // let result = value.into_int_value().const_signed_to_float(f64_type);
+                let result = builder.build_unsigned_int_to_float(value.into_int_value(), f64_type, "cast int to double")?;
                 Ok(result.as_any_value_enum())
             },
             //
@@ -254,12 +260,14 @@ impl Caster {
             },
             (Type::Number(NumberType::Long), Type::Number(NumberType::Float)) => {
                 let f32_type = ctx.f32_type();
-                let result = value.into_int_value().const_signed_to_float(f32_type);
+                // let result = value.into_int_value().const_signed_to_float(f32_type);
+                let result = builder.build_signed_int_to_float(value.into_int_value(), f32_type, "cast long to float")?;
                 Ok(result.as_any_value_enum())
             },
             (Type::Number(NumberType::Long), Type::Number(NumberType::Double)) => {
                 let f64_type = ctx.f64_type();
-                let result = value.into_int_value().const_signed_to_float(f64_type);
+                // let result = value.into_int_value().const_signed_to_float(f64_type);
+                let result = builder.build_unsigned_int_to_float(value.into_int_value(), f64_type, "cast long to double")?;
                 Ok(result.as_any_value_enum())
             },
             //
@@ -312,12 +320,14 @@ impl Caster {
             },
             (Type::Number(NumberType::LongLong), Type::Number(NumberType::Float)) => {
                 let f32_type = ctx.f32_type();
-                let result = value.into_int_value().const_signed_to_float(f32_type);
+                // let result = value.into_int_value().const_signed_to_float(f32_type);
+                let result = builder.build_signed_int_to_float(value.into_int_value(), f32_type, "cast longlong to float")?;
                 Ok(result.as_any_value_enum())
             },
             (Type::Number(NumberType::LongLong), Type::Number(NumberType::Double)) => {
                 let f64_type = ctx.f64_type();
-                let result = value.into_int_value().const_signed_to_float(f64_type);
+                // let result = value.into_int_value().const_signed_to_float(f64_type);
+                let result = builder.build_signed_int_to_float(value.into_int_value(), f64_type, "cast longlong to double")?;
                 Ok(result.as_any_value_enum())
             },
             //
@@ -486,12 +496,14 @@ impl Caster {
             },
             (Type::Number(NumberType::UnsignedChar), Type::Number(NumberType::Float)) => {
                 let f32_type = ctx.f32_type();
-                let result = value.into_int_value().const_signed_to_float(f32_type);
+                // let result = value.into_int_value().const_signed_to_float(f32_type);
+                let result = builder.build_signed_int_to_float(value.into_int_value(), f32_type, "cast uchar to float")?;
                 Ok(result.as_any_value_enum())
             },
             (Type::Number(NumberType::UnsignedChar), Type::Number(NumberType::Double)) => {
                 let f64_type = ctx.f64_type();
-                let result = value.into_int_value().const_signed_to_float(f64_type);
+                // let result = value.into_int_value().const_signed_to_float(f64_type);
+                let result = builder.build_unsigned_int_to_float(value.into_int_value(), f64_type, "cast uchar to double")?;
                 Ok(result.as_any_value_enum())
             },
             //
@@ -544,12 +556,14 @@ impl Caster {
             },
             (Type::Number(NumberType::UnsignedShort), Type::Number(NumberType::Float)) => {
                 let f32_type = ctx.f32_type();
-                let result = value.into_int_value().const_signed_to_float(f32_type);
+                // let result = value.into_int_value().const_signed_to_float(f32_type);
+                let result = builder.build_signed_int_to_float(value.into_int_value(), f32_type, "cast ushort to float")?;
                 Ok(result.as_any_value_enum())
             },
             (Type::Number(NumberType::UnsignedShort), Type::Number(NumberType::Double)) => {
                 let f64_type = ctx.f64_type();
-                let result = value.into_int_value().const_signed_to_float(f64_type);
+                // let result = value.into_int_value().const_signed_to_float(f64_type);
+                let result = builder.build_unsigned_int_to_float(value.into_int_value(), f64_type, "cast ushort to double")?;
                 Ok(result.as_any_value_enum())
             },
             //
@@ -602,12 +616,14 @@ impl Caster {
             },
             (Type::Number(NumberType::UnsignedInt), Type::Number(NumberType::Float)) => {
                 let f32_type = ctx.f32_type();
-                let result = value.into_int_value().const_signed_to_float(f32_type);
+                // let result = value.into_int_value().const_signed_to_float(f32_type);
+                let result = builder.build_signed_int_to_float(value.into_int_value(), f32_type, "cast uint to float")?;
                 Ok(result.as_any_value_enum())
             },
             (Type::Number(NumberType::UnsignedInt), Type::Number(NumberType::Double)) => {
                 let f64_type = ctx.f64_type();
-                let result = value.into_int_value().const_signed_to_float(f64_type);
+                // let result = value.into_int_value().const_signed_to_float(f64_type);
+                let result = builder.build_unsigned_int_to_float(value.into_int_value(), f64_type, "cast uint to double")?;
                 Ok(result.as_any_value_enum())
             },
             //
@@ -660,12 +676,14 @@ impl Caster {
             },
             (Type::Number(NumberType::UnsignedLong), Type::Number(NumberType::Float)) => {
                 let f32_type = ctx.f32_type();
-                let result = value.into_int_value().const_signed_to_float(f32_type);
+                // let result = value.into_int_value().const_signed_to_float(f32_type);
+                let result = builder.build_signed_int_to_float(value.into_int_value(), f32_type, "cast ulong to float")?;
                 Ok(result.as_any_value_enum())
             },
             (Type::Number(NumberType::UnsignedLong), Type::Number(NumberType::Double)) => {
                 let f64_type = ctx.f64_type();
-                let result = value.into_int_value().const_signed_to_float(f64_type);
+                // let result = value.into_int_value().const_signed_to_float(f64_type);
+                let result = builder.build_unsigned_int_to_float(value.into_int_value(), f64_type, "cast ulong to double")?;
                 Ok(result.as_any_value_enum())
             },
             //
@@ -718,12 +736,14 @@ impl Caster {
             },
             (Type::Number(NumberType::UnsignedLongLong), Type::Number(NumberType::Float)) => {
                 let f32_type = ctx.f32_type();
-                let result = value.into_int_value().const_signed_to_float(f32_type);
+                // let result = value.into_int_value().const_signed_to_float(f32_type);
+                let result = builder.build_signed_int_to_float(value.into_int_value(), f32_type, "cast ulonglong to float")?;
                 Ok(result.as_any_value_enum())
             },
             (Type::Number(NumberType::UnsignedLongLong), Type::Number(NumberType::Double)) => {
                 let f64_type = ctx.f64_type();
-                let result = value.into_int_value().const_signed_to_float(f64_type);
+                // let result = value.into_int_value().const_signed_to_float(f64_type);
+                let result = builder.build_unsigned_int_to_float(value.into_int_value(), f64_type, "cast ulonglong to double")?;
                 Ok(result.as_any_value_enum())
             },
             // (Type::Array { typ, .. }, Type::Pointer(_pointer, boxed_type)) => {
@@ -803,12 +823,14 @@ impl Caster {
             },
             (Type::Number(NumberType::Char), Type::Number(NumberType::Float)) => {
                 let f32_type = ctx.f32_type();
-                let result = value.into_int_value().const_signed_to_float(f32_type);
+                // let result = value.into_int_value().const_signed_to_float(f32_type);
+                let result = builder.build_signed_int_to_float(value.into_int_value(), f32_type, "cast char to float")?;
                 Ok(result.as_any_value_enum())
             },
             (Type::Number(NumberType::Char), Type::Number(NumberType::Double)) => {
                 let f64_type = ctx.f64_type();
-                let result = value.into_int_value().const_signed_to_float(f64_type);
+                // let result = value.into_int_value().const_signed_to_float(f64_type);
+                let result = builder.build_unsigned_int_to_float(value.into_int_value(), f64_type, "cast char to double")?;
                 Ok(result.as_any_value_enum())
             },
             //
@@ -861,12 +883,14 @@ impl Caster {
             },
             (Type::Number(NumberType::Short), Type::Number(NumberType::Float)) => {
                 let f32_type = ctx.f32_type();
-                let result = value.into_int_value().const_signed_to_float(f32_type);
+                // let result = value.into_int_value().const_signed_to_float(f32_type);
+                let result = builder.build_signed_int_to_float(value.into_int_value(), f32_type, "cast short to float")?;
                 Ok(result.as_any_value_enum())
             },
             (Type::Number(NumberType::Short), Type::Number(NumberType::Double)) => {
                 let f64_type = ctx.f64_type();
-                let result = value.into_int_value().const_signed_to_float(f64_type);
+                // let result = value.into_int_value().const_signed_to_float(f64_type);
+                let result = builder.build_unsigned_int_to_float(value.into_int_value(), f64_type, "cast short to double")?;
                 Ok(result.as_any_value_enum())
             },
             //
@@ -919,12 +943,14 @@ impl Caster {
             },
             (Type::Number(NumberType::Int), Type::Number(NumberType::Float)) => {
                 let f32_type = ctx.f32_type();
-                let result = value.into_int_value().const_signed_to_float(f32_type);
+                // let result = value.into_int_value().const_signed_to_float(f32_type);
+                let result = builder.build_signed_int_to_float(value.into_int_value(), f32_type, "cast int to float")?;
                 Ok(result.as_any_value_enum())
             },
             (Type::Number(NumberType::Int), Type::Number(NumberType::Double)) => {
                 let f64_type = ctx.f64_type();
-                let result = value.into_int_value().const_signed_to_float(f64_type);
+                // let result = value.into_int_value().const_signed_to_float(f64_type);
+                let result = builder.build_unsigned_int_to_float(value.into_int_value(), f64_type, "cast int to double")?;
                 Ok(result.as_any_value_enum())
             },
             //
@@ -977,12 +1003,14 @@ impl Caster {
             },
             (Type::Number(NumberType::Long), Type::Number(NumberType::Float)) => {
                 let f32_type = ctx.f32_type();
-                let result = value.into_int_value().const_signed_to_float(f32_type);
+                // let result = value.into_int_value().const_signed_to_float(f32_type);
+                let result = builder.build_signed_int_to_float(value.into_int_value(), f32_type, "cast long to float")?;
                 Ok(result.as_any_value_enum())
             },
             (Type::Number(NumberType::Long), Type::Number(NumberType::Double)) => {
                 let f64_type = ctx.f64_type();
-                let result = value.into_int_value().const_signed_to_float(f64_type);
+                // let result = value.into_int_value().const_signed_to_float(f64_type);
+                let result = builder.build_unsigned_int_to_float(value.into_int_value(), f64_type, "cast long to double")?;
                 Ok(result.as_any_value_enum())
             },
             //
@@ -1035,12 +1063,14 @@ impl Caster {
             },
             (Type::Number(NumberType::LongLong), Type::Number(NumberType::Float)) => {
                 let f32_type = ctx.f32_type();
-                let result = value.into_int_value().const_signed_to_float(f32_type);
+                // let result = value.into_int_value().const_signed_to_float(f32_type);
+                let result = builder.build_signed_int_to_float(value.into_int_value(), f32_type, "cast longlong to float")?;
                 Ok(result.as_any_value_enum())
             },
             (Type::Number(NumberType::LongLong), Type::Number(NumberType::Double)) => {
                 let f64_type = ctx.f64_type();
-                let result = value.into_int_value().const_signed_to_float(f64_type);
+                // let result = value.into_int_value().const_signed_to_float(f64_type);
+                let result = builder.build_unsigned_int_to_float(value.into_int_value(), f64_type, "cast longlong to double")?;
                 Ok(result.as_any_value_enum())
             },
             //
@@ -1209,12 +1239,14 @@ impl Caster {
             },
             (Type::Number(NumberType::UnsignedChar), Type::Number(NumberType::Float)) => {
                 let f32_type = ctx.f32_type();
-                let result = value.into_int_value().const_signed_to_float(f32_type);
+                // let result = value.into_int_value().const_signed_to_float(f32_type);
+                let result = builder.build_signed_int_to_float(value.into_int_value(), f32_type, "cast uchar to float")?;
                 Ok(result.as_any_value_enum())
             },
             (Type::Number(NumberType::UnsignedChar), Type::Number(NumberType::Double)) => {
                 let f64_type = ctx.f64_type();
-                let result = value.into_int_value().const_signed_to_float(f64_type);
+                // let result = value.into_int_value().const_signed_to_float(f64_type);
+                let result = builder.build_unsigned_int_to_float(value.into_int_value(), f64_type, "cast uchar to double")?;
                 Ok(result.as_any_value_enum())
             },
             //
@@ -1267,12 +1299,14 @@ impl Caster {
             },
             (Type::Number(NumberType::UnsignedShort), Type::Number(NumberType::Float)) => {
                 let f32_type = ctx.f32_type();
-                let result = value.into_int_value().const_signed_to_float(f32_type);
+                // let result = value.into_int_value().const_signed_to_float(f32_type);
+                let result = builder.build_signed_int_to_float(value.into_int_value(), f32_type, "cast ushortg to float")?;
                 Ok(result.as_any_value_enum())
             },
             (Type::Number(NumberType::UnsignedShort), Type::Number(NumberType::Double)) => {
                 let f64_type = ctx.f64_type();
-                let result = value.into_int_value().const_signed_to_float(f64_type);
+                // let result = value.into_int_value().const_signed_to_float(f64_type);
+                let result = builder.build_unsigned_int_to_float(value.into_int_value(), f64_type, "cast ushort to double")?;
                 Ok(result.as_any_value_enum())
             },
             //
@@ -1325,12 +1359,14 @@ impl Caster {
             },
             (Type::Number(NumberType::UnsignedInt), Type::Number(NumberType::Float)) => {
                 let f32_type = ctx.f32_type();
-                let result = value.into_int_value().const_signed_to_float(f32_type);
+                // let result = value.into_int_value().const_signed_to_float(f32_type);
+                let result = builder.build_signed_int_to_float(value.into_int_value(), f32_type, "cast uint to float")?;
                 Ok(result.as_any_value_enum())
             },
             (Type::Number(NumberType::UnsignedInt), Type::Number(NumberType::Double)) => {
                 let f64_type = ctx.f64_type();
-                let result = value.into_int_value().const_signed_to_float(f64_type);
+                // let result = value.into_int_value().const_signed_to_float(f64_type);
+                let result = builder.build_unsigned_int_to_float(value.into_int_value(), f64_type, "cast uint to double")?;
                 Ok(result.as_any_value_enum())
             },
             //
@@ -1383,12 +1419,14 @@ impl Caster {
             },
             (Type::Number(NumberType::UnsignedLong), Type::Number(NumberType::Float)) => {
                 let f32_type = ctx.f32_type();
-                let result = value.into_int_value().const_signed_to_float(f32_type);
+                // let result = value.into_int_value().const_signed_to_float(f32_type);
+                let result = builder.build_signed_int_to_float(value.into_int_value(), f32_type, "cast ulong to float")?;
                 Ok(result.as_any_value_enum())
             },
             (Type::Number(NumberType::UnsignedLong), Type::Number(NumberType::Double)) => {
                 let f64_type = ctx.f64_type();
-                let result = value.into_int_value().const_signed_to_float(f64_type);
+                // let result = value.into_int_value().const_signed_to_float(f64_type);
+                let result = builder.build_unsigned_int_to_float(value.into_int_value(), f64_type, "cast ulong to double")?;
                 Ok(result.as_any_value_enum())
             },
             //
@@ -1441,12 +1479,14 @@ impl Caster {
             },
             (Type::Number(NumberType::UnsignedLongLong), Type::Number(NumberType::Float)) => {
                 let f32_type = ctx.f32_type();
-                let result = value.into_int_value().const_signed_to_float(f32_type);
+                // let result = value.into_int_value().const_signed_to_float(f32_type);
+                let result = builder.build_signed_int_to_float(value.into_int_value(), f32_type, "cast ulonglong to float")?;
                 Ok(result.as_any_value_enum())
             },
             (Type::Number(NumberType::UnsignedLongLong), Type::Number(NumberType::Double)) => {
                 let f64_type = ctx.f64_type();
-                let result = value.into_int_value().const_signed_to_float(f64_type);
+                // let result = value.into_int_value().const_signed_to_float(f64_type);
+                let result = builder.build_unsigned_int_to_float(value.into_int_value(), f64_type, "cast ulonglong to double")?;
                 Ok(result.as_any_value_enum())
             },
             //
