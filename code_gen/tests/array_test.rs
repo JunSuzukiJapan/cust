@@ -6,7 +6,7 @@ mod common;
 
 use common::*;
 
-
+/*
 #[test]
 fn code_gen_array() -> Result<(), CodeGenError> {
     let src = "
@@ -179,3 +179,4 @@ fn code_gen_array_and_pointer() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
+*/

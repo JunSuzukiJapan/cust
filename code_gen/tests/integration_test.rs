@@ -719,6 +719,38 @@ fn code_gen_pointr_cast() -> Result<(), Box<dyn Error>> {
 fn code_gen_handle() -> Result<(), Box<dyn Error>> {
     // parse
     let src = "
+        int test(int i) {
+            int x = i;
+            int* ptr = &x;
+
+            return x + *ptr;
+        }
+    ";
+
+    // parse
+    let asts = parse_from_str(src).unwrap();
+
+    // code gen
+    let context = Context::create();
+    let gen = CodeGen::try_new(&context, "test run").unwrap();
+
+    let mut env = Env::new();
+    for i in 0..asts.len() {
+        let _any_value = gen.gen_toplevel(&asts[i], &mut env, None, None)?;
+    }
+
+    let f: JitFunction<FuncType_i32_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
+    let result = unsafe { f.call(1) };
+    assert_eq!(result, 2);
+
+    Ok(())
+}
+
+
+#[test]
+fn code_gen_handle2() -> Result<(), Box<dyn Error>> {
+    // parse
+    let src = "
         int printf(char* format, ...);
 
         int test(int i) {
@@ -748,7 +780,7 @@ fn code_gen_handle() -> Result<(), Box<dyn Error>> {
 
     let f: JitFunction<FuncType_i32_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
     let result = unsafe { f.call(1) };
-    assert_eq!(3, result);
+    assert_eq!(result, 3);
 
     Ok(())
 }

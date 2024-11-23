@@ -256,8 +256,9 @@ impl<'ctx> CodeGen<'ctx> {
                 let ast = &**boxed_ast;
                 let ptr = self.gen_expr(&ast, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::not_pointer(&TypeUtil::get_type(&ast, env)?.as_ref().clone(), pos.clone()))?;
                 let typ = ptr.get_type();
+                let elem_type = typ.peel_off_pointer().unwrap();
+                let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&elem_type, &self.context, pos)?, ptr.get_value().into_pointer_value(), &format!("get_value_from_pointer"))?;
 
-                let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(typ, &self.context, pos)?, ptr.get_value().into_pointer_value(), &format!("get_value_from_pointer"))?;
                 let any_val = basic_val.as_any_value_enum();
                 let type2 = typ.peel_off_pointer().ok_or(CodeGenError::not_pointer(&typ, pos.clone()))?;
 
@@ -304,12 +305,14 @@ impl<'ctx> CodeGen<'ctx> {
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
             ExprAST::PointerAccess(_boxed_ast, field_name, pos) => {
+println!("PointerAccess");
                 let (typ, ptr) = self.get_l_value(expr_ast, env, break_catcher, continue_catcher)?;
                 let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&typ, &self.context, pos)?, ptr, &format!("pointer_access_to_field_{}", field_name))?;
                 let any_val = basic_val.as_any_value_enum();
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
             ExprAST::ArrayAccess(_boxed_ast, _index, pos) => {
+println!("ArrayAccess");
                 let (typ, ptr) = self.get_l_value(expr_ast, env, break_catcher, continue_catcher)?;
                 if let Type::Array { typ, .. } = typ.as_ref() {
                     let any_val = ptr.as_any_value_enum();
