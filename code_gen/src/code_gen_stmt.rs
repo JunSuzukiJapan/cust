@@ -1,4 +1,5 @@
 use crate::parser::{AST, ExprAST, Type, Block};
+use crate::type_util::TypeUtil;
 use super::{CompiledValue, CodeGenError};
 use super::Env;
 use super::env::{BreakCatcher, ContinueCatcher};
@@ -158,8 +159,8 @@ impl<'ctx> CodeGen<'ctx> {
                 self.gen_default(stmt, env, break_catcher, continue_catcher, pos)
             },
             AST::_self(pos) => {
-                if let Some((_typ, _sq, ptr)) = env.get_self_ptr() {
-                    let basic_val = self.builder.build_load(ptr, "get_self")?;
+                if let Some((typ, _sq, ptr)) = env.get_self_ptr() {
+                    let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(typ, &self.context, pos)?, ptr, "get_self")?;
                     let any_val = basic_val.as_any_value_enum();
 
                     Ok(Some(any_val))

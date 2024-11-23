@@ -12,6 +12,7 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicMetadataValueEnum, BasicValue
 use inkwell::types::{AnyTypeEnum, BasicType, BasicTypeEnum};
 use inkwell::types::AnyType;
 use inkwell::types::StructType;
+use inkwell::AddressSpace;
 use std::error::Error;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -41,21 +42,25 @@ impl<'ctx> CodeGen<'ctx> {
 
                         let const_index = i32_type.const_int(index, false);
                         let indexes = vec![const_zero, const_index];
-                        let ptr = unsafe { self.builder.build_in_bounds_gep(struct_ptr, &indexes, "gep_for_struct_field")? };
+                        let (struct_type, _index_map) = Self::struct_from_fields(&None, fields, &self.context, pos)?;
+                        let struct_ptr_ty = struct_type.ptr_type(AddressSpace::default());
+                        let ptr = unsafe { self.builder.build_in_bounds_gep(struct_ptr_ty, struct_ptr, &indexes, "gep_for_struct_field")? };
                         let _result = self.builder.build_store(ptr, basic_value);
 
                         index += 1;
                     }
                 }
 
-                let basic_val = self.builder.build_load(struct_ptr, &format!("load_struct_{}_literal", struct_name))?;
+                let struct_ptr_ty = TypeUtil::to_basic_type_enum(typ, &self.context, pos)?;
+                let basic_val = self.builder.build_load(struct_ptr_ty, struct_ptr, &format!("load_struct_{}_literal", struct_name))?;
                 let any_val = basic_val.as_any_value_enum();
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
-            StructLiteral::ConstLiteral(typ, const_map, _pos) => {
+            StructLiteral::ConstLiteral(typ, const_map, pos) => {
                 let struct_name = typ.get_type_name();
 
                 let mut vec = Vec::new();
+                let struct_ptr_ty;
                 if let Some(fields) = typ.get_struct_fields() {
                     for field in fields {
                         let name = field.get_name().as_ref().unwrap();
@@ -66,9 +71,14 @@ impl<'ctx> CodeGen<'ctx> {
 
                     let values = self.context.const_struct(&vec, false);
                     let _result = self.builder.build_store(struct_ptr, values.as_basic_value_enum());
+
+                    let (struct_type, _index_map) = Self::struct_from_fields(&None, fields, &self.context, pos)?;
+                    struct_ptr_ty = struct_type.ptr_type(AddressSpace::default());
+                }else{
+                    panic!()
                 }
 
-                let basic_val = self.builder.build_load(struct_ptr, &format!("load_struct_{}_literal", struct_name))?;
+                let basic_val = self.builder.build_load(struct_ptr_ty, struct_ptr, &format!("load_struct_{}_literal", struct_name))?;
                 let any_val = basic_val.as_any_value_enum();
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
@@ -263,7 +273,10 @@ impl<'ctx> CodeGen<'ctx> {
         
                                         let const_index = i32_type.const_int(index, false);
                                         let indexes = vec![const_zero, const_index];
-                                        let ptr = unsafe { self.builder.build_in_bounds_gep(target_struct_ptr, &indexes, "gep_for_struct_field")? };
+
+                                        let (struct_type, _index_map) = Self::struct_from_fields(&None, fields, &self.context, pos2)?;
+                                        let struct_ptr_ty = struct_type.ptr_type(AddressSpace::default());
+                                        let ptr = unsafe { self.builder.build_in_bounds_gep(struct_ptr_ty, target_struct_ptr, &indexes, "gep_for_struct_field")? };
                                         let _result = self.builder.build_store(ptr, basic_value);
         
                                         index += 1;
@@ -328,31 +341,42 @@ impl<'ctx> CodeGen<'ctx> {
         let mut index = 0;
 
         if let Some(fields) = struct_def.get_fields() {
-            for field in fields {
-                match field {
-                    StructField::NormalField { name: _, sq: _, typ } => {
-                        let t = TypeUtil::to_basic_type_enum(typ, ctx, pos)?;
-                        list.push(t);
+            return Self::struct_from_fields(name, fields, ctx, pos);
+        }
 
-                        if let Some(id) = name {
-                            index_map.insert(id.clone(), index);
-                        }
-                    },
-                    StructField::BitField { name, sq: _, typ, bit_size } => {
-                        packed = true;
+        Ok((ctx.struct_type(&list, packed), index_map))
+    }
 
-                        Self::bit_size_check(typ, *bit_size, pos)?;
-                        let t = ctx.custom_width_int_type((*bit_size) as u32);
-                        list.push(t.as_basic_type_enum());
+    fn struct_from_fields(name: &Option<String>, fields: &Vec<StructField>, ctx: &'ctx Context, pos: &Position) -> Result<(StructType<'ctx>, HashMap<String, usize>), Box<dyn Error>> {
+        let mut list: Vec<BasicTypeEnum<'ctx>> = Vec::new();
+        let mut packed = false;
+        let mut index_map: HashMap<String, usize> = HashMap::new();
+        let mut index = 0;
 
-                        if let Some(id) = name {
-                            index_map.insert(id.clone(), index);
-                        }
-                    },
-                }
+        for field in fields {
+            match field {
+                StructField::NormalField { name: _, sq: _, typ } => {
+                    let t = TypeUtil::to_basic_type_enum(typ, ctx, pos)?;
+                    list.push(t);
 
-                index += 1;
+                    if let Some(id) = name {
+                        index_map.insert(id.clone(), index);
+                    }
+                },
+                StructField::BitField { name, sq: _, typ, bit_size } => {
+                    packed = true;
+
+                    Self::bit_size_check(typ, *bit_size, pos)?;
+                    let t = ctx.custom_width_int_type((*bit_size) as u32);
+                    list.push(t.as_basic_type_enum());
+
+                    if let Some(id) = name {
+                        index_map.insert(id.clone(), index);
+                    }
+                },
             }
+
+            index += 1;
         }
 
         Ok((ctx.struct_type(&list, packed), index_map))

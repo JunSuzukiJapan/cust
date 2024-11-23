@@ -848,10 +848,8 @@ impl<'ctx> CodeGen<'ctx> {
     
         let array_type = basic_type.array_type(2);
         let array_ptr = builder.build_alloca(array_type, "array")?;
-        // let zero = i32_type.const_int(0, false);
-        // let array_ptr = zero.const_to_pointer(array_ptr_type);
         let const_one = i32_type.const_int(1, false);
-        let ptr = unsafe { builder.build_in_bounds_gep(array_ptr, &[const_one], "gep for array")? };
+        let ptr = unsafe { builder.build_in_bounds_gep(array_type, array_ptr, &[const_one], "gep for array")? };
     
         let base = array_ptr.const_to_int(i32_type);
         let index1 = ptr.const_to_int(i32_type);

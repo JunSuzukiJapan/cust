@@ -99,7 +99,7 @@ impl<'ctx> CodeGen<'ctx> {
             },
             ExprAST::PreInc(name, sym_pos, pos) => {
                 if let Some((typ, _sq, ptr)) = env.get_ptr(name) {
-                    let basic_val = self.builder.build_load(ptr, name)?;
+                    let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(typ, &self.context, pos)?, ptr, name)?;
                     let any_val = basic_val.as_any_value_enum();
                     let one = TypeUtil::to_llvm_int_type(typ, self.context, pos)?.const_int(1, false);
                     let added = self.builder.build_int_add(any_val.into_int_value(), one, "pre_increment")?;
@@ -114,7 +114,7 @@ impl<'ctx> CodeGen<'ctx> {
             },
             ExprAST::PreDec(name, sym_pos, pos) => {
                 if let Some((typ, _sq, ptr)) = env.get_ptr(name) {
-                    let basic_val = self.builder.build_load(ptr, name)?;
+                    let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(typ, &self.context, pos)?, ptr, name)?;
                     let any_val = basic_val.as_any_value_enum();
                     let one = TypeUtil::to_llvm_int_type(typ, self.context, pos)?.const_int(1, false);
                     let subed = self.builder.build_int_sub(any_val.into_int_value(), one, "pre_decrement")?;
@@ -129,7 +129,7 @@ impl<'ctx> CodeGen<'ctx> {
             },
             ExprAST::PostInc(name, sym_pos, pos) => {
                 if let Some((typ, _sq, ptr)) = env.get_ptr(name) {
-                    let basic_val = self.builder.build_load(ptr, name)?;
+                    let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(typ, &self.context, pos)?, ptr, name)?;
                     let pre_val = basic_val.as_any_value_enum();
                     let one = TypeUtil::to_llvm_int_type(typ, self.context, pos)?.const_int(1, false);
                     let added = self.builder.build_int_add(pre_val.into_int_value(), one, "post_increment")?;
@@ -144,7 +144,7 @@ impl<'ctx> CodeGen<'ctx> {
             },
             ExprAST::PostDec(name, sym_pos, pos) => {
                 if let Some((typ, _sq, ptr)) = env.get_ptr(name) {
-                    let basic_val = self.builder.build_load(ptr, name)?;
+                    let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(typ, &self.context, pos)?, ptr, name)?;
                     let pre_val = basic_val.as_any_value_enum();
                     let one = TypeUtil::to_llvm_int_type(typ, self.context, pos)?.const_int(1, false);
                     let subed = self.builder.build_int_sub(pre_val.into_int_value(), one, "post_decrement")?;
@@ -164,7 +164,7 @@ impl<'ctx> CodeGen<'ctx> {
                     ExprAST::PointerAccess(_, field_name, _pos) => field_name,
                     _ => "member_access",
                 };
-                let basic_val = self.builder.build_load(ptr, name)?;
+                let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&typ, &self.context, pos)?, ptr, name)?;
                 let any_val = basic_val.as_any_value_enum();
                 let one = TypeUtil::to_llvm_int_type(&typ, self.context, pos)?.const_int(1, false);
                 let added = self.builder.build_int_add(any_val.into_int_value(), one, "pre_increment_member")?;
@@ -179,7 +179,7 @@ impl<'ctx> CodeGen<'ctx> {
                     ExprAST::PointerAccess(_, field_name, _pos) => field_name,
                     _ => "member_access",
                 };
-                let basic_val = self.builder.build_load(ptr, name)?;
+                let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&typ, &self.context, pos)?, ptr, name)?;
                 let any_val = basic_val.as_any_value_enum();
                 let one = TypeUtil::to_llvm_int_type(&typ, self.context, pos)?.const_int(1, false);
                 let subed = self.builder.build_int_sub(any_val.into_int_value(), one, "pre_decrement_member")?;
@@ -194,7 +194,7 @@ impl<'ctx> CodeGen<'ctx> {
                     ExprAST::PointerAccess(_, field_name, _pos) => field_name,
                     _ => "member_access",
                 };
-                let basic_val = self.builder.build_load(ptr, name)?;
+                let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&typ, &self.context, pos)?, ptr, name)?;
                 let pre_val = basic_val.as_any_value_enum();
                 let one = TypeUtil::to_llvm_int_type(&typ, self.context, pos)?.const_int(1, false);
                 let added = self.builder.build_int_add(pre_val.into_int_value(), one, "post_increment_member")?;
@@ -209,7 +209,7 @@ impl<'ctx> CodeGen<'ctx> {
                     ExprAST::PointerAccess(_, field_name, _pos) => field_name,
                     _ => "member_access",
                 };
-                let basic_val = self.builder.build_load(ptr, name)?;
+                let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&typ, &self.context, pos)?, ptr, name)?;
                 let pre_val = basic_val.as_any_value_enum();
                 let one = TypeUtil::to_llvm_int_type(&typ, self.context, pos)?.const_int(1, false);
                 let subed = self.builder.build_int_sub(pre_val.into_int_value(), one, "post_decrement_member")?;
@@ -257,7 +257,7 @@ impl<'ctx> CodeGen<'ctx> {
                 let ptr = self.gen_expr(&ast, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::not_pointer(&TypeUtil::get_type(&ast, env)?.as_ref().clone(), pos.clone()))?;
                 let typ = ptr.get_type();
 
-                let basic_val = self.builder.build_load(ptr.get_value().into_pointer_value(), &format!("get_value_from_pointer"))?;
+                let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(typ, &self.context, pos)?, ptr.get_value().into_pointer_value(), &format!("get_value_from_pointer"))?;
                 let any_val = basic_val.as_any_value_enum();
                 let type2 = typ.peel_off_pointer().ok_or(CodeGenError::not_pointer(&typ, pos.clone()))?;
 
@@ -297,19 +297,19 @@ impl<'ctx> CodeGen<'ctx> {
                     }
                 }
             },
-            ExprAST::MemberAccess(_boxed_ast, field_name, _pos) => {
+            ExprAST::MemberAccess(_boxed_ast, field_name, pos) => {
                 let (typ, ptr) = self.get_l_value(expr_ast, env, break_catcher, continue_catcher)?;
-                let basic_val = self.builder.build_load(ptr, &format!("access_to_field_{}", field_name))?;
+                let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&typ, &self.context, pos)?, ptr, &format!("access_to_field_{}", field_name))?;
                 let any_val = basic_val.as_any_value_enum();
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
-            ExprAST::PointerAccess(_boxed_ast, field_name, _pos) => {
+            ExprAST::PointerAccess(_boxed_ast, field_name, pos) => {
                 let (typ, ptr) = self.get_l_value(expr_ast, env, break_catcher, continue_catcher)?;
-                let basic_val = self.builder.build_load(ptr, &format!("pointer_access_to_field_{}", field_name))?;
+                let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&typ, &self.context, pos)?, ptr, &format!("pointer_access_to_field_{}", field_name))?;
                 let any_val = basic_val.as_any_value_enum();
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
-            ExprAST::ArrayAccess(_boxed_ast, _index, _pos) => {
+            ExprAST::ArrayAccess(_boxed_ast, _index, pos) => {
                 let (typ, ptr) = self.get_l_value(expr_ast, env, break_catcher, continue_catcher)?;
                 if let Type::Array { typ, .. } = typ.as_ref() {
                     let any_val = ptr.as_any_value_enum();
@@ -317,7 +317,7 @@ impl<'ctx> CodeGen<'ctx> {
                     Ok(Some(CompiledValue::new(t.into(), any_val)))
 
                 }else{
-                    let basic_val = self.builder.build_load(ptr, "get_value_from_array")?;
+                    let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&typ, &self.context, pos)?, ptr, "get_value_from_array")?;
                     let any_val = basic_val.as_any_value_enum();
                     Ok(Some(CompiledValue::new(typ, any_val)))
                 }
@@ -334,7 +334,7 @@ impl<'ctx> CodeGen<'ctx> {
                         Ok(Some(CompiledValue::new(Rc::new(t), any_val)))
     
                     }else{
-                        let basic_val = self.builder.build_load(ptr, name)?;
+                        let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(typ, &self.context, pos)?, ptr, name)?;
                         let any_val = basic_val.as_any_value_enum();
                         Ok(Some(CompiledValue::new(typ.clone(), any_val)))
                     }
@@ -355,7 +355,7 @@ impl<'ctx> CodeGen<'ctx> {
             },
             ExprAST::_self(pos) => {
                 if let Some((typ, _sq, ptr)) = env.get_self_ptr() {
-                    let basic_val = self.builder.build_load(ptr, "get_self")?;
+                    let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(typ, &self.context, pos)?, ptr, "get_self")?;
                     let any_val = basic_val.as_any_value_enum();
 
                     Ok(Some(CompiledValue::new(Rc::clone(typ), any_val)))
@@ -464,14 +464,14 @@ impl<'ctx> CodeGen<'ctx> {
                 }
 
                 let (typ, ptr) = self.get_l_value(expr_ast, env, break_catcher, continue_catcher)?;
-                let basic_val = self.builder.build_load(ptr, &format!("access_to_field_{}_in_class_{}", var_name, struct_name))?;
+                let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&*typ, &self.context, pos)?, ptr, &format!("access_to_field_{}_in_class_{}", var_name, struct_name))?;
                 let any_val = basic_val.as_any_value_enum();
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
 
             },
-            ExprAST::SelfStaticSymbol(var_name, _pos) => {  // _Self::Symbol
+            ExprAST::SelfStaticSymbol(var_name, pos) => {  // _Self::Symbol
                 let (typ, ptr) = self.get_l_value(expr_ast, env, break_catcher, continue_catcher)?;
-                let basic_val = self.builder.build_load(ptr, &format!("access_to_field_{}_in_Self", var_name))?;
+                let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&*typ, &self.context, pos)?, ptr, &format!("access_to_field_{}_in_Self", var_name))?;
                 let any_val = basic_val.as_any_value_enum();
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
@@ -494,7 +494,7 @@ impl<'ctx> CodeGen<'ctx> {
                     let _result = self.builder.build_store(union_ptr, basic_value);                        
                 }
 
-                let basic_val = self.builder.build_load(union_ptr, &format!("load_union_{}_literal", union_name))?;
+                let basic_val = self.builder.build_load(basic_type, union_ptr, &format!("load_union_{}_literal", union_name))?;
                 let any_val = basic_val.as_any_value_enum();
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
@@ -508,7 +508,7 @@ impl<'ctx> CodeGen<'ctx> {
                     let _result = self.builder.build_store(union_ptr, basic_value);                        
                 }
 
-                let basic_val = self.builder.build_load(union_ptr, &format!("load_union_{}_literal", union_name))?;
+                let basic_val = self.builder.build_load(basic_type, union_ptr, &format!("load_union_{}_literal", union_name))?;
                 let any_val = basic_val.as_any_value_enum();
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
@@ -524,15 +524,15 @@ impl<'ctx> CodeGen<'ctx> {
                         let tagged_type = self.context.struct_type(&vec, false);
 
                         let tagged_ptr = self.builder.build_alloca(tagged_type, "enum_literal")?;
-                        let tag_ptr = self.builder.build_struct_gep(tagged_ptr, 0, "struct_gep_in_tagged_enum")?;
-                        let struct_ptr = self.builder.build_struct_gep(tagged_ptr, 1, "struct_gep_in_tagged_enum")?;
+                        let tag_ptr = self.builder.build_struct_gep(tagged_type, tagged_ptr, 0, "struct_gep_in_tagged_enum")?;
+                        let struct_ptr = self.builder.build_struct_gep(tagged_type, tagged_ptr, 1, "struct_gep_in_tagged_enum")?;
 
                         let tag_value = tag_type.const_int(*tag as u64, false);
                         let _ = self.builder.build_store(tag_ptr, tag_value);
 
                         let _ = self.gen_struct_literal(struct_literal, struct_ptr, env, break_catcher, continue_catcher)?;
 
-                        let basic_val = self.builder.build_load(tagged_ptr, &format!("load_enum_literal"))?;
+                        let basic_val = self.builder.build_load(tagged_type, tagged_ptr, &format!("load_enum_literal"))?;
                         let any_val = basic_val.as_any_value_enum();
                         Ok(Some(CompiledValue::new(Rc::clone(typ), any_val)))
                     },
@@ -582,7 +582,7 @@ impl<'ctx> CodeGen<'ctx> {
                     let basic_value = BasicValueEnum::try_from(any_value).map_err(|_e| CodeGenError::system_error(pos.clone()))?;
                     let const_index = i32_type.const_int(index, false);
                     let indexes = vec![const_zero, const_index];
-                    let ptr = unsafe { self.builder.build_in_bounds_gep(tuple_ptr, &indexes, "gep_for_tuple_element")? };
+                    let ptr = unsafe { self.builder.build_in_bounds_gep(basic_type, tuple_ptr, &indexes, "gep_for_tuple_element")? };
                     let _result = self.builder.build_store(ptr, basic_value);
 
                     index += 1;
@@ -591,14 +591,14 @@ impl<'ctx> CodeGen<'ctx> {
                 //
                 // return result
                 //
-                let basic_val = self.builder.build_load(tuple_ptr, &format!("load_tuple_literal"))?;
+                let basic_val = self.builder.build_load(basic_type, tuple_ptr, &format!("load_tuple_literal"))?;
                 let any_val = basic_val.as_any_value_enum();
                 let tuple_type = Type::Tuple(cust_type_list);
                 Ok(Some(CompiledValue::new(Rc::new(tuple_type), any_val)))
             },
             ExprAST::TupleMemberAccess(tpl, index, pos) => {
                 let (elem_type, ptr) = self.get_indexed_tuple_ptr_and_type(tpl, *index, pos, env, break_catcher, continue_catcher)?;
-                let basic_val = self.builder.build_load(ptr, "load_tuple_element")?;
+                let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&elem_type, &self.context, pos)?, ptr, "load_tuple_element")?;
                 let any_val = basic_val.as_any_value_enum();
 
                 Ok(Some(CompiledValue::new(Rc::clone(&elem_type), any_val)))
@@ -1008,17 +1008,21 @@ impl<'ctx> CodeGen<'ctx> {
         let (ptr_type, ptr) = self.get_l_value(l_value, env, break_catcher, continue_catcher)?;
 
         let value_type = value.get_type().as_any_type_enum();
-        let ptr_elem_type = ptr.get_type().get_element_type();
+        // let ptr_elem_type = ptr.get_type().get_element_type();
+        // let ptr_elem_type = TypeUtil::to_basic_type_enum(&ptr_type, &self.context, l_value.get_position())?.as_any_type_enum();
+        let ptr_elem_type = TypeUtil::get_type(l_value, env)?;
+        let ptr_elem_type = TypeUtil::to_basic_type_enum(&ptr_elem_type, &self.context, l_value.get_position())?.as_any_type_enum();
+
         if value_type == ptr_elem_type {
             self.builder.build_store(ptr, value)?;
             Ok(Some(compiled_value))
 
         }else{
             if ptr_type.is_tagged_enum() {
-                // let ptr_type = unsafe { PointerType::new(value_type.as_type_ref()) };
                 let t = value_type.as_type_ref();
-                let address_space = 0;
-                let t = unsafe { llvm_sys::core::LLVMPointerType(t, address_space) };
+                // let address_space = 0;
+                // let t = unsafe { llvm_sys::core::LLVMPointerType(t, address_space) };
+                // let ptr_type = unsafe { PointerType::new(t) };
                 let ptr_type = unsafe { PointerType::new(t) };
                 let ptr = self.builder.build_pointer_cast(ptr, ptr_type, "cast_ptr_to_value_typ_ptr")?;
                 self.builder.build_store(ptr, value)?;
@@ -1072,7 +1076,7 @@ impl<'ctx> CodeGen<'ctx> {
                 let (typ, ptr_to_ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
 
                 if let Some(type2) = typ.peel_off_pointer() {
-                    let ptr = self.builder.build_load(ptr_to_ptr, "load_ptr")?;
+                    let ptr = self.builder.build_load(TypeUtil::to_basic_type_enum(&type2, &self.context, pos)?, ptr_to_ptr, "load_ptr")?;
 
                     Ok((Type::new_pointer_type(type2.clone(), false, false).into(), ptr.into_pointer_value()))
                 }else{
@@ -1094,7 +1098,7 @@ impl<'ctx> CodeGen<'ctx> {
                             format!("struct?.{}", member_name)
                         };
 
-                        let elem_ptr = self.builder.build_struct_gep(ptr, index as u32, &msg);
+                        let elem_ptr = self.builder.build_struct_gep(TypeUtil::to_basic_type_enum(&typ, &self.context, pos)?, ptr, index as u32, &msg);
                         if let Ok(p) = elem_ptr {
                             Ok((elem_type.clone(), p))
                         }else{
@@ -1108,7 +1112,7 @@ impl<'ctx> CodeGen<'ctx> {
                         let p = ptr.const_cast(ptr_type);
                         Ok((typ.clone(), p))
                     },
-                    Type::Pointer(_, _elem_type) => {
+                    Type::Pointer(_, elem_type) => {
                         match ast {
                             ExprAST::ArrayAccess(expr, index_list, pos) => {
                                 let ast = &**expr;
@@ -1122,8 +1126,8 @@ impl<'ctx> CodeGen<'ctx> {
                                 let value = self.gen_expr(&index_list[0], env, break_catcher, continue_catcher)?.ok_or(CodeGenError::no_index_value_while_access_array(pos.clone()))?;
                                 let index_val = value.get_value().into_int_value();
                                 let index_list = [index_val];
-                                let ptr = self.builder.build_load(base_ptr, "load_ptr")?.into_pointer_value();
-                                let ptr = unsafe { ptr.const_in_bounds_gep(&index_list) };
+                                let ptr = self.builder.build_load(TypeUtil::to_basic_type_enum(&expr_type, &self.context, pos)?, base_ptr, "load_ptr")?.into_pointer_value();
+                                let ptr = unsafe { ptr.const_in_bounds_gep(TypeUtil::to_basic_type_enum(&elem_type, &self.context, pos)?, &index_list) };
 
                                 let typ = if let Some(type2) = expr_type.peel_off_pointer() {
                                     type2
@@ -1140,7 +1144,7 @@ impl<'ctx> CodeGen<'ctx> {
                                             format!("struct?.{}", member_name)
                                         };
                 
-                                        let elem_ptr = self.builder.build_struct_gep(ptr, index as u32, &msg);
+                                        let elem_ptr = self.builder.build_struct_gep(TypeUtil::to_basic_type_enum(&*typ, &self.context, pos)?, ptr, index as u32, &msg);
                                         if let Ok(p) = elem_ptr {
                                             Ok((elem_type.clone(), p))
                                         }else{
@@ -1193,15 +1197,15 @@ impl<'ctx> CodeGen<'ctx> {
             },
             ExprAST::PointerAccess(expr, member_name, pos) => {  // ptr->member
                 let ast = &**expr;
-                let (_typ, ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
-                let ptr = self.builder.build_load(ptr, "get_pointer")?.into_pointer_value();
+                let (typ, ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
+                let ptr = self.builder.build_load(TypeUtil::to_basic_type_enum(&*typ, &self.context, pos)?, ptr, "get_pointer")?.into_pointer_value();
                 let typ = TypeUtil::get_type(ast, env)?;
                 let pointed_type = typ.get_pointed_type(pos)?;
 
                 match pointed_type {
                     Type::Struct {fields, name} => {
                         let index = fields.get_index(member_name).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
-                        let elem_ptr = self.builder.build_struct_gep(ptr, index as u32, "struct_member_access");
+                        let elem_ptr = self.builder.build_struct_gep(TypeUtil::to_basic_type_enum(&typ, &self.context, pos)?, ptr, index as u32, "struct_member_access");
                         if let Ok(p) = elem_ptr {
                             let typ = fields.get_type(member_name).unwrap();
                             Ok((typ.clone(), p))
@@ -1258,8 +1262,8 @@ impl<'ctx> CodeGen<'ctx> {
                     let value = self.gen_expr(&index_list[0], env, break_catcher, continue_catcher)?.ok_or(CodeGenError::no_index_value_while_access_array(pos.clone()))?;
                     let index_val = value.get_value().into_int_value();
                     let index_list = [index_val];
-                    let ptr = self.builder.build_load(base_ptr, "load_ptr")?.into_pointer_value();
-                    let ptr = unsafe { ptr.const_in_bounds_gep(&index_list) };
+                    let ptr = self.builder.build_load(TypeUtil::to_basic_type_enum(&expr_type, &self.context, pos)?, base_ptr, "load_ptr")?.into_pointer_value();
+                    let ptr = unsafe { ptr.const_in_bounds_gep(TypeUtil::to_basic_type_enum(&elem_type, &self.context, pos)?, &index_list) };
 
                     return Ok((*elem_type.clone(), ptr));
                 }
@@ -1291,14 +1295,22 @@ impl<'ctx> CodeGen<'ctx> {
                 }
 
                 let mut ptr = base_ptr;
-                for index in index_list {
-                    let value = self.gen_expr(index, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::no_index_value_while_access_array(pos.clone()))?;
+                let len = index_list.len();
+                let ctx_ptr_ty = self.context.ptr_type(AddressSpace::default());
+                for i in 0..len-1 {
+                    let index = &index_list[i];
+                    let value = self.gen_expr(&*index, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::no_index_value_while_access_array(pos.clone()))?;
                     let index_val = value.get_value().into_int_value();
 
                     let i32_type = self.context.i32_type();
                     let const_zero = i32_type.const_zero();
                     let index_list = [const_zero, index_val];
-                    ptr = unsafe { ptr.const_in_bounds_gep(&index_list) };
+                    let ty: BasicTypeEnum<'ctx> = if i < len - 2 {
+                        ctx_ptr_ty.as_basic_type_enum()
+                    }else{
+                        TypeUtil::to_basic_type_enum(&item_type, &self.context, pos)?
+                    };
+                    ptr = unsafe { ptr.const_in_bounds_gep(ty, &index_list) };
                 }
 
                 Ok((result_type, ptr))
@@ -1367,7 +1379,8 @@ impl<'ctx> CodeGen<'ctx> {
         let indexes = vec![const_zero, const_index];
 
         let (_typ, tuple_ptr) = self.get_l_value(&tpl, env, break_catcher, continue_catcher)?;
-        let ptr = unsafe { self.builder.build_in_bounds_gep(tuple_ptr, &indexes, "gep_for_tuple_element")? };
+        let t = TypeUtil::to_basic_type_enum(&tuple_type, &self.context, pos)?;
+        let ptr = unsafe { self.builder.build_in_bounds_gep(t, tuple_ptr, &indexes, "gep_for_tuple_element")? };
 
         let elem_type = {
             match &*tuple_type {
@@ -1385,15 +1398,17 @@ impl<'ctx> CodeGen<'ctx> {
         if let (Type::Number(left_type), Type::Number(right_type)) = (left.get_type().as_ref(), right.get_type().as_ref()) {
             if left_type == right_type {
                 Ok((left, right))
+
             }else if left_type < right_type {
-println!("<");
+                let typ = self.as_int_type(right_type, &right, pos)?;
+                let other = self.builder.build_int_cast(left.get_value().into_int_value(), typ, "implicit cast")?;
+                let other = CompiledValue::new(Rc::clone(right.get_type()), other.as_any_value_enum());
+                Ok((right.clone(), other))
 
-
-
-Ok((right.clone(), right))
             }else{  // left_type > right_type
                 let typ = self.as_int_type(left_type, &left, pos)?;
-                let other = right.get_value().into_int_value().const_cast(typ, left_type.is_signed());
+                // let other = right.get_value().into_int_value().const_cast(typ, left_type.is_signed());
+                let other = self.builder.build_int_cast(right.get_value().into_int_value(), typ, "implicit cast")?;
                 let other = CompiledValue::new(Rc::clone(left.get_type()), other.as_any_value_enum());
                 Ok((left.clone(), other))
             }

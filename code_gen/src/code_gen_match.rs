@@ -257,7 +257,7 @@ println!("right_value: {:?}", right_value.into_int_value());
         }
 
         let num_type = Type::Number(NumberType::_Bool);
-        let result_any_value: AnyValueEnum = self.builder.build_load(condition_ptr, "get_condition")?.as_any_value_enum();
+        let result_any_value: AnyValueEnum = self.builder.build_load(bool_type, condition_ptr, "get_condition")?.as_any_value_enum();
         Ok(Some(CompiledValue::new(Rc::new(num_type), result_any_value)))
     }
 }
