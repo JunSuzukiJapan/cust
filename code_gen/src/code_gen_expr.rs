@@ -245,14 +245,16 @@ impl<'ctx> CodeGen<'ctx> {
                 Ok(None)
             },
             ExprAST::UnaryGetAddress(boxed_ast, pos) => {  // &var
+println!("UnaryGetAddress");
                 let ast = &**boxed_ast;
                 let (typ, ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
                 let ptr = PointerValue::try_from(ptr).ok().ok_or(CodeGenError::cannot_get_pointer(pos.clone()))?;
                 let typ = Type::new_pointer_type(typ.clone(), false, false);
-
+println!("-- end GetAddress");
                 Ok(Some(CompiledValue::new(Rc::new(typ), ptr.into())))
             },
             ExprAST::UnaryPointerAccess(boxed_ast, pos) => {  // *pointer
+println!("UnaryPointerAccess");
                 let ast = &**boxed_ast;
                 let ptr = self.gen_expr(&ast, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::not_pointer(&TypeUtil::get_type(&ast, env)?.as_ref().clone(), pos.clone()))?;
                 let typ = ptr.get_type();
@@ -1079,7 +1081,7 @@ println!("ArrayAccess");
                 let (typ, ptr_to_ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
 
                 if let Some(type2) = typ.peel_off_pointer() {
-                    let ptr = self.builder.build_load(TypeUtil::to_basic_type_enum(&type2, &self.context, pos)?, ptr_to_ptr, "load_ptr")?;
+                    let ptr = self.builder.build_load(TypeUtil::to_basic_type_enum(&typ, &self.context, pos)?, ptr_to_ptr, "load_ptr")?;
 
                     Ok((Type::new_pointer_type(type2.clone(), false, false).into(), ptr.into_pointer_value()))
                 }else{
