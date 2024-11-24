@@ -6,6 +6,50 @@ mod common;
 
 use common::*;
 
+
+#[test]
+fn code_gen_array0() -> Result<(), CodeGenError> {
+    let src = "
+        int printf(char* format, ...);
+
+        int test() {
+            int ary[3];
+
+            for(int i = 0; i < 3; i++){
+                ary[i] = i;
+            }
+
+            printf(\"==== ary[0] = %d\\n\", ary[0]);
+            printf(\"==== ary[1] = %d\\n\", ary[1]);
+            printf(\"==== ary[2] = %d\\n\", ary[2]);
+
+            int sum = 0;
+            for(int i = 0; i < 3; i++){
+                sum += ary[i];
+            }
+
+            return sum;
+        }
+    ";
+
+    // parse
+    let asts = parse_from_str(src).unwrap();
+
+    // code gen
+    let context = Context::create();
+    let gen = CodeGen::try_new(&context, "test run").unwrap();
+
+    let mut env = Env::new();
+
+    for i in 0..asts.len() {
+        let _any_value = gen.gen_toplevel(&asts[i], &mut env, None, None).unwrap();
+    }
+
+    let f: JitFunction<FuncType_void_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
+    assert_eq!(unsafe { f.call() }, 0 + 1 + 2);
+
+    Ok(())
+}
 /*
 #[test]
 fn code_gen_array() -> Result<(), CodeGenError> {

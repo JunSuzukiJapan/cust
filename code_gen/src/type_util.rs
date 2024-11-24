@@ -329,6 +329,7 @@ impl TypeUtil {
                 }
             },
             ExprAST::MemberAccess(boxed_ast, field_name, pos) => {  // some_var.field
+println!("MemberAccess");
                 let ast = &*boxed_ast;
                 let typ = TypeUtil::get_type(ast, env)?;
                 match typ.as_ref() {
@@ -344,6 +345,9 @@ impl TypeUtil {
                 }
             },
             ExprAST::PointerAccess(boxed_ast, field_name, pos) => {  // some_var->field
+println!("PointerAccess");
+println!("  ast: {:?}", &**boxed_ast);
+println!("  field_name: {field_name}");
                 let ast = &*boxed_ast;
                 let typ = TypeUtil::get_type(ast, env)?;
                 match typ.as_ref() {

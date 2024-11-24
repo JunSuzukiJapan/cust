@@ -14,6 +14,7 @@ use inkwell::{IntPredicate, FloatPredicate};
 use inkwell::AddressSpace;
 use inkwell::types::{AnyType, IntType};
 use parser::Position;
+use core::prelude;
 use std::error::Error;
 use std::rc::Rc;
 
@@ -245,16 +246,14 @@ impl<'ctx> CodeGen<'ctx> {
                 Ok(None)
             },
             ExprAST::UnaryGetAddress(boxed_ast, pos) => {  // &var
-println!("UnaryGetAddress");
                 let ast = &**boxed_ast;
                 let (typ, ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
                 let ptr = PointerValue::try_from(ptr).ok().ok_or(CodeGenError::cannot_get_pointer(pos.clone()))?;
                 let typ = Type::new_pointer_type(typ.clone(), false, false);
-println!("-- end GetAddress");
+
                 Ok(Some(CompiledValue::new(Rc::new(typ), ptr.into())))
             },
             ExprAST::UnaryPointerAccess(boxed_ast, pos) => {  // *pointer
-println!("UnaryPointerAccess");
                 let ast = &**boxed_ast;
                 let ptr = self.gen_expr(&ast, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::not_pointer(&TypeUtil::get_type(&ast, env)?.as_ref().clone(), pos.clone()))?;
                 let typ = ptr.get_type();
@@ -309,8 +308,11 @@ println!("UnaryPointerAccess");
             ExprAST::PointerAccess(_boxed_ast, field_name, pos) => {
 println!("PointerAccess");
                 let (typ, ptr) = self.get_l_value(expr_ast, env, break_catcher, continue_catcher)?;
+println!("  typ: {typ:?}");
+println!("  ptr: {ptr:?}");
                 let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&typ, &self.context, pos)?, ptr, &format!("pointer_access_to_field_{}", field_name))?;
                 let any_val = basic_val.as_any_value_enum();
+println!("--end PointerAccess");
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
             ExprAST::ArrayAccess(_boxed_ast, _index, pos) => {
@@ -1210,7 +1212,7 @@ println!("ArrayAccess");
                 match pointed_type {
                     Type::Struct {fields, name} => {
                         let index = fields.get_index(member_name).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
-                        let elem_ptr = self.builder.build_struct_gep(TypeUtil::to_basic_type_enum(&typ, &self.context, pos)?, ptr, index as u32, "struct_member_access");
+                        let elem_ptr = self.builder.build_struct_gep(TypeUtil::to_basic_type_enum(&pointed_type, &self.context, pos)?, ptr, index as u32, "struct_member_access");
                         if let Ok(p) = elem_ptr {
                             let typ = fields.get_type(member_name).unwrap();
                             Ok((typ.clone(), p))
@@ -1252,6 +1254,7 @@ println!("ArrayAccess");
                 }
             },
             ExprAST::ArrayAccess(expr, index_list, pos) => {
+println!("get_l_value ArrayAccess");
                 let ast = &**expr;
                 let (expr_type, base_ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
                 let index_len = index_list.len();
@@ -1301,21 +1304,30 @@ println!("ArrayAccess");
 
                 let mut ptr = base_ptr;
                 let len = index_list.len();
-                let ctx_ptr_ty = self.context.ptr_type(AddressSpace::default());
+                let i32_type = self.context.i32_type();
+                let const_zero = i32_type.const_zero();
+                let ctx_ptr_ty = self.context.ptr_type(AddressSpace::default()).as_basic_type_enum();
                 for i in 0..len-1 {
                     let index = &index_list[i];
                     let value = self.gen_expr(&*index, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::no_index_value_while_access_array(pos.clone()))?;
                     let index_val = value.get_value().into_int_value();
+                    // let index_list = [const_zero, index_val];
+                    let index_list = [index_val];
 
-                    let i32_type = self.context.i32_type();
-                    let const_zero = i32_type.const_zero();
-                    let index_list = [const_zero, index_val];
-                    let ty: BasicTypeEnum<'ctx> = if i < len - 2 {
-                        ctx_ptr_ty.as_basic_type_enum()
+                    if index_len == array_dim_len {
+                        ptr = unsafe { ptr.const_in_bounds_gep(TypeUtil::to_basic_type_enum(&item_type, &self.context, pos)?, &index_list) };
                     }else{
-                        TypeUtil::to_basic_type_enum(&item_type, &self.context, pos)?
-                    };
-                    ptr = unsafe { ptr.const_in_bounds_gep(ty, &index_list) };
+                        ptr = unsafe { ptr.const_in_bounds_gep(ctx_ptr_ty, &index_list) };
+                    }
+                }
+
+                if len != 0 {
+                    let index = &index_list[len-1];
+                    let value = self.gen_expr(&*index, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::no_index_value_while_access_array(pos.clone()))?;
+                    let index_val = value.get_value().into_int_value();
+                    let index_list = [index_val];
+
+                    ptr = unsafe { ptr.const_in_bounds_gep(TypeUtil::to_basic_type_enum(&item_type, &self.context, pos)?, &index_list) };
                 }
 
                 Ok((result_type, ptr))
