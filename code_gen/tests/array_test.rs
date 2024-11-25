@@ -8,7 +8,7 @@ use common::*;
 
 
 #[test]
-fn code_gen_array0() -> Result<(), CodeGenError> {
+fn code_gen_simple_array() -> Result<(), CodeGenError> {
     let src = "
         int printf(char* format, ...);
 
@@ -18,10 +18,6 @@ fn code_gen_array0() -> Result<(), CodeGenError> {
             for(int i = 0; i < 3; i++){
                 ary[i] = i;
             }
-
-            printf(\"==== ary[0] = %d\\n\", ary[0]);
-            printf(\"==== ary[1] = %d\\n\", ary[1]);
-            printf(\"==== ary[2] = %d\\n\", ary[2]);
 
             int sum = 0;
             for(int i = 0; i < 3; i++){
@@ -50,7 +46,7 @@ fn code_gen_array0() -> Result<(), CodeGenError> {
 
     Ok(())
 }
-/*
+
 #[test]
 fn code_gen_array() -> Result<(), CodeGenError> {
     let src = "
@@ -64,6 +60,13 @@ fn code_gen_array() -> Result<(), CodeGenError> {
                     ary[i][j] = i * 10 + j;
                 }
             }
+
+            printf(\"ary[0][0] = %d\\n\", ary[0][0]);
+            printf(\"ary[0][1] = %d\\n\", ary[0][1]);
+            printf(\"ary[0][2] = %d\\n\", ary[0][2]);
+            printf(\"ary[1][0] = %d\\n\", ary[1][0]);
+            printf(\"ary[1][1] = %d\\n\", ary[1][1]);
+            printf(\"ary[1][2] = %d\\n\", ary[1][2]);
 
             int sum = 0;
             for(int i = 0; i < 2; i++){
@@ -94,7 +97,7 @@ fn code_gen_array() -> Result<(), CodeGenError> {
 
     Ok(())
 }
-
+/*
 #[test]
 fn code_gen_init_array1() -> Result<(), Box<dyn Error>> {
     // parse

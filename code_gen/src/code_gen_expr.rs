@@ -316,7 +316,6 @@ println!("--end PointerAccess");
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
             ExprAST::ArrayAccess(_boxed_ast, _index, pos) => {
-println!("ArrayAccess");
                 let (typ, ptr) = self.get_l_value(expr_ast, env, break_catcher, continue_catcher)?;
                 if let Type::Array { typ, .. } = typ.as_ref() {
                     let any_val = ptr.as_any_value_enum();
@@ -1254,7 +1253,6 @@ println!("ArrayAccess");
                 }
             },
             ExprAST::ArrayAccess(expr, index_list, pos) => {
-println!("get_l_value ArrayAccess");
                 let ast = &**expr;
                 let (expr_type, base_ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
                 let index_len = index_list.len();
@@ -1304,32 +1302,22 @@ println!("get_l_value ArrayAccess");
 
                 let mut ptr = base_ptr;
                 let len = index_list.len();
+                // let ctx_ptr_ty = self.context.ptr_type(AddressSpace::default()).as_basic_type_enum();
+                let mut vec = Vec::new();
                 let i32_type = self.context.i32_type();
                 let const_zero = i32_type.const_zero();
-                let ctx_ptr_ty = self.context.ptr_type(AddressSpace::default()).as_basic_type_enum();
-                for i in 0..len-1 {
+                vec.push(const_zero);
+
+                for i in 0..len {
                     let index = &index_list[i];
                     let value = self.gen_expr(&*index, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::no_index_value_while_access_array(pos.clone()))?;
                     let index_val = value.get_value().into_int_value();
-                    // let index_list = [const_zero, index_val];
-                    let index_list = [index_val];
-
-                    if index_len == array_dim_len {
-                        ptr = unsafe { ptr.const_in_bounds_gep(TypeUtil::to_basic_type_enum(&item_type, &self.context, pos)?, &index_list) };
-                    }else{
-                        ptr = unsafe { ptr.const_in_bounds_gep(ctx_ptr_ty, &index_list) };
-                    }
+                    vec.push(index_val);
                 }
-
-                if len != 0 {
-                    let index = &index_list[len-1];
-                    let value = self.gen_expr(&*index, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::no_index_value_while_access_array(pos.clone()))?;
-                    let index_val = value.get_value().into_int_value();
-                    let index_list = [index_val];
-
-                    ptr = unsafe { ptr.const_in_bounds_gep(TypeUtil::to_basic_type_enum(&item_type, &self.context, pos)?, &index_list) };
-                }
-
+println!("here. vec: {vec:?}");
+println!("expr_type: {expr_type:?}");
+                ptr = unsafe { ptr.const_in_bounds_gep(TypeUtil::to_basic_type_enum(&expr_type, &self.context, pos)?, &vec) };
+println!("end");
                 Ok((result_type, ptr))
             },
             ExprAST::_self(pos) => {
