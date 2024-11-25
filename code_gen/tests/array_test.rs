@@ -97,7 +97,7 @@ fn code_gen_array() -> Result<(), CodeGenError> {
 
     Ok(())
 }
-/*
+
 #[test]
 fn code_gen_init_array1() -> Result<(), Box<dyn Error>> {
     // parse
@@ -226,4 +226,3 @@ fn code_gen_array_and_pointer() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
-*/
