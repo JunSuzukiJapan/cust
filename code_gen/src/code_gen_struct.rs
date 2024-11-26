@@ -27,12 +27,15 @@ impl<'ctx> CodeGen<'ctx> {
     ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
         match struct_literal {
             StructLiteral::NormalLiteral(typ, map, pos) => {
+                let struct_ty;
                 let struct_name = typ.get_type_name();
 
                 if let Some(fields) = typ.get_struct_fields() {
                     let i32_type = self.context.i32_type();
                     let const_zero = i32_type.const_int(0, false);
 
+                    let (struct_type, _index_map) = Self::struct_from_fields(&None, fields, &self.context, pos)?;
+                    struct_ty = struct_type;
                     let mut index = 0;
                     for field in fields {
                         let name = field.get_name().as_ref().unwrap();
@@ -42,16 +45,17 @@ impl<'ctx> CodeGen<'ctx> {
 
                         let const_index = i32_type.const_int(index, false);
                         let indexes = vec![const_zero, const_index];
-                        let (struct_type, _index_map) = Self::struct_from_fields(&None, fields, &self.context, pos)?;
                         let ptr = unsafe { self.builder.build_in_bounds_gep(struct_type, struct_ptr, &indexes, "gep_for_struct_field")? };
                         let _result = self.builder.build_store(ptr, basic_value);
 
                         index += 1;
                     }
+                }else{
+                    let (struct_type, _index_map) =  Self::struct_from_fields(&None, &Vec::new(), &self.context, pos)?;
+                    struct_ty = struct_type;
                 }
 
-                let struct_ptr_ty = TypeUtil::to_basic_type_enum(typ, &self.context, pos)?;
-                let basic_val = self.builder.build_load(struct_ptr_ty, struct_ptr, &format!("load_struct_{}_literal", struct_name))?;
+                let basic_val = self.builder.build_load(struct_ty, struct_ptr, &format!("load_struct_{}_literal", struct_name))?;
                 let any_val = basic_val.as_any_value_enum();
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
@@ -60,7 +64,6 @@ impl<'ctx> CodeGen<'ctx> {
 
                 let mut vec = Vec::new();
                 let struct_ty;
-                let struct_ptr_ty;
                 if let Some(fields) = typ.get_struct_fields() {
                     for field in fields {
                         let name = field.get_name().as_ref().unwrap();
@@ -74,13 +77,12 @@ impl<'ctx> CodeGen<'ctx> {
 
                     let (struct_type, _index_map) = Self::struct_from_fields(&None, fields, &self.context, pos)?;
                     struct_ty = struct_type;
-                    struct_ptr_ty = struct_type.ptr_type(AddressSpace::default());
                 }else{
-                    panic!()
+                    let (struct_type, _index_map) =  Self::struct_from_fields(&None, &Vec::new(), &self.context, pos)?;
+                    struct_ty = struct_type;
                 }
 
-                let basic_val = self.builder.build_load(struct_ptr_ty, struct_ptr, &format!("load_struct_{}_literal", struct_name))?;
-                // let basic_val = self.builder.build_load(struct_ty, struct_ptr, &format!("load_struct_{}_literal", struct_name))?;
+                let basic_val = self.builder.build_load(struct_ty, struct_ptr, &format!("load_struct_{}_literal", struct_name))?;
                 let any_val = basic_val.as_any_value_enum();
 
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
@@ -174,7 +176,7 @@ impl<'ctx> CodeGen<'ctx> {
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
-eprintln!("gen_struct_init");
+
         match init {
             Initializer::Struct(init_value_list, _typ, _pos) => {
                 let target_len = target_fields.len();

@@ -5,7 +5,6 @@ extern crate code_gen;
 mod common;
 
 use common::*;
-use std::path::Path;
 
 #[test]
 fn code_gen_if_let() {
