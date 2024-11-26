@@ -27,7 +27,6 @@ impl<'ctx> CodeGen<'ctx> {
     ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
         match struct_literal {
             StructLiteral::NormalLiteral(typ, map, pos) => {
-panic!("normal literal");
                 let struct_name = typ.get_type_name();
 
                 if let Some(fields) = typ.get_struct_fields() {
@@ -44,8 +43,7 @@ panic!("normal literal");
                         let const_index = i32_type.const_int(index, false);
                         let indexes = vec![const_zero, const_index];
                         let (struct_type, _index_map) = Self::struct_from_fields(&None, fields, &self.context, pos)?;
-                        let struct_ptr_ty = struct_type.ptr_type(AddressSpace::default());
-                        let ptr = unsafe { self.builder.build_in_bounds_gep(struct_ptr_ty, struct_ptr, &indexes, "gep_for_struct_field")? };
+                        let ptr = unsafe { self.builder.build_in_bounds_gep(struct_type, struct_ptr, &indexes, "gep_for_struct_field")? };
                         let _result = self.builder.build_store(ptr, basic_value);
 
                         index += 1;
@@ -58,7 +56,6 @@ panic!("normal literal");
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
             StructLiteral::ConstLiteral(typ, const_map, pos) => {
-panic!("const struct literal");
                 let struct_name = typ.get_type_name();
 
                 let mut vec = Vec::new();
@@ -177,7 +174,7 @@ panic!("const struct literal");
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
-
+eprintln!("gen_struct_init");
         match init {
             Initializer::Struct(init_value_list, _typ, _pos) => {
                 let target_len = target_fields.len();
@@ -281,8 +278,7 @@ panic!("const struct literal");
                                         let indexes = vec![const_zero, const_index];
 
                                         let (struct_type, _index_map) = Self::struct_from_fields(&None, fields, &self.context, pos2)?;
-                                        let struct_ptr_ty = struct_type.ptr_type(AddressSpace::default());
-                                        let ptr = unsafe { self.builder.build_in_bounds_gep(struct_ptr_ty, target_struct_ptr, &indexes, "gep_for_struct_field")? };
+                                        let ptr = unsafe { self.builder.build_in_bounds_gep(struct_type, target_struct_ptr, &indexes, "gep_for_struct_field")? };
                                         let _result = self.builder.build_store(ptr, basic_value);
         
                                         index += 1;
