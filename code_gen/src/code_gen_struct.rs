@@ -27,6 +27,7 @@ impl<'ctx> CodeGen<'ctx> {
     ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
         match struct_literal {
             StructLiteral::NormalLiteral(typ, map, pos) => {
+panic!("normal literal");
                 let struct_name = typ.get_type_name();
 
                 if let Some(fields) = typ.get_struct_fields() {
@@ -57,9 +58,11 @@ impl<'ctx> CodeGen<'ctx> {
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
             StructLiteral::ConstLiteral(typ, const_map, pos) => {
+panic!("const struct literal");
                 let struct_name = typ.get_type_name();
 
                 let mut vec = Vec::new();
+                let struct_ty;
                 let struct_ptr_ty;
                 if let Some(fields) = typ.get_struct_fields() {
                     for field in fields {
@@ -73,13 +76,16 @@ impl<'ctx> CodeGen<'ctx> {
                     let _result = self.builder.build_store(struct_ptr, values.as_basic_value_enum());
 
                     let (struct_type, _index_map) = Self::struct_from_fields(&None, fields, &self.context, pos)?;
+                    struct_ty = struct_type;
                     struct_ptr_ty = struct_type.ptr_type(AddressSpace::default());
                 }else{
                     panic!()
                 }
 
                 let basic_val = self.builder.build_load(struct_ptr_ty, struct_ptr, &format!("load_struct_{}_literal", struct_name))?;
+                // let basic_val = self.builder.build_load(struct_ty, struct_ptr, &format!("load_struct_{}_literal", struct_name))?;
                 let any_val = basic_val.as_any_value_enum();
+
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
         }        

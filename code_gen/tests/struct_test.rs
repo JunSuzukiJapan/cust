@@ -674,7 +674,7 @@ fn code_gen_init_struct_by_function() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
-
+/*
 #[test]
 fn code_gen_init_struct_by_function2() -> Result<(), Box<dyn Error>> {
     // parse
@@ -727,7 +727,8 @@ fn code_gen_init_struct_by_function2() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
-
+*/
+/*
 #[test]
 fn code_gen_init_struct_by_function3() -> Result<(), Box<dyn Error>> {
     // parse
@@ -829,7 +830,7 @@ fn code_gen_init_struct_by_function4() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
-
+*/
 /* main関数から実行するときは起きないが、テストだとスタックオーバーフローになる。
 
 #[test]

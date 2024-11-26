@@ -185,9 +185,6 @@ impl<'ctx> CodeGen<'ctx> {
                     let (left, right) = self.bin_expr_implicit_cast(n, value.clone(), pos)?;
                     let left_value = left.get_value();
                     let right_value = right.get_value();
-println!("int match");
-println!("left_value: {:?}", left_value.into_int_value());
-println!("right_value: {:?}", right_value.into_int_value());
                     let comparison = self.builder.build_int_compare(IntPredicate::EQ, left_value.into_int_value(), right_value.into_int_value(), "match_compare_number")?;
                     self.builder.build_conditional_branch(comparison, then_block, next_block)?;
 

@@ -329,7 +329,6 @@ impl TypeUtil {
                 }
             },
             ExprAST::MemberAccess(boxed_ast, field_name, pos) => {  // some_var.field
-println!("MemberAccess");
                 let ast = &*boxed_ast;
                 let typ = TypeUtil::get_type(ast, env)?;
                 match typ.as_ref() {
@@ -341,16 +340,17 @@ println!("MemberAccess");
                         let t = fields.get_type(&field_name).ok_or(CodeGenError::type_has_not_member(&field_name, pos.clone()))?;
                         Ok(t.clone())
                     },
-                    _ => return Err(CodeGenError::type_has_not_member(&format!("{:?}", &typ), pos.clone())),
+                    _ => {
+                        return Err(CodeGenError::type_has_not_member(&format!("{:?}", &typ), pos.clone()));
+                    },
                 }
             },
             ExprAST::PointerAccess(boxed_ast, field_name, pos) => {  // some_var->field
-println!("PointerAccess");
-println!("  ast: {:?}", &**boxed_ast);
-println!("  field_name: {field_name}");
                 let ast = &*boxed_ast;
                 let typ = TypeUtil::get_type(ast, env)?;
-                match typ.as_ref() {
+                let pointed_type = typ.get_pointed_type(pos)?;
+
+                match pointed_type {
                     Type::Struct { name: _, fields } => {
                         let t = fields.get_type(&field_name).ok_or(CodeGenError::type_has_not_member(&field_name, pos.clone()))?;
                         Ok(t.clone())
@@ -359,7 +359,9 @@ println!("  field_name: {field_name}");
                         let t = fields.get_type(&field_name).ok_or(CodeGenError::type_has_not_member(&field_name, pos.clone()))?;
                         Ok(t.clone())
                     },
-                    _ => return Err(CodeGenError::type_has_not_member(&format!("{:?}", &typ), pos.clone())),
+                    _ => {
+                        return Err(CodeGenError::type_has_not_member(&format!("{:?}", &typ), pos.clone()));
+                    },
                 }
             },
             ExprAST::TernaryOperator(_, e1, _, _pos) => {

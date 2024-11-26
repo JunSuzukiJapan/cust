@@ -306,13 +306,9 @@ impl<'ctx> CodeGen<'ctx> {
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
             ExprAST::PointerAccess(_boxed_ast, field_name, pos) => {
-println!("PointerAccess");
                 let (typ, ptr) = self.get_l_value(expr_ast, env, break_catcher, continue_catcher)?;
-println!("  typ: {typ:?}");
-println!("  ptr: {ptr:?}");
                 let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&typ, &self.context, pos)?, ptr, &format!("pointer_access_to_field_{}", field_name))?;
                 let any_val = basic_val.as_any_value_enum();
-println!("--end PointerAccess");
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
             ExprAST::ArrayAccess(_boxed_ast, _index, pos) => {
@@ -1314,10 +1310,9 @@ println!("--end PointerAccess");
                     let index_val = value.get_value().into_int_value();
                     vec.push(index_val);
                 }
-println!("here. vec: {vec:?}");
-println!("expr_type: {expr_type:?}");
+
                 ptr = unsafe { ptr.const_in_bounds_gep(TypeUtil::to_basic_type_enum(&expr_type, &self.context, pos)?, &vec) };
-println!("end");
+
                 Ok((result_type, ptr))
             },
             ExprAST::_self(pos) => {

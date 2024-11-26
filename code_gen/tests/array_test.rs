@@ -61,13 +61,6 @@ fn code_gen_array() -> Result<(), CodeGenError> {
                 }
             }
 
-            printf(\"ary[0][0] = %d\\n\", ary[0][0]);
-            printf(\"ary[0][1] = %d\\n\", ary[0][1]);
-            printf(\"ary[0][2] = %d\\n\", ary[0][2]);
-            printf(\"ary[1][0] = %d\\n\", ary[1][0]);
-            printf(\"ary[1][1] = %d\\n\", ary[1][1]);
-            printf(\"ary[1][2] = %d\\n\", ary[1][2]);
-
             int sum = 0;
             for(int i = 0; i < 2; i++){
                 for(int j = 0; j < 3; j++){
