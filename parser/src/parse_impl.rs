@@ -1,6 +1,6 @@
-use super::{Position, Token};
+use super::{Position, Token, Initializer};
 use super::ParserError;
-use super::ast::{ToplevelAST, DeclarationSpecifier, Declarator, DirectDeclarator, Initializer};
+use super::ast::{ToplevelAST, DeclarationSpecifier, Declarator, DirectDeclarator};
 use super::ast::{Declaration, ImplElement};
 use super::types::*;
 use super::defines::*;

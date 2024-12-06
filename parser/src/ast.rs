@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::{ParserError, Pattern};
+use crate::{ParserError, Pattern, Initializer};
 use super::{Type, Pointer, ConstExpr, Defines, StructDefinition, EnumDefinition};
 use tokenizer::{Token, Position};
 
@@ -703,23 +703,6 @@ impl Switch {
             Some(&*stmt)
         }else{
             None
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum Initializer {
-    Simple(ExprAST, Position),
-    Array(Vec<Box<Initializer>>, Rc<Type>, Position),
-    Struct(Vec<Box<Initializer>>, Rc<Type>, Position),
-}
-
-impl Initializer {
-    pub fn get_position(&self) -> &Position {
-        match self {
-            Self::Array(_, _type, pos) => pos,
-            Self::Struct(_, _type,  pos) => pos,
-            Self::Simple(_, pos) => pos,
         }
     }
 }

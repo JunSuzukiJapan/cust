@@ -2,13 +2,14 @@
 
 use super::{Position, Token};
 use super::ParserError;
-use super::ast::{AST, ToplevelAST, ExprAST, Param, Params, BinOp, TypeQualifier, DeclarationSpecifier, SpecifierQualifier, Declarator, DirectDeclarator, Initializer};
+use super::ast::{AST, ToplevelAST, ExprAST, Param, Params, BinOp, TypeQualifier, DeclarationSpecifier, SpecifierQualifier, Declarator, DirectDeclarator};
 use super::ast::{DeclarationSpecifierOrVariadic, Declaration, StructDeclaration, StructDeclarator, AbstractDeclarator, DirectAbstractDeclarator};
 use super::ast::{StructLiteral, EnumLiteral};
 use super::ConstExpr;
 use super::types::*;
 use super::defines::*;
 use super::{CustSelf, Function, FunProto};
+use crate::{Initializer};
 
 use std::slice::Iter;
 use std::iter::Peekable;

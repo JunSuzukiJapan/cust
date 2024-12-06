@@ -1,4 +1,4 @@
-use crate::ast::Initializer;
+use crate::Initializer;
 use crate::types::GenericType;
 
 use super::{ParserError, Type, ConstExpr, DeclarationSpecifier, Declarator, Params};
