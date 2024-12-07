@@ -6,6 +6,7 @@ use std::rc::Rc;
 use crate::{ParserError, Pattern, Initializer};
 use super::{Type, Pointer, ConstExpr, Defines, StructDefinition, EnumDefinition};
 use tokenizer::{Token, Position};
+use super::initializer::ConstInitializer;
 
 #[derive(Debug, Clone)]
 pub struct DefVar {

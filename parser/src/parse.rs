@@ -9,6 +9,7 @@ use super::ConstExpr;
 use super::types::*;
 use super::defines::*;
 use super::{CustSelf, Function, FunProto};
+use crate::initializer::ConstInitializer;
 use crate::{Initializer};
 
 use std::slice::Iter;
@@ -3014,13 +3015,18 @@ println!("TupleTypeStart");
         if *tok != Token::BraceLeft { return Err(ParserError::not_l_brace_parsing_array_initializer(tok.clone(), pos.clone())) }
 
         let dim_len = dimension.len();
-        let mut list: Vec<Box<Initializer>> = Vec::new();
+        let mut list: Vec<Box<ConstInitializer>> = Vec::new();
         loop {
-            let initializer;
+            let initializer: ConstInitializer;
             if index < dim_len - 1 {
-                initializer = self.parse_array_initializer(item_type, dimension, index + 1, iter, defs, labels)?;
+                initializer = self.parse_array_initializer(item_type, dimension, index + 1, iter, defs, labels)?.try_to_const_initializer().ok_or(ParserError::not_const_in_array_initializer(pos.clone()))?;
             }else{
-                initializer = self.parse_initializer(item_type, iter, defs, labels)?;
+                let opt_init = self.parse_initializer(item_type, iter, defs, labels)?;
+                if let Some(init) = ConstInitializer::try_from_initializer(&opt_init) {
+                    initializer = init;
+                }else{
+                    return Err(ParserError::not_const_in_array_initializer(pos.clone()));
+                }
             }
 
             list.push(Box::new(initializer));

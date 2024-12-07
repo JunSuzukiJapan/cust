@@ -2,7 +2,7 @@
 
 use crate::global::global;
 use crate::parser::{AST, ToplevelAST, Type, Pointer, Block, Params, NumberType, Function, FunProto, FunOrProt};
-use crate::parser::{Declaration, DeclarationSpecifier, CustFunctionType, Initializer, ImplElement, SpecifierQualifier};
+use crate::parser::{Declaration, DeclarationSpecifier, CustFunctionType, Initializer, ConstInitializer, ImplElement, SpecifierQualifier};
 use crate::env::Class;
 use super::{CompiledValue, CodeGenError};
 use super::Env;
@@ -175,11 +175,10 @@ impl<'ctx> CodeGen<'ctx> {
                             self.gen_array_init(&size_list, ptr, typ, &*const_expr, env, break_catcher, continue_catcher)?;
                         },
                         _ => {
-                            let compiled_value = self.gen_const_expr(&*const_expr, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(const_expr.get_position().clone()))?;
-                            let mut init_value = compiled_value.get_value();
-                            let init_type = compiled_value.get_type();
+                            let mut init_value = self.gen_initializer(&*const_expr, env, break_catcher, continue_catcher)?;
+                            let init_type = TypeUtil::get_initializer_type(const_expr, env)?;
 
-                            if typ != *init_type {
+                            if *typ != *init_type {
                                 init_value = self.gen_implicit_cast(&init_value, &init_type, &typ, (*const_expr).get_position())?;
                             }
 
@@ -226,7 +225,7 @@ impl<'ctx> CodeGen<'ctx> {
     pub fn make_array_init_value<'b, 'c>(&self,
         _size_list: &Vec<usize>,
         target_type: &Type,
-        init_value_list: &Vec<Box<Initializer>>,
+        init_value_list: &Vec<Box<ConstInitializer>>,
         env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
@@ -239,13 +238,13 @@ impl<'ctx> CodeGen<'ctx> {
         //
         let mut vec = Vec::new();
         for i in 0..init_len {
-            let init_value = &init_value_list[i];
-            let init_type = TypeUtil::get_initializer_type(init_value, env)?;
+            let init_value = &*init_value_list[i];
+            let init_type = TypeUtil::get_initializer_type_of_const_initializer(init_value, env)?;
             if target_type != init_type.as_ref() {
                 return Err(Box::new(CodeGenError::mismatch_initializer_type(target_type, &init_type, init_value.get_position().clone())));
             }
 
-            let any_val = self.gen_initializer(init_value, env, break_catcher, continue_catcher)?;
+            let any_val = self.gen_const_initializer(init_value, env, break_catcher, continue_catcher)?;
             let value = self.try_as_basic_value(&any_val, init_value.get_position())?;
 
             vec.push(value);
@@ -384,6 +383,26 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(values)
     }
 
+    pub fn gen_const_expr<'b, 'c>(&self,
+        expr: &ConstExpr,
+        env: &mut Env<'ctx>,
+        break_catcher: Option<&'b BreakCatcher>,
+        continue_catcher: Option<&'c ContinueCatcher>
+    ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
+
+        match expr {
+
+
+
+
+
+
+
+
+            _ => unimplemented!()
+        }
+    }
+
     pub fn gen_initializer<'b, 'c>(&self,
         init: &Initializer,
         env: &mut Env<'ctx>,
@@ -401,7 +420,7 @@ impl<'ctx> CodeGen<'ctx> {
             Initializer::Array(vec_init, _typ, _pos) => {
                 let mut list = Vec::new();
                 for init_value in vec_init {
-                    let compiled_val = self.gen_initializer(init_value, env, break_catcher, continue_catcher)?;
+                    let compiled_val = self.gen_const_initializer(init_value, env, break_catcher, continue_catcher)?;
                     let value = self.try_as_basic_value(&compiled_val, init_value.get_position())?;
 
                     list.push(value);
@@ -415,6 +434,49 @@ impl<'ctx> CodeGen<'ctx> {
                 let mut list = Vec::new();
                 for init_value in vec_init {
                     let compiled_val = self.gen_initializer(init_value, env, break_catcher, continue_catcher)?;
+                    let value = self.try_as_basic_value(&compiled_val, init_value.get_position())?;
+
+                    list.push(value);
+                }
+
+                let values = self.context.const_struct(&list, false);
+                let any_val = values.as_any_value_enum();
+                Ok(any_val)
+            }
+        }
+    }
+
+    pub fn gen_const_initializer<'b, 'c>(&self,
+        init: &ConstInitializer,
+        env: &mut Env<'ctx>,
+        break_catcher: Option<&'b BreakCatcher>,
+        continue_catcher: Option<&'c ContinueCatcher>
+    ) -> Result<AnyValueEnum<'ctx>, Box<dyn Error>> {
+        match init {
+            ConstInitializer::Simple(expr, pos) => {
+                if let Some(v) = self.gen_const_expr(expr, env, break_catcher, continue_catcher)? {
+                    Ok(v.get_value())
+                }else{
+                    Err(Box::new(CodeGenError::initializer_is_none(pos.clone())))
+                }
+            },
+            ConstInitializer::Array(vec_init, _typ, _pos) => {
+                let mut list = Vec::new();
+                for init_value in vec_init {
+                    let compiled_val = self.gen_const_initializer(init_value, env, break_catcher, continue_catcher)?;
+                    let value = self.try_as_basic_value(&compiled_val, init_value.get_position())?;
+
+                    list.push(value);
+                }
+
+                let values = self.context.const_struct(&list, false);
+                let any_val = values.as_any_value_enum();
+                Ok(any_val)
+            },
+            ConstInitializer::Struct(vec_init, _typ, _pos) => {
+                let mut list = Vec::new();
+                for init_value in vec_init {
+                    let compiled_val = self.gen_const_initializer(init_value, env, break_catcher, continue_catcher)?;
                     let value = self.try_as_basic_value(&compiled_val, init_value.get_position())?;
 
                     list.push(value);
@@ -746,8 +808,8 @@ impl<'ctx> CodeGen<'ctx> {
                             self.gen_global_array_init(&size_list, ptr, &*typ, &*initializer, env, break_catcher, continue_catcher)?;
                         },
                         _ => {
-                            let init = self.gen_const_expr(initializer, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(pos.clone()))?;
-                            let basic_value = self.try_as_basic_value(&init.get_value(), initializer.get_position())?;
+                            let init = self.gen_initializer(initializer, env, break_catcher, continue_catcher)?;
+                            let basic_value = self.try_as_basic_value(&init, initializer.get_position())?;
     
                             ptr.set_initializer(&basic_value);
                         }
@@ -792,8 +854,8 @@ impl<'ctx> CodeGen<'ctx> {
                         self.gen_global_tuple_init(&type_list, ptr, &*initializer, env, break_catcher, continue_catcher)?;
                     },
                     _ => {
-                        let init = self.gen_const_expr(initializer, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(pos.clone()))?;
-                        let basic_value = self.try_as_basic_value(&init.get_value(), initializer.get_position())?;
+                        let init = self.gen_initializer(initializer, env, break_catcher, continue_catcher)?;
+                        let basic_value = self.try_as_basic_value(&init, initializer.get_position())?;
 
                         ptr.set_initializer(&basic_value);
                     }

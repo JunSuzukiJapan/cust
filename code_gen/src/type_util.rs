@@ -3,12 +3,11 @@ use crate::parser::{Type, NumberType, Pointer, BinOp, Position};
 use crate::Env;
 use inkwell::context::Context;
 use std::error::Error;
-use std::f32::consts::E;
 use std::rc::Rc;
 use inkwell::types::{BasicTypeEnum, AnyTypeEnum, BasicType, BasicMetadataTypeEnum, IntType, PointerType};
 use inkwell::AddressSpace;
 use inkwell::types::AnyType;
-use parser::{ExprAST, Initializer};
+use parser::{ExprAST, Initializer, ConstInitializer};
 use super::{CodeGen, CodeGenError};
 
 pub struct TypeUtil;
@@ -447,4 +446,11 @@ impl TypeUtil {
         }
     }
 
+    pub fn get_initializer_type_of_const_initializer(init: &ConstInitializer, env: &Env) -> Result<Rc<Type>, CodeGenError> {
+        match init {
+            ConstInitializer::Simple(expr, _pos) => Ok(Rc::new(expr.get_type())),
+            ConstInitializer::Array(_init, typ, _pos) => Ok(typ.clone()),
+            ConstInitializer::Struct(_init, typ, _pos) => Ok(typ.clone()),
+        }
+    }
 }

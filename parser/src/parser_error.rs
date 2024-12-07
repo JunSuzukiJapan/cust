@@ -82,6 +82,7 @@ pub enum ParserError {
     NotStructTypeEnum(String, String, Position),
     NotPattern(Position),
     LeftGreaterThanRightInCharRange(char, char, Position),
+    NotConstInArrayInitializer(Position),
 }
 
 impl ParserError {
@@ -355,6 +356,10 @@ impl ParserError {
     pub fn left_greater_than_right_in_char_range(ch1: char, ch2: char, pos: Position) -> Self {
         ParserError::LeftGreaterThanRightInCharRange(ch1, ch2, pos)
     }
+
+    pub fn not_const_in_array_initializer(pos: Position) -> Self {
+        ParserError::NotConstInArrayInitializer(pos)
+    }
 }
 
 impl From<TokenizerError> for ParserError {
@@ -442,6 +447,7 @@ impl fmt::Display for ParserError {
             Self::NotStructTypeEnum(enum_name, elem_name, _pos) => write!(f, "{enum_name}::{elem_name} is not struct type"),
             Self::NotPattern(_pos) => write!(f, "not pattern"),
             Self::LeftGreaterThanRightInCharRange(ch1, ch2, _pos) => write!(f, "'{ch1}' greater than '{ch2}' in char range"),
+            Self::NotConstInArrayInitializer(_pos) => write!(f, "not const expr in array initializer"),
         }
     }
 }

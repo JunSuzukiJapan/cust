@@ -118,8 +118,8 @@ impl<'ctx> CodeGen<'ctx> {
                     return Err(Box::new(CodeGenError::mismatch_initializer_type(field_type, &init_type, init_value.get_position().clone())));
                 }
 
-                let compiled_val = self.gen_const_expr(init_value, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::mismatch_initializer_type(field_type, &init_type, init_value.get_position().clone()))?;
-                let value = self.try_as_basic_value(&compiled_val.get_value(), init_value.get_position())?;
+                let compiled_val = self.gen_initializer(init_value, env, break_catcher, continue_catcher)?;
+                let value = self.try_as_basic_value(&compiled_val, init_value.get_position())?;
                 vec.push(value);
 
             }else{  // zero clear

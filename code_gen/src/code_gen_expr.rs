@@ -608,30 +608,6 @@ impl<'ctx> CodeGen<'ctx> {
         }
     }
 
-    pub fn gen_const_expr<'b, 'c>(&self,
-        init: &Initializer,
-        env: &mut Env<'ctx>,
-        break_catcher: Option<&'b BreakCatcher>,
-        continue_catcher: Option<&'c ContinueCatcher>
-    ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
-
-        match init {
-            Initializer::Simple(expr, _pos) => self.gen_expr(expr, env, break_catcher, continue_catcher),
-            Initializer::Array(_list, typ, _pos) => {  // maybe not reached
-                // let any_value = self.gen_initializer(init, env, break_catcher, continue_catcher)?;
-                // let compiled_value = CompiledValue::new(Rc::clone(typ), any_value);
-                // Ok(Some(compiled_value))
-                panic!("This process should be done in a function gen_def_var")
-            },
-            Initializer::Struct(_list, typ, _pos) => {  // maybe not reached
-                // let any_value = self.gen_initializer(init, env, break_catcher, continue_catcher)?;
-                // let compiled_value = CompiledValue::new(Rc::clone(typ), any_value);
-                // Ok(Some(compiled_value))
-                panic!("This process should be done in a function gen_def_var")
-            }
-        }
-    }
-
     fn gen_bin_expr<'b, 'c>(&self,
         op: &BinOp,
         left_arg: &ExprAST,

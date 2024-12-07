@@ -1,5 +1,7 @@
 use std::ops::{Add, Sub, Mul, Div, Rem, Not, Neg, Shl, Shr, BitAnd, BitOr, BitXor};
 use std::cmp::Ordering;
+use crate::{ExprAST, NumberType, Type};
+
 use super::{ParserError, Position};
 
 #[derive(Debug, Clone)]
@@ -19,6 +21,16 @@ impl ConstExpr {
             ConstExpr::LongLong(_, pos) => pos,
             ConstExpr::ULongLong(_, pos) => pos,
             ConstExpr::Double(_, pos) => pos,
+        }
+    }
+
+    pub fn get_type(&self) -> Type {
+        match self {
+            ConstExpr::Int(_, _) => Type::Number(NumberType::Int),
+            ConstExpr::Unsigned(_, _) => Type::Number(NumberType::UnsignedInt),
+            ConstExpr::LongLong(_, _) => Type::Number(NumberType::LongLong),
+            ConstExpr::ULongLong(_, _) => Type::Number(NumberType::UnsignedLongLong),
+            ConstExpr::Double(_, _) => Type::Number(NumberType::Double),
         }
     }
 
@@ -78,6 +90,16 @@ impl ConstExpr {
             Self::Int(0, _) | Self::Unsigned(0, _) | Self::LongLong(0, _) | Self::ULongLong(0, _) => true,
             // Self::Double(num) => num == 0.0,
             _ => false,
+        }
+    }
+
+    pub fn try_from_expr(expr: &ExprAST) -> Option<Self> {
+        match expr {
+
+
+
+
+            _ => unimplemented!()
         }
     }
 }
