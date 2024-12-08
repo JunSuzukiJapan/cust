@@ -3019,10 +3019,10 @@ println!("TupleTypeStart");
         loop {
             let initializer: ConstInitializer;
             if index < dim_len - 1 {
-                initializer = self.parse_array_initializer(item_type, dimension, index + 1, iter, defs, labels)?.try_to_const_initializer().ok_or(ParserError::not_const_in_array_initializer(pos.clone()))?;
+                initializer = self.parse_array_initializer(item_type, dimension, index + 1, iter, defs, labels)?.try_to_const_initializer(defs).ok_or(ParserError::not_const_in_array_initializer(pos.clone()))?;
             }else{
                 let opt_init = self.parse_initializer(item_type, iter, defs, labels)?;
-                if let Some(init) = ConstInitializer::try_from_initializer(&opt_init) {
+                if let Some(init) = ConstInitializer::try_from_initializer(&opt_init, defs) {
                     initializer = init;
                 }else{
                     return Err(ParserError::not_const_in_array_initializer(pos.clone()));

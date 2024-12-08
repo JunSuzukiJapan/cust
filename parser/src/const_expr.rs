@@ -92,16 +92,6 @@ impl ConstExpr {
             _ => false,
         }
     }
-
-    pub fn try_from_expr(expr: &ExprAST) -> Option<Self> {
-        match expr {
-
-
-
-
-            _ => unimplemented!()
-        }
-    }
 }
 
 macro_rules! op_expand {

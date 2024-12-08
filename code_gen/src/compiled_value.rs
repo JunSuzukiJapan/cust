@@ -9,10 +9,10 @@ pub struct CompiledValue<'ctx> {
 }
 
 impl<'ctx> CompiledValue<'ctx> {
-    pub fn new(opt_type: Rc<Type>, opt_any_value: AnyValueEnum<'ctx>) -> CompiledValue<'ctx> {
+    pub fn new(typ: Rc<Type>, any_value: AnyValueEnum<'ctx>) -> CompiledValue<'ctx> {
         CompiledValue {
-            typ: opt_type,
-            any_value: opt_any_value,
+            typ: typ,
+            any_value: any_value,
         }
     }
 

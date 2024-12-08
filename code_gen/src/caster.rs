@@ -18,6 +18,7 @@ impl Caster {
             //
             // same types
             //
+            (Type::Number(NumberType::_Bool), Type::Number(NumberType::_Bool)) |
             (Type::Number(NumberType::Char), Type::Number(NumberType::Char)) |
             (Type::Number(NumberType::Short), Type::Number(NumberType::Short)) |
             (Type::Number(NumberType::Int), Type::Number(NumberType::Int)) |
@@ -31,8 +32,71 @@ impl Caster {
             (Type::Number(NumberType::Float), Type::Number(NumberType::Float)) |
             (Type::Number(NumberType::Double), Type::Number(NumberType::Double)) => Ok(*value),
             //
+            // from bool
+            //
+            (Type::Number(NumberType::_Bool), Type::Number(NumberType::Short)) => {
+                let i16_type = ctx.i16_type();
+                let result = builder.build_int_cast_sign_flag(value.into_int_value(), i16_type, true, "cast_from_bool_to_short")?;
+                Ok(result.as_any_value_enum())
+            },
+            (Type::Number(NumberType::_Bool), Type::Number(NumberType::Int)) => {
+                let i32_type = ctx.i32_type();
+                let result = builder.build_int_cast_sign_flag(value.into_int_value(), i32_type, true, "cast_from_bool_to_int")?;
+                Ok(result.as_any_value_enum())
+            },
+            (Type::Number(NumberType::_Bool), Type::Number(NumberType::Long)) => {
+                let i32_type = ctx.i32_type();
+                let result = builder.build_int_cast_sign_flag(value.into_int_value(), i32_type, true, "cast_from_bool_to_long")?;
+                Ok(result.as_any_value_enum())
+            },
+            (Type::Number(NumberType::_Bool), Type::Number(NumberType::LongLong)) => {
+                let i64_type = ctx.i64_type();
+                let result = builder.build_int_cast_sign_flag(value.into_int_value(), i64_type, true, "cast_from_bool_to_longlong")?;
+                Ok(result.as_any_value_enum())
+            },
+            (Type::Number(NumberType::_Bool), Type::Number(NumberType::UnsignedChar)) => {
+                let i8_type = ctx.i8_type();
+                let result = builder.build_int_cast_sign_flag(value.into_int_value(), i8_type, false, "cast_from_bool_to_unsigned_char")?;
+                Ok(result.as_any_value_enum())
+            },
+            (Type::Number(NumberType::_Bool), Type::Number(NumberType::UnsignedShort)) => {
+                let i16_type = ctx.i16_type();
+                let result = builder.build_int_cast_sign_flag(value.into_int_value(), i16_type, false, "cast_from_bool_to_unsigned_short")?;
+                Ok(result.as_any_value_enum())
+            },
+            (Type::Number(NumberType::_Bool), Type::Number(NumberType::UnsignedInt)) => {
+                let i32_type = ctx.i32_type();
+                let result = builder.build_int_cast_sign_flag(value.into_int_value(), i32_type, false, "cast_from_bool_to_unsigned_int")?;
+                Ok(result.as_any_value_enum())
+            },
+            (Type::Number(NumberType::_Bool), Type::Number(NumberType::UnsignedLong)) => {
+                let i32_type = ctx.i32_type();
+                let result = builder.build_int_cast_sign_flag(value.into_int_value(), i32_type, false, "cast_from_bool_to_unsigned_long")?;
+                Ok(result.as_any_value_enum())
+            },
+            (Type::Number(NumberType::_Bool), Type::Number(NumberType::UnsignedLongLong)) => {
+                let i64_type = ctx.i64_type();
+                let result = builder.build_int_cast_sign_flag(value.into_int_value(), i64_type, false, "cast_from_bool_to_unsigned_longlong")?;
+                Ok(result.as_any_value_enum())
+            },
+            (Type::Number(NumberType::_Bool), Type::Number(NumberType::Float)) => {
+                let f32_type = ctx.f32_type();
+                let result = builder.build_signed_int_to_float(value.into_int_value(), f32_type, "cast bool to float")?;
+                Ok(result.as_any_value_enum())
+            },
+            (Type::Number(NumberType::_Bool), Type::Number(NumberType::Double)) => {
+                let f64_type = ctx.f64_type();
+                let result = builder.build_unsigned_int_to_float(value.into_int_value(), f64_type, "cast bool to double")?;
+                Ok(result.as_any_value_enum())
+            },
+            //
             // from char
             //
+            (Type::Number(NumberType::Char), Type::Number(NumberType::_Bool)) => {
+                let bool_type = ctx.bool_type();
+                let result = builder.build_int_cast_sign_flag(value.into_int_value(), bool_type, true, "cast_from_char_to_bool")?;
+                Ok(result.as_any_value_enum())
+            },
             (Type::Number(NumberType::Char), Type::Number(NumberType::Short)) => {
                 let i16_type = ctx.i16_type();
                 let result = builder.build_int_cast_sign_flag(value.into_int_value(), i16_type, true, "cast_from_char_to_short")?;
@@ -93,6 +157,11 @@ impl Caster {
             //
             // from short
             //
+            (Type::Number(NumberType::Short), Type::Number(NumberType::_Bool)) => {
+                let bool_type = ctx.bool_type();
+                let result = builder.build_int_cast_sign_flag(value.into_int_value(), bool_type, true, "cast_from_short_to_bool")?;
+                Ok(result.as_any_value_enum())
+            },
             (Type::Number(NumberType::Short), Type::Number(NumberType::Char)) => {
                 let i8_type = ctx.i8_type();
                 let result = builder.build_int_cast_sign_flag(value.into_int_value(), i8_type, true, "cast_from_short_to_char")?;
@@ -153,6 +222,11 @@ impl Caster {
             //
             // from int
             //
+            (Type::Number(NumberType::Int), Type::Number(NumberType::_Bool)) => {
+                let bool_type = ctx.bool_type();
+                let result = builder.build_int_cast_sign_flag(value.into_int_value(), bool_type, true, "cast_from_int_to_bool")?;
+                Ok(result.as_any_value_enum())
+            },
             (Type::Number(NumberType::Int), Type::Number(NumberType::Char)) => {
                 let i8_type = ctx.i8_type();
                 let result = builder.build_int_cast_sign_flag(value.into_int_value(), i8_type, true, "cast_from_int_to_char")?;
@@ -213,6 +287,11 @@ impl Caster {
             //
             // from long
             //
+            (Type::Number(NumberType::Long), Type::Number(NumberType::_Bool)) => {
+                let bool_type = ctx.bool_type();
+                let result = builder.build_int_cast_sign_flag(value.into_int_value(), bool_type, true, "cast_from_long_to_bool")?;
+                Ok(result.as_any_value_enum())
+            },
             (Type::Number(NumberType::Long), Type::Number(NumberType::Char)) => {
                 let i8_type = ctx.i8_type();
                 let result = builder.build_int_cast_sign_flag(value.into_int_value(), i8_type, true, "cast_from_long_to_char")?;
@@ -273,6 +352,11 @@ impl Caster {
             //
             // from longlong
             //
+            (Type::Number(NumberType::LongLong), Type::Number(NumberType::_Bool)) => {
+                let bool_type = ctx.bool_type();
+                let result = builder.build_int_cast_sign_flag(value.into_int_value(), bool_type, true, "cast_from_longlong_to_bool")?;
+                Ok(result.as_any_value_enum())
+            },
             (Type::Number(NumberType::LongLong), Type::Number(NumberType::Char)) => {
                 let i8_type = ctx.i8_type();
                 let result = builder.build_int_cast_sign_flag(value.into_int_value(), i8_type, true, "cast_from_longlong_to_char")?;
@@ -333,144 +417,137 @@ impl Caster {
             //
             // from float
             //
+            (Type::Number(NumberType::Float), Type::Number(NumberType::_Bool)) => {
+                let bool_type = ctx.bool_type();
+                let result = builder.build_int_cast_sign_flag(value.into_int_value(), bool_type, true, "cast_from_float_to_bool")?;
+                Ok(result.as_any_value_enum())
+            },
             (Type::Number(NumberType::Float), Type::Number(NumberType::Char)) => {
                 let i8_type = ctx.i8_type();
-                // let result = value.into_float_value().const_to_signed_int(i8_type);
                 let result = builder.build_float_to_signed_int(value.into_float_value(), i8_type, "cast float to char")?;
                 Ok(result.as_any_value_enum())
             },
             (Type::Number(NumberType::Float), Type::Number(NumberType::Short)) => {
                 let i16_type = ctx.i16_type();
-                // let result = value.into_float_value().const_to_signed_int(i16_type);
                 let result = builder.build_float_to_signed_int(value.into_float_value(), i16_type, "cast float to short")?;
                 Ok(result.as_any_value_enum())
             },
             (Type::Number(NumberType::Float), Type::Number(NumberType::Int)) => {
                 let i32_type = ctx.i32_type();
-                // let result = value.into_float_value().const_to_signed_int(i32_type);
                 let result = builder.build_float_to_signed_int(value.into_float_value(), i32_type, "cast float to int")?;
                 Ok(result.as_any_value_enum())
             },
             (Type::Number(NumberType::Float), Type::Number(NumberType::Long)) => {
                 let i32_type = ctx.i32_type();
-                // let result = value.into_float_value().const_to_signed_int(i32_type);
                 let result = builder.build_float_to_signed_int(value.into_float_value(), i32_type, "cast float to long")?;
                 Ok(result.as_any_value_enum())
             },
             (Type::Number(NumberType::Float), Type::Number(NumberType::LongLong)) => {
                 let i64_type = ctx.i64_type();
-                // let result = value.into_float_value().const_to_signed_int(i64_type);
                 let result = builder.build_float_to_signed_int(value.into_float_value(), i64_type, "cast float to longlong")?;
                 Ok(result.as_any_value_enum())
             },
             (Type::Number(NumberType::Float), Type::Number(NumberType::UnsignedChar)) => {
                 let i8_type = ctx.i8_type();
-                // let result = value.into_float_value().const_to_unsigned_int(i8_type);
                 let result = builder.build_float_to_unsigned_int(value.into_float_value(), i8_type, "cast float to uchar")?;
                 Ok(result.as_any_value_enum())
             },
             (Type::Number(NumberType::Float), Type::Number(NumberType::UnsignedShort)) => {
                 let i16_type = ctx.i16_type();
-                // let result = value.into_float_value().const_to_unsigned_int(i16_type);
                 let result = builder.build_float_to_unsigned_int(value.into_float_value(), i16_type, "cast float to ushort")?;
                 Ok(result.as_any_value_enum())
             },
             (Type::Number(NumberType::Float), Type::Number(NumberType::UnsignedInt)) => {
                 let i32_type = ctx.i32_type();
-                // let result = value.into_float_value().const_to_unsigned_int(i32_type);
                 let result = builder.build_float_to_unsigned_int(value.into_float_value(), i32_type, "cast float to uint")?;
                 Ok(result.as_any_value_enum())
             },
             (Type::Number(NumberType::Float), Type::Number(NumberType::UnsignedLong)) => {
                 let i32_type = ctx.i32_type();
-                // let result = value.into_float_value().const_to_unsigned_int(i32_type);
                 let result = builder.build_float_to_unsigned_int(value.into_float_value(), i32_type, "cast float to ulong")?;
                 Ok(result.as_any_value_enum())
             },
             (Type::Number(NumberType::Float), Type::Number(NumberType::UnsignedLongLong)) => {
                 let i64_type = ctx.i64_type();
-                // let result = value.into_float_value().const_to_unsigned_int(i64_type);
                 let result = builder.build_float_to_unsigned_int(value.into_float_value(), i64_type, "cast float to ulonglong")?;
                 Ok(result.as_any_value_enum())
             },
             (Type::Number(NumberType::Float), Type::Number(NumberType::Double)) => {
                 let f64_type = ctx.f64_type();
-                // let result = value.into_float_value().const_cast(f64_type);
                 let result = builder.build_float_cast(value.into_float_value(), f64_type, "cast float to double")?;
                 Ok(result.as_any_value_enum())
             },
             //
             // from double
             //
+            (Type::Number(NumberType::Double), Type::Number(NumberType::_Bool)) => {
+                let bool_type = ctx.bool_type();
+                let result = builder.build_int_cast_sign_flag(value.into_int_value(), bool_type, true, "cast_from_double_to_bool")?;
+                Ok(result.as_any_value_enum())
+            },
             (Type::Number(NumberType::Double), Type::Number(NumberType::Char)) => {
                 let i8_type = ctx.i8_type();
-                // let result = value.into_float_value().const_to_signed_int(i8_type);
                 let result = builder.build_float_to_signed_int(value.into_float_value(), i8_type, "cast double to char")?;
                 Ok(result.as_any_value_enum())
             },
             (Type::Number(NumberType::Double), Type::Number(NumberType::Short)) => {
                 let i16_type = ctx.i16_type();
-                // let result = value.into_float_value().const_to_signed_int(i16_type);
                 let result = builder.build_float_to_signed_int(value.into_float_value(), i16_type, "cast double to short")?;
                 Ok(result.as_any_value_enum())
             },
             (Type::Number(NumberType::Double), Type::Number(NumberType::Int)) => {
                 let i32_type = ctx.i32_type();
-                // let result = value.into_float_value().const_to_signed_int(i32_type);
                 let result = builder.build_float_to_signed_int(value.into_float_value(), i32_type, "cast double to int")?;
                 Ok(result.as_any_value_enum())
             },
             (Type::Number(NumberType::Double), Type::Number(NumberType::Long)) => {
                 let i32_type = ctx.i32_type();
-                // let result = value.into_float_value().const_to_signed_int(i32_type);
                 let result = builder.build_float_to_signed_int(value.into_float_value(), i32_type, "cast double to long")?;
                 Ok(result.as_any_value_enum())
             },
             (Type::Number(NumberType::Double), Type::Number(NumberType::LongLong)) => {
                 let i64_type = ctx.i64_type();
-                // let result = value.into_float_value().const_to_signed_int(i64_type);
                 let result = builder.build_float_to_signed_int(value.into_float_value(), i64_type, "cast double to longlong")?;
                 Ok(result.as_any_value_enum())
             },
             (Type::Number(NumberType::Double), Type::Number(NumberType::UnsignedChar)) => {
                 let i8_type = ctx.i8_type();
-                // let result = value.into_float_value().const_to_unsigned_int(i8_type);
                 let result = builder.build_float_to_unsigned_int(value.into_float_value(), i8_type, "cast double to uchar")?;
                 Ok(result.as_any_value_enum())
             },
             (Type::Number(NumberType::Double), Type::Number(NumberType::UnsignedShort)) => {
                 let i16_type = ctx.i16_type();
-                // let result = value.into_float_value().const_to_unsigned_int(i16_type);
                 let result = builder.build_float_to_unsigned_int(value.into_float_value(), i16_type, "cast double to ushort")?;
                 Ok(result.as_any_value_enum())
             },
             (Type::Number(NumberType::Double), Type::Number(NumberType::UnsignedInt)) => {
                 let i32_type = ctx.i32_type();
-                // let result = value.into_float_value().const_to_unsigned_int(i32_type);
                 let result = builder.build_float_to_unsigned_int(value.into_float_value(), i32_type, "cast double to uint")?;
                 Ok(result.as_any_value_enum())
             },
             (Type::Number(NumberType::Double), Type::Number(NumberType::UnsignedLong)) => {
                 let i32_type = ctx.i32_type();
-                // let result = value.into_float_value().const_to_unsigned_int(i32_type);
                 let result = builder.build_float_to_unsigned_int(value.into_float_value(), i32_type, "cast double to ulong")?;
                 Ok(result.as_any_value_enum())
             },
             (Type::Number(NumberType::Double), Type::Number(NumberType::UnsignedLongLong)) => {
                 let i64_type = ctx.i64_type();
-                // let result = value.into_float_value().const_to_unsigned_int(i64_type);
                 let result = builder.build_float_to_unsigned_int(value.into_float_value(), i64_type, "cast double to ulonglong")?;
                 Ok(result.as_any_value_enum())
             },
             (Type::Number(NumberType::Double), Type::Number(NumberType::Float)) => {
                 let f32_type = ctx.f32_type();
-                // let result = value.into_float_value().const_cast(f32_type);
                 let result = builder.build_float_cast(value.into_float_value(), f32_type, "cast double to float")?;
                 Ok(result.as_any_value_enum())
             },
             //
             // from unsigned char
             //
+            (Type::Number(NumberType::UnsignedChar), Type::Number(NumberType::_Bool)) => {
+                let bool_type = ctx.bool_type();
+                let result = builder.build_int_cast_sign_flag(value.into_int_value(), bool_type, true, "cast_from_unsigned_char_to_bool")?;
+                Ok(result.as_any_value_enum())
+            },
             (Type::Number(NumberType::UnsignedChar), Type::Number(NumberType::Char)) => {
                 let i8_type = ctx.i8_type();
                 let result = builder.build_int_cast_sign_flag(value.into_int_value(), i8_type, true, "cast_from_unsigned_char_to_char")?;
@@ -531,6 +608,11 @@ impl Caster {
             //
             // from unsigned short
             //
+            (Type::Number(NumberType::UnsignedShort), Type::Number(NumberType::_Bool)) => {
+                let bool_type = ctx.bool_type();
+                let result = builder.build_int_cast_sign_flag(value.into_int_value(), bool_type, true, "cast_from_unsigned_short_to_bool")?;
+                Ok(result.as_any_value_enum())
+            },
             (Type::Number(NumberType::UnsignedShort), Type::Number(NumberType::Char)) => {
                 let i8_type = ctx.i8_type();
                 let result = builder.build_int_cast_sign_flag(value.into_int_value(), i8_type, true, "cast_from_unsigned_short_to_char")?;
@@ -591,6 +673,11 @@ impl Caster {
             //
             // from unsigned int
             //
+            (Type::Number(NumberType::UnsignedInt), Type::Number(NumberType::_Bool)) => {
+                let bool_type = ctx.bool_type();
+                let result = builder.build_int_cast_sign_flag(value.into_int_value(), bool_type, true, "cast_from_unsigned_int_to_bool")?;
+                Ok(result.as_any_value_enum())
+            },
             (Type::Number(NumberType::UnsignedInt), Type::Number(NumberType::Char)) => {
                 let i8_type = ctx.i8_type();
                 let result = builder.build_int_cast_sign_flag(value.into_int_value(), i8_type, true, "cast_from_unsigned_int_to_char")?;
@@ -651,6 +738,11 @@ impl Caster {
             //
             // from unsigned long
             //
+            (Type::Number(NumberType::UnsignedLong), Type::Number(NumberType::_Bool)) => {
+                let bool_type = ctx.bool_type();
+                let result = builder.build_int_cast_sign_flag(value.into_int_value(), bool_type, true, "cast_from_unsigned_long_to_bool")?;
+                Ok(result.as_any_value_enum())
+            },
             (Type::Number(NumberType::UnsignedLong), Type::Number(NumberType::Char)) => {
                 let i8_type = ctx.i8_type();
                 let result = builder.build_int_cast_sign_flag(value.into_int_value(), i8_type, true, "cast_from_unsigned_long_to_char")?;
@@ -711,6 +803,11 @@ impl Caster {
             //
             // from unsigned longlong
             //
+            (Type::Number(NumberType::UnsignedLongLong), Type::Number(NumberType::_Bool)) => {
+                let bool_type = ctx.bool_type();
+                let result = builder.build_int_cast_sign_flag(value.into_int_value(), bool_type, true, "cast_from_unsigned_longlong_to_bool")?;
+                Ok(result.as_any_value_enum())
+            },
             (Type::Number(NumberType::UnsignedLongLong), Type::Number(NumberType::Char)) => {
                 let i8_type = ctx.i8_type();
                 let result = builder.build_int_cast_sign_flag(value.into_int_value(), i8_type, true, "cast_from_unsigned_longlong_to_char")?;

@@ -506,7 +506,7 @@ impl<'ctx> CodeGen<'ctx> {
                 let union_name = typ.get_type_name();
 
                 for (_field_name, const_expr) in const_list {
-                    let basic_value = self.const_expr_to_basic_value_enum(const_expr, self.context);
+                    let basic_value = self.const_expr_to_basic_value_enum(const_expr);
                     let _result = self.builder.build_store(union_ptr, basic_value);                        
                 }
 

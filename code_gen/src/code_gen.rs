@@ -11,7 +11,7 @@ use super::caster::Caster;
 use super::type_util::TypeUtil;
 use crate::parser::Declarator;
 use crate::parser::{ConstExpr};
-use crate::Position;
+use crate::{compiled_value, Position};
 
 use inkwell::OptimizationLevel;
 use inkwell::builder::Builder;
@@ -197,7 +197,7 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(())
     }
 
-    pub fn const_expr_to_basic_value_enum(&self, const_expr: &ConstExpr, _context: &Context) -> BasicValueEnum {
+    pub fn const_expr_to_basic_value_enum(&self, const_expr: &ConstExpr) -> BasicValueEnum<'ctx> {
         match const_expr {
             ConstExpr::Int(n, _) => {
                 let i32_type = self.context.i32_type();
@@ -383,14 +383,23 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(values)
     }
 
-    pub fn gen_const_expr<'b, 'c>(&self,
-        expr: &ConstExpr,
-        env: &mut Env<'ctx>,
-        break_catcher: Option<&'b BreakCatcher>,
-        continue_catcher: Option<&'c ContinueCatcher>
-    ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
+    // pub fn gen_const_expr<'b, 'c>(&self,
+    //     expr: &ConstExpr,
+    //     env: &mut Env<'ctx>,
+    //     break_catcher: Option<&'b BreakCatcher>,
+    //     continue_catcher: Option<&'c ContinueCatcher>
+    // ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
 
-        match expr {
+    //     match expr {
+    //         ConstExpr::Int(num, _pos) => {
+    //             let i64_type = self.context.i64_type();
+    //             let i64_value = i64_type.const_int(*num as u64, true);
+    //             let any_value = i64_value.as_any_value_enum();
+    //             let typ = expr.get_type();
+    //             let compiled_value = CompiledValue::new(Rc::new(typ), any_value);
+
+    //             Ok(Some(compiled_value))
+    //         },
 
 
 
@@ -398,10 +407,9 @@ impl<'ctx> CodeGen<'ctx> {
 
 
 
-
-            _ => unimplemented!()
-        }
-    }
+    //         _ => unimplemented!()
+    //     }
+    // }
 
     pub fn gen_initializer<'b, 'c>(&self,
         init: &Initializer,
@@ -453,12 +461,10 @@ impl<'ctx> CodeGen<'ctx> {
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<AnyValueEnum<'ctx>, Box<dyn Error>> {
         match init {
-            ConstInitializer::Simple(expr, pos) => {
-                if let Some(v) = self.gen_const_expr(expr, env, break_catcher, continue_catcher)? {
-                    Ok(v.get_value())
-                }else{
-                    Err(Box::new(CodeGenError::initializer_is_none(pos.clone())))
-                }
+            ConstInitializer::Simple(expr, _pos) => {
+                let basic_value = self.const_expr_to_basic_value_enum(expr);
+                let any_value = basic_value.as_any_value_enum();
+                Ok(any_value)
             },
             ConstInitializer::Array(vec_init, _typ, _pos) => {
                 let mut list = Vec::new();

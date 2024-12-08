@@ -68,7 +68,7 @@ impl<'ctx> CodeGen<'ctx> {
                     for field in fields {
                         let name = field.get_name().as_ref().unwrap();
                         let const_expr = const_map.get(name).unwrap();
-                        let basic_value = self.const_expr_to_basic_value_enum(const_expr, self.context);
+                        let basic_value = self.const_expr_to_basic_value_enum(const_expr);
                         vec.push(basic_value);
                     }
 
@@ -297,7 +297,7 @@ impl<'ctx> CodeGen<'ctx> {
                                     for field in fields {
                                         let name = field.get_name().as_ref().unwrap();
                                         let const_expr = const_map.get(name).unwrap();
-                                        let basic_value = self.const_expr_to_basic_value_enum(const_expr, self.context);
+                                        let basic_value = self.const_expr_to_basic_value_enum(const_expr);
                                         vec.push(basic_value);
                                     }
         
