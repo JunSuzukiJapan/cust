@@ -18,7 +18,7 @@ use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::execution_engine::ExecutionEngine;
 use inkwell::module::Module;
-use inkwell::values::{AnyValue, AnyValueEnum, BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, GlobalValue, PointerValue, StructValue};
+use inkwell::values::{AnyValue, AnyValueEnum, ArrayValue, AsValueRef, BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, GlobalValue, PointerValue, StructValue};
 use inkwell::types::{AnyTypeEnum, BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FunctionType, IntType};
 use inkwell::AddressSpace;
 use parser::ExprAST;
@@ -222,21 +222,23 @@ impl<'ctx> CodeGen<'ctx> {
         }
     }
 
-    pub fn make_array_init_value<'b, 'c>(&self,
-        _size_list: &Vec<usize>,
+    fn make_array_init_value<'b, 'c>(&self,
+        size_list: &Vec<u32>,
         target_type: &Type,
         init_value_list: &Vec<Box<ConstInitializer>>,
         env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
-        continue_catcher: Option<&'c ContinueCatcher>
-    ) -> Result<StructValue<'ctx>, Box<dyn Error>> {
+        continue_catcher: Option<&'c ContinueCatcher>,
+        pos: &Position
+    ) -> Result<ArrayValue<'ctx>, Box<dyn Error>> {
 
         let init_len = init_value_list.len();
+        let mut basic_type = TypeUtil::to_basic_type_enum(target_type, &self.context, pos)?;
 
         //
         // init_len > 0
         //
-        let mut vec = Vec::new();
+        let mut vec: Vec<ArrayValue<'ctx>> = Vec::new();
         for i in 0..init_len {
             let init_value = &*init_value_list[i];
             let init_type = TypeUtil::get_initializer_type_of_const_initializer(init_value, env)?;
@@ -245,17 +247,29 @@ impl<'ctx> CodeGen<'ctx> {
             }
 
             let any_val = self.gen_const_initializer(init_value, env, break_catcher, continue_catcher)?;
-            let value = self.try_as_basic_value(&any_val, init_value.get_position())?;
+            // let value = self.try_as_basic_value(&any_val, init_value.get_position())?;
+            let value = unsafe { ArrayValue::new(any_val.as_value_ref()) };
 
             vec.push(value);
         }
 
-        let values = self.context.const_struct(&vec, false);
+        //
+        // make type
+        //
+        let size = size_list[0];
+        basic_type = basic_type.array_type(size).as_basic_type_enum();
+
+eprintln!("target_type: {target_type:?}");
+        let array_type = basic_type.into_array_type();
+eprintln!("array_type: {array_type:?}");
+        let values = array_type.const_array(&vec);
+eprintln!("values: {values:?}");
+        // let values = self.context.const_struct(&vec, false);
         Ok(values)
     }
 
     pub fn gen_global_array_init<'b, 'c>(&self,
-        size_list: &Vec<usize>,
+        size_list: &Vec<u32>,
         target_array_ptr: GlobalValue<'ctx>,
         target_type: &Type,
         init: &Initializer,
@@ -264,7 +278,9 @@ impl<'ctx> CodeGen<'ctx> {
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
 
-        let init_value_list = if let Initializer::Array(list, _typ, _pos) = init {
+        let pos: &Position;
+        let init_value_list = if let Initializer::Array(list, _typ, pos2) = init {
+            pos = pos2;
             list
         }else{
             return Err(Box::new(CodeGenError::initializer_is_not_array(init.get_position().clone())));
@@ -275,14 +291,14 @@ impl<'ctx> CodeGen<'ctx> {
             return Ok(None);
         }
 
-        let values = self.make_array_init_value(size_list, target_type, init_value_list, env, break_catcher, continue_catcher)?;
+        let values = self.make_array_init_value(size_list, target_type, init_value_list, env, break_catcher, continue_catcher, pos)?;
         target_array_ptr.set_initializer(&values.as_basic_value_enum());
 
         Ok(None)
     }
 
     pub fn gen_array_init<'b, 'c>(&self,
-        size_list: &Vec<usize>,
+        size_list: &Vec<u32>,
         target_array_ptr: PointerValue<'ctx>,
         target_type: &Type,
         init: &Initializer,
@@ -291,7 +307,9 @@ impl<'ctx> CodeGen<'ctx> {
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
 
-        let init_value_list = if let Initializer::Array(list, _typ, _pos) = init {
+        let pos: &Position;
+        let init_value_list = if let Initializer::Array(list, _typ, pos2) = init {
+            pos = pos2;
             list
         }else{
             return Err(Box::new(CodeGenError::initializer_is_not_array(init.get_position().clone())));
@@ -302,7 +320,7 @@ impl<'ctx> CodeGen<'ctx> {
             return Ok(None);
         }
 
-        let values = self.make_array_init_value(size_list, target_type, init_value_list, env, break_catcher, continue_catcher)?;
+        let values = self.make_array_init_value(size_list, target_type, init_value_list, env, break_catcher, continue_catcher, pos)?;
         let _result = self.builder.build_store(target_array_ptr, values.as_basic_value_enum());
 
         Ok(None)
@@ -425,18 +443,10 @@ impl<'ctx> CodeGen<'ctx> {
                     Err(Box::new(CodeGenError::initializer_is_none(pos.clone())))
                 }
             },
-            Initializer::Array(vec_init, _typ, _pos) => {
-                let mut list = Vec::new();
-                for init_value in vec_init {
-                    let compiled_val = self.gen_const_initializer(init_value, env, break_catcher, continue_catcher)?;
-                    let value = self.try_as_basic_value(&compiled_val, init_value.get_position())?;
+            Initializer::Array(vec_init, typ, pos) => {
+                // let mut list = Vec::new();
 
-                    list.push(value);
-                }
-
-                let values = self.context.const_struct(&list, false);
-                let any_val = values.as_any_value_enum();
-                Ok(any_val)
+                self.gen_array_initializer(vec_init, typ, pos, env, break_catcher, continue_catcher)
             },
             Initializer::Struct(vec_init, _typ, _pos) => {
                 let mut list = Vec::new();
@@ -466,18 +476,23 @@ impl<'ctx> CodeGen<'ctx> {
                 let any_value = basic_value.as_any_value_enum();
                 Ok(any_value)
             },
-            ConstInitializer::Array(vec_init, _typ, _pos) => {
-                let mut list = Vec::new();
-                for init_value in vec_init {
-                    let compiled_val = self.gen_const_initializer(init_value, env, break_catcher, continue_catcher)?;
-                    let value = self.try_as_basic_value(&compiled_val, init_value.get_position())?;
+            ConstInitializer::Array(vec_init, typ, pos) => {
+                // let llvm_type = TypeUtil::to_basic_type_enum(typ, &self.context, pos)?;
+                // let array_type = llvm_type.array_type(vec_init.len() as u32);
 
-                    list.push(value);
-                }
+                // let mut list = Vec::new();
+                // for init_value in vec_init {
+                //     let compiled_val = self.gen_const_initializer(init_value, env, break_catcher, continue_catcher)?;
+                //     let value = self.try_as_basic_value(&compiled_val, init_value.get_position())?;
+                //     let array_value = unsafe { ArrayValue::new(value.as_value_ref()) };
 
-                let values = self.context.const_struct(&list, false);
-                let any_val = values.as_any_value_enum();
-                Ok(any_val)
+                //     list.push(array_value);
+                // }
+
+                // let any_val = array_type.const_array(list.as_slice());
+                // Ok(any_val.as_any_value_enum())
+
+                self.gen_array_initializer(vec_init, typ, pos, env, break_catcher, continue_catcher)
             },
             ConstInitializer::Struct(vec_init, _typ, _pos) => {
                 let mut list = Vec::new();
@@ -493,6 +508,31 @@ impl<'ctx> CodeGen<'ctx> {
                 Ok(any_val)
             }
         }
+    }
+
+    fn gen_array_initializer<'b, 'c>(&self,
+        vec_init: &Vec<Box<ConstInitializer>>,
+        typ: &Rc<Type>,
+        pos: &Position,
+        env: &mut Env<'ctx>,
+        break_catcher: Option<&'b BreakCatcher>,
+        continue_catcher: Option<&'c ContinueCatcher>
+    ) -> Result<AnyValueEnum<'ctx>, Box<dyn Error>> {
+
+        let llvm_type = TypeUtil::to_basic_type_enum(typ, &self.context, pos)?;
+        let array_type = llvm_type.array_type(vec_init.len() as u32);
+
+        let mut list = Vec::new();
+        for init_value in vec_init {
+            let compiled_val = self.gen_const_initializer(init_value, env, break_catcher, continue_catcher)?;
+            let value = self.try_as_basic_value(&compiled_val, init_value.get_position())?;
+            let array_value = unsafe { ArrayValue::new(value.as_value_ref()) };
+
+            list.push(array_value);
+        }
+
+        let any_val = array_type.const_array(list.as_slice());
+        Ok(any_val.as_any_value_enum())
     }
 
     pub fn const_zero(&self, typ: &Type, pos: &Position) -> Result<BasicValueEnum, Box<dyn Error>> {

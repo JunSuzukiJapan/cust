@@ -620,7 +620,7 @@ pub enum Type {
     Array {
         name: Option<String>,
         typ: Box<Rc<Type>>,
-        size_list: Vec<usize>,
+        size_list: Vec<u32>,
     },
     Enum {
         name: String,
@@ -748,7 +748,7 @@ impl Type {
         }
     }
 
-    pub fn get_array_dimension(&self) -> &Vec<usize> {
+    pub fn get_array_dimension(&self) -> &Vec<u32> {
         match self {
             Type::Array { size_list, .. } => size_list,
             _ => panic!("not array when get array dimension"),

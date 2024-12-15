@@ -831,7 +831,7 @@ fn code_gen_init_struct_by_function4() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
-/*
+
 #[test]
 fn code_gen_struct_array_and_pointer() -> Result<(), Box<dyn Error>> {
     // parse
@@ -884,7 +884,7 @@ fn code_gen_struct_array_and_pointer() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
-*/
+
 /*
 #[test]
 fn code_gen_init_struct_array() -> Result<(), Box<dyn Error>> {

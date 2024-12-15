@@ -373,7 +373,7 @@ impl Declarator {
 pub enum DirectDeclarator {
     Symbol(String, Position),
     Enclosed(Declarator, Position),
-    ArrayDef(Box<DirectDeclarator>, Vec<usize>, Position),
+    ArrayDef(Box<DirectDeclarator>, Vec<u32>, Position),
     FunctionDef(Box<DirectDeclarator>, Params, Position),
 }
 

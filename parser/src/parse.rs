@@ -83,7 +83,7 @@ impl Parser {
         })
     }
 
-    pub fn make_global_def_array(&self, ds: DeclarationSpecifier, declarations: Vec<Declaration>, size_list: &Vec<usize>, defs: &mut Defines, pos: &Position) -> Result<ToplevelAST, ParserError> {
+    pub fn make_global_def_array(&self, ds: DeclarationSpecifier, declarations: Vec<Declaration>, size_list: &Vec<u32>, defs: &mut Defines, pos: &Position) -> Result<ToplevelAST, ParserError> {
         let typ = ds.get_type();
 
         for declaration in &declarations {
@@ -1196,11 +1196,11 @@ println!("TupleTypeStart");
                 Token::BracketLeft => {  // when '[', define array
                     iter.next();  // skip '['
 
-                    let mut opt_dimension: Vec<Option<usize>> = Vec::new();
+                    let mut opt_dimension: Vec<Option<u32>> = Vec::new();
 
                     let opt_const_expr = self.parse_constant_expression(iter, defs, labels)?;
                     if let Some(const_expr) = opt_const_expr {
-                        opt_dimension.push(Some(const_expr.to_usize()?));
+                        opt_dimension.push(Some(const_expr.to_usize()? as u32));
                     }else{
                         opt_dimension.push(None);
                     }
@@ -1218,14 +1218,14 @@ println!("TupleTypeStart");
 
                         let opt_const_expr = self.parse_constant_expression(iter, defs, labels)?;
                         if let Some(const_expr) = opt_const_expr {
-                            opt_dimension.push(Some(const_expr.to_usize()?));
+                            opt_dimension.push(Some(const_expr.to_usize()? as u32));
                         }else{
                             opt_dimension.push(None);
                         }
                         self.parse_expected_token(iter, Token::BracketRight)?;  // skip ']'
                     }
 
-                    let mut dimension = Vec::new();
+                    let mut dimension: Vec<u32> = Vec::new();
                     if let Some((tok3, _pos3)) = iter.peek() {
                         if *tok3 == Token::Assign {
                             iter.next();  // skip '='
@@ -3009,7 +3009,8 @@ println!("TupleTypeStart");
         Ok(Initializer::Struct(list, Rc::clone(target_type), start_pos.clone()))
     }
 
-    fn parse_array_initializer(&self, item_type: &Rc<Type>, dimension: &mut Vec<Option<usize>>, index: usize, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Initializer, ParserError> {
+    fn parse_array_initializer(&self, item_type: &Rc<Type>, dimension: &mut Vec<Option<u32>>, index: usize, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Initializer, ParserError> {
+eprintln!("parse_array_initializer");
         let (tok, pos) = iter.next().unwrap();  // skip '{'
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
         if *tok != Token::BraceLeft { return Err(ParserError::not_l_brace_parsing_array_initializer(tok.clone(), pos.clone())) }
@@ -3055,12 +3056,12 @@ println!("TupleTypeStart");
 
         let opt_len = dimension[index];
         if opt_len.is_none() {
-            dimension[index] = Some(list.len());
+            dimension[index] = Some(list.len() as u32);
         }else{
             let required_len = opt_len.unwrap();
             let real_len = list.len();
-            if required_len != real_len {
-                return Err(ParserError::array_length_mismatch(required_len, real_len, pos.clone()));
+            if required_len != real_len as u32 {
+                return Err(ParserError::array_length_mismatch(required_len as usize, real_len, pos.clone()));
             }
         }
 
