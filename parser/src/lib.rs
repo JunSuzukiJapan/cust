@@ -24,4 +24,4 @@ pub use types::{Type, NumberType, TypeOrVariadic, Pointer, StructDefinition, Enu
 pub use const_expr::ConstExpr;
 pub use parse::Parser;
 pub use pattern::{Pattern, EnumPattern, StructPattern};
-pub use initializer::{Initializer, ConstInitializer};
+pub use initializer::{Initializer, ConstInitializer, ArrayInitializer};

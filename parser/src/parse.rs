@@ -9,8 +9,7 @@ use super::ConstExpr;
 use super::types::*;
 use super::defines::*;
 use super::{CustSelf, Function, FunProto};
-use crate::initializer::ConstInitializer;
-use crate::{Initializer};
+use crate::initializer::{Initializer, ConstInitializer, ArrayInitializer};
 
 use std::slice::Iter;
 use std::iter::Peekable;
@@ -3010,20 +3009,19 @@ println!("TupleTypeStart");
     }
 
     fn parse_array_initializer(&self, item_type: &Rc<Type>, dimension: &mut Vec<Option<u32>>, index: usize, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Initializer, ParserError> {
-eprintln!("parse_array_initializer");
         let (tok, pos) = iter.next().unwrap();  // skip '{'
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
         if *tok != Token::BraceLeft { return Err(ParserError::not_l_brace_parsing_array_initializer(tok.clone(), pos.clone())) }
 
         let dim_len = dimension.len();
-        let mut list: Vec<Box<ConstInitializer>> = Vec::new();
+        let mut list: Vec<Box<ArrayInitializer>> = Vec::new();
         loop {
-            let initializer: ConstInitializer;
+            let initializer: ArrayInitializer;
             if index < dim_len - 1 {
-                initializer = self.parse_array_initializer(item_type, dimension, index + 1, iter, defs, labels)?.try_to_const_initializer(defs).ok_or(ParserError::not_const_in_array_initializer(pos.clone()))?;
+                initializer = self.parse_array_initializer(item_type, dimension, index + 1, iter, defs, labels)?.try_to_array_initializer(defs).ok_or(ParserError::not_const_in_array_initializer(pos.clone()))?;
             }else{
                 let opt_init = self.parse_initializer(item_type, iter, defs, labels)?;
-                if let Some(init) = ConstInitializer::try_from_initializer(&opt_init, defs) {
+                if let Some(init) = ArrayInitializer::try_from_initializer(&opt_init, defs) {
                     initializer = init;
                 }else{
                     return Err(ParserError::not_const_in_array_initializer(pos.clone()));

@@ -10,7 +10,7 @@ use super::env::{BreakCatcher, ContinueCatcher};
 use super::caster::Caster;
 use super::type_util::TypeUtil;
 use crate::parser::Declarator;
-use crate::parser::{ConstExpr};
+use crate::parser::{ConstExpr, ArrayInitializer};
 use crate::{compiled_value, Position};
 
 use inkwell::OptimizationLevel;
@@ -222,10 +222,100 @@ impl<'ctx> CodeGen<'ctx> {
         }
     }
 
+    fn make_array_type(&self, size_list: &[u32], elem_type: &Type, pos: &Position) -> Result<BasicTypeEnum<'ctx>, Box<dyn Error>> {
+        let mut typ = TypeUtil::to_basic_type_enum(elem_type, &self.context, pos)?;
+        let len = size_list.len();
+
+        for i in 0..len {
+            let index = len - i - 1;
+            let size = size_list[index];
+
+            typ = typ.array_type(size).as_basic_type_enum();
+        }
+
+        Ok(typ)
+    }
+
+    fn make_array_init_value<'b, 'c>(&self,
+        size_list: &[u32],
+        elem_type: &Type,
+        init_value_list: &Vec<Box<ArrayInitializer>>,
+        env: &mut Env<'ctx>,
+        break_catcher: Option<&'b BreakCatcher>,
+        continue_catcher: Option<&'c ContinueCatcher>,
+        pos: &Position
+    ) -> Result<(ArrayValue<'ctx>, BasicTypeEnum<'ctx>), Box<dyn Error>> {
+
+        let init_len = init_value_list.len();
+
+        if init_len == 0 {
+            let array_type = self.make_array_type(size_list, elem_type, pos)?;
+            let null_array: Vec<ArrayValue> = Vec::new();
+            let value = unsafe { ArrayValue::new_const_array(&array_type, &null_array) };
+            return Ok((value, array_type));
+        }
+
+        let dim = size_list.len();
+        if dim == 1 {
+            let mut basic_type = TypeUtil::to_basic_type_enum(elem_type, &self.context, pos)?;
+    
+            //
+            // init_len > 0
+            //
+            let mut vec: Vec<ArrayValue<'ctx>> = Vec::new();
+            for i in 0..init_len {
+                let init_value = &*init_value_list[i];
+                let init_type = TypeUtil::get_initializer_type_of_array_initializer(init_value, env)?;
+                if elem_type != init_type.as_ref() {
+                    return Err(Box::new(CodeGenError::mismatch_initializer_type(elem_type, &init_type, init_value.get_position().clone())));
+                }
+
+                let const_value = init_value.get_const().unwrap();
+                let any_val = self.gen_const_initializer(const_value, env, break_catcher, continue_catcher)?;
+                let value = unsafe { ArrayValue::new(any_val.as_value_ref()) };
+    
+                vec.push(value);
+            }
+    
+            //
+            // make type
+            //
+            let size = size_list[0];
+            basic_type = basic_type.array_type(size).as_basic_type_enum();
+
+            let array_type = basic_type.into_array_type();
+            let values = array_type.const_array(&vec);
+            Ok((values, array_type.as_basic_type_enum()))
+
+        }else{
+
+            let size_list_sub = &size_list[1..];
+            let mut vec = Vec::new();
+
+            for i in 0..init_len {
+                let init_value_list = init_value_list[i].get_array_list().unwrap();
+                let (value, typ) = self.make_array_init_value(size_list_sub, elem_type, init_value_list, env, break_catcher, continue_catcher, pos)?;
+
+                vec.push(value);
+            }
+
+            if vec.len() != 0 {
+                let array_type = self.make_array_type(size_list_sub, elem_type, pos)?.into_array_type();
+                let values = array_type.const_array(&vec);
+
+                Ok((values, array_type.as_basic_type_enum()))
+
+            }else{  // null array
+                panic!();  // not reached
+            }
+        }
+    }
+
+/*
     fn make_array_init_value<'b, 'c>(&self,
         size_list: &Vec<u32>,
-        target_type: &Type,
-        init_value_list: &Vec<Box<ConstInitializer>>,
+        elem_type: &Type,
+        init_value_list: &Vec<Box<ArrayInitializer>>,
         env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>,
@@ -233,7 +323,7 @@ impl<'ctx> CodeGen<'ctx> {
     ) -> Result<ArrayValue<'ctx>, Box<dyn Error>> {
 
         let init_len = init_value_list.len();
-        let mut basic_type = TypeUtil::to_basic_type_enum(target_type, &self.context, pos)?;
+        let mut basic_type = TypeUtil::to_basic_type_enum(elem_type, &self.context, pos)?;
 
         //
         // init_len > 0
@@ -241,12 +331,13 @@ impl<'ctx> CodeGen<'ctx> {
         let mut vec: Vec<ArrayValue<'ctx>> = Vec::new();
         for i in 0..init_len {
             let init_value = &*init_value_list[i];
-            let init_type = TypeUtil::get_initializer_type_of_const_initializer(init_value, env)?;
-            if target_type != init_type.as_ref() {
-                return Err(Box::new(CodeGenError::mismatch_initializer_type(target_type, &init_type, init_value.get_position().clone())));
+            let init_type = TypeUtil::get_initializer_type_of_array_initializer(init_value, env)?;
+            if elem_type != init_type.as_ref() {
+                return Err(Box::new(CodeGenError::mismatch_initializer_type(elem_type, &init_type, init_value.get_position().clone())));
             }
-
-            let any_val = self.gen_const_initializer(init_value, env, break_catcher, continue_catcher)?;
+eprintln!("init_value: {init_value:?}");
+            let const_value = init_value.get_const().unwrap();
+            let any_val = self.gen_const_initializer(const_value, env, break_catcher, continue_catcher)?;
             // let value = self.try_as_basic_value(&any_val, init_value.get_position())?;
             let value = unsafe { ArrayValue::new(any_val.as_value_ref()) };
 
@@ -259,19 +350,16 @@ impl<'ctx> CodeGen<'ctx> {
         let size = size_list[0];
         basic_type = basic_type.array_type(size).as_basic_type_enum();
 
-eprintln!("target_type: {target_type:?}");
         let array_type = basic_type.into_array_type();
-eprintln!("array_type: {array_type:?}");
         let values = array_type.const_array(&vec);
-eprintln!("values: {values:?}");
-        // let values = self.context.const_struct(&vec, false);
         Ok(values)
     }
+*/
 
     pub fn gen_global_array_init<'b, 'c>(&self,
         size_list: &Vec<u32>,
         target_array_ptr: GlobalValue<'ctx>,
-        target_type: &Type,
+        elem_type: &Type,
         init: &Initializer,
         env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
@@ -291,7 +379,7 @@ eprintln!("values: {values:?}");
             return Ok(None);
         }
 
-        let values = self.make_array_init_value(size_list, target_type, init_value_list, env, break_catcher, continue_catcher, pos)?;
+        let (values, _typ) = self.make_array_init_value(size_list, elem_type, init_value_list, env, break_catcher, continue_catcher, pos)?;
         target_array_ptr.set_initializer(&values.as_basic_value_enum());
 
         Ok(None)
@@ -300,7 +388,7 @@ eprintln!("values: {values:?}");
     pub fn gen_array_init<'b, 'c>(&self,
         size_list: &Vec<u32>,
         target_array_ptr: PointerValue<'ctx>,
-        target_type: &Type,
+        elem_type: &Type,
         init: &Initializer,
         env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
@@ -320,7 +408,7 @@ eprintln!("values: {values:?}");
             return Ok(None);
         }
 
-        let values = self.make_array_init_value(size_list, target_type, init_value_list, env, break_catcher, continue_catcher, pos)?;
+        let (values, _typ) = self.make_array_init_value(size_list, elem_type, init_value_list, env, break_catcher, continue_catcher, pos)?;
         let _result = self.builder.build_store(target_array_ptr, values.as_basic_value_enum());
 
         Ok(None)
@@ -511,7 +599,7 @@ eprintln!("values: {values:?}");
     }
 
     fn gen_array_initializer<'b, 'c>(&self,
-        vec_init: &Vec<Box<ConstInitializer>>,
+        vec_init: &Vec<Box<ArrayInitializer>>,
         typ: &Rc<Type>,
         pos: &Position,
         env: &mut Env<'ctx>,
@@ -524,7 +612,8 @@ eprintln!("values: {values:?}");
 
         let mut list = Vec::new();
         for init_value in vec_init {
-            let compiled_val = self.gen_const_initializer(init_value, env, break_catcher, continue_catcher)?;
+            let const_value = init_value.get_const().unwrap();
+            let compiled_val = self.gen_const_initializer(const_value, env, break_catcher, continue_catcher)?;
             let value = self.try_as_basic_value(&compiled_val, init_value.get_position())?;
             let array_value = unsafe { ArrayValue::new(value.as_value_ref()) };
 

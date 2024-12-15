@@ -7,7 +7,7 @@ use std::rc::Rc;
 use inkwell::types::{BasicTypeEnum, AnyTypeEnum, BasicType, BasicMetadataTypeEnum, IntType, PointerType};
 use inkwell::AddressSpace;
 use inkwell::types::AnyType;
-use parser::{ExprAST, Initializer, ConstInitializer};
+use parser::{ExprAST, Initializer, ConstInitializer, ArrayInitializer};
 use super::{CodeGen, CodeGenError};
 
 pub struct TypeUtil;
@@ -441,16 +441,23 @@ impl TypeUtil {
     pub fn get_initializer_type(init: &Initializer, env: &Env) -> Result<Rc<Type>, CodeGenError> {
         match init {
             Initializer::Simple(expr, _pos) => TypeUtil::get_type(expr, env),
-            Initializer::Array(_init, typ, _pos) => Ok(typ.clone()),
-            Initializer::Struct(_init, typ, _pos) => Ok(typ.clone()),
+            Initializer::Array(_init, typ, _pos) => Ok(Rc::clone(typ)),
+            Initializer::Struct(_init, typ, _pos) => Ok(Rc::clone(typ)),
         }
     }
 
     pub fn get_initializer_type_of_const_initializer(init: &ConstInitializer, env: &Env) -> Result<Rc<Type>, CodeGenError> {
         match init {
             ConstInitializer::Simple(expr, _pos) => Ok(Rc::new(expr.get_type())),
-            ConstInitializer::Array(_init, typ, _pos) => Ok(typ.clone()),
-            ConstInitializer::Struct(_init, typ, _pos) => Ok(typ.clone()),
+            ConstInitializer::Array(_init, typ, _pos) => Ok(Rc::clone(typ)),
+            ConstInitializer::Struct(_init, typ, _pos) => Ok(Rc::clone(typ)),
+        }
+    }
+
+    pub fn get_initializer_type_of_array_initializer(init: &ArrayInitializer, env: &Env) -> Result<Rc<Type>, CodeGenError> {
+        match init {
+            ArrayInitializer::Const(expr, _pos) => Ok(Rc::clone(&expr.get_type())),
+            ArrayInitializer::Array(_init, typ, _pos) => Ok(Rc::clone(typ)),
         }
     }
 }
