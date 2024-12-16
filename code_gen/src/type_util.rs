@@ -257,8 +257,9 @@ impl TypeUtil {
                         return Err(CodeGenError::array_index_is_too_long(pos.clone()));
                     }
 
-                    let t = Type::new_pointer_type(*elem_type.clone(), false, false);
-                    Ok(Rc::new(t))
+                    // let t = Type::new_pointer_type(*elem_type.clone(), false, false);
+                    // Ok(Rc::new(t))
+                    Ok(Rc::clone(&elem_type))
 
                 }else{
                     return Err(CodeGenError::not_array(*expr.clone(), pos.clone()));
@@ -330,6 +331,7 @@ impl TypeUtil {
             ExprAST::MemberAccess(boxed_ast, field_name, pos) => {  // some_var.field
                 let ast = &*boxed_ast;
                 let typ = TypeUtil::get_type(ast, env)?;
+
                 match typ.as_ref() {
                     Type::Struct { name: _, fields } => {
                         let t = fields.get_type(&field_name).ok_or(CodeGenError::type_has_not_member(&field_name, pos.clone()))?;
