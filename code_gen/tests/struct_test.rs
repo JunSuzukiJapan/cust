@@ -857,12 +857,13 @@ fn code_gen_struct_array_and_pointer() -> Result<(), Box<dyn Error>> {
         int test() {
             Date* ptr = days;
 
-            return ptr[0].year + ptr[0].month + ptr[0].day
-                 + ptr[1].year + ptr[1].month + ptr[1].day
-                 + ptr[2].year + ptr[2].month + ptr[2].day
-                 + ptr[3].year + ptr[3].month + ptr[3].day
-                 + ptr[4].year + ptr[4].month + ptr[4].day
-                 + ptr[5].year + ptr[5].month + ptr[5].day;
+            int i = ptr[0].year + ptr[0].month + ptr[0].day
+                  + ptr[1].year + ptr[1].month + ptr[1].day
+                  + ptr[2].year + ptr[2].month + ptr[2].day;
+            int j = ptr[3].year + ptr[3].month + ptr[3].day
+                  + ptr[4].year + ptr[4].month + ptr[4].day
+                  + ptr[5].year + ptr[5].month + ptr[5].day;
+            return i + j;
         }
     ";
 

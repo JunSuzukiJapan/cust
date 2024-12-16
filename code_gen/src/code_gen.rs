@@ -311,51 +311,6 @@ impl<'ctx> CodeGen<'ctx> {
         }
     }
 
-/*
-    fn make_array_init_value<'b, 'c>(&self,
-        size_list: &Vec<u32>,
-        elem_type: &Type,
-        init_value_list: &Vec<Box<ArrayInitializer>>,
-        env: &mut Env<'ctx>,
-        break_catcher: Option<&'b BreakCatcher>,
-        continue_catcher: Option<&'c ContinueCatcher>,
-        pos: &Position
-    ) -> Result<ArrayValue<'ctx>, Box<dyn Error>> {
-
-        let init_len = init_value_list.len();
-        let mut basic_type = TypeUtil::to_basic_type_enum(elem_type, &self.context, pos)?;
-
-        //
-        // init_len > 0
-        //
-        let mut vec: Vec<ArrayValue<'ctx>> = Vec::new();
-        for i in 0..init_len {
-            let init_value = &*init_value_list[i];
-            let init_type = TypeUtil::get_initializer_type_of_array_initializer(init_value, env)?;
-            if elem_type != init_type.as_ref() {
-                return Err(Box::new(CodeGenError::mismatch_initializer_type(elem_type, &init_type, init_value.get_position().clone())));
-            }
-eprintln!("init_value: {init_value:?}");
-            let const_value = init_value.get_const().unwrap();
-            let any_val = self.gen_const_initializer(const_value, env, break_catcher, continue_catcher)?;
-            // let value = self.try_as_basic_value(&any_val, init_value.get_position())?;
-            let value = unsafe { ArrayValue::new(any_val.as_value_ref()) };
-
-            vec.push(value);
-        }
-
-        //
-        // make type
-        //
-        let size = size_list[0];
-        basic_type = basic_type.array_type(size).as_basic_type_enum();
-
-        let array_type = basic_type.into_array_type();
-        let values = array_type.const_array(&vec);
-        Ok(values)
-    }
-*/
-
     pub fn gen_global_array_init<'b, 'c>(&self,
         size_list: &Vec<u32>,
         target_array_ptr: GlobalValue<'ctx>,
@@ -488,34 +443,6 @@ eprintln!("init_value: {init_value:?}");
         let values = self.context.const_struct(&vec, false);
         Ok(values)
     }
-
-    // pub fn gen_const_expr<'b, 'c>(&self,
-    //     expr: &ConstExpr,
-    //     env: &mut Env<'ctx>,
-    //     break_catcher: Option<&'b BreakCatcher>,
-    //     continue_catcher: Option<&'c ContinueCatcher>
-    // ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
-
-    //     match expr {
-    //         ConstExpr::Int(num, _pos) => {
-    //             let i64_type = self.context.i64_type();
-    //             let i64_value = i64_type.const_int(*num as u64, true);
-    //             let any_value = i64_value.as_any_value_enum();
-    //             let typ = expr.get_type();
-    //             let compiled_value = CompiledValue::new(Rc::new(typ), any_value);
-
-    //             Ok(Some(compiled_value))
-    //         },
-
-
-
-
-
-
-
-    //         _ => unimplemented!()
-    //     }
-    // }
 
     pub fn gen_initializer<'b, 'c>(&self,
         init: &Initializer,
