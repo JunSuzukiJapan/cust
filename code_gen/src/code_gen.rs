@@ -13,7 +13,7 @@ use crate::parser::Declarator;
 use crate::parser::{ConstExpr, ArrayInitializer};
 use crate::{compiled_value, Position};
 
-use inkwell::OptimizationLevel;
+use inkwell::{values, OptimizationLevel};
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::execution_engine::ExecutionEngine;
@@ -257,7 +257,7 @@ impl<'ctx> CodeGen<'ctx> {
 
         let dim = size_list.len();
         if dim == 1 {
-            let mut basic_type = TypeUtil::to_basic_type_enum(elem_type, &self.context, pos)?;
+            let basic_type = TypeUtil::to_basic_type_enum(elem_type, &self.context, pos)?;
     
             //
             // init_len > 0
@@ -273,18 +273,16 @@ impl<'ctx> CodeGen<'ctx> {
                 let const_value = init_value.get_const().unwrap();
                 let any_val = self.gen_const_initializer(const_value, env, break_catcher, continue_catcher)?;
                 let value = unsafe { ArrayValue::new(any_val.as_value_ref()) };
-    
+
                 vec.push(value);
             }
     
             //
-            // make type
+            // make array
             //
-            let size = size_list[0];
-            basic_type = basic_type.array_type(size).as_basic_type_enum();
+            let values = unsafe { ArrayValue::new_const_array(&basic_type, &vec) };
+            let array_type = self.make_array_type(size_list, elem_type, pos)?.into_array_type();
 
-            let array_type = basic_type.into_array_type();
-            let values = array_type.const_array(&vec);
             Ok((values, array_type.as_basic_type_enum()))
 
         }else{
@@ -492,21 +490,6 @@ impl<'ctx> CodeGen<'ctx> {
                 Ok(any_value)
             },
             ConstInitializer::Array(vec_init, typ, pos) => {
-                // let llvm_type = TypeUtil::to_basic_type_enum(typ, &self.context, pos)?;
-                // let array_type = llvm_type.array_type(vec_init.len() as u32);
-
-                // let mut list = Vec::new();
-                // for init_value in vec_init {
-                //     let compiled_val = self.gen_const_initializer(init_value, env, break_catcher, continue_catcher)?;
-                //     let value = self.try_as_basic_value(&compiled_val, init_value.get_position())?;
-                //     let array_value = unsafe { ArrayValue::new(value.as_value_ref()) };
-
-                //     list.push(array_value);
-                // }
-
-                // let any_val = array_type.const_array(list.as_slice());
-                // Ok(any_val.as_any_value_enum())
-
                 self.gen_array_initializer(vec_init, typ, pos, env, break_catcher, continue_catcher)
             },
             ConstInitializer::Struct(vec_init, _typ, _pos) => {
@@ -969,7 +952,7 @@ impl<'ctx> CodeGen<'ctx> {
         let function = module.add_function(fn_name, fn_type, None);
         let basic_block = context.append_basic_block(function, "entry");
         builder.position_at_end(basic_block);
-    
+
         let array_type = basic_type.array_type(2);
         let array_ptr = builder.build_alloca(array_type, "array")?;
         let const_one = i32_type.const_int(1, false);
