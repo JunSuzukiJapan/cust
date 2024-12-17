@@ -257,8 +257,6 @@ impl<'ctx> CodeGen<'ctx> {
 
         let dim = size_list.len();
         if dim == 1 {
-            let basic_type = TypeUtil::to_basic_type_enum(elem_type, &self.context, pos)?;
-    
             //
             // init_len > 0
             //
@@ -280,6 +278,7 @@ impl<'ctx> CodeGen<'ctx> {
             //
             // make array
             //
+            let basic_type = TypeUtil::to_basic_type_enum(elem_type, &self.context, pos)?;
             let values = unsafe { ArrayValue::new_const_array(&basic_type, &vec) };
             let array_type = self.make_array_type(size_list, elem_type, pos)?.into_array_type();
 
