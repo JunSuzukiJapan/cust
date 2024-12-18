@@ -886,7 +886,6 @@ fn code_gen_struct_array_and_pointer() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-/*
 #[test]
 fn code_gen_init_struct_array() -> Result<(), Box<dyn Error>> {
     let src = "
@@ -907,12 +906,13 @@ fn code_gen_init_struct_array() -> Result<(), Box<dyn Error>> {
                           };
 
         int test() {
-            return days[0][0].year + days[0][0].month + days[0][0].day
-                 + days[0][1].year + days[0][1].month + days[0][1].day
-                 + days[0][2].year + days[0][2].month + days[0][2].day
-                 + days[1][0].year + days[1][0].month + days[1][0].day
-                 + days[1][1].year + days[1][1].month + days[1][1].day
-                 + days[1][2].year + days[1][2].month + days[1][2].day;
+            int i = days[0][0].year + days[0][0].month + days[0][0].day
+                  + days[0][1].year + days[0][1].month + days[0][1].day
+                  + days[0][2].year + days[0][2].month + days[0][2].day;
+            int j = days[1][0].year + days[1][0].month + days[1][0].day
+                  + days[1][1].year + days[1][1].month + days[1][1].day
+                  + days[1][2].year + days[1][2].month + days[1][2].day;
+            return i + j;
         }
     ";
 
@@ -934,4 +934,3 @@ fn code_gen_init_struct_array() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
-*/
