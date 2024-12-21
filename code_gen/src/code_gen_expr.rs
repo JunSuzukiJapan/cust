@@ -1063,8 +1063,8 @@ impl<'ctx> CodeGen<'ctx> {
             },
             ExprAST::MemberAccess(expr, member_name, pos) => {  // struct_or_union.member
                 let ast = &**expr;
-                let (_typ, ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
-                let typ = TypeUtil::get_type(ast, env)?;
+                let (typ, ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
+                // let typ = TypeUtil::get_type(ast, env)?;
 
                 match typ.as_ref() {
                     Type::Struct {name, fields} => {
@@ -1101,9 +1101,11 @@ impl<'ctx> CodeGen<'ctx> {
                                     return Err(Box::new(CodeGenError::array_index_is_too_long(pos.clone())));
                                 }
             
+                                let i32_type = self.context.i32_type();
+                                let const_zero = i32_type.const_zero();
                                 let value = self.gen_expr(&index_list[0], env, break_catcher, continue_catcher)?.ok_or(CodeGenError::no_index_value_while_access_array(pos.clone()))?;
                                 let index_val = value.get_value().into_int_value();
-                                let index_list = [index_val];
+                                let index_list = [const_zero, index_val];
                                 let ptr = self.builder.build_load(TypeUtil::to_basic_type_enum(&expr_type, &self.context, pos)?, base_ptr, "load_ptr")?.into_pointer_value();
                                 let ptr = unsafe { ptr.const_in_bounds_gep(TypeUtil::to_basic_type_enum(&elem_type, &self.context, pos)?, &index_list) };
 
@@ -1237,10 +1239,10 @@ impl<'ctx> CodeGen<'ctx> {
                         return Err(Box::new(CodeGenError::array_index_is_too_long(pos.clone())));
                     }
 
+                    let ptr = self.builder.build_load(TypeUtil::to_basic_type_enum(&expr_type, &self.context, pos)?, base_ptr, "load_ptr")?.into_pointer_value();
                     let value = self.gen_expr(&index_list[0], env, break_catcher, continue_catcher)?.ok_or(CodeGenError::no_index_value_while_access_array(pos.clone()))?;
                     let index_val = value.get_value().into_int_value();
                     let index_list = [index_val];
-                    let ptr = self.builder.build_load(TypeUtil::to_basic_type_enum(&expr_type, &self.context, pos)?, base_ptr, "load_ptr")?.into_pointer_value();
                     let ptr = unsafe { ptr.const_in_bounds_gep(TypeUtil::to_basic_type_enum(&elem_type, &self.context, pos)?, &index_list) };
 
                     return Ok((*elem_type.clone(), ptr));

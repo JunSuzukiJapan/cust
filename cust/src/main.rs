@@ -37,7 +37,7 @@ fn main() {
     let filename = args.compile;
 
     let path = Path::new(&filename);
-    let dest = path.with_extension("llvm");
+    let dest = path.with_extension("ll");
 
     // read file
     let mut f = File::open(filename).expect("file not found");

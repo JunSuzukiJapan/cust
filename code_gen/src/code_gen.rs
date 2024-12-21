@@ -284,7 +284,7 @@ impl<'ctx> CodeGen<'ctx> {
 
             Ok((values, array_type.as_basic_type_enum()))
 
-        }else{
+        }else{  // init_len > 1
 
             let size_list_sub = &size_list[1..];
             let mut vec = Vec::new();
