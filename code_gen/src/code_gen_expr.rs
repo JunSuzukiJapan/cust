@@ -1064,7 +1064,6 @@ impl<'ctx> CodeGen<'ctx> {
             ExprAST::MemberAccess(expr, member_name, pos) => {  // struct_or_union.member
                 let ast = &**expr;
                 let (typ, ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
-                // let typ = TypeUtil::get_type(ast, env)?;
 
                 match typ.as_ref() {
                     Type::Struct {name, fields} => {
@@ -1106,8 +1105,11 @@ impl<'ctx> CodeGen<'ctx> {
                                 let value = self.gen_expr(&index_list[0], env, break_catcher, continue_catcher)?.ok_or(CodeGenError::no_index_value_while_access_array(pos.clone()))?;
                                 let index_val = value.get_value().into_int_value();
                                 let index_list = [const_zero, index_val];
-                                let ptr = self.builder.build_load(TypeUtil::to_basic_type_enum(&expr_type, &self.context, pos)?, base_ptr, "load_ptr")?.into_pointer_value();
-                                let ptr = unsafe { ptr.const_in_bounds_gep(TypeUtil::to_basic_type_enum(&elem_type, &self.context, pos)?, &index_list) };
+                                let ty = TypeUtil::to_basic_type_enum(&expr_type, &self.context, pos)?;
+                                let ptr = self.builder.build_load(ty, base_ptr, "load_ptr")?.into_pointer_value();
+                                // let ptr = unsafe { ptr.const_in_bounds_gep(TypeUtil::to_basic_type_enum(&elem_type, &self.context, pos)?, &index_list) };
+                                let ty2 = TypeUtil::to_basic_type_enum(&elem_type, &self.context, pos)?;
+                                let ptr = unsafe { self.builder.build_in_bounds_gep(ty2, ptr, &index_list, "in_bounds_gep")? };
 
                                 let typ = if let Some(type2) = expr_type.peel_off_pointer() {
                                     type2
@@ -1230,6 +1232,7 @@ impl<'ctx> CodeGen<'ctx> {
                 let ast = &**expr;
                 let (expr_type, base_ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
                 let index_len = index_list.len();
+eprintln!("base_ptr: {:?}", base_ptr);
 
                 //
                 // when Pointer
@@ -1243,7 +1246,9 @@ impl<'ctx> CodeGen<'ctx> {
                     let value = self.gen_expr(&index_list[0], env, break_catcher, continue_catcher)?.ok_or(CodeGenError::no_index_value_while_access_array(pos.clone()))?;
                     let index_val = value.get_value().into_int_value();
                     let index_list = [index_val];
-                    let ptr = unsafe { ptr.const_in_bounds_gep(TypeUtil::to_basic_type_enum(&elem_type, &self.context, pos)?, &index_list) };
+                    let ty = TypeUtil::to_basic_type_enum(&elem_type, &self.context, pos)?;
+                    let ptr = unsafe { self.builder.build_in_bounds_gep(ty, ptr, &index_list, "gep_for_array_element")? };
+                    // let ptr = unsafe { ptr.const_in_bounds_gep(ty, &index_list) };
 
                     return Ok((*elem_type.clone(), ptr));
                 }
@@ -1289,7 +1294,9 @@ impl<'ctx> CodeGen<'ctx> {
                     vec.push(index_val);
                 }
 
-                ptr = unsafe { ptr.const_in_bounds_gep(TypeUtil::to_basic_type_enum(&expr_type, &self.context, pos)?, &vec) };
+                // ptr = unsafe { ptr.const_in_bounds_gep(TypeUtil::to_basic_type_enum(&expr_type, &self.context, pos)?, &vec) };
+                let ty = TypeUtil::to_basic_type_enum(&expr_type, &self.context, pos)?;
+                ptr = unsafe { self.builder.build_in_bounds_gep(ty, ptr, &vec, "gep_for_array_element")? };
 
                 Ok((result_type, ptr))
             },
