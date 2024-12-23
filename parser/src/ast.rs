@@ -828,6 +828,7 @@ pub enum ExprAST {
     EnumLiteral(Rc<Type>, u64, EnumLiteral, Position),
     TupleLiteral(Vec<Box<ExprAST>>, Position),
     TupleMemberAccess(Box<ExprAST>, usize, Position),  // tpl.0
+    TuplePointerAccess(Box<ExprAST>, usize, Position),  // tpl->0
 }
 
 impl ExprAST {
@@ -892,6 +893,7 @@ impl ExprAST {
             ExprAST::EnumLiteral(_, _, _, pos) => pos,
             ExprAST::TupleLiteral(_, pos) => pos,
             ExprAST::TupleMemberAccess(_, _, pos) => pos,
+            ExprAST::TuplePointerAccess(_, _, pos) => pos,
         }
     }
 
@@ -905,7 +907,7 @@ impl ExprAST {
     pub fn is_member_access(&self) -> bool {
         match self {
             ExprAST::MemberAccess(_, _, _) | ExprAST::PointerAccess(_, _, _) => true,
-            ExprAST::TupleMemberAccess(_, _, _) => true,
+            ExprAST::TupleMemberAccess(_, _, _) | ExprAST::TuplePointerAccess(_, _, _) => true,
             _ => false,
         }
     }

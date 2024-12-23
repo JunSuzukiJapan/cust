@@ -433,6 +433,14 @@ impl TypeUtil {
                     Err(CodeGenError::not_tuple_in_tuple_access_by_index(*expr_ast.clone(), pos.clone()))
                 }
             },
+            ExprAST::TuplePointerAccess(expr_ast, index, pos) => {
+
+
+
+
+
+                unimplemented!()
+            },
             ExprAST::DefVar { specifiers: _, declarations: _, pos: _ } => {
                 // maybe unreached???
                 unimplemented!()

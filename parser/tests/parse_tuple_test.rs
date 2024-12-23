@@ -237,4 +237,25 @@ mod tests {
             panic!()
         }
     }
+
+
+    #[test]
+    fn parse_tuple_pointer_index() {
+        let src = "ptr->2";
+        let ast = parse_expression_from_str(src).unwrap().unwrap();
+
+        if let ExprAST::TuplePointerAccess(ast2, index, _pos) = ast {
+            assert_eq!(index, 2);
+
+            if let ExprAST::Symbol(name, _pos) = &*ast2 {
+                assert_eq!(name, "ptr");
+            }else{
+                panic!()
+            }
+
+        }else{
+            panic!()
+        }
+    }
+
 }

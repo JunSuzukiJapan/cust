@@ -605,6 +605,12 @@ impl<'ctx> CodeGen<'ctx> {
 
                 Ok(Some(CompiledValue::new(Rc::clone(&elem_type), any_val)))
             },
+            ExprAST::TuplePointerAccess(tpl, index, pos) => {
+
+
+
+                unimplemented!()
+            },
         }
     }
 
@@ -1232,7 +1238,6 @@ impl<'ctx> CodeGen<'ctx> {
                 let ast = &**expr;
                 let (expr_type, base_ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
                 let index_len = index_list.len();
-eprintln!("base_ptr: {:?}", base_ptr);
 
                 //
                 // when Pointer
@@ -1322,6 +1327,12 @@ eprintln!("base_ptr: {:?}", base_ptr);
             },
             ExprAST::TupleMemberAccess(tpl, index, pos) => {
                 self.get_indexed_tuple_ptr_and_type(tpl, *index, pos, env, break_catcher, continue_catcher)
+            },
+            ExprAST::TuplePointerAccess(tpl, index, pos) => {
+
+
+
+                unimplemented!("TuplePointerAccess")
             },
             _ => {
                 Err(Box::new(CodeGenError::has_not_l_value(format!("{:?}", ast), ast.get_position().clone())))

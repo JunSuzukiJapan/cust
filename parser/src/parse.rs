@@ -703,7 +703,6 @@ impl Parser {
                         opt_type = Some((Rc::new(Type::Number(NumberType::Double)), pos.clone()));
                     },
                     Token::TupleTypeStart => {  // '$<'
-println!("TupleTypeStart");
                         iter.next();
 
                         let mut list = Vec::new();
@@ -1998,6 +1997,9 @@ println!("TupleTypeStart");
                             match tok2 {
                                 Token::Symbol(id) => {
                                     ast = ExprAST::PointerAccess(Box::new(ast), id.clone(), pos.clone());
+                                },
+                                Token::IntLiteral(num) => {
+                                    ast = ExprAST::TuplePointerAccess(Box::new(ast), *num as usize, pos.clone());
                                 },
                                 _ => return Err(ParserError::no_id_after_arrow(pos2.clone())),
                             }
