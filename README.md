@@ -12,3 +12,7 @@ Customized C like Rust
 
 - Q. Are there plans to implement 'lifetime in the future?
 - A. Never
+
+## LICENSE
+
+[LICENSE](LICENSE)
