@@ -11,4 +11,4 @@ Customized C like Rust
 ## FAQ
 
 - Q. Are there plans to implement 'lifetime in the future?
--- A. Never
+- A. Never
