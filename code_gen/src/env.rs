@@ -866,15 +866,16 @@ impl<'ctx> Env<'ctx> {
     }
 
     fn get_ptr_from_local(&self, key: &str) -> Option<&(Rc<Type>, SpecifierQualifier, PointerValue<'ctx>)> {
-        let list = self.locals.last().unwrap();
-        let mut index = list.len() - 1;
-        loop {
-            if let Some(tuple) = list[index].get(key) {
-                return Some(tuple);
-            }
+        if let Some(list) = self.locals.last() {
+            let mut index = list.len() - 1;
+            loop {
+                if let Some(tuple) = list[index].get(key) {
+                    return Some(tuple);
+                }
 
-            if index == 0 { break; }
-            index -= 1;
+                if index == 0 { break; }
+                index -= 1;
+            }
         }
 
         None

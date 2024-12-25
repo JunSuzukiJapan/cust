@@ -193,6 +193,17 @@ impl TypeUtil {
                 let ptr_type = Self::make_llvm_ptr_type(typ, ctx, pos)?;
                 Ok(ptr_type.ptr_type(AddressSpace::default()))
             },
+            Type::Tuple(type_list) => {
+                let mut vec: Vec<BasicTypeEnum<'a>> = Vec::new();
+
+                for t in type_list {
+                    let t2 = Self::to_basic_type_enum(&t, ctx, pos)?;
+                    vec.push(t2);
+                }
+
+                let any_type = ctx.struct_type(&vec, false);
+                Ok(any_type.ptr_type(AddressSpace::default()))
+            },
             _ => {
                 Err(Box::new(CodeGenError::cannot_make_pointer_type(typ.clone(), pos.clone())))
             },

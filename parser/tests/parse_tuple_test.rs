@@ -238,7 +238,6 @@ mod tests {
         }
     }
 
-
     #[test]
     fn parse_tuple_pointer_index() {
         let src = "ptr->2";
@@ -257,5 +256,4 @@ mod tests {
             panic!()
         }
     }
-
 }

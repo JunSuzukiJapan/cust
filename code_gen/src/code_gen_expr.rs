@@ -606,10 +606,11 @@ impl<'ctx> CodeGen<'ctx> {
                 Ok(Some(CompiledValue::new(Rc::clone(&elem_type), any_val)))
             },
             ExprAST::TuplePointerAccess(tpl, index, pos) => {
+                let (elem_type, ptr) = self.get_pointed_indexed_tuple_ptr_and_type(tpl, *index, pos, env, break_catcher, continue_catcher)?;
+                let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&elem_type, &self.context, pos)?, ptr, "load_tuple_element")?;
+                let any_val = basic_val.as_any_value_enum();
 
-
-
-                unimplemented!()
+                Ok(Some(CompiledValue::new(Rc::clone(&elem_type), any_val)))
             },
         }
     }
@@ -1328,11 +1329,8 @@ impl<'ctx> CodeGen<'ctx> {
             ExprAST::TupleMemberAccess(tpl, index, pos) => {
                 self.get_indexed_tuple_ptr_and_type(tpl, *index, pos, env, break_catcher, continue_catcher)
             },
-            ExprAST::TuplePointerAccess(tpl, index, pos) => {
-
-
-
-                unimplemented!("TuplePointerAccess")
+            ExprAST::TuplePointerAccess(expr_ast, index, pos) => {
+                self.get_pointed_indexed_tuple_ptr_and_type(expr_ast, *index, pos, env, break_catcher, continue_catcher)
             },
             _ => {
                 Err(Box::new(CodeGenError::has_not_l_value(format!("{:?}", ast), ast.get_position().clone())))
@@ -1375,6 +1373,61 @@ impl<'ctx> CodeGen<'ctx> {
         let indexes = vec![const_zero, const_index];
 
         let (_typ, tuple_ptr) = self.get_l_value(&tpl, env, break_catcher, continue_catcher)?;
+        let t = TypeUtil::to_basic_type_enum(&tuple_type, &self.context, pos)?;
+        let ptr = unsafe { self.builder.build_in_bounds_gep(t, tuple_ptr, &indexes, "gep_for_tuple_element")? };
+
+        let elem_type = {
+            match &*tuple_type {
+                Type::Tuple(list) => {
+                    &list[index]
+                },
+                _ => panic!(),
+            }
+        };
+
+        Ok((Rc::clone(elem_type), ptr))
+    }
+
+    fn get_pointed_indexed_tuple_ptr_and_type<'b, 'c>(
+        &self,
+        ast: &ExprAST,
+        index: usize,
+        pos: &Position,
+        env: &mut Env<'ctx>,
+        break_catcher: Option<&'b BreakCatcher>,
+        continue_catcher: Option<&'c ContinueCatcher>
+    ) -> Result<(Rc<Type>, PointerValue<'ctx>), Box<dyn Error>> {
+
+        let (typ, ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
+        let tuple_ptr = self.builder.build_load(TypeUtil::to_basic_type_enum(&*typ, &self.context, pos)?, ptr, "get_pointer")?.into_pointer_value();
+        let typ = TypeUtil::get_type(ast, env)?;
+        let tuple_type = typ.get_pointed_type(pos)?;
+
+        //
+        // is expr tuple?
+        //
+        if ! tuple_type.is_tuple() {
+            return Err(Box::new(CodeGenError::not_tuple_in_tuple_access_by_index(ast.clone(), pos.clone())));
+        }
+
+        //
+        // check size
+        //
+        let size = tuple_type.get_tuple_size().unwrap();
+        if size <= index {
+            return Err(Box::new(CodeGenError::tuple_index_too_big(size, index, pos.clone())));
+        }
+
+        //
+        // code gen
+        //
+        let i32_type = self.context.i32_type();
+        let const_zero = i32_type.const_int(0, false);
+
+        let const_index = i32_type.const_int(index as u64, false);
+        let indexes = vec![const_zero, const_index];
+
+        // let (_typ, tuple_ptr) = self.get_l_value(&tpl, env, break_catcher, continue_catcher)?;
         let t = TypeUtil::to_basic_type_enum(&tuple_type, &self.context, pos)?;
         let ptr = unsafe { self.builder.build_in_bounds_gep(t, tuple_ptr, &indexes, "gep_for_tuple_element")? };
 

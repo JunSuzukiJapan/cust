@@ -177,3 +177,30 @@ fn code_gen_pre_and_post_increment_member() {
     assert_eq!(unsafe { f.call(0) }, 9);
     assert_eq!(unsafe { f.call(1) }, 10);
 }
+
+#[test]
+fn code_gen_pointer_to_tuple() {
+    let src = "
+        $<int, int> tpl = $(1, 2);
+        $<int, int>* p = &tpl;
+
+        int test(){
+            return p->0 + p->1;
+        }
+    ";
+
+    // parse
+    let asts = parse_from_str(src).unwrap();
+
+    // code gen
+    let context = Context::create();
+    let gen = CodeGen::try_new(&context, "test run").unwrap();
+
+    let mut env = Env::new();
+    for i in 0..asts.len() {
+        let _any_value = gen.gen_toplevel(&asts[i], &mut env, None, None).unwrap();
+    }
+
+    let f: JitFunction<FuncType_void_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
+    assert_eq!(unsafe { f.call() }, 3);
+}
