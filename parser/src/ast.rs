@@ -738,19 +738,48 @@ impl StructLiteral {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct TupleLiteral {
-    typ: Rc<Type>,
-    list: Vec<Box<AST>>,
-    pos: Position,
+pub enum TupleLiteral {
+    NormalLiteral {
+        typ: Rc<Type>,
+        list: Vec<Box<ExprAST>>,
+        pos: Position,
+    },
+    ConstLiteral {
+        typ: Rc<Type>,
+        list: Vec<ConstExpr>,
+        pos: Position,
+    },
 }
 
 impl TupleLiteral {
+    pub fn new_normal(typ: Rc<Type>, list: Vec<Box<ExprAST>>, pos: Position) -> TupleLiteral {
+        TupleLiteral::NormalLiteral {
+            typ: typ,
+            list: list,
+            pos: pos,
+        }
+    }
+
+    pub fn new_const(typ: Rc<Type>, list: Vec<ConstExpr>, pos: Position) -> TupleLiteral {
+        TupleLiteral::ConstLiteral {
+            typ: typ,
+            list: list,
+            pos: pos,
+        }
+    }
+
     pub fn get_position(&self) -> &Position {
-        &self.pos
+        match self {
+            TupleLiteral::NormalLiteral { pos, .. } => pos,
+            TupleLiteral::ConstLiteral { pos, .. } => pos,
+        }
     }
 
     pub fn get_type(&self) -> &Rc<Type> {
-        &self.typ
+        match self {
+            TupleLiteral::NormalLiteral { typ, .. } => typ,
+            TupleLiteral::ConstLiteral { typ, .. } => typ,
+        }
     }
 }
 

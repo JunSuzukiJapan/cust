@@ -105,7 +105,7 @@ impl<'ctx> CodeGen<'ctx> {
 
                     index_map.insert(name.clone(), index);
                 },
-                Enumerator::TypeTuple { name, type_list } => {
+                Enumerator::TypeTuple { name, tuple_type } => {
 
 
 
@@ -145,7 +145,7 @@ impl<'ctx> CodeGen<'ctx> {
 
                     index_map.insert(name.clone(), index);
                 },
-                Enumerator::TypeTuple { name: _, type_list: _ } => {
+                Enumerator::TypeTuple { name: _, tuple_type: _ } => {
                     panic!("standard enum do not have TypeTuple");
                 },
                 Enumerator::TypeStruct { name: _, struct_type: _ } => {

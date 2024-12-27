@@ -4,7 +4,7 @@ use super::{Position, Token};
 use super::ParserError;
 use super::ast::{AST, ToplevelAST, ExprAST, Param, Params, BinOp, TypeQualifier, DeclarationSpecifier, SpecifierQualifier, Declarator, DirectDeclarator};
 use super::ast::{DeclarationSpecifierOrVariadic, Declaration, StructDeclaration, StructDeclarator, AbstractDeclarator, DirectAbstractDeclarator};
-use super::ast::{StructLiteral, EnumLiteral};
+use super::ast::{StructLiteral, EnumLiteral, TupleLiteral};
 use super::ConstExpr;
 use super::types::*;
 use super::defines::*;
@@ -1001,9 +1001,9 @@ impl Parser {
         Ok((list, is_tagged))
     }
 
-    fn parse_type_list(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Vec<(Rc<Type>, u32)>, ParserError> {
+    fn parse_type_list(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Vec<Rc<Type>>, ParserError> {
         let mut vec = Vec::new();
-        let mut tag_number = 0;
+        // let mut tag_number = 0;
 
         loop {
             let (tok, pos) = iter.peek().unwrap();
@@ -1015,9 +1015,10 @@ impl Parser {
             }
 
             let typ = self.parse_type(iter, defs)?;
-            vec.push((typ, tag_number));
+            // vec.push((typ, tag_number));
+            vec.push(typ);
 
-            tag_number += 1;
+            // tag_number += 1;
         }
 
         Ok(vec)
@@ -2105,8 +2106,9 @@ impl Parser {
                                     EnumInitializer::Symbol(elem_name) => {
                                         Ok(Some(ExprAST::StructStaticSymbol(name.clone(), elem_name.clone(), pos.clone())))
                                     },
-                                    EnumInitializer::Tuple(id, index, list) => {
-                                        unimplemented!()
+                                    EnumInitializer::Tuple(_id, index, literal) => {
+                                        let literal = EnumLiteral::Tuple(literal);
+                                        Ok(Some(ExprAST::EnumLiteral(typ, index, literal, pos.clone())))
                                     },
                                     EnumInitializer::Struct(_id, index, struct_literal) => {
                                         let literal = EnumLiteral::Struct(struct_literal);
@@ -2249,17 +2251,19 @@ impl Parser {
 
         match tok2 {
             Token::ParenLeft => {  // '('
-                if typ.is_enum() {
-                    iter.next();  // skip '('
-
-
-
-
-                    unimplemented!()
-
-                }else{
-                    Ok(EnumInitializer::Symbol(elem_name.to_string()))
+                if ! typ.is_enum() {
+                    return Ok(EnumInitializer::Symbol(elem_name.to_string()));
                 }
+
+                let enum_def = typ.get_enum_definition().unwrap();
+                let fields = enum_def.get_fields();
+                let index_map = enum_def.get_index_map().ok_or(ParserError::not_tagged_enum(pos.clone()))?;
+                let index = index_map.get(elem_name).ok_or(ParserError::no_such_a_field(enum_name.to_string(), elem_name.to_string(), pos.clone()))?;
+                let elem = &fields[*index];
+                let tpl_type = elem.get_tuple_type().ok_or(ParserError::not_tuple_type_enum(enum_name.to_string(), elem_name.to_string(), pos.clone()))?;
+                let init = self.parse_tuple_literal(Rc::clone(tpl_type), enum_name, pos, iter, defs, labels)?;
+
+                Ok(EnumInitializer::Tuple(elem_name.to_string(), *index as u64, init))
             },
             Token::BraceLeft => {  // '{'
                 if ! typ.is_enum() {
@@ -2338,7 +2342,7 @@ impl Parser {
             }
         }
 
-        // check fields coount
+        // check fields count
         if let Some(fields) = typ.get_struct_fields() {
             if fields.len() != map.len() {
                 return Err(ParserError::number_of_elements_does_not_match(pos.clone()));
@@ -2364,6 +2368,79 @@ impl Parser {
         };
 
         Ok(struct_init)
+    }
+
+    fn parse_tuple_literal(&self, typ: Rc<Type>, name: &str, pos: &Position, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<TupleLiteral, ParserError> {
+        iter.next();  // skip '('
+
+        let mut vec = Vec::new();
+        let mut const_vec = Vec::new();
+        let mut all_const = true;
+
+        'outer: loop {
+            //
+            // check end of tuple
+            //
+            let (tok3, pos3) = iter.peek().unwrap();
+            if tok3.is_eof() { return Err(ParserError::illegal_end_of_input(pos3.clone())); }
+            if *tok3 == Token::ParenRight {
+                iter.next();  // skip ')'
+                break 'outer;
+            }
+
+            //
+            // parse expression
+            //
+            if let Some(expr) = self.parse_expression(iter, defs, labels)? {
+                let maybe_const = expr.to_const(defs, pos3);
+                if maybe_const.is_err() {
+                    all_const = false;
+                }else if all_const {
+                    const_vec.push(maybe_const.ok().unwrap());
+                }
+
+                vec.push(Box::new(expr));
+
+            }else{
+                return Err(ParserError::not_expr(iter.peek().unwrap().1.clone()));
+            }
+
+            //
+            // check end of tuple & ','
+            //
+            let (tok4, pos4) = iter.peek().unwrap();
+            if tok4.is_eof() { return Err(ParserError::illegal_end_of_input(pos4.clone())); }
+            match tok4 {
+                Token::ParenRight => {
+                    break 'outer;
+                },
+                Token::Comma => {
+                    iter.next();  // skip ','
+                },
+                _ => {
+                    return Err(ParserError::syntax_error(file!(), line!(), column!(), pos4.clone()));
+                },
+            }
+        }
+
+        //
+        // check length
+        //
+        let type_list = typ.get_tuple_type_list().ok_or(ParserError::not_tuple_type(name.to_string(), pos.clone()))?;
+        if type_list.len() != vec.len() {
+            return Err(ParserError::number_of_elements_does_not_match(pos.clone()));
+        }
+
+        //
+        // make return value
+        //
+        let tuple_init = if all_const {
+            TupleLiteral::new_const(typ, const_vec, pos.clone())
+        }else{
+            TupleLiteral::new_normal(typ, vec, pos.clone())
+        };
+
+        Ok(tuple_init)
     }
 
     fn parse_union_literal(&self, typ: Rc<Type>, _name: &str, pos: &Position, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ExprAST>, ParserError> {

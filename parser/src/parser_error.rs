@@ -80,9 +80,11 @@ pub enum ParserError {
     StandardEnumCannotBeTagged(Position),
     NotTaggedEnum(Position),
     NotStructTypeEnum(String, String, Position),
+    NotTupleTypeEnum(String, String, Position),
     NotPattern(Position),
     LeftGreaterThanRightInCharRange(char, char, Position),
     NotConstInArrayInitializer(Position),
+    NotTupleType(String, Position),
 }
 
 impl ParserError {
@@ -349,6 +351,10 @@ impl ParserError {
         ParserError::NotStructTypeEnum(enum_name, elem_name, pos)
     }
 
+    pub fn not_tuple_type_enum(enum_name: String, elem_name: String, pos: Position) -> Self {
+        ParserError::NotTupleTypeEnum(enum_name, elem_name, pos)
+    }
+
     pub fn not_pattern(pos: Position) -> Self {
         ParserError::NotPattern(pos)
     }
@@ -359,6 +365,10 @@ impl ParserError {
 
     pub fn not_const_in_array_initializer(pos: Position) -> Self {
         ParserError::NotConstInArrayInitializer(pos)
+    }
+
+    pub fn not_tuple_type(name: String, pos: Position) -> Self {
+        ParserError::NotTupleType(name, pos)
     }
 }
 
@@ -445,9 +455,11 @@ impl fmt::Display for ParserError {
             Self::StandardEnumCannotBeTagged(_pos) => write!(f, "standard enum cannot be tagged"),
             Self::NotTaggedEnum(_pos) => write!(f, "not tagged enum"),
             Self::NotStructTypeEnum(enum_name, elem_name, _pos) => write!(f, "{enum_name}::{elem_name} is not struct type"),
+            Self::NotTupleTypeEnum(enum_name, elem_name, _pos) => write!(f, "{enum_name}::{elem_name} is not tuple type"),
             Self::NotPattern(_pos) => write!(f, "not pattern"),
             Self::LeftGreaterThanRightInCharRange(ch1, ch2, _pos) => write!(f, "'{ch1}' greater than '{ch2}' in char range"),
             Self::NotConstInArrayInitializer(_pos) => write!(f, "not const expr in array initializer"),
+            Self::NotTupleType(name, _pos) => write!(f, "{name} is not tuple"),
         }
     }
 }

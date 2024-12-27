@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use super::{ParserError, StructDeclaration, SpecifierQualifier};
-use crate::ast::StructLiteral;
+use crate::ast::{StructLiteral, TupleLiteral};
 use crate::{ExprAST, Position};
 
 use std::cmp::Ordering;
@@ -443,7 +443,8 @@ pub enum Enumerator {
     //
     TypeTuple {
         name: String,
-        type_list: Vec<(Rc<Type>, u32)>,
+        // type_list: Vec<(Rc<Type>, u32)>,
+        tuple_type: Rc<Type>,
     },
     //
     // EnumName::FieldName {name1: Type1, name2: Type2, ..}
@@ -460,8 +461,9 @@ impl Enumerator {
         Enumerator::Const { name: name.to_string(), const_value: value }
     }
 
-    pub fn new_tuple(name: &str, list: Vec<(Rc<Type>, u32)>) -> Enumerator {
-        Enumerator::TypeTuple { name: name.to_string(), type_list: list }
+    pub fn new_tuple(name: &str, list: Vec<Rc<Type>>) -> Enumerator {
+        let typ = Type::Tuple(list);
+        Enumerator::TypeTuple { name: name.to_string(), tuple_type: Rc::new(typ) }
     }
 
     pub fn new_struct(name: &str, definition: StructDefinition) -> Enumerator {
@@ -481,6 +483,13 @@ impl Enumerator {
     pub fn get_struct_type(&self) -> Option<&Rc<Type>> {
         match self {
             Enumerator::TypeStruct { struct_type, .. } => Some(struct_type),
+            _ => None,
+        }
+    }
+
+    pub fn get_tuple_type(&self) -> Option<&Rc<Type>> {
+        match self {
+            Self::TypeTuple { name, tuple_type } => Some(tuple_type),
             _ => None,
         }
     }
@@ -558,7 +567,8 @@ impl EnumDefinition {
 #[derive(Debug, Clone, PartialEq)]
 pub enum EnumInitializer {
     Symbol(String),
-    Tuple(String, u64, Vec<ExprAST>),
+    // Tuple(String, u64, Vec<ExprAST>),
+    Tuple(String, u64, TupleLiteral),
     Struct(String, u64, StructLiteral),
 }
 
@@ -725,6 +735,13 @@ impl Type {
     pub fn get_tuple_size(&self) -> Option<usize> {
         match self {
             Type::Tuple(vec) => Some(vec.len()),
+            _ => None,
+        }
+    }
+
+    pub fn get_tuple_type_list(&self) -> Option<&Vec<Rc<Type>>> {
+        match self {
+            Type::Tuple(vec) => Some(vec),
             _ => None,
         }
     }
