@@ -736,7 +736,7 @@ impl Parser {
                         //     }
                         // }
 
-                        let list = self.parse_type_list_in_tuple(&[Token::Greater], iter, defs, labels)?;
+                        let list = self.parse_type_list_in_tuple(&Token::Greater, iter, defs, labels)?;
                         let typ = Type::Tuple(list);
                         opt_type = Some((Rc::new(typ), pos.clone()));
                     },
@@ -764,7 +764,7 @@ impl Parser {
         Ok((sq, TypeOrVariadic::Type(typ), pos))
     }
 
-    fn parse_type_list_in_tuple(&self, end_token_list: &[Token], iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Vec<Rc<Type>>, ParserError> {
+    fn parse_type_list_in_tuple(&self, end_token: &Token, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Vec<Rc<Type>>, ParserError> {
         iter.next();
 
         let mut list = Vec::new();
@@ -788,14 +788,10 @@ impl Parser {
                 let (tok3, pos3) = iter.peek().unwrap();
                 if *tok3 == Token::Comma {  // skip ','
                     iter.next();
+                }else if *tok3 == *end_token {
+                    iter.next();
+                    break 'outer;
                 } else {
-                    for tok in end_token_list.iter() {
-                        if *tok3 == *tok {
-                            iter.next();
-                            break 'outer;
-                        }
-                    }
-
                     return Err(ParserError::syntax_error(file!(), line!(), column!(), pos3.clone()));
                 }
             }
@@ -1000,7 +996,7 @@ eprintln!("tok2: {:?}", tok2);
                     is_tagged = true;
 
                     let end_token = if *tok2 == Token::Less { Token::Greater } else { Token::ParenRight };
-                    let type_list = self.parse_type_list_in_tuple(&[end_token], iter, defs, labels)?;
+                    let type_list = self.parse_type_list_in_tuple(&end_token, iter, defs, labels)?;
                     enumerator = Enumerator::new_tuple(name, type_list);
 
                     let (tok3, pos3) = iter.peek().unwrap();
