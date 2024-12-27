@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+use tokenizer::Token;
+
 use super::{ParserError, StructDeclaration, SpecifierQualifier};
 use crate::ast::{StructLiteral, TupleLiteral};
 use crate::{ExprAST, Position};
@@ -654,6 +656,20 @@ impl Type {
     pub fn new_pointer_type(typ: Rc<Type>, is_const: bool, is_volatile: bool) -> Type {
         let pointer = Pointer::new(is_const, is_volatile);
         Type::Pointer(pointer, Box::new(typ))
+    }
+
+    pub fn from_token(token: &Token, pos: &Position) -> Result<Type, ParserError> {
+        match token {
+            Token::Char => Ok(Type::Number(NumberType::Char)),
+            Token::Double => Ok(Type::Number(NumberType::Double)),
+            Token::Float => Ok(Type::Number(NumberType::Float)),
+            Token::Int => Ok(Type::Number(NumberType::Int)),
+            Token::Long => Ok(Type::Number(NumberType::Long)),
+            Token::Short => Ok(Type::Number(NumberType::Short)),
+            Token::Void => Ok(Type::Void),
+            Token::Symbol(name) => Ok(Type::Symbol(name.to_string())),
+            _ => Err(ParserError::not_type_token(token.clone(), pos.clone())),
+        }
     }
 
     pub fn struct_from_struct_definition(name: Option<String>, fields: StructDefinition) -> Type {

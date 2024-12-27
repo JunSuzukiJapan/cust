@@ -703,39 +703,40 @@ impl Parser {
                         opt_type = Some((Rc::new(Type::Number(NumberType::Double)), pos.clone()));
                     },
                     Token::TupleTypeStart => {  // '$<'
-                        iter.next();
+                        // iter.next();
 
-                        let mut list = Vec::new();
+                        // let mut list = Vec::new();
 
-                        let (tok2, _pos2) = iter.peek().unwrap();
-                        if *tok2 != Token::Greater {  // NOT '>'
-                            loop {
-                                let (_sq, tv, _pos3) = self.parse_type_specifier_qualifier(iter, defs, labels)?;
-                                if let TypeOrVariadic::Type(typ) = tv {
-                                    let pointer = self.parse_pointer(iter, defs)?;
-                                    if let Some(ptr) = pointer {
-                                        let typ2 = Type::Pointer(ptr, Box::new(typ));
-                                        list.push(Rc::new(typ2));
-                                    }else{
-                                        list.push(typ);
-                                    }
+                        // let (tok2, _pos2) = iter.peek().unwrap();
+                        // if *tok2 != Token::Greater {  // NOT '>'
+                        //     loop {
+                        //         let (_sq, tv, _pos3) = self.parse_type_specifier_qualifier(iter, defs, labels)?;
+                        //         if let TypeOrVariadic::Type(typ) = tv {
+                        //             let pointer = self.parse_pointer(iter, defs)?;
+                        //             if let Some(ptr) = pointer {
+                        //                 let typ2 = Type::Pointer(ptr, Box::new(typ));
+                        //                 list.push(Rc::new(typ2));
+                        //             }else{
+                        //                 list.push(typ);
+                        //             }
 
-                                }else{
-                                    panic!()
-                                }
+                        //         }else{
+                        //             panic!()
+                        //         }
 
-                                let (tok3, pos3) = iter.peek().unwrap();
-                                if *tok3 == Token::Comma {  // skip ','
-                                    iter.next();
-                                } else if *tok3 == Token::Greater {
-                                    iter.next();
-                                    break;
-                                } else {
-                                    return Err(ParserError::syntax_error(file!(), line!(), column!(), pos3.clone()));
-                                }
-                            }
-                        }
+                        //         let (tok3, pos3) = iter.peek().unwrap();
+                        //         if *tok3 == Token::Comma {  // skip ','
+                        //             iter.next();
+                        //         } else if *tok3 == Token::Greater {
+                        //             iter.next();
+                        //             break;
+                        //         } else {
+                        //             return Err(ParserError::syntax_error(file!(), line!(), column!(), pos3.clone()));
+                        //         }
+                        //     }
+                        // }
 
+                        let list = self.parse_type_list_in_tuple(&[Token::Greater], iter, defs, labels)?;
                         let typ = Type::Tuple(list);
                         opt_type = Some((Rc::new(typ), pos.clone()));
                     },
@@ -763,6 +764,46 @@ impl Parser {
         Ok((sq, TypeOrVariadic::Type(typ), pos))
     }
 
+    fn parse_type_list_in_tuple(&self, end_token_list: &[Token], iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Vec<Rc<Type>>, ParserError> {
+        iter.next();
+
+        let mut list = Vec::new();
+        let (tok2, _pos2) = iter.peek().unwrap();
+        if *tok2 != Token::Greater {  // NOT '>'
+            'outer: loop {
+                let (_sq, tv, _pos3) = self.parse_type_specifier_qualifier(iter, defs, labels)?;
+                if let TypeOrVariadic::Type(typ) = tv {
+                    let pointer = self.parse_pointer(iter, defs)?;
+                    if let Some(ptr) = pointer {
+                        let typ2 = Type::Pointer(ptr, Box::new(typ));
+                        list.push(Rc::new(typ2));
+                    }else{
+                        list.push(typ);
+                    }
+
+                }else{
+                    panic!()
+                }
+
+                let (tok3, pos3) = iter.peek().unwrap();
+                if *tok3 == Token::Comma {  // skip ','
+                    iter.next();
+                } else {
+                    for tok in end_token_list.iter() {
+                        if *tok3 == *tok {
+                            iter.next();
+                            break 'outer;
+                        }
+                    }
+
+                    return Err(ParserError::syntax_error(file!(), line!(), column!(), pos3.clone()));
+                }
+            }
+        }
+
+        Ok(list)
+    }
+
     fn parse_enum_body(&self, name: &String, pos3: &Position, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Type, ParserError> {
         let (enum_list, is_tagged) = self.parse_enumerator_list(iter, defs, labels)?;
 
@@ -776,7 +817,7 @@ impl Parser {
         let type_struct = Type::enum_from_enum_definition(name.clone(), definition.clone());
         defs.set_enum(name, definition, pos3)?;
 
-        self.parse_expected_token(iter, Token::BraceRight)?;
+        self.parse_expected_token(iter, Token::BraceRight)?;  // skip '}'
 
         Ok(type_struct)
     }
@@ -924,6 +965,7 @@ impl Parser {
             let enumerator: Enumerator;
             let (tok2, pos2) = iter.peek().unwrap();
             if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
+eprintln!("tok2: {:?}", tok2);
             match tok2 {
                 Token::BraceRight => {  // '}'
                     enumerator = Enumerator::new(name, value);
@@ -951,15 +993,14 @@ impl Parser {
                     iter.next();  // skip ','
                     enumerator = Enumerator::new(name, value);
                 },
-                Token::ParenLeft => {   // '('
+                Token::Less | Token::ParenLeft => {   // '<' or '('
                     if is_standard {
                         return Err(ParserError::standard_enum_cannot_be_tagged(pos2.clone()));
                     }
                     is_tagged = true;
 
-                    iter.next();  // skip '('
-
-                    let type_list = self.parse_type_list(iter, defs)?;
+                    let end_token = if *tok2 == Token::Less { Token::Greater } else { Token::ParenRight };
+                    let type_list = self.parse_type_list_in_tuple(&[end_token], iter, defs, labels)?;
                     enumerator = Enumerator::new_tuple(name, type_list);
 
                     let (tok3, pos3) = iter.peek().unwrap();
@@ -999,46 +1040,6 @@ impl Parser {
         }
 
         Ok((list, is_tagged))
-    }
-
-    fn parse_type_list(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Vec<Rc<Type>>, ParserError> {
-        let mut vec = Vec::new();
-        // let mut tag_number = 0;
-
-        loop {
-            let (tok, pos) = iter.peek().unwrap();
-            if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
-
-            if *tok == Token::ParenRight {
-                iter.next();  // skip ')'
-                break;
-            }
-
-            let typ = self.parse_type(iter, defs)?;
-            // vec.push((typ, tag_number));
-            vec.push(typ);
-
-            // tag_number += 1;
-        }
-
-        Ok(vec)
-    }
-
-    fn parse_type(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Rc<Type>, ParserError> {
-        let (tok, pos) = self.next_token(iter)?;
-
-        match tok {
-            Token::Symbol(name) => {
-                if let Some(typ) = defs.get_type(name) {
-                    return Ok(Rc::clone(typ));
-                }else{
-                    return Err(ParserError::no_such_a_type(name, pos.clone()));
-                }
-            },
-            _ => {
-                return Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()));
-            },
-        }
     }
 
     pub fn parse_declarator(&self, typ: &Rc<Type>, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<(Declarator, Option<Initializer>), ParserError> {

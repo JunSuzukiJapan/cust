@@ -85,6 +85,7 @@ pub enum ParserError {
     LeftGreaterThanRightInCharRange(char, char, Position),
     NotConstInArrayInitializer(Position),
     NotTupleType(String, Position),
+    NotTypeToken(Token, Position),
 }
 
 impl ParserError {
@@ -370,6 +371,10 @@ impl ParserError {
     pub fn not_tuple_type(name: String, pos: Position) -> Self {
         ParserError::NotTupleType(name, pos)
     }
+
+    pub fn not_type_token(tok: Token, pos: Position) -> Self {
+        ParserError::NotTypeToken(tok, pos)
+    }
 }
 
 impl From<TokenizerError> for ParserError {
@@ -460,6 +465,7 @@ impl fmt::Display for ParserError {
             Self::LeftGreaterThanRightInCharRange(ch1, ch2, _pos) => write!(f, "'{ch1}' greater than '{ch2}' in char range"),
             Self::NotConstInArrayInitializer(_pos) => write!(f, "not const expr in array initializer"),
             Self::NotTupleType(name, _pos) => write!(f, "{name} is not tuple"),
+            Self::NotTypeToken(tok, _pos) => write!(f, "{tok:?} is not type token"),
         }
     }
 }
