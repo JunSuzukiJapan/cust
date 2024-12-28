@@ -24,11 +24,34 @@ mod tests {
     }
 
     #[test]
-    fn parse_enum2() {
+    fn parse_enum2a() {
         let src = "
             enum Foo {
                 Bar,
                 Zot<int, int>,
+            };
+        ";
+        let ast = parse_translation_unit_from_str(src).unwrap();
+
+        if let ToplevelAST::DefineEnum { name, fields, pos: _ } = &ast[0] {
+            assert_eq!(name, "Foo");
+
+            let fields = fields.get_fields();
+            assert_eq!(fields.len(), 2);
+            assert_eq!(fields[0], Enumerator::new("Bar", 0));
+            assert_eq!(fields[1], Enumerator::new_tuple("Zot", vec![Rc::new(Type::Number(NumberType::Int)), Rc::new(Type::Number(NumberType::Int))]));
+
+        }else{
+            panic!()
+        }
+    }
+
+    #[test]
+    fn parse_enum2b() {
+        let src = "
+            enum Foo {
+                Bar,
+                Zot(int, int),
             };
         ";
         let ast = parse_translation_unit_from_str(src).unwrap();
