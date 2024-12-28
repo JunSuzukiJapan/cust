@@ -296,6 +296,20 @@ impl StructField {
         }
     }
 
+    pub fn is_normal(&self) -> bool {
+        match self {
+            StructField::NormalField {..} => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_bit_field(&self) -> bool {
+        match self {
+            StructField::BitField {..} => true,
+            _ => false,
+        }
+    }
+
     pub fn get_type(&self) -> Option<&Rc<Type>> {
         match self {
             StructField::NormalField {typ, ..} => Some(typ),
@@ -388,6 +402,10 @@ impl StructDefinition {
         }else{
             0
         }
+    }
+
+    pub fn get_name(&self) -> &Option<String> {
+        &self.name
     }
 
     pub fn get_type(&self, name: &str) -> Option<&Rc<Type>> {
