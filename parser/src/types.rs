@@ -555,6 +555,13 @@ impl EnumDefinition {
         }
     }
 
+    pub fn is_tagged(&self) -> bool {
+        match self {
+            EnumDefinition::TaggedEnum { .. } => true,
+            _ => false,
+        }
+    }
+
     fn make_map_from_vec(enumerators: &Vec<Enumerator>) -> HashMap<String, usize> {
         let mut index_map: HashMap<String, usize> = HashMap::new();
         let mut index = 0;

@@ -3,7 +3,7 @@ extern crate tokenizer;
 mod parser_error;
 mod types;
 mod const_expr;
-mod ast;
+pub mod ast;
 mod defines;
 mod parse;
 mod parse_statement;

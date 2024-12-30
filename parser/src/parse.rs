@@ -2309,6 +2309,7 @@ eprintln!("tok2: {:?}", tok2);
         // check fields count
         if let Some(fields) = typ.get_struct_fields() {
             if fields.len() != map.len() {
+eprintln!("fields.len() = {}, map.len() = {}", fields.len(), map.len());
                 return Err(ParserError::number_of_elements_does_not_match(pos.clone()));
             }
 
@@ -2321,6 +2322,7 @@ eprintln!("tok2: {:?}", tok2);
 
         }else{
             if map.len() != 0 {
+eprintln!("map.len() = {}", map.len());
                 return Err(ParserError::number_of_elements_does_not_match(pos.clone()));
             }
         }
@@ -2355,7 +2357,9 @@ eprintln!("tok2: {:?}", tok2);
             //
             // parse expression
             //
-            if let Some(expr) = self.parse_expression(iter, defs, labels)? {
+
+            // if let Some(expr) = self.parse_expression(iter, defs, labels)? {
+            if let Some(expr) = self.parse_assignment_expression(iter, defs, labels)? {
                 let maybe_const = expr.to_const(defs, pos3);
                 if maybe_const.is_err() {
                     all_const = false;
@@ -2391,7 +2395,10 @@ eprintln!("tok2: {:?}", tok2);
         // check length
         //
         let type_list = typ.get_tuple_type_list().ok_or(ParserError::not_tuple_type(name.to_string(), pos.clone()))?;
+eprintln!("type_list: {:?}", type_list);
+eprintln!("vec: {:?}", vec);
         if type_list.len() != vec.len() {
+eprintln!("type_list.len() = {}, vec.len() = {}", type_list.len(), vec.len());
             return Err(ParserError::number_of_elements_does_not_match(pos.clone()));
         }
 

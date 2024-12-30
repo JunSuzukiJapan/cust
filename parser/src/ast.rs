@@ -798,6 +798,20 @@ impl EnumLiteral {
             Self::Tuple(literal) => literal.get_type(),
         }
     }
+
+    pub fn get_struct_literal(&self) -> Option<&StructLiteral> {
+        match self {
+            EnumLiteral::Struct(literal) => Some(literal),
+            _ => None,
+        }
+    }
+
+    pub fn get_tuple_literal(&self) -> Option<&TupleLiteral> {
+        match self {
+            EnumLiteral::Tuple(literal) => Some(literal),
+            _ => None,
+        }
+    }
 }
 
 #[allow(non_camel_case_types)]

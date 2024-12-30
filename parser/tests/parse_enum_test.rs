@@ -3,6 +3,7 @@ mod common;
 mod tests {
     use super::common::*;
     use crate::common::StructDefinition;
+    use parser::ast::TupleLiteral;
     use std::{ops::Deref, rc::Rc};
 
     #[test]
@@ -121,6 +122,102 @@ mod tests {
             }
 
 
+        }else{
+            panic!()
+        }
+    }
+
+    #[test]
+    fn parse_tuple_type_enum() {
+        let src = "
+            enum Foo {
+                Bar,
+                Zot(int, int),
+            };
+
+            int main() {
+                enum Foo x = Foo::Zot(1, 2);
+
+                return 0;
+            }
+        ";
+        let ast = parse_translation_unit_from_str(src).unwrap();
+        assert_eq!(ast.len(), 2);
+
+        if let ToplevelAST::DefineEnum { name, fields, pos: _ } = &ast[0] {
+            assert_eq!(name, "Foo");
+
+            let fields = fields.get_fields();
+            assert_eq!(fields.len(), 2);
+            assert_eq!(fields[0], Enumerator::new("Bar", 0));
+            assert_eq!(fields[1], Enumerator::new_tuple("Zot", vec![Rc::new(Type::Number(NumberType::Int)), Rc::new(Type::Number(NumberType::Int))]));
+
+        }else{
+            panic!()
+        }
+
+        if let ToplevelAST::Function(Function { specifiers, declarator, params, body, labels }, _pos) = &ast[1] {
+            assert_eq!(declarator.get_name(), "main");
+            assert_eq!(params.len(), 0);
+
+            if let AST::DefVar { specifiers: _, declarations, pos: _ } = &body.body[0] {
+                assert_eq!(declarations.len(), 1);
+                let decl = declarations.get(0).unwrap();
+                assert_eq!(decl.get_declarator().get_name(), "x");
+
+                if let Initializer::Simple(expr, _pos) = decl.get_init_expr().as_ref().unwrap() {
+                    if let ExprAST::EnumLiteral(typ, index, literal, _pos) = expr {
+                        // check index
+                        assert_eq!(*index, 1);
+
+                        // check typ
+                        if let Type::Enum { name, enum_def } = &**typ {
+                            assert_eq!(name, "Foo");
+                            assert_eq!(enum_def.is_tagged(), true);
+
+                            let fields = enum_def.get_fields();
+                            assert_eq!(fields.len(), 2);
+                            assert_eq!(fields[0], Enumerator::new("Bar", 0));
+                            assert_eq!(
+                                fields[1],
+                                Enumerator::new_tuple("Zot", vec![Rc::new(Type::Number(NumberType::Int)), Rc::new(Type::Number(NumberType::Int))])
+                            );
+
+
+                        }else{
+                            panic!()
+                        }
+
+                        // check literal
+                        let tuple_literal = literal.get_tuple_literal().unwrap();
+                        if let TupleLiteral::ConstLiteral { typ, list, pos: _ } = tuple_literal {
+                            assert_eq!(typ.deref(), &Type::Tuple(vec![Rc::new(Type::Number(NumberType::Int)), Rc::new(Type::Number(NumberType::Int))]));
+
+                            assert_eq!(list.len(), 2);
+                            assert_eq!(list[0], ConstExpr::Int(1, Position::new(10, 31)));
+                            assert_eq!(list[1], ConstExpr::Int(2, Position::new(10, 34)));
+
+                        }else {
+                            panic!()
+                        }
+
+                    }else{
+                        panic!()
+                    }
+                }else{
+                    panic!()
+                };
+
+            }else{
+                panic!()
+            }
+
+            if let AST::Return(expr, _pos) = &body.body[1] {
+                assert_eq!(&**expr.as_ref().unwrap(), &ExprAST::Int(0, Position::new(10, 23)));
+
+            }else{
+                panic!()
+            }
         }else{
             panic!()
         }
