@@ -222,4 +222,155 @@ mod tests {
             panic!()
         }
     }
+
+    #[test]
+    fn parse_struct_type_enum() {
+        let src = "
+            enum Foo {
+                Bar,
+                Zot {
+                    int x;
+                    int y;
+                },
+            };
+
+            int main() {
+                enum Foo x = Foo::Zot {
+                    x: 1;
+                    y: 2;
+                };
+
+                return 0;
+            }
+        ";
+        let ast = parse_translation_unit_from_str(src).unwrap();
+        assert_eq!(ast.len(), 2);
+
+        let struct_def = StructDefinition::try_new(
+            None,
+            Some(vec![
+                StructDeclaration::new(
+                    SpecifierQualifier::default(),
+                    Some(Rc::new(Type::Number(NumberType::Int))),
+                    vec![
+                        StructDeclarator::new(
+                            Some(
+                                Declarator::new(
+                                    None,
+                                    DirectDeclarator::Symbol("x".to_string(), Position::new(5, 17))
+                                )
+                            ),
+                            None
+                        ),
+                    ]
+                ),
+                StructDeclaration::new(
+                    SpecifierQualifier::default(),
+                    Some(Rc::new(Type::Number(NumberType::Int))),
+                    vec![
+                        StructDeclarator::new(
+                            Some(
+                                Declarator::new(
+                                    None,
+                                    DirectDeclarator::Symbol("y".to_string(), Position::new(5, 17))
+                                )
+                            ),
+                            None
+                        ),
+                    ]
+                ),
+            ]),
+            &Position::new(5, 17)
+        ).unwrap();
+
+        if let ToplevelAST::DefineEnum { name, fields, pos: _ } = &ast[0] {
+            assert_eq!(name, "Foo");
+
+            let fields = fields.get_fields();
+            assert_eq!(fields.len(), 2);
+            assert_eq!(fields[0], Enumerator::new("Bar", 0));
+            assert_eq!(
+                fields[1],
+                Enumerator::new_struct(
+                    "Zot",
+                    struct_def.clone()
+                )
+            );
+
+        }else{
+            panic!()
+        }
+
+        if let ToplevelAST::Function(Function { specifiers, declarator, params, body, labels }, _pos) = &ast[1] {
+            assert_eq!(declarator.get_name(), "main");
+            assert_eq!(params.len(), 0);
+
+            if let AST::DefVar { specifiers: _, declarations, pos: _ } = &body.body[0] {
+                assert_eq!(declarations.len(), 1);
+                let decl = declarations.get(0).unwrap();
+                assert_eq!(decl.get_declarator().get_name(), "x");
+
+                if let Initializer::Simple(expr, _pos) = decl.get_init_expr().as_ref().unwrap() {
+                    if let ExprAST::EnumLiteral(typ, index, literal, _pos) = expr {
+                        // check index
+                        assert_eq!(*index, 1);
+
+                        // check typ
+                        if let Type::Enum { name, enum_def } = &**typ {
+                            assert_eq!(name, "Foo");
+                            assert_eq!(enum_def.is_tagged(), true);
+
+                            let fields = enum_def.get_fields();
+                            assert_eq!(fields.len(), 2);
+                            assert_eq!(fields[0], Enumerator::new("Bar", 0));
+                            assert_eq!(
+                                fields[1],
+                                Enumerator::new_struct(
+                                    "Zot",
+                                    struct_def.clone()
+                                )
+                            );
+
+
+                        }else{
+                            panic!()
+                        }
+
+                        // check literal
+                        let struct_literal = literal.get_struct_literal().unwrap();
+                        if let StructLiteral::ConstLiteral (typ, map, _pos)= struct_literal {
+                            assert_eq!(typ.deref(), &Type::Struct {
+                                name: None,
+                                fields: struct_def
+                            });
+
+                            assert_eq!(map.len(), 2);
+                            assert_eq!(map.get("x").unwrap(), &ConstExpr::Int(1, Position::new(10, 31)));
+                            assert_eq!(map.get("y").unwrap(), &ConstExpr::Int(2, Position::new(10, 34)));
+
+                        }else {
+                            panic!()
+                        }
+
+                    }else{
+                        panic!()
+                    }
+                }else{
+                    panic!()
+                };
+
+            }else{
+                panic!()
+            }
+
+            if let AST::Return(expr, _pos) = &body.body[1] {
+                assert_eq!(&**expr.as_ref().unwrap(), &ExprAST::Int(0, Position::new(16, 23)));
+
+            }else{
+                panic!()
+            }
+        }else{
+            panic!()
+        }
+    }
 }
