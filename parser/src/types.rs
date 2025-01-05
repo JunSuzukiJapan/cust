@@ -491,6 +491,27 @@ impl Enumerator {
         Enumerator::TypeStruct { name: name.to_string(), struct_type: Rc::new(struct_type) }
     }
 
+    pub fn is_const(&self) -> bool {
+        match self {
+            Enumerator::Const {..} => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_struct_type(&self) -> bool {
+        match self {
+            Enumerator::TypeStruct {..} => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_tuple_type(&self) -> bool {
+        match self {
+            Enumerator::TypeTuple {..} => true,
+            _ => false,
+        }
+    }
+
     #[inline]
     pub fn get_name(&self) -> &str {
         match self {
@@ -510,6 +531,14 @@ impl Enumerator {
     pub fn get_tuple_type(&self) -> Option<&Rc<Type>> {
         match self {
             Self::TypeTuple { name, tuple_type } => Some(tuple_type),
+            _ => None,
+        }
+    }
+
+    pub fn get_type(&self) -> Option<&Rc<Type>> {
+        match self {
+            Enumerator::TypeStruct { struct_type, .. } => Some(struct_type),
+            Enumerator::TypeTuple { tuple_type, .. } => Some(tuple_type),
             _ => None,
         }
     }
@@ -587,6 +616,48 @@ impl EnumDefinition {
         match self {
             EnumDefinition::TaggedEnum { index_map, .. } => Some(index_map),
             _ => None,
+        }
+    }
+
+    pub fn get_struct_type_index(&self, sub_type_name: &str, member_name: &str) -> Option<usize> {
+eprintln!("name: {}, member: {}", sub_type_name, member_name);
+
+        match self {
+            EnumDefinition::StandardEnum { index_map, .. } => None,
+            EnumDefinition::TaggedEnum { index_map, fields, .. } => {
+eprintln!("index_map: {:?}", index_map);
+                let index = index_map.get(sub_type_name).map(|x| *x)?;
+                let sub_type = fields.get(index)?;
+
+                match sub_type {
+                    Enumerator::TypeStruct { struct_type, .. } => {
+                        let struct_def = struct_type.get_struct_definition()?;
+                        struct_def.get_index(member_name)
+                    },
+                    _ => None,
+                }
+            },
+        }
+    }
+
+    pub fn get_type(&self, name: &str) -> Option<&Rc<Type>> {
+        match self {
+            EnumDefinition::StandardEnum { fields, .. } => {
+                for field in fields {
+                    if field.get_name() == name {
+                        return field.get_type();
+                    }
+                }
+                None
+            },
+            EnumDefinition::TaggedEnum { fields, .. } => {
+                for field in fields {
+                    if field.get_name() == name {
+                        return field.get_type();
+                    }
+                }
+                None
+            },
         }
     }
 }

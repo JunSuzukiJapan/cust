@@ -33,7 +33,6 @@ impl Parser {
                         if sym_name == "let" {
                             iter.next();  // skip 'let'
 
-
                             self.parse_expected_token(iter, Token::ParenLeft)?;  // skip '('
 
                             let (pattern_list, pattern_name) = self.parse_pattern(iter, defs, labels)?;

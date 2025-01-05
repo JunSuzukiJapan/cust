@@ -102,6 +102,25 @@ impl<'ctx> CodeGen<'ctx> {
 
         for (pat, pos) in pattern_list {
             match &**pat {
+                Pattern::Var(name) => {
+                    self.builder.build_store(condition_ptr, one)?;
+
+                    let sq = SpecifierQualifier::default();
+
+                    let typ = value.get_type();
+                    let basic_type = env.basic_type_enum_from_type(&typ, self.context, pos)?;
+                    let ptr = self.builder.build_alloca(basic_type, name)?;
+
+                    let any_value = value.get_value();
+                    let basic_value = self.try_as_basic_value(&any_value, pos)?;
+                    self.builder.build_store(ptr, basic_value)?;
+
+                    env.insert_local(name, Rc::clone(typ), sq, ptr);
+
+                    // self.builder.build_unconditional_branch(all_end_block)?;
+
+                    break;
+                },
                 Pattern::Char(ch) => {
                     let then_block = self.context.append_basic_block(func, "match.then");
                     let next_block  = self.context.append_basic_block(func, "match.next");
@@ -171,9 +190,6 @@ impl<'ctx> CodeGen<'ctx> {
                     //
                     self.builder.position_at_end(next_block);
                 },
-                Pattern::Enum(_) => {
-                    unimplemented!()
-                },
                 Pattern::Number(num) => {
                     let then_block = self.context.append_basic_block(func, "match.then");
                     let next_block  = self.context.append_basic_block(func, "match.next");
@@ -200,8 +216,47 @@ impl<'ctx> CodeGen<'ctx> {
                     //
                     self.builder.position_at_end(next_block);
                 },
-                Pattern::NumberRange(_, _) => {
-                    unimplemented!()
+                Pattern::NumberRange(num1, num2) => {
+                    let greater_than_block = self.context.append_basic_block(func, "match.greater");
+                    let less_than_block = self.context.append_basic_block(func, "match.less");
+                    let next_block  = self.context.append_basic_block(func, "match.next");
+
+                    let i64_type = self.context.i64_type();
+                    let i64_num = i64_type.const_int(*num1 as u64, true);
+                    let n = CompiledValue::new(Type::Number(NumberType::LongLong).into(), i64_num.as_any_value_enum());
+
+                    let (other, target) = self.bin_expr_implicit_cast(n, value.clone(), pos)?;
+                    let other_value = other.get_value();
+                    let target_value = target.get_value();
+    
+                    let comparison = self.builder.build_int_compare(IntPredicate::UGE, target_value.into_int_value(), other_value.into_int_value(), "match_compare_char")?;
+                    self.builder.build_conditional_branch(comparison, greater_than_block, next_block)?;
+
+                    //
+                    // 1st matched
+                    //
+                    self.builder.position_at_end(greater_than_block);
+                    let i64_num2 = i64_type.const_int(*num2 as u64, true);
+                    let n2 = CompiledValue::new(Type::Number(NumberType::LongLong).into(), i64_num2.as_any_value_enum());
+
+                    let (other, target) = self.bin_expr_implicit_cast(n2, value.clone(), pos)?;
+                    let other_value = other.get_value();
+                    let target_value = target.get_value();
+    
+                    let comparison = self.builder.build_int_compare(IntPredicate::ULE, target_value.into_int_value(), other_value.into_int_value(), "match_compare_char")?;
+                    self.builder.build_conditional_branch(comparison, less_than_block, next_block)?;
+
+                    //
+                    // 2nd matched
+                    //
+                    self.builder.position_at_end(less_than_block);
+                    self.builder.build_store(condition_ptr, one)?;
+                    self.builder.build_unconditional_branch(all_end_block)?;
+
+                    //
+                    // not matched
+                    //
+                    self.builder.position_at_end(next_block);
                 },
                 Pattern::Str(s) => {
                     unimplemented!()
@@ -212,24 +267,17 @@ impl<'ctx> CodeGen<'ctx> {
                 Pattern::Tuple(tpl) => {
                     unimplemented!()
                 },
-                Pattern::Var(name) => {
-                    self.builder.build_store(condition_ptr, one)?;
+                Pattern::Enum(_) => {
 
-                    let sq = SpecifierQualifier::default();
 
-                    let typ = value.get_type();
-                    let basic_type = env.basic_type_enum_from_type(&typ, self.context, pos)?;
-                    let ptr = self.builder.build_alloca(basic_type, name)?;
 
-                    let any_value = value.get_value();
-                    let basic_value = self.try_as_basic_value(&any_value, pos)?;
-                    self.builder.build_store(ptr, basic_value)?;
 
-                    env.insert_local(name, Rc::clone(typ), sq, ptr);
 
-                    // self.builder.build_unconditional_branch(all_end_block)?;
 
-                    break;
+
+
+
+                    unimplemented!()
                 },
             }
         }

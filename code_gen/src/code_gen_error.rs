@@ -117,6 +117,8 @@ pub enum CodeGenError {
     TupleIndexTooBig(usize, usize, Position),  // (expected, real, Position)
     NotTupleInTupleAccessByIndex(ExprAST, Position),
     FloatOrDoubleCannotConvertToIntType(Position),
+    NotTaggedEnum(String, Position),
+    NotStructOrTupleInTaggedEnum(String, String, Position),
 }
 
 impl CodeGenError {
@@ -517,6 +519,14 @@ impl CodeGenError {
     pub fn float_or_double_cannot_convert_to_int_type(pos: Position) -> Self {
         Self::float_or_double_cannot_convert_to_int_type(pos)
     }
+
+    pub fn not_tagged_enum(name: String, pos: Position) -> Self {
+        Self::NotTaggedEnum(name, pos)
+    }
+
+    pub fn not_struct_or_tuple_in_tagged_enum(enum_name: String, member_name: String, pos: Position) -> Self {
+        Self::NotStructOrTupleInTaggedEnum(enum_name, member_name, pos)
+    }
 }
 
 impl From<ParserError> for CodeGenError {
@@ -841,7 +851,13 @@ impl fmt::Display for CodeGenError {
             },
             Self::FloatOrDoubleCannotConvertToIntType(_pos) => {
                 write!(f, "float or double cannot convert to int type")
-            }
+            },
+            Self::NotTaggedEnum(name, _pos) => {
+                write!(f, "{name} is not tagged enum")
+            },
+            Self::NotStructOrTupleInTaggedEnum(type_name, member_name, _pos) => {
+                write!(f, "{member_name} is not struct or tuple in tagged enum '{type_name}'")
+            },
         }
         
     }

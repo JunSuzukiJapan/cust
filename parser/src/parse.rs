@@ -928,7 +928,7 @@ impl Parser {
             let enumerator: Enumerator;
             let (tok2, pos2) = iter.peek().unwrap();
             if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
-eprintln!("tok2: {:?}", tok2);
+
             match tok2 {
                 Token::BraceRight => {  // '}'
                     enumerator = Enumerator::new(name, value);

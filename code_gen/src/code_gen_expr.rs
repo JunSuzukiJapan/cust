@@ -1179,6 +1179,36 @@ impl<'ctx> CodeGen<'ctx> {
                             },
                         }
                     },
+                    Type::Enum { name: type_name, enum_def } => {
+                        if enum_def.is_standard() {
+                            return Err(Box::new(CodeGenError::not_tagged_enum(type_name.to_string(), pos.clone())));
+                        }
+eprintln!("enum_def: {:?}", enum_def);
+                        let index = enum_def.get_struct_type_index(type_name, member_name).ok_or(CodeGenError::no_such_a_member(&Some(type_name.into()), member_name, pos.clone()))?;
+eprintln!("index: {:?}", index);
+                        let elem_type = enum_def.get_type(member_name).unwrap();
+
+                        match &**elem_type {
+                            Type::Struct { name, fields } => {
+                                let elem_ptr = self.builder.build_struct_gep(TypeUtil::to_basic_type_enum(&typ, &self.context, pos)?, ptr, index as u32, format!("enum_{}.{}", type_name, member_name).as_str());
+                                if let Ok(p) = elem_ptr {
+                                    Ok((elem_type.clone(), p))
+                                }else{
+                                    return Err(Box::new(CodeGenError::cannot_access_struct_member(&member_name, pos.clone())));
+                                }
+                            },
+                            Type::Tuple(tuple) => {
+
+
+
+
+                                unimplemented!()
+                            },
+                            _ => {
+                                return Err(Box::new(CodeGenError::not_struct_or_tuple_in_tagged_enum(type_name.to_string(), member_name.to_string(), pos.clone())));
+                            }
+                        }
+                    },
                     _ => {
                         Err(Box::new(CodeGenError::has_not_member(typ.to_string(), member_name.to_string(), pos.clone())))
                     }
