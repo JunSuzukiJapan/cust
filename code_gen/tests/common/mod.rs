@@ -9,10 +9,11 @@ pub use inkwell::execution_engine::{JitFunction, FunctionLookupError};
 pub use inkwell::values::{BasicValue, AnyValueEnum};
 pub use inkwell::context::Context;
 pub use inkwell::types::FunctionType;
-pub use parser::{Parser, Defines, ParserError, ExprAST, ToplevelAST, AST};
+pub use parser::{Parser, Defines, ParserError, ExprAST, ToplevelAST, AST, CustFunctionType, Type};
 pub use tokenizer::Tokenizer;
 pub use code_gen::{CodeGen, Env, Position, CodeGenError};
 pub use std::error::Error;
+pub use std::rc::Rc;
 
 pub type FuncType_void_i32 = unsafe extern "C" fn() -> i32;
 pub type FuncType_i32_i32 = unsafe extern "C" fn(i32) -> i32;
@@ -35,11 +36,13 @@ pub fn parse_expression_from_str(src: &str) -> Result<Option<ExprAST>, ParserErr
     parser.parse_expression(&mut iter, &mut defs, &mut Some(&mut labels))
 }
 
-fn gen_prologue<'ctx>(gen: &CodeGen<'ctx>, fn_name: &str, fn_type: FunctionType<'ctx>) {
+fn gen_prologue<'ctx>(gen: &CodeGen<'ctx>, env: &mut Env<'ctx>, fn_name: &str, fn_type: FunctionType<'ctx>, cust_fn_type: CustFunctionType) {
     let function = gen.module.add_function(fn_name, fn_type, None);
     let basic_block = gen.context.append_basic_block(function, "entry");
-
     gen.builder.position_at_end(basic_block);
+
+    env.set_current_function(&cust_fn_type, function);
+    env.insert_function(fn_name, cust_fn_type, function);
 }
 
 fn gen_epilogue<'ctx>(gen: &CodeGen<'ctx>, fn_name: &str, ret_code: Option<&dyn BasicValue<'ctx>>) -> Option<JitFunction<'ctx, FuncType_void_i32>> {
@@ -50,15 +53,15 @@ fn gen_epilogue<'ctx>(gen: &CodeGen<'ctx>, fn_name: &str, ret_code: Option<&dyn 
 
 pub fn code_gen_from_str(input: &str) -> Result<i32, Box<dyn Error>> {
     let ast = parse_expression_from_str(input)?.unwrap();
-
     let fn_name = "from_str_function";
     let context = Context::create();
     let gen = CodeGen::try_new(&context, "module_from_str")?;
+    let mut env = Env::new();
     let i32_type = gen.context.i32_type();
     let fn_type = i32_type.fn_type(&[], false);
-    gen_prologue(&gen, fn_name, fn_type);
+    let cust_fn_type = CustFunctionType::new(None, Rc::new(Type::Void), Vec::new(), false);
+    gen_prologue(&gen, &mut env, fn_name, fn_type, cust_fn_type);
 
-    let mut env = Env::new();
     let value = gen.gen_expr(&ast, &mut env, None, None)?.ok_or(CodeGenError::illegal_end_of_input(Position::new(1, 1)))?;
     let result = value.get_value();
     let func = match result {

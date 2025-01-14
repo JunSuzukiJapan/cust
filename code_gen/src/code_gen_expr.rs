@@ -1099,29 +1099,62 @@ eprintln!("added: {:?}", added);
     }
 
     fn gen_or<'b, 'c>(&self,
-        l_value: &ExprAST,
-        r_value: &ExprAST,
+        l_expr: &ExprAST,
+        r_expr: &ExprAST,
         env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
 
-/*
-        let left = self.gen_expr(&left_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(left_arg.get_position().clone()))?;
-        let right = self.gen_expr(&right_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(right_arg.get_position().clone()))?;
-        let (left, right) = self.bin_expr_implicit_cast(left, right, right_arg.get_position())?;
-        let left_type = left.get_type();
-        let left_value = left.get_value();
-        let right_value = right.get_value();
+        let pos = l_expr.get_position();
+        let (_fun_type, func) = env.get_current_function().ok_or(CodeGenError::no_current_function(pos.clone()))?;
+        let func = func.clone();
+        let left_expr_block = self.context.append_basic_block(func, "or.left");
+        let right_expr_block = self.context.append_basic_block(func, "or.right");
+        let true_block = self.context.append_basic_block(func, "or.true");
+        let end_block  = self.context.append_basic_block(func, "or.end");
 
-        if left_value.is_int_value() {
-            let result = self.builder.build_or(left_value.into_int_value(), right_value.into_int_value(), "or_int")?;
-            Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
-        }else{
-            Err(Box::new(CodeGenError::cannot_apply_logical_op_value(left_type, left_arg.get_position().clone())))
-        }
-*/
-        unimplemented!()
+        self.builder.build_unconditional_branch(left_expr_block)?;
+        self.builder.position_at_end(left_expr_block);
+
+        // check left expr
+        let l_value = self.gen_expr(l_expr, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::condition_is_not_number(l_expr, l_expr.get_position().clone()))?;
+        let zero_type = l_value.get_value().get_type().into_int_type();
+        let zero = zero_type.const_zero();
+        let comparison = self.builder.build_int_compare(
+            IntPredicate::NE,
+            l_value.get_value().into_int_value(),
+            zero.as_basic_value_enum().into_int_value(),
+            "or.not_zero_left"
+        )?;
+        self.builder.build_conditional_branch(comparison, true_block, right_expr_block)?;
+
+        // right expr
+        self.builder.position_at_end(right_expr_block);
+        let r_value = self.gen_expr(r_expr, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::condition_is_not_number(r_expr, r_expr.get_position().clone()))?;
+        let zero_type = r_value.get_value().get_type().into_int_type();
+        let zero = zero_type.const_zero();
+        let comparison = self.builder.build_int_compare(
+            IntPredicate::NE,
+            r_value.get_value().into_int_value(),
+            zero.as_basic_value_enum().into_int_value(),
+            "or.not_zero_right"
+        )?;
+        self.builder.build_conditional_branch(comparison, true_block, end_block)?;
+
+        // true block
+        self.builder.position_at_end(true_block);
+        self.builder.build_unconditional_branch(end_block)?;
+
+        // end block
+        self.builder.position_at_end(end_block);
+
+        let phi_value = self.builder.build_phi(self.context.bool_type(), "or.result")?;
+        let true_value = self.context.bool_type().const_int(1, false);
+        let false_value = self.context.bool_type().const_zero();
+        phi_value.add_incoming(&[(&true_value, true_block), (&false_value, right_expr_block)]);
+
+        Ok(Some(CompiledValue::new(Rc::new(Type::Number(NumberType::_Bool)), phi_value.as_any_value_enum())))
     }
 
     fn gen_assign<'b, 'c>(&self,
