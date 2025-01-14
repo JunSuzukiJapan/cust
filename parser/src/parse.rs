@@ -1101,7 +1101,6 @@ impl Parser {
                 decl = DirectDeclarator::Enclosed(d, pos.clone());
             },
             _ => {
-                // eprintln!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                 return Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()))
             }
         }
@@ -1757,21 +1756,49 @@ impl Parser {
     }
 
     fn parse_cast_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ExprAST>, ParserError> {
-        let opt_expr = self.parse_unary_expression(iter, defs, labels)?;
-        if opt_expr.is_some() {
-            Ok(opt_expr)
 
-        }else{
-            // let (tok, pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
-            let (tok, pos) = iter.peek().unwrap();
-            if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
+        // let (tok, pos) = iter.peek().unwrap();
+        // if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
 
-            if *tok == Token::ParenLeft {
-                iter.next();  // skip '('
-                self.parse_cast_expression_sub(iter, pos, defs, labels)
+        // if *tok == Token::ParenLeft {
+        //     iter.next();  // skip '('
+        //     self.parse_cast_expression_sub(iter, pos, defs, labels)
+        // }else{
+        //     let opt_expr = self.parse_unary_expression(iter, defs, labels)?;
+        //     if opt_expr.is_some() {
+        //         Ok(opt_expr)
+    
+        //     }else{
+        //         Ok(None)
+        //     }
+        // }
+
+        let (next_tok, _pos) = iter.peek().unwrap();
+
+
+        let result = self.parse_unary_expression(iter, defs, labels);
+
+        if result.is_ok() {
+            let opt_expr = result?;
+            if opt_expr.is_some() {
+                Ok(opt_expr)
+
             }else{
-                Ok(None)
+                let (tok, pos) = iter.peek().unwrap();
+                if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
+
+                if *tok == Token::ParenLeft {
+                    iter.next();  // skip '('
+                    self.parse_cast_expression_sub(iter, pos, defs, labels)
+                }else{
+                    Ok(None)
+                }
             }
+        }else if *next_tok == Token::ParenLeft {
+            // iter.next();  // skip '('
+            self.parse_cast_expression_sub(iter, _pos, defs, labels)
+        }else{
+            result
         }
     }
 
@@ -1888,6 +1915,7 @@ impl Parser {
                 },
                 Token::Sizeof => {
                     iter.next();  // skip 'sizeof'
+
                     if let Some(expr) = self.parse_unary_expression(iter, defs, labels)? {
                         Ok(Some(ExprAST::UnarySizeOfExpr(Box::new(expr), pos.clone())))
                     }else{
@@ -2309,7 +2337,6 @@ impl Parser {
         // check fields count
         if let Some(fields) = typ.get_struct_fields() {
             if fields.len() != map.len() {
-eprintln!("fields.len() = {}, map.len() = {}", fields.len(), map.len());
                 return Err(ParserError::number_of_elements_does_not_match(pos.clone()));
             }
 
@@ -2322,7 +2349,6 @@ eprintln!("fields.len() = {}, map.len() = {}", fields.len(), map.len());
 
         }else{
             if map.len() != 0 {
-eprintln!("map.len() = {}", map.len());
                 return Err(ParserError::number_of_elements_does_not_match(pos.clone()));
             }
         }
@@ -2395,10 +2421,7 @@ eprintln!("map.len() = {}", map.len());
         // check length
         //
         let type_list = typ.get_tuple_type_list().ok_or(ParserError::not_tuple_type(name.to_string(), pos.clone()))?;
-eprintln!("type_list: {:?}", type_list);
-eprintln!("vec: {:?}", vec);
         if type_list.len() != vec.len() {
-eprintln!("type_list.len() = {}, vec.len() = {}", type_list.len(), vec.len());
             return Err(ParserError::number_of_elements_does_not_match(pos.clone()));
         }
 

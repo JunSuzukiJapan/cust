@@ -14,6 +14,7 @@ pub struct TypeUtil;
 
 impl TypeUtil {
     pub fn to_llvm_int_type<'a>(typ: &Type, ctx: &'a Context, pos: &Position) -> Result<IntType<'a>, Box<dyn Error>> {
+eprintln!("to_llvm_int_type: {:?}", typ);
         match typ {
             Type::Number(NumberType::_Bool)  => Ok(ctx.bool_type()),
             Type::Number(NumberType::Char)   => Ok(ctx.i8_type()),

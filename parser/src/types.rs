@@ -620,12 +620,9 @@ impl EnumDefinition {
     }
 
     pub fn get_struct_type_index(&self, sub_type_name: &str, member_name: &str) -> Option<usize> {
-eprintln!("name: {}, member: {}", sub_type_name, member_name);
-
         match self {
             EnumDefinition::StandardEnum { index_map, .. } => None,
             EnumDefinition::TaggedEnum { index_map, fields, .. } => {
-eprintln!("index_map: {:?}", index_map);
                 let index = index_map.get(sub_type_name).map(|x| *x)?;
                 let sub_type = fields.get(index)?;
 

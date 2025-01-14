@@ -270,7 +270,7 @@ impl Parser {
                 },
                 Token::Return => {
                     iter.next();  // skip 'return'
-                    // let (t, _pos2) = iter.peek().ok_or(ParserError::illegal_end_of_input(pos.clone()))?;
+
                     let (t, pos2) = iter.peek().unwrap();
                     if t.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
 

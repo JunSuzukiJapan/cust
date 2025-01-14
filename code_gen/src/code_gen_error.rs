@@ -428,8 +428,8 @@ impl CodeGenError {
         Self::NotIntType(typ, pos)
     }
 
-    pub fn cannot_get_size_of(typ: Type, pos: Position) -> Self {
-        Self::CannotGetSizeOf(typ, pos)
+    pub fn cannot_get_size_of(typ: &Rc<Type>, pos: Position) -> Self {
+        Self::CannotGetSizeOf(typ.as_ref().clone(), pos)
     }
 
     pub fn cannot_convert_to_basic_value(expr: ExprAST, pos: Position) -> Self {
