@@ -151,17 +151,12 @@ impl<'ctx> CodeGen<'ctx> {
                         let pre_val = basic_val.as_any_value_enum();
 
                         let pointed_type = typ.peel_off_pointer().ok_or(CodeGenError::not_pointer(&typ, pos.clone()))?;
-eprintln!("pointed_type: {:?}", pointed_type);
                         let basic_pointed_type = TypeUtil::to_basic_type_enum(&pointed_type, &self.context, pos)?;
-eprintln!("basic_pointed_type: {:?}", basic_pointed_type);
                         let size = basic_pointed_type.size_of().ok_or(CodeGenError::cannot_get_size_of(&pointed_type, pos.clone()))?;
-eprintln!("size: {:?}", size);
 
                         let int_type = self.context.i64_type();
                         let ptr_to_int = self.builder.build_ptr_to_int(pre_val.into_pointer_value(), int_type, name)?;
-eprintln!("ptr_to_int: {:?}", ptr_to_int);
                         let added = self.builder.build_int_add(ptr_to_int, size, "post_increment")?;
-eprintln!("added: {:?}", added);
                         let (_ptr_type, _sq, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(&name, sym_pos.clone())))?;
                         let _result = self.builder.build_store(ptr, added);
 
