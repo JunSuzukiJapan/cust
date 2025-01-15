@@ -101,11 +101,22 @@ impl<'ctx> CodeGen<'ctx> {
             ExprAST::PreInc(name, sym_pos, pos) => {
                 if let Some((typ, _sq, ptr)) = env.get_ptr(name) {
                     if typ.is_pointer() {
+                        let basic_type = TypeUtil::to_basic_type_enum(typ, &self.context, pos)?;
+                        let basic_val = self.builder.build_load(basic_type, ptr, name)?;
+                        let pre_val = basic_val.as_any_value_enum();
 
+                        let pointed_type = typ.peel_off_pointer().ok_or(CodeGenError::not_pointer(&typ, pos.clone()))?;
+                        let basic_pointed_type = TypeUtil::to_basic_type_enum(&pointed_type, &self.context, pos)?;
+                        let size = basic_pointed_type.size_of().ok_or(CodeGenError::cannot_get_size_of(&pointed_type, pos.clone()))?;
 
+                        let int_type = self.context.i64_type();
+                        let ptr_to_int = self.builder.build_ptr_to_int(pre_val.into_pointer_value(), int_type, name)?;
+                        let added = self.builder.build_int_add(ptr_to_int, size, "pre_increment")?;
+                        let (_ptr_type, _sq, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(&name, sym_pos.clone())))?;
+                        let _result = self.builder.build_store(ptr, added);
 
+                        Ok(Some(CompiledValue::new(typ.clone(), added.as_any_value_enum())))
 
-                        unimplemented!()
                     }else{
                         let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(typ, &self.context, pos)?, ptr, name)?;
                         let any_val = basic_val.as_any_value_enum();
@@ -124,10 +135,22 @@ impl<'ctx> CodeGen<'ctx> {
             ExprAST::PreDec(name, sym_pos, pos) => {
                 if let Some((typ, _sq, ptr)) = env.get_ptr(name) {
                     if typ.is_pointer() {
+                        let basic_type = TypeUtil::to_basic_type_enum(typ, &self.context, pos)?;
+                        let basic_val = self.builder.build_load(basic_type, ptr, name)?;
+                        let pre_val = basic_val.as_any_value_enum();
 
+                        let pointed_type = typ.peel_off_pointer().ok_or(CodeGenError::not_pointer(&typ, pos.clone()))?;
+                        let basic_pointed_type = TypeUtil::to_basic_type_enum(&pointed_type, &self.context, pos)?;
+                        let size = basic_pointed_type.size_of().ok_or(CodeGenError::cannot_get_size_of(&pointed_type, pos.clone()))?;
 
+                        let int_type = self.context.i64_type();
+                        let ptr_to_int = self.builder.build_ptr_to_int(pre_val.into_pointer_value(), int_type, name)?;
+                        let subed = self.builder.build_int_sub(ptr_to_int, size, "pre_decrement")?;
+                        let (_ptr_type, _sq, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(&name, sym_pos.clone())))?;
+                        let _result = self.builder.build_store(ptr, subed);
 
-                        unimplemented!()
+                        Ok(Some(CompiledValue::new(typ.clone(), subed.as_any_value_enum())))
+
                     }else{
                         let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(typ, &self.context, pos)?, ptr, name)?;
                         let any_val = basic_val.as_any_value_enum();
@@ -180,10 +203,22 @@ impl<'ctx> CodeGen<'ctx> {
             ExprAST::PostDec(name, sym_pos, pos) => {
                 if let Some((typ, _sq, ptr)) = env.get_ptr(name) {
                     if typ.is_pointer() {
+                        let basic_type = TypeUtil::to_basic_type_enum(typ, &self.context, pos)?;
+                        let basic_val = self.builder.build_load(basic_type, ptr, name)?;
+                        let pre_val = basic_val.as_any_value_enum();
 
+                        let pointed_type = typ.peel_off_pointer().ok_or(CodeGenError::not_pointer(&typ, pos.clone()))?;
+                        let basic_pointed_type = TypeUtil::to_basic_type_enum(&pointed_type, &self.context, pos)?;
+                        let size = basic_pointed_type.size_of().ok_or(CodeGenError::cannot_get_size_of(&pointed_type, pos.clone()))?;
 
+                        let int_type = self.context.i64_type();
+                        let ptr_to_int = self.builder.build_ptr_to_int(pre_val.into_pointer_value(), int_type, name)?;
+                        let subed = self.builder.build_int_sub(ptr_to_int, size, "post_decrement")?;
+                        let (_ptr_type, _sq, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(&name, sym_pos.clone())))?;
+                        let _result = self.builder.build_store(ptr, subed);
 
-                        unimplemented!();
+                        Ok(Some(CompiledValue::new(typ.clone(), pre_val)))
+
                     }else{
                         let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(typ, &self.context, pos)?, ptr, name)?;
                         let pre_val = basic_val.as_any_value_enum();
@@ -208,11 +243,22 @@ impl<'ctx> CodeGen<'ctx> {
                 };
 
                 if typ.is_pointer() {
+                    let basic_type = TypeUtil::to_basic_type_enum(&typ, &self.context, pos)?;
+                    let basic_val = self.builder.build_load(basic_type, ptr, name)?;
+                    let any_val = basic_val.as_any_value_enum();
 
+                    let pointed_type = typ.peel_off_pointer().ok_or(CodeGenError::not_pointer(&typ, pos.clone()))?;
+                    let basic_pointed_type = TypeUtil::to_basic_type_enum(&pointed_type, &self.context, pos)?;
+                    let size = basic_pointed_type.size_of().ok_or(CodeGenError::cannot_get_size_of(&pointed_type, pos.clone()))?;
 
+                    let int_type = self.context.i64_type();
+                    let ptr_to_int = self.builder.build_ptr_to_int(any_val.into_pointer_value(), int_type, name)?;
+                    let added = self.builder.build_int_add(ptr_to_int, size, "pre_increment_member")?;
+                    let (_ptr_type, _sq, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(&name, pos.clone())))?;
+                    let _result = self.builder.build_store(ptr, added);
 
+                    Ok(Some(CompiledValue::new(typ.clone(), added.as_any_value_enum())))
 
-                    unimplemented!()
                 }else{
                     let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&typ, &self.context, pos)?, ptr, name)?;
                     let any_val = basic_val.as_any_value_enum();
@@ -232,11 +278,22 @@ impl<'ctx> CodeGen<'ctx> {
                 };
 
                 if typ.is_pointer() {
+                    let basic_type = TypeUtil::to_basic_type_enum(&typ, &self.context, pos)?;
+                    let basic_val = self.builder.build_load(basic_type, ptr, name)?;
+                    let any_val = basic_val.as_any_value_enum();
 
+                    let pointed_type = typ.peel_off_pointer().ok_or(CodeGenError::not_pointer(&typ, pos.clone()))?;
+                    let basic_pointed_type = TypeUtil::to_basic_type_enum(&pointed_type, &self.context, pos)?;
+                    let size = basic_pointed_type.size_of().ok_or(CodeGenError::cannot_get_size_of(&pointed_type, pos.clone()))?;
 
+                    let int_type = self.context.i64_type();
+                    let ptr_to_int = self.builder.build_ptr_to_int(any_val.into_pointer_value(), int_type, name)?;
+                    let subed = self.builder.build_int_sub(ptr_to_int, size, "pre_decrement_member")?;
+                    let (_ptr_type, _sq, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(&name, pos.clone())))?;
+                    let _result = self.builder.build_store(ptr, subed);
 
+                    Ok(Some(CompiledValue::new(typ.clone(), subed.as_any_value_enum())))
 
-                    unimplemented!()
                 }else{
                     let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&typ, &self.context, pos)?, ptr, name)?;
                     let any_val = basic_val.as_any_value_enum();
@@ -256,11 +313,22 @@ impl<'ctx> CodeGen<'ctx> {
                 };
 
                 if typ.is_pointer() {
+                    let basic_type = TypeUtil::to_basic_type_enum(&typ, &self.context, pos)?;
+                    let basic_val = self.builder.build_load(basic_type, ptr, name)?;
+                    let pre_val = basic_val.as_any_value_enum();
 
+                    let pointed_type = typ.peel_off_pointer().ok_or(CodeGenError::not_pointer(&typ, pos.clone()))?;
+                    let basic_pointed_type = TypeUtil::to_basic_type_enum(&pointed_type, &self.context, pos)?;
+                    let size = basic_pointed_type.size_of().ok_or(CodeGenError::cannot_get_size_of(&pointed_type, pos.clone()))?;
 
+                    let int_type = self.context.i64_type();
+                    let ptr_to_int = self.builder.build_ptr_to_int(pre_val.into_pointer_value(), int_type, name)?;
+                    let added = self.builder.build_int_add(ptr_to_int, size, "post_increment_member")?;
+                    let (_ptr_type, _sq, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(&name, pos.clone())))?;
+                    let _result = self.builder.build_store(ptr, added);
 
+                    Ok(Some(CompiledValue::new(typ.clone(), pre_val)))
 
-                    unimplemented!()
                 }else{
                     let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&typ, &self.context, pos)?, ptr, name)?;
                     let pre_val = basic_val.as_any_value_enum();
@@ -280,11 +348,22 @@ impl<'ctx> CodeGen<'ctx> {
                 };
 
                 if typ.is_pointer() {
+                    let basic_type = TypeUtil::to_basic_type_enum(&typ, &self.context, pos)?;
+                    let basic_val = self.builder.build_load(basic_type, ptr, name)?;
+                    let pre_val = basic_val.as_any_value_enum();
 
+                    let pointed_type = typ.peel_off_pointer().ok_or(CodeGenError::not_pointer(&typ, pos.clone()))?;
+                    let basic_pointed_type = TypeUtil::to_basic_type_enum(&pointed_type, &self.context, pos)?;
+                    let size = basic_pointed_type.size_of().ok_or(CodeGenError::cannot_get_size_of(&pointed_type, pos.clone()))?;
 
+                    let int_type = self.context.i64_type();
+                    let ptr_to_int = self.builder.build_ptr_to_int(pre_val.into_pointer_value(), int_type, name)?;
+                    let subed = self.builder.build_int_sub(ptr_to_int, size, "post_decrement_member")?;
+                    let (_ptr_type, _sq, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(&name, pos.clone())))?;
+                    let _result = self.builder.build_store(ptr, subed);
 
+                    Ok(Some(CompiledValue::new(typ.clone(), pre_val)))
 
-                    unimplemented!()
                 }else{
                     let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&typ, &self.context, pos)?, ptr, name)?;
                     let pre_val = basic_val.as_any_value_enum();
@@ -1369,10 +1448,7 @@ impl<'ctx> CodeGen<'ctx> {
 //                                 }
 //                             },
 //                             Type::Tuple(tuple) => {
-
-
-
-
+//
 //                                 unimplemented!()
 //                             },
 //                             _ => {
