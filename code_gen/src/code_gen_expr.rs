@@ -783,37 +783,77 @@ impl<'ctx> CodeGen<'ctx> {
             BinOp::Add => {
                 let left = self.gen_expr(&left_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(left_arg.get_position().clone()))?;
                 let right = self.gen_expr(&right_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(right_arg.get_position().clone()))?;
-                let (left, right) = self.bin_expr_implicit_cast(left, right, right_arg.get_position())?;
-                let left_type = left.get_type();
-                let left_value = left.get_value();
-                let right_value = right.get_value();
+                let left_type = left.get_type().clone();
 
-                if left_value.is_int_value() {
-                    let result = self.builder.build_int_add(left_value.into_int_value(), right_value.into_int_value(), "add_int")?;
-                    Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
-                }else if left_value.is_float_value() {
-                    let result = self.builder.build_float_add(left_value.into_float_value(), right_value.into_float_value(), "add_float")?;
-                    Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
+                if left_type.is_pointer() {
+                    let any_val = left.get_value().as_any_value_enum();
+
+                    let pos = left_arg.get_position();
+                    let pointed_type = left_type.peel_off_pointer().ok_or(CodeGenError::not_pointer(&left_type, pos.clone()))?;
+                    let basic_pointed_type = TypeUtil::to_basic_type_enum(&pointed_type, &self.context, pos)?;
+                    let size = basic_pointed_type.size_of().ok_or(CodeGenError::cannot_get_size_of(&pointed_type, pos.clone()))?;
+
+                    let right_value = right.get_value();
+                    let size = self.builder.build_int_mul(size, right_value.into_int_value(), "size*right_value")?;
+
+                    let int_type = self.context.i64_type();
+                    let ptr_to_int = self.builder.build_ptr_to_int(any_val.into_pointer_value(), int_type, "op_add_pointer")?;
+                    let added = self.builder.build_int_add(ptr_to_int, size, "op_add_pointer")?;
+
+                    Ok(Some(CompiledValue::new(left_type.clone(), added.as_any_value_enum())))
+
                 }else{
-                    Err(Box::new(CodeGenError::cannot_add_value(left_type, right.get_type(), left_arg.get_position().clone())))
+                    let (left, right) = self.bin_expr_implicit_cast(left, right, right_arg.get_position())?;
+                    let left_value = left.get_value();
+                    let right_value = right.get_value();
+
+                    if left_value.is_int_value() {
+                        let result = self.builder.build_int_add(left_value.into_int_value(), right_value.into_int_value(), "add_int")?;
+                        Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
+                    }else if left_value.is_float_value() {
+                        let result = self.builder.build_float_add(left_value.into_float_value(), right_value.into_float_value(), "add_float")?;
+                        Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
+                    }else{
+                        Err(Box::new(CodeGenError::cannot_add_value(left_type.as_ref(), right.get_type(), left_arg.get_position().clone())))
+                    }
                 }
             },
             BinOp::Sub => {
                 let left = self.gen_expr(&left_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(left_arg.get_position().clone()))?;
                 let right = self.gen_expr(&right_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(right_arg.get_position().clone()))?;
-                let (left, right) = self.bin_expr_implicit_cast(left, right, right_arg.get_position())?;
-                let left_type = left.get_type();
-                let left_value = left.get_value();
-                let right_value = right.get_value();
+                let left_type = left.get_type().clone();
 
-                if left_value.is_int_value() {
-                    let result = self.builder.build_int_sub(left_value.into_int_value(), right_value.into_int_value(), "sub_int")?;
-                    Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
-                }else if left_value.is_float_value() {
-                    let result = self.builder.build_float_sub(left_value.into_float_value(), right_value.into_float_value(), "sub_float")?;
-                    Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
+                if left_type.is_pointer() {
+                    let any_val = left.get_value().as_any_value_enum();
+
+                    let pos = left_arg.get_position();
+                    let pointed_type = left_type.peel_off_pointer().ok_or(CodeGenError::not_pointer(&left_type, pos.clone()))?;
+                    let basic_pointed_type = TypeUtil::to_basic_type_enum(&pointed_type, &self.context, pos)?;
+                    let size = basic_pointed_type.size_of().ok_or(CodeGenError::cannot_get_size_of(&pointed_type, pos.clone()))?;
+
+                    let right_value = right.get_value();
+                    let size = self.builder.build_int_mul(size, right_value.into_int_value(), "size*right_value")?;
+
+                    let int_type = self.context.i64_type();
+                    let ptr_to_int = self.builder.build_ptr_to_int(any_val.into_pointer_value(), int_type, "op_sub_pointer")?;
+                    let subed = self.builder.build_int_sub(ptr_to_int, size, "op_sub_pointer")?;
+
+                    Ok(Some(CompiledValue::new(left_type.clone(), subed.as_any_value_enum())))
+
                 }else{
-                    Err(Box::new(CodeGenError::cannot_sub_value(left_type, right.get_type(), left_arg.get_position().clone())))
+                    let (left, right) = self.bin_expr_implicit_cast(left, right, right_arg.get_position())?;
+                    let left_value = left.get_value();
+                    let right_value = right.get_value();
+
+                    if left_value.is_int_value() {
+                        let result = self.builder.build_int_sub(left_value.into_int_value(), right_value.into_int_value(), "sub_int")?;
+                        Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
+                    }else if left_value.is_float_value() {
+                        let result = self.builder.build_float_sub(left_value.into_float_value(), right_value.into_float_value(), "sub_float")?;
+                        Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
+                    }else{
+                        Err(Box::new(CodeGenError::cannot_sub_value(left_type.as_ref(), right.get_type(), left_arg.get_position().clone())))
+                    }
                 }
             },
             BinOp::Mul => {
