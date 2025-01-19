@@ -220,14 +220,17 @@ impl Pointer {
         self.next_pointer = Some(Box::new(next));
     }
 
+    #[inline]
     pub fn get_next_pointer(&self) -> &Option<Box<Pointer>> {
         &self.next_pointer
     }
 
+    #[inline]
     pub fn is_const(&self) -> bool {
         self.is_const
     }
 
+    #[inline]
     pub fn is_volatile(&self) -> bool {
         self.is_volatile
     }
@@ -786,6 +789,14 @@ impl Type {
     }
 
     #[inline]
+    pub fn is_char(&self) -> bool {
+        match self {
+            Type::Number(NumberType::Char) => true,
+            _ => false,
+        }
+    }
+
+    #[inline]
     pub fn is_array(&self) -> bool {
         match self {
             Type::Array {..} => true,
@@ -919,6 +930,13 @@ impl Type {
     pub fn get_enum_definition(&self) -> Option<&EnumDefinition> {
         match self {
             Type::Enum { enum_def, .. } => Some(enum_def),
+            _ => None,
+        }
+    }
+
+    pub fn get_pointer(&self) -> Option<&Pointer> {
+        match self {
+            Type::Pointer(p, _) => Some(p),
             _ => None,
         }
     }

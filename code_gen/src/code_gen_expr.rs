@@ -1324,7 +1324,6 @@ impl<'ctx> CodeGen<'ctx> {
     ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
         let compiled_value = self.gen_bin_expr(op, l_value, r_value, env, break_catcher, continue_catcher)?.ok_or(Box::new(CodeGenError::cannot_calculate(l_value.get_position().clone())))?;
         let value = self.try_as_basic_value(&compiled_value.get_value(), l_value.get_position())?;
-        // let from_type = compiled_value.get_type();
         let (_to_type, ptr) = self.get_l_value(l_value, env, break_catcher, continue_catcher)?;
 
         self.builder.build_store(ptr, value)?;

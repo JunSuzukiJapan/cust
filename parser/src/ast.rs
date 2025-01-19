@@ -1307,6 +1307,7 @@ impl AST {
         &self.0
     }
 
+    #[inline]
     pub fn get_name(&self) -> &str {
         self.1.get_name()
     }
@@ -1314,6 +1315,16 @@ impl AST {
     #[inline]
     pub fn get_position(&self) -> &Position {
         &self.2
+    }
+
+    #[inline]
+    pub fn is_const(&self) -> bool {
+        self.0.is_const()
+    }
+
+    #[inline]
+    pub fn is_volatile(&self) -> bool {
+        self.0.is_volatile()
     }
  }
 
