@@ -1339,7 +1339,9 @@ impl<'ctx> CodeGen<'ctx> {
         match ast {
             ExprAST::Symbol(name, pos) => {
                 let (typ, sq, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(&name, pos.clone())))?;
-                if sq.is_const() {
+                if (typ.is_pointer() && typ.get_pointer().unwrap().is_const())
+                || (!typ.is_pointer() && sq.is_const())
+                {
                     return Err(Box::new(CodeGenError::cannot_assign_constant(pos.clone())));
                 }
 
