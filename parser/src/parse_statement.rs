@@ -1,3 +1,5 @@
+use crate::ast::ForInitExpr;
+
 use super::{Position, Token};
 use super::ParserError;
 use super::ast::{AST, ExprAST, BinOp, Block};
@@ -421,14 +423,12 @@ impl Parser {
     }
 
 
-    fn parse_for_init(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ExprAST>, ParserError> {
+    fn parse_for_init(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ForInitExpr>, ParserError> {
         if let Some(mut ast) = self.parse_simple_declaration_or_expression(iter, defs, labels)? {
             if let Some((tok, _pos)) = iter.peek() {
                 match tok {
                     Token::Comma => {
-                        if let Some(code) = self.parse_for_init_sub(iter, ast.clone(), defs, labels)? {
-                            ast = code;
-                        }
+                        ast = self.parse_for_init_sub(iter, ast.clone(), defs, labels)?;
                     },
                     _ => (),  // do nothing
                 }
@@ -440,8 +440,9 @@ impl Parser {
         }
     }
 
-    fn parse_for_init_sub<'a>(&'a self, iter: &mut Peekable<Iter<(Token, Position)>>, ast: ExprAST, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ExprAST>, ParserError> {
-        let mut result = None;
+    fn parse_for_init_sub<'a>(&'a self, iter: &mut Peekable<Iter<(Token, Position)>>, ast: ForInitExpr, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<ForInitExpr, ParserError> {
+        let mut expr_list = Vec::new();
+        expr_list.push(ast);
 
         loop {
             if let Some((tok, pos)) = iter.peek() {
@@ -450,11 +451,7 @@ impl Parser {
                         iter.next(); // skip ','
 
                         if let Some(right) = self.parse_for_init(iter, defs, labels)? {
-                            if let Some(left) = result {
-                                result = Some(ExprAST::BinExpr(BinOp::Comma, Box::new(left), Box::new(right), ast.get_position().clone()));
-                            }else{
-                                result = Some(ExprAST::BinExpr(BinOp::Comma, Box::new(ast.clone()), Box::new(right), ast.get_position().clone()));
-                            }
+                            expr_list.push(right);
                         }else{
                             // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                             return Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()));
@@ -467,7 +464,11 @@ impl Parser {
             }
         }
 
-        Ok(result)
+        if expr_list.len() > 1 {
+            Ok(ForInitExpr::ExprList(expr_list))
+        }else{
+            Ok(expr_list[0].clone())
+        }
     }
 
 

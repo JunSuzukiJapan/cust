@@ -9,6 +9,7 @@ use super::ConstExpr;
 use super::types::*;
 use super::defines::*;
 use super::{CustSelf, Function, FunProto};
+use crate::ast::ForInitExpr;
 use crate::initializer::{Initializer, ConstInitializer, ArrayInitializer};
 
 use std::slice::Iter;
@@ -3140,8 +3141,7 @@ impl Parser {
     }
 
     // only for init-expr in for-statement
-    pub fn parse_simple_declaration_or_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ExprAST>, ParserError> {
-        // let (tok, pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
+    pub fn parse_simple_declaration_or_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ForInitExpr>, ParserError> {
         let (tok, pos) = iter.peek().unwrap();
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
 
@@ -3149,7 +3149,7 @@ impl Parser {
             self.parse_simple_declaration(pos, iter, defs, labels)
         }else{
             if let Some(expr) = self.parse_assignment_expression(iter, defs, labels)? {
-                Ok(Some(expr))
+                Ok(Some(ForInitExpr::Expr(expr)))
             }else{
                 Ok(None)
             }
@@ -3168,7 +3168,7 @@ impl Parser {
         }
     }
 
-    pub fn parse_simple_declaration(&self, start_pos: &Position, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ExprAST>, ParserError> {
+    fn parse_simple_declaration(&self, start_pos: &Position, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ForInitExpr>, ParserError> {
         let ds = self.parse_declaration_specifier(iter, defs, labels)?;
         let ds = ds.get_declaration_specifier().unwrap();
         let (decl, _opt_initializer) = self.parse_declarator(ds.get_type(), iter, defs, labels)?;
@@ -3180,7 +3180,7 @@ impl Parser {
             Token::Comma => {
                 let declaration = Declaration::new(decl, None);
                 let (ds, declarations) = self.parse_def_var(ds.clone(), vec![declaration], defs, pos)?;
-                let ast = ExprAST::DefVar { specifiers: ds, declarations: declarations, pos: start_pos.clone() };
+                let ast = ForInitExpr::DefVar { specifiers: ds, declarations: declarations, pos: start_pos.clone() };
                 Ok(Some(ast))
             },
             Token::Assign => {
@@ -3190,7 +3190,7 @@ impl Parser {
                 let expr = self.parse_initializer(typ, iter, defs, labels)?;
                 let declaration = Declaration::new(decl, Some(expr));
                 let (ds, declarations) = self.parse_def_var(ds.clone(), vec![declaration], defs, pos)?;
-                let ast = ExprAST::DefVar { specifiers: ds, declarations: declarations, pos: start_pos.clone() };
+                let ast = ForInitExpr::DefVar { specifiers: ds, declarations: declarations, pos: start_pos.clone() };
                 Ok(Some(ast))
             },
             _ => {

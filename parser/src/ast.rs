@@ -857,11 +857,11 @@ pub enum ExprAST {
     ArrayAccess(Box<ExprAST>, Vec<Box<ExprAST>>, Position),
     CallFunction(Box<ExprAST>, Vec<ExprAST>, Position),
     // InitializerList(Vec<ExprAST>, Position),
-    DefVar {
-        specifiers: DeclarationSpecifier,
-        declarations: Vec<Declaration>,
-        pos: Position,
-    },
+    // DefVar {
+    //     specifiers: DeclarationSpecifier,
+    //     declarations: Vec<Declaration>,
+    //     pos: Position,
+    // },
     _self(Position),
     SelfStaticSymbol(String, Position),
     StructStaticSymbol(String, String, Position),  // struct_name::feature_name
@@ -929,7 +929,7 @@ impl ExprAST {
             ExprAST::TernaryOperator(_, _e1, _, pos) => pos,
             // ExprAST::InitializerList(_, pos) => pos,
             ExprAST::CallFunction(_, _, pos) => pos,
-            ExprAST::DefVar { specifiers: _, declarations: _, pos } => pos,
+            // ExprAST::DefVar { specifiers: _, declarations: _, pos } => pos,
             ExprAST::StructLiteral(literal) => literal.get_position(),
             ExprAST::UnionLiteral(_typ, _map, pos) => pos,
             ExprAST::UnionConstLiteral(_typ, _map, pos) => pos,
@@ -1134,6 +1134,27 @@ impl ExprAST {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum ForInitExpr {
+    DefVar {
+        specifiers: DeclarationSpecifier,
+        declarations: Vec<Declaration>,
+        pos: Position,
+    },
+    Expr(ExprAST),
+    ExprList(Vec<ForInitExpr>),
+}
+
+impl ForInitExpr {
+    pub fn get_position(&self) -> &Position {
+        match self {
+            ForInitExpr::DefVar { specifiers: _, declarations: _, pos } => pos,
+            ForInitExpr::Expr(expr) => expr.get_position(),
+            ForInitExpr::ExprList(list) => list[0].get_position(),
+        }
+    }
+}
+
 #[allow(non_camel_case_types)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum ToplevelAST {
@@ -1218,7 +1239,7 @@ pub enum AST {
         pos: Position,
     },
     Loop {
-        init_expr: Option<Box<ExprAST>>,
+        init_expr: Option<Box<ForInitExpr>>,
         pre_condition: Option<Box<ExprAST>>,
         body: Option<Box<AST>>,
         update_expr: Option<Box<ExprAST>>,

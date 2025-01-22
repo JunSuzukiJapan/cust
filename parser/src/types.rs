@@ -332,6 +332,20 @@ impl StructField {
             StructField::BitField {name, ..} => name,
         }
     }
+
+    pub fn get_specifier_qualifier(&self) -> &SpecifierQualifier {
+        match self {
+            StructField::NormalField {sq, ..} => sq,
+            StructField::BitField {sq, ..} => sq,
+        }
+    }
+
+    pub fn get_bit_size(&self) -> Option<usize> {
+        match self {
+            StructField::BitField {bit_size, ..} => Some(*bit_size),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -435,6 +449,18 @@ impl StructDefinition {
         if let Some(tuple) = &self.fields_and_index_map {
             if let Some(val) = tuple.1.get(name) {
                 Some(*val)
+            }else{
+                None
+            }
+        }else{
+            None
+        }
+    }
+
+    pub fn get_specifier_qualifier(&self, name: &str) -> Option<&SpecifierQualifier> {
+        if let Some(tuple) = &self.fields_and_index_map {
+            if let Some(val) = tuple.1.get(name) {
+                Some(&tuple.0[*val].get_specifier_qualifier())
             }else{
                 None
             }
