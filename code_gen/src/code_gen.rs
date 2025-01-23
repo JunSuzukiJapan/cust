@@ -151,7 +151,7 @@ impl<'ctx> CodeGen<'ctx> {
     pub fn gen_def_var<'b, 'c>(&self,
         specifiers: &DeclarationSpecifier,
         declarations: &Vec<Declaration>,
-        env:  &mut Env<'ctx>,
+        env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<(), Box<dyn Error>> {
@@ -240,7 +240,7 @@ impl<'ctx> CodeGen<'ctx> {
         size_list: &[u32],
         elem_type: &Type,
         init_value_list: &Vec<Box<ArrayInitializer>>,
-        env: &mut Env<'ctx>,
+        env: &Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>,
         pos: &Position
@@ -478,7 +478,7 @@ impl<'ctx> CodeGen<'ctx> {
 
     pub fn gen_const_initializer<'b, 'c>(&self,
         init: &ConstInitializer,
-        env: &mut Env<'ctx>,
+        env: &Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<AnyValueEnum<'ctx>, Box<dyn Error>> {
@@ -511,7 +511,7 @@ impl<'ctx> CodeGen<'ctx> {
         vec_init: &Vec<Box<ArrayInitializer>>,
         typ: &Rc<Type>,
         pos: &Position,
-        env: &mut Env<'ctx>,
+        env: &Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<AnyValueEnum<'ctx>, Box<dyn Error>> {
@@ -566,7 +566,7 @@ impl<'ctx> CodeGen<'ctx> {
     pub fn gen_call_function<'b, 'c>(&self,
         name: &str,
         args: &Vec<BasicMetadataValueEnum<'ctx>>,
-        env: &mut Env<'ctx>,
+        env: &Env<'ctx>,
         _break_catcher: Option<&'b BreakCatcher>,
         _continue_catcher: Option<&'c ContinueCatcher>,
         pos: &Position
@@ -592,7 +592,7 @@ impl<'ctx> CodeGen<'ctx> {
         class_name: &str,
         name: &str,
         args: &Vec<BasicMetadataValueEnum<'ctx>>,
-        env: &mut Env<'ctx>,
+        env: &Env<'ctx>,
         _break_catcher: Option<&'b BreakCatcher>,
         _continue_catcher: Option<&'c ContinueCatcher>,
         pos: &Position
@@ -618,7 +618,7 @@ impl<'ctx> CodeGen<'ctx> {
         class_name: &str,
         name: &str,
         args: &Vec<BasicMetadataValueEnum<'ctx>>,
-        env: &mut Env<'ctx>,
+        env: &Env<'ctx>,
         _break_catcher: Option<&'b BreakCatcher>,
         _continue_catcher: Option<&'c ContinueCatcher>,
         pos: &Position

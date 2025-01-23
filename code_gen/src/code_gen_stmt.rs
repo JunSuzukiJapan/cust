@@ -10,6 +10,7 @@ use crate::CodeGen;
 use inkwell::values::{AnyValue, AnyValueEnum, InstructionOpcode, InstructionValue};
 use inkwell::basic_block::BasicBlock;
 use inkwell::{IntPredicate};
+use parser::ast::ForInitExpr;
 use std::error::Error;
 
 impl<'ctx> CodeGen<'ctx> {
@@ -354,8 +355,32 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(None)
     }
 
+    fn gen_for_init(&self,
+        for_init_expr: &ForInitExpr,
+        env: &mut Env<'ctx>,
+        break_catcher: Option<&BreakCatcher>,
+        continue_catcher: Option<&ContinueCatcher>
+    ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
+
+        match for_init_expr {
+            ForInitExpr::Expr(expr) => {
+                self.gen_expr(expr, env, break_catcher, continue_catcher)?;
+            },
+            ForInitExpr::DefVar{specifiers, declarations, pos: _} => {
+                self.gen_def_var(specifiers, declarations, env, break_catcher, continue_catcher)?;
+            },
+            ForInitExpr::ExprList(expr_list) => {
+                for init_expr in expr_list.iter() {
+                    self.gen_for_init(init_expr, env, break_catcher, continue_catcher)?;
+                }
+            },
+        }
+
+        Ok(None)
+    }
+
     pub fn gen_loop<'b, 'c>(&self,
-        init_expr: &'ctx Option<Box<ExprAST>>,
+        init_expr: &'ctx Option<Box<ForInitExpr>>,
         pre_condition: &'ctx Option<Box<ExprAST>>,
         body: &'ctx Option<Box<AST>>,
         update_expr: &'ctx Option<Box<ExprAST>>,
@@ -382,8 +407,9 @@ impl<'ctx> CodeGen<'ctx> {
         //
         // init exprs
         //
-        if let Some(expr) = init_expr {
-            self.gen_expr(expr, env, break_catcher, continue_catcher)?;
+        if let Some(for_init_expr) = init_expr {
+            // self.gen_expr(expr, env, break_catcher, continue_catcher)?;
+            self.gen_for_init(for_init_expr, env, break_catcher, continue_catcher)?;
         }
 
         //

@@ -13,7 +13,7 @@ use inkwell::basic_block::BasicBlock;
 use inkwell::{IntPredicate, FloatPredicate};
 use inkwell::AddressSpace;
 use inkwell::types::{AnyType, IntType};
-use parser::Position;
+use parser::{Position, SpecifierQualifier};
 use core::prelude;
 use std::error::Error;
 use std::rc::Rc;
@@ -22,7 +22,7 @@ impl<'ctx> CodeGen<'ctx> {
 
     pub fn gen_expr<'b, 'c>(&self,
         expr_ast: &ExprAST,
-        env: &mut Env<'ctx>,
+        env: &Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
@@ -235,7 +235,7 @@ impl<'ctx> CodeGen<'ctx> {
                 }
             },
             ExprAST::PreIncMemberAccess(boxed_ast, pos) => {
-                let (typ, ptr) = self.get_l_value(&**boxed_ast, env, break_catcher, continue_catcher)?;
+                let (typ, ptr, _sq) = self.get_l_value(&**boxed_ast, env, break_catcher, continue_catcher)?;
                 let name = match &**boxed_ast {
                     ExprAST::MemberAccess(_, field_name, _pos) => field_name,
                     ExprAST::PointerAccess(_, field_name, _pos) => field_name,
@@ -270,7 +270,7 @@ impl<'ctx> CodeGen<'ctx> {
                 }
             },
             ExprAST::PreDecMemberAccess(boxed_ast, pos) => {
-                let (typ, ptr) = self.get_l_value(&**boxed_ast, env, break_catcher, continue_catcher)?;
+                let (typ, ptr, _sq) = self.get_l_value(&**boxed_ast, env, break_catcher, continue_catcher)?;
                 let name = match &**boxed_ast {
                     ExprAST::MemberAccess(_, field_name, _pos) => field_name,
                     ExprAST::PointerAccess(_, field_name, _pos) => field_name,
@@ -305,7 +305,7 @@ impl<'ctx> CodeGen<'ctx> {
                 }
             },
             ExprAST::PostIncMemberAccess(boxed_ast, pos) => {
-                let (typ, ptr) = self.get_l_value(&**boxed_ast, env, break_catcher, continue_catcher)?;
+                let (typ, ptr, _sq) = self.get_l_value(&**boxed_ast, env, break_catcher, continue_catcher)?;
                 let name = match &**boxed_ast {
                     ExprAST::MemberAccess(_, field_name, _pos) => field_name,
                     ExprAST::PointerAccess(_, field_name, _pos) => field_name,
@@ -340,7 +340,7 @@ impl<'ctx> CodeGen<'ctx> {
                 }
             },
             ExprAST::PostDecMemberAccess(boxed_ast, pos) => {
-                let (typ, ptr) = self.get_l_value(&**boxed_ast, env, break_catcher, continue_catcher)?;
+                let (typ, ptr, _sq) = self.get_l_value(&**boxed_ast, env, break_catcher, continue_catcher)?;
                 let name = match &**boxed_ast {
                     ExprAST::MemberAccess(_, field_name, _pos) => field_name,
                     ExprAST::PointerAccess(_, field_name, _pos) => field_name,
@@ -397,13 +397,9 @@ impl<'ctx> CodeGen<'ctx> {
                 Ok(Some(CompiledValue::new(value.get_type().clone(), result.as_any_value_enum())))
             },
             ExprAST::BinExpr(op, left, right, _pos) => self.gen_bin_expr(op, &**left, &**right, env, break_catcher, continue_catcher),
-            ExprAST::DefVar{specifiers, declarations, pos: _} => {
-                self.gen_def_var(specifiers, declarations, env, break_catcher, continue_catcher)?;
-                Ok(None)
-            },
             ExprAST::UnaryGetAddress(boxed_ast, pos) => {  // &var
                 let ast = &**boxed_ast;
-                let (typ, ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
+                let (typ, ptr, _sq) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
                 let ptr = PointerValue::try_from(ptr).ok().ok_or(CodeGenError::cannot_get_pointer(pos.clone()))?;
                 let typ = Type::new_pointer_type(typ.clone(), false, false);
 
@@ -437,7 +433,7 @@ impl<'ctx> CodeGen<'ctx> {
                     ExprAST::MemberAccess(ast, fun_name, _pos2) => {
                         let typ = TypeUtil::get_type(ast, env)?;
                         let class_name = typ.get_type_name();
-                        let (_t, obj) = self.get_l_value(&**ast, env, break_catcher, continue_catcher)?;
+                        let (_typ, obj, _sq) = self.get_l_value(&**ast, env, break_catcher, continue_catcher)?;
 
                         let mut args: Vec<BasicMetadataValueEnum> = Vec::new();
                         args.push(obj.into());
@@ -456,19 +452,19 @@ impl<'ctx> CodeGen<'ctx> {
                 }
             },
             ExprAST::MemberAccess(_boxed_ast, field_name, pos) => {
-                let (typ, ptr) = self.get_l_value(expr_ast, env, break_catcher, continue_catcher)?;
+                let (typ, ptr, _sq) = self.get_l_value(expr_ast, env, break_catcher, continue_catcher)?;
                 let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&typ, &self.context, pos)?, ptr, &format!("access_to_field_{}", field_name))?;
                 let any_val = basic_val.as_any_value_enum();
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
             ExprAST::PointerAccess(_boxed_ast, field_name, pos) => {
-                let (typ, ptr) = self.get_l_value(expr_ast, env, break_catcher, continue_catcher)?;
+                let (typ, ptr, _sq) = self.get_l_value(expr_ast, env, break_catcher, continue_catcher)?;
                 let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&typ, &self.context, pos)?, ptr, &format!("pointer_access_to_field_{}", field_name))?;
                 let any_val = basic_val.as_any_value_enum();
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
             ExprAST::ArrayAccess(_boxed_ast, _index, pos) => {
-                let (typ, ptr) = self.get_l_value(expr_ast, env, break_catcher, continue_catcher)?;
+                let (typ, ptr, _sq) = self.get_l_value(expr_ast, env, break_catcher, continue_catcher)?;
                 if let Type::Array { typ, .. } = typ.as_ref() {
                     let any_val = ptr.as_any_value_enum();
                     let t = Type::new_pointer_type(*typ.clone(), false, false);
@@ -621,14 +617,14 @@ impl<'ctx> CodeGen<'ctx> {
                     }
                 }
 
-                let (typ, ptr) = self.get_l_value(expr_ast, env, break_catcher, continue_catcher)?;
+                let (typ, ptr, _sq) = self.get_l_value(expr_ast, env, break_catcher, continue_catcher)?;
                 let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&*typ, &self.context, pos)?, ptr, &format!("access_to_field_{}_in_class_{}", var_name, struct_name))?;
                 let any_val = basic_val.as_any_value_enum();
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
 
             },
             ExprAST::SelfStaticSymbol(var_name, pos) => {  // _Self::Symbol
-                let (typ, ptr) = self.get_l_value(expr_ast, env, break_catcher, continue_catcher)?;
+                let (typ, ptr, _sq) = self.get_l_value(expr_ast, env, break_catcher, continue_catcher)?;
                 let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&*typ, &self.context, pos)?, ptr, &format!("access_to_field_{}_in_Self", var_name))?;
                 let any_val = basic_val.as_any_value_enum();
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
@@ -755,14 +751,14 @@ impl<'ctx> CodeGen<'ctx> {
                 Ok(Some(CompiledValue::new(Rc::new(tuple_type), any_val)))
             },
             ExprAST::TupleMemberAccess(tpl, index, pos) => {
-                let (elem_type, ptr) = self.get_indexed_tuple_ptr_and_type(tpl, *index, pos, env, break_catcher, continue_catcher)?;
+                let (elem_type, ptr, _sq) = self.get_indexed_tuple_ptr_and_type(tpl, *index, pos, env, break_catcher, continue_catcher)?;
                 let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&elem_type, &self.context, pos)?, ptr, "load_tuple_element")?;
                 let any_val = basic_val.as_any_value_enum();
 
                 Ok(Some(CompiledValue::new(Rc::clone(&elem_type), any_val)))
             },
             ExprAST::TuplePointerAccess(tpl, index, pos) => {
-                let (elem_type, ptr) = self.get_pointed_indexed_tuple_ptr_and_type(tpl, *index, pos, env, break_catcher, continue_catcher)?;
+                let (elem_type, ptr, _sq) = self.get_pointed_indexed_tuple_ptr_and_type(tpl, *index, pos, env, break_catcher, continue_catcher)?;
                 let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&elem_type, &self.context, pos)?, ptr, "load_tuple_element")?;
                 let any_val = basic_val.as_any_value_enum();
 
@@ -775,7 +771,7 @@ impl<'ctx> CodeGen<'ctx> {
         op: &BinOp,
         left_arg: &ExprAST,
         right_arg: &ExprAST,
-        env: &mut Env<'ctx>,
+        env: &Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
@@ -1156,7 +1152,7 @@ impl<'ctx> CodeGen<'ctx> {
     fn gen_and<'b, 'c>(&self,
         l_expr: &ExprAST,
         r_expr: &ExprAST,
-        env: &mut Env<'ctx>,
+        env: &Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
@@ -1215,7 +1211,7 @@ impl<'ctx> CodeGen<'ctx> {
     fn gen_or<'b, 'c>(&self,
         l_expr: &ExprAST,
         r_expr: &ExprAST,
-        env: &mut Env<'ctx>,
+        env: &Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
@@ -1274,17 +1270,15 @@ impl<'ctx> CodeGen<'ctx> {
     fn gen_assign<'b, 'c>(&self,
         l_value: &ExprAST,
         r_value: &ExprAST,
-        env: &mut Env<'ctx>,
+        env: &Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
         let compiled_value = self.gen_expr(r_value, env, break_catcher, continue_catcher)?.ok_or(Box::new(CodeGenError::assign_illegal_value(r_value, r_value.get_position().clone())))?;
         let value = self.try_as_basic_value(&compiled_value.get_value(), l_value.get_position())?;
-        let (ptr_type, ptr) = self.get_l_value(l_value, env, break_catcher, continue_catcher)?;
+        let (ptr_type, ptr, _sq) = self.get_l_value(l_value, env, break_catcher, continue_catcher)?;
 
         let value_type = value.get_type().as_any_type_enum();
-        // let ptr_elem_type = ptr.get_type().get_element_type();
-        // let ptr_elem_type = TypeUtil::to_basic_type_enum(&ptr_type, &self.context, l_value.get_position())?.as_any_type_enum();
         let ptr_elem_type = TypeUtil::get_type(l_value, env)?;
         let ptr_elem_type = TypeUtil::to_basic_type_enum(&ptr_elem_type, &self.context, l_value.get_position())?.as_any_type_enum();
 
@@ -1318,13 +1312,13 @@ impl<'ctx> CodeGen<'ctx> {
         op: &BinOp,
         l_value: &ExprAST,
         r_value: &ExprAST,
-        env: &mut Env<'ctx>,
+        env: &Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
         let compiled_value = self.gen_bin_expr(op, l_value, r_value, env, break_catcher, continue_catcher)?.ok_or(Box::new(CodeGenError::cannot_calculate(l_value.get_position().clone())))?;
         let value = self.try_as_basic_value(&compiled_value.get_value(), l_value.get_position())?;
-        let (_to_type, ptr) = self.get_l_value(l_value, env, break_catcher, continue_catcher)?;
+        let (_to_type, ptr, _sq) = self.get_l_value(l_value, env, break_catcher, continue_catcher)?;
 
         self.builder.build_store(ptr, value)?;
         Ok(Some(compiled_value))
@@ -1332,10 +1326,10 @@ impl<'ctx> CodeGen<'ctx> {
 
     pub fn get_l_value<'b, 'c>(&self,
         ast: &ExprAST,
-        env: &mut Env<'ctx>,
+        env: &Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
-    ) -> Result<(Rc<Type>, PointerValue<'ctx>), Box<dyn Error>> {
+    ) -> Result<(Rc<Type>, PointerValue<'ctx>, SpecifierQualifier), Box<dyn Error>> {
         match ast {
             ExprAST::Symbol(name, pos) => {
                 let (typ, sq, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(&name, pos.clone())))?;
@@ -1346,53 +1340,77 @@ impl<'ctx> CodeGen<'ctx> {
                     return Err(Box::new(CodeGenError::cannot_assign_constant(pos.clone())));
                 }
 
-                Ok((Rc::clone(typ), ptr))
+                Ok((Rc::clone(typ), ptr, sq.clone()))
             },
             ExprAST::UnaryPointerAccess(boxed_ast, pos) => {  // *pointer
                 let ast = &**boxed_ast;
-                let (typ, ptr_to_ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
+                let (typ, ptr_to_ptr, sq) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
 
                 if let Some(type2) = typ.peel_off_pointer() {
+                    let is_pointer = type2.is_pointer();
+                    if (is_pointer && type2.get_pointer().unwrap().is_const())
+                    || (!is_pointer && sq.is_const())
+                    {
+                        return Err(Box::new(CodeGenError::cannot_assign_constant(pos.clone())));
+                    }
+
                     let ptr = self.builder.build_load(TypeUtil::to_basic_type_enum(&typ, &self.context, pos)?, ptr_to_ptr, "load_ptr")?;
 
-                    Ok((Type::new_pointer_type(type2.clone(), false, false).into(), ptr.into_pointer_value()))
+                    Ok((Type::new_pointer_type(type2.clone(), sq.is_const(), sq.is_volatile()).into(), ptr.into_pointer_value(), sq))
                 }else{
                     Err(Box::new(CodeGenError::not_pointer(&typ, pos.clone())))
                 }
             },
             ExprAST::MemberAccess(expr, member_name, pos) => {  // struct_or_union.member
                 let ast = &**expr;
-                let (typ, ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
+                let (typ, ptr, sq) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
 
                 match typ.as_ref() {
                     Type::Struct {name, fields} => {
                         let index = fields.get_index(member_name).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
                         let elem_type = fields.get_type(member_name).unwrap();
+                        let sq = fields.get_specifier_qualifier(member_name).unwrap();
                         let msg = if let Some(id) = &name {
                             format!("struct_{}.{}", id, member_name)
                         }else{
                             format!("struct?.{}", member_name)
                         };
 
+                        let is_pointer = elem_type.is_pointer();
+                        if (is_pointer && elem_type.get_pointer().unwrap().is_const())
+                        || (!is_pointer && sq.is_const())
+                        {
+                            return Err(Box::new(CodeGenError::cannot_assign_constant(pos.clone())));
+                        }
+
                         let elem_ptr = self.builder.build_struct_gep(TypeUtil::to_basic_type_enum(&typ, &self.context, pos)?, ptr, index as u32, &msg);
                         if let Ok(p) = elem_ptr {
-                            Ok((elem_type.clone(), p))
+                            Ok((elem_type.clone(), p, sq.clone()))
                         }else{
                             return Err(Box::new(CodeGenError::cannot_access_struct_member(&member_name, pos.clone())));
                         }
                     },
                     Type::Union { name, fields } => {
-                        let typ = fields.get_type(member_name).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
-                        let to_type = TypeUtil::to_basic_type_enum(typ, self.context, pos)?;
+                        let elem_type = fields.get_type(member_name).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
+
+                        let sq = fields.get_specifier_qualifier(member_name).unwrap();
+                        let is_pointer = elem_type.is_pointer();
+                        if (is_pointer && elem_type.get_pointer().unwrap().is_const())
+                        || (!is_pointer && sq.is_const())
+                        {
+                            return Err(Box::new(CodeGenError::cannot_assign_constant(pos.clone())));
+                        }
+
+                        let to_type = TypeUtil::to_basic_type_enum(elem_type, self.context, pos)?;
                         let ptr_type = to_type.ptr_type(AddressSpace::default());
                         let p = ptr.const_cast(ptr_type);
-                        Ok((typ.clone(), p))
+                        Ok((Rc::clone(elem_type), p, sq.clone()))
                     },
                     Type::Pointer(_, elem_type) => {
                         match ast {
                             ExprAST::ArrayAccess(expr, index_list, pos) => {
                                 let ast = &**expr;
-                                let (expr_type, base_ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
+                                let (expr_type, base_ptr, sq) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
                                 let index_len = index_list.len();
 
                                 if index_len > 1 {
@@ -1419,6 +1437,7 @@ impl<'ctx> CodeGen<'ctx> {
                                     Type::Struct {name, fields} => {
                                         let index = fields.get_index(member_name).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
                                         let elem_type = fields.get_type(member_name).unwrap();
+                                        let sq = fields.get_specifier_qualifier(member_name).unwrap();
                                         let msg = if let Some(id) = &name {
                                             format!("struct_{}.{}", id, member_name)
                                         }else{
@@ -1427,17 +1446,18 @@ impl<'ctx> CodeGen<'ctx> {
                 
                                         let elem_ptr = self.builder.build_struct_gep(TypeUtil::to_basic_type_enum(&*typ, &self.context, pos)?, ptr, index as u32, &msg);
                                         if let Ok(p) = elem_ptr {
-                                            Ok((elem_type.clone(), p))
+                                            Ok((elem_type.clone(), p, sq.clone()))
                                         }else{
                                             return Err(Box::new(CodeGenError::cannot_access_struct_member(&member_name, pos.clone())));
                                         }
                                     },
                                     Type::Union { name, fields } => {
-                                        let typ = fields.get_type(member_name).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
-                                        let to_type = TypeUtil::to_basic_type_enum(typ, self.context, pos)?;
+                                        let type2 = fields.get_type(member_name).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
+                                        let sq = fields.get_specifier_qualifier(member_name).unwrap();
+                                        let to_type = TypeUtil::to_basic_type_enum(type2, self.context, pos)?;
                                         let ptr_type = to_type.ptr_type(AddressSpace::default());
                                         let p = ptr.const_cast(ptr_type);
-                                        Ok((typ.clone(), p))
+                                        Ok((type2.clone(), p, sq.clone()))
 
                                         // if let Some(id) = name {
                                         //     let type_or_union = env.get_type(&id).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
@@ -1505,7 +1525,7 @@ impl<'ctx> CodeGen<'ctx> {
             },
             ExprAST::PointerAccess(expr, member_name, pos) => {  // ptr->member
                 let ast = &**expr;
-                let (typ, ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
+                let (typ, ptr, _sq) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
                 let ptr = self.builder.build_load(TypeUtil::to_basic_type_enum(&*typ, &self.context, pos)?, ptr, "get_pointer")?.into_pointer_value();
                 let typ = TypeUtil::get_type(ast, env)?;
                 let pointed_type = typ.get_pointed_type(pos)?;
@@ -1513,20 +1533,22 @@ impl<'ctx> CodeGen<'ctx> {
                 match pointed_type {
                     Type::Struct {fields, name} => {
                         let index = fields.get_index(member_name).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
+                        let sq = fields.get_specifier_qualifier(member_name).unwrap();
                         let elem_ptr = self.builder.build_struct_gep(TypeUtil::to_basic_type_enum(&pointed_type, &self.context, pos)?, ptr, index as u32, "struct_member_access");
                         if let Ok(p) = elem_ptr {
                             let typ = fields.get_type(member_name).unwrap();
-                            Ok((typ.clone(), p))
+                            Ok((typ.clone(), p, sq.clone()))
                         }else{
                             return Err(Box::new(CodeGenError::cannot_access_struct_member(&member_name, pos.clone())));
                         }
                     },
                     Type::Union { name, fields } => {
-                        let typ = fields.get_type(member_name).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
-                        let to_type = TypeUtil::to_basic_type_enum(typ, self.context, pos)?;
+                        let type2 = fields.get_type(member_name).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
+                        let sq = fields.get_specifier_qualifier(member_name).unwrap();
+                        let to_type = TypeUtil::to_basic_type_enum(type2, self.context, pos)?;
                         let ptr_type = to_type.ptr_type(AddressSpace::default());
                         let p = ptr.const_cast(ptr_type);
-                        Ok((typ.clone(), p))
+                        Ok((type2.clone(), p, sq.clone()))
 
                         // if let Some(id) = name {
                         //     let type_or_union = env.get_type(&id).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
@@ -1556,7 +1578,7 @@ impl<'ctx> CodeGen<'ctx> {
             },
             ExprAST::ArrayAccess(expr, index_list, pos) => {
                 let ast = &**expr;
-                let (expr_type, base_ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
+                let (expr_type, base_ptr, sq) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
                 let index_len = index_list.len();
 
                 //
@@ -1575,7 +1597,7 @@ impl<'ctx> CodeGen<'ctx> {
                     let ptr = unsafe { self.builder.build_in_bounds_gep(ty, ptr, &index_list, "gep_for_array_element")? };
                     // let ptr = unsafe { ptr.const_in_bounds_gep(ty, &index_list) };
 
-                    return Ok((*elem_type.clone(), ptr));
+                    return Ok((*elem_type.clone(), ptr, sq));
                 }
 
                 //
@@ -1623,24 +1645,24 @@ impl<'ctx> CodeGen<'ctx> {
                 let ty = TypeUtil::to_basic_type_enum(&expr_type, &self.context, pos)?;
                 ptr = unsafe { self.builder.build_in_bounds_gep(ty, ptr, &vec, "gep_for_array_element")? };
 
-                Ok((result_type, ptr))
+                Ok((result_type, ptr, sq))
             },
             ExprAST::_self(pos) => {
-                let (typ, _sq, ptr) = env.get_ptr("self").ok_or(Box::new(CodeGenError::no_such_a_variable("self", pos.clone())))?;
-                Ok((typ.clone(), ptr))
+                let (typ, sq, ptr) = env.get_ptr("self").ok_or(Box::new(CodeGenError::no_such_a_variable("self", pos.clone())))?;
+                Ok((typ.clone(), ptr, sq.clone()))
             },
             ExprAST::SelfStaticSymbol(var_name, pos) => {
                 let cls = env.get_current_class().ok_or(CodeGenError::no_current_class(pos.clone()))?;
 
-                if let Some((typ, _sq, ptr)) = cls.get_class_var(var_name) {
-                    Ok((typ.clone(), ptr.as_pointer_value()))
+                if let Some((typ, sq, ptr)) = cls.get_class_var(var_name) {
+                    Ok((typ.clone(), ptr.as_pointer_value(), sq.clone()))
                 }else{
                     return Err(Box::new(CodeGenError::no_such_a_class_var(cls.get_name().to_string(), var_name.clone(), pos.clone())));
                 }
             },
             ExprAST::StructStaticSymbol(struct_name, var_name, pos) => {
-                if let Some((typ, _sq, ptr)) = env.get_class_var(struct_name, var_name) {
-                    Ok((typ.clone(), ptr.as_pointer_value()))
+                if let Some((type2, sq, ptr)) = env.get_class_var(struct_name, var_name) {
+                    Ok((Rc::clone(type2), ptr.as_pointer_value(), sq.clone()))
                 }else{
                     return Err(Box::new(CodeGenError::no_such_a_class_var(struct_name.clone(), var_name.clone(), pos.clone())));
                 }
@@ -1662,10 +1684,10 @@ impl<'ctx> CodeGen<'ctx> {
         tpl: &ExprAST,
         index: usize,
         pos: &Position,
-        env: &mut Env<'ctx>,
+        env: &Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
-    ) -> Result<(Rc<Type>, PointerValue<'ctx>), Box<dyn Error>> {
+    ) -> Result<(Rc<Type>, PointerValue<'ctx>, SpecifierQualifier), Box<dyn Error>> {
         //
         // is expr tuple?
         //
@@ -1691,7 +1713,7 @@ impl<'ctx> CodeGen<'ctx> {
         let const_index = i32_type.const_int(index as u64, false);
         let indexes = vec![const_zero, const_index];
 
-        let (_typ, tuple_ptr) = self.get_l_value(&tpl, env, break_catcher, continue_catcher)?;
+        let (_typ, tuple_ptr, sq) = self.get_l_value(&tpl, env, break_catcher, continue_catcher)?;
         let t = TypeUtil::to_basic_type_enum(&tuple_type, &self.context, pos)?;
         let ptr = unsafe { self.builder.build_in_bounds_gep(t, tuple_ptr, &indexes, "gep_for_tuple_element")? };
 
@@ -1704,7 +1726,7 @@ impl<'ctx> CodeGen<'ctx> {
             }
         };
 
-        Ok((Rc::clone(elem_type), ptr))
+        Ok((Rc::clone(elem_type), ptr, sq))
     }
 
     fn get_pointed_indexed_tuple_ptr_and_type<'b, 'c>(
@@ -1712,12 +1734,12 @@ impl<'ctx> CodeGen<'ctx> {
         ast: &ExprAST,
         index: usize,
         pos: &Position,
-        env: &mut Env<'ctx>,
+        env: &Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
-    ) -> Result<(Rc<Type>, PointerValue<'ctx>), Box<dyn Error>> {
+    ) -> Result<(Rc<Type>, PointerValue<'ctx>, SpecifierQualifier), Box<dyn Error>> {
 
-        let (typ, ptr) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
+        let (typ, ptr, sq) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
         let tuple_ptr = self.builder.build_load(TypeUtil::to_basic_type_enum(&*typ, &self.context, pos)?, ptr, "get_pointer")?.into_pointer_value();
         let typ = TypeUtil::get_type(ast, env)?;
         let tuple_type = typ.get_pointed_type(pos)?;
@@ -1759,7 +1781,7 @@ impl<'ctx> CodeGen<'ctx> {
             }
         };
 
-        Ok((Rc::clone(elem_type), ptr))
+        Ok((Rc::clone(elem_type), ptr, sq))
     }
 
     pub fn bin_expr_implicit_cast(&self, left: CompiledValue<'ctx>, right: CompiledValue<'ctx>, pos: &Position) -> Result<(CompiledValue<'ctx>, CompiledValue<'ctx>), Box<dyn Error>> {

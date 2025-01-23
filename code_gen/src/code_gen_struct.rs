@@ -21,7 +21,7 @@ impl<'ctx> CodeGen<'ctx> {
     pub fn gen_struct_literal<'b, 'c>(&self,
         struct_literal: &StructLiteral,
         struct_ptr: PointerValue<'ctx>,
-        env: &mut Env<'ctx>,
+        env: &Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
@@ -229,7 +229,7 @@ impl<'ctx> CodeGen<'ctx> {
                                     return Err(Box::new(CodeGenError::no_such_a_member_function(class_name, fun_name.to_string(), pos2.clone())));
                                 }
 
-                                let (_t, obj) = self.get_l_value(&**ast, env, break_catcher, continue_catcher)?;
+                                let (_t, obj, _sq) = self.get_l_value(&**ast, env, break_catcher, continue_catcher)?;
 
                                 let mut args: Vec<BasicMetadataValueEnum> = Vec::new();
                                 args.push(obj.into());
