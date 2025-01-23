@@ -1333,6 +1333,8 @@ impl<'ctx> CodeGen<'ctx> {
         match ast {
             ExprAST::Symbol(name, pos) => {
                 let (typ, sq, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(&name, pos.clone())))?;
+
+                // const check
                 let is_pointer = typ.is_pointer();
                 if (is_pointer && typ.get_pointer().unwrap().is_const())
                 || (!is_pointer && sq.is_const())
@@ -1347,6 +1349,7 @@ impl<'ctx> CodeGen<'ctx> {
                 let (typ, ptr_to_ptr, sq) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
 
                 if let Some(type2) = typ.peel_off_pointer() {
+                    // const check
                     let is_pointer = type2.is_pointer();
                     if (is_pointer && type2.get_pointer().unwrap().is_const())
                     || (!is_pointer && sq.is_const())
@@ -1363,7 +1366,7 @@ impl<'ctx> CodeGen<'ctx> {
             },
             ExprAST::MemberAccess(expr, member_name, pos) => {  // struct_or_union.member
                 let ast = &**expr;
-                let (typ, ptr, sq) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
+                let (typ, ptr, _sq) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
 
                 match typ.as_ref() {
                     Type::Struct {name, fields} => {
@@ -1376,6 +1379,7 @@ impl<'ctx> CodeGen<'ctx> {
                             format!("struct?.{}", member_name)
                         };
 
+                        // const check
                         let is_pointer = elem_type.is_pointer();
                         if (is_pointer && elem_type.get_pointer().unwrap().is_const())
                         || (!is_pointer && sq.is_const())
@@ -1393,6 +1397,7 @@ impl<'ctx> CodeGen<'ctx> {
                     Type::Union { name, fields } => {
                         let elem_type = fields.get_type(member_name).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
 
+                        // const check
                         let sq = fields.get_specifier_qualifier(member_name).unwrap();
                         let is_pointer = elem_type.is_pointer();
                         if (is_pointer && elem_type.get_pointer().unwrap().is_const())
@@ -1416,7 +1421,15 @@ impl<'ctx> CodeGen<'ctx> {
                                 if index_len > 1 {
                                     return Err(Box::new(CodeGenError::array_index_is_too_long(pos.clone())));
                                 }
-            
+
+                                // const check
+                                let is_pointer = expr_type.is_pointer();
+                                if (is_pointer && expr_type.get_pointer().unwrap().is_const())
+                                || (!is_pointer && sq.is_const())
+                                {
+                                    return Err(Box::new(CodeGenError::cannot_assign_constant(pos.clone())));
+                                }
+
                                 let i32_type = self.context.i32_type();
                                 let const_zero = i32_type.const_zero();
                                 let value = self.gen_expr(&index_list[0], env, break_catcher, continue_catcher)?.ok_or(CodeGenError::no_index_value_while_access_array(pos.clone()))?;
@@ -1530,6 +1543,10 @@ impl<'ctx> CodeGen<'ctx> {
                 let typ = TypeUtil::get_type(ast, env)?;
                 let pointed_type = typ.get_pointed_type(pos)?;
 
+                //
+                // TODO: const check
+                //
+
                 match pointed_type {
                     Type::Struct {fields, name} => {
                         let index = fields.get_index(member_name).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
@@ -1580,6 +1597,10 @@ impl<'ctx> CodeGen<'ctx> {
                 let ast = &**expr;
                 let (expr_type, base_ptr, sq) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
                 let index_len = index_list.len();
+
+                //
+                // TODO: const check
+                //
 
                 //
                 // when Pointer
@@ -1649,12 +1670,18 @@ impl<'ctx> CodeGen<'ctx> {
             },
             ExprAST::_self(pos) => {
                 let (typ, sq, ptr) = env.get_ptr("self").ok_or(Box::new(CodeGenError::no_such_a_variable("self", pos.clone())))?;
+                //
+                // const check
+                //
                 Ok((typ.clone(), ptr, sq.clone()))
             },
             ExprAST::SelfStaticSymbol(var_name, pos) => {
                 let cls = env.get_current_class().ok_or(CodeGenError::no_current_class(pos.clone()))?;
 
                 if let Some((typ, sq, ptr)) = cls.get_class_var(var_name) {
+                    //
+                    // TODO: const check
+                    //
                     Ok((typ.clone(), ptr.as_pointer_value(), sq.clone()))
                 }else{
                     return Err(Box::new(CodeGenError::no_such_a_class_var(cls.get_name().to_string(), var_name.clone(), pos.clone())));
@@ -1662,6 +1689,9 @@ impl<'ctx> CodeGen<'ctx> {
             },
             ExprAST::StructStaticSymbol(struct_name, var_name, pos) => {
                 if let Some((type2, sq, ptr)) = env.get_class_var(struct_name, var_name) {
+                    //
+                    // TODO: const check
+                    //
                     Ok((Rc::clone(type2), ptr.as_pointer_value(), sq.clone()))
                 }else{
                     return Err(Box::new(CodeGenError::no_such_a_class_var(struct_name.clone(), var_name.clone(), pos.clone())));
@@ -1714,6 +1744,9 @@ impl<'ctx> CodeGen<'ctx> {
         let indexes = vec![const_zero, const_index];
 
         let (_typ, tuple_ptr, sq) = self.get_l_value(&tpl, env, break_catcher, continue_catcher)?;
+        //
+        // TODO: const check
+        //
         let t = TypeUtil::to_basic_type_enum(&tuple_type, &self.context, pos)?;
         let ptr = unsafe { self.builder.build_in_bounds_gep(t, tuple_ptr, &indexes, "gep_for_tuple_element")? };
 
@@ -1771,6 +1804,10 @@ impl<'ctx> CodeGen<'ctx> {
         // let (_typ, tuple_ptr) = self.get_l_value(&tpl, env, break_catcher, continue_catcher)?;
         let t = TypeUtil::to_basic_type_enum(&tuple_type, &self.context, pos)?;
         let ptr = unsafe { self.builder.build_in_bounds_gep(t, tuple_ptr, &indexes, "gep_for_tuple_element")? };
+
+        //
+        // TODO: const check
+        //
 
         let elem_type = {
             match &*tuple_type {
