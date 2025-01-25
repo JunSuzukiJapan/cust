@@ -1355,15 +1355,6 @@ impl<'ctx> CodeGen<'ctx> {
         match ast {
             ExprAST::Symbol(name, pos) => {
                 let (typ, sq, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(&name, pos.clone())))?;
-
-                // const check
-                let is_pointer = typ.is_pointer();
-                if (is_pointer && typ.get_pointer().unwrap().is_const())
-                || (!is_pointer && sq.is_const())
-                {
-                    return Err(Box::new(CodeGenError::cannot_assign_constant(pos.clone())));
-                }
-
                 Ok((Rc::clone(typ), ptr, sq.clone()))
             },
             ExprAST::UnaryPointerAccess(boxed_ast, pos) => {  // *pointer
@@ -1371,14 +1362,6 @@ impl<'ctx> CodeGen<'ctx> {
                 let (typ, ptr_to_ptr, sq) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
 
                 if let Some(type2) = typ.peel_off_pointer() {
-                    // const check
-                    let is_pointer = type2.is_pointer();
-                    if (is_pointer && type2.get_pointer().unwrap().is_const())
-                    || (!is_pointer && sq.is_const())
-                    {
-                        return Err(Box::new(CodeGenError::cannot_assign_constant(pos.clone())));
-                    }
-
                     let ptr = self.builder.build_load(TypeUtil::to_basic_type_enum(&typ, &self.context, pos)?, ptr_to_ptr, "load_ptr")?;
 
                     Ok((Type::new_pointer_type(type2.clone(), sq.is_const(), sq.is_volatile()).into(), ptr.into_pointer_value(), sq))
@@ -1401,14 +1384,6 @@ impl<'ctx> CodeGen<'ctx> {
                             format!("struct?.{}", member_name)
                         };
 
-                        // const check
-                        let is_pointer = elem_type.is_pointer();
-                        if (is_pointer && elem_type.get_pointer().unwrap().is_const())
-                        || (!is_pointer && sq.is_const())
-                        {
-                            return Err(Box::new(CodeGenError::cannot_assign_constant(pos.clone())));
-                        }
-
                         let elem_ptr = self.builder.build_struct_gep(TypeUtil::to_basic_type_enum(&typ, &self.context, pos)?, ptr, index as u32, &msg);
                         if let Ok(p) = elem_ptr {
                             Ok((elem_type.clone(), p, sq.clone()))
@@ -1418,15 +1393,7 @@ impl<'ctx> CodeGen<'ctx> {
                     },
                     Type::Union { name, fields } => {
                         let elem_type = fields.get_type(member_name).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
-
-                        // const check
                         let sq = fields.get_specifier_qualifier(member_name).unwrap();
-                        let is_pointer = elem_type.is_pointer();
-                        if (is_pointer && elem_type.get_pointer().unwrap().is_const())
-                        || (!is_pointer && sq.is_const())
-                        {
-                            return Err(Box::new(CodeGenError::cannot_assign_constant(pos.clone())));
-                        }
 
                         let to_type = TypeUtil::to_basic_type_enum(elem_type, self.context, pos)?;
                         let ptr_type = to_type.ptr_type(AddressSpace::default());
@@ -1442,14 +1409,6 @@ impl<'ctx> CodeGen<'ctx> {
 
                                 if index_len > 1 {
                                     return Err(Box::new(CodeGenError::array_index_is_too_long(pos.clone())));
-                                }
-
-                                // const check
-                                let is_pointer = expr_type.is_pointer();
-                                if (is_pointer && expr_type.get_pointer().unwrap().is_const())
-                                || (!is_pointer && sq.is_const())
-                                {
-                                    return Err(Box::new(CodeGenError::cannot_assign_constant(pos.clone())));
                                 }
 
                                 let i32_type = self.context.i32_type();
@@ -1684,9 +1643,6 @@ impl<'ctx> CodeGen<'ctx> {
             },
             ExprAST::_self(pos) => {
                 let (typ, sq, ptr) = env.get_ptr("self").ok_or(Box::new(CodeGenError::no_such_a_variable("self", pos.clone())))?;
-                //
-                // const check
-                //
                 Ok((typ.clone(), ptr, sq.clone()))
             },
             ExprAST::SelfStaticSymbol(var_name, pos) => {
