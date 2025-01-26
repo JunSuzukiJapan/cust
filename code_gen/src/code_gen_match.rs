@@ -6,13 +6,173 @@ use super::env::{BreakCatcher, ContinueCatcher};
 use crate::Position;
 use crate::CodeGen;
 
-use inkwell::values::{AnyValue, AnyValueEnum, FunctionValue, IntValue};
-use inkwell::IntPredicate;
+use inkwell::types::{BasicType, BasicTypeEnum, BasicMetadataTypeEnum};
+use inkwell::values::{AnyValue, AnyValueEnum, FunctionValue, BasicMetadataValueEnum};
+use inkwell::{IntPredicate, AddressSpace};
 use parser::{NumberType, SpecifierQualifier};
+use std::env;
 use std::error::Error;
 use std::rc::Rc;
 
 impl<'ctx> CodeGen<'ctx> {
+    fn code_gen_fun_string_match_body(&self, current_function: FunctionValue<'ctx>) -> Result<(), Box<dyn Error>> {
+        let loop_pre_condition = self.context.append_basic_block(current_function, "loop.pre_condition");
+        let loop_start = self.context.append_basic_block(current_function, "loop.start");
+        let loop_update = self.context.append_basic_block(current_function, "loop.update");
+        let loop_end = self.context.append_basic_block(current_function, "loop.end");
+        let and_left = self.context.append_basic_block(current_function, "and.left");
+        let and_right = self.context.append_basic_block(current_function, "and.right");
+        let and_false = self.context.append_basic_block(current_function, "and.false");
+        let and_end = self.context.append_basic_block(current_function, "and.end");
+
+        // define i32 @strcmp(ptr %0, ptr %1) {
+        //     entry:
+        //       %s1 = alloca ptr, align 8
+        //       store ptr %0, ptr %s1, align 8
+        //       %s2 = alloca ptr, align 8
+        //       store ptr %1, ptr %s2, align 8
+        //       br label %loop.pre_condition
+        let char_type = self.context.i8_type().ptr_type(AddressSpace::default());
+        let s1 = self.builder.build_alloca(char_type, "s1").unwrap();
+        let s2 = self.builder.build_alloca(char_type, "s2").unwrap();
+        let param1 = current_function.get_nth_param(0).unwrap();
+        let param2 = current_function.get_nth_param(1).unwrap();
+        self.builder.build_store(s1, param1)?;
+        self.builder.build_store(s2, param2)?;
+        self.builder.build_unconditional_branch(loop_pre_condition)?;
+            
+        //     loop.pre_condition:                               ; preds = %loop.update, %entry
+        //       br label %and.left
+        self.builder.position_at_end(loop_pre_condition);
+        self.builder.build_unconditional_branch(and_left)?;
+            
+        //     loop.start:                                       ; preds = %and.end
+        //       %s16 = load ptr, ptr %s1, align 8
+        //       %op_add_pointer = ptrtoint ptr %s16 to i64
+        //       %op_add_pointer7 = add i64 %op_add_pointer, mul (i64 ptrtoint (ptr getelementptr (i8, ptr null, i32 1) to i64), i32 1)
+        //       store i64 %op_add_pointer7, ptr %s1, align 8
+        //       %s28 = load ptr, ptr %s2, align 8
+        //       %op_add_pointer9 = ptrtoint ptr %s28 to i64
+        //       %op_add_pointer10 = add i64 %op_add_pointer9, mul (i64 ptrtoint (ptr getelementptr (i8, ptr null, i32 1) to i64), i32 1)
+        //       store i64 %op_add_pointer10, ptr %s2, align 8
+        //       br label %loop.update
+        self.builder.position_at_end(loop_start);
+        let s16 = self.builder.build_load(char_type, s1, "load_s1")?;
+        let op_add_pointer = self.builder.build_ptr_to_int(s16.into_pointer_value(), self.context.i64_type(), "op_add_pointer")?;
+        let op_add_pointer7 = self.builder.build_int_add(op_add_pointer, self.context.i64_type().const_int(1, false), "op_add_pointer7")?;
+        self.builder.build_store(s1, self.builder.build_int_to_ptr(op_add_pointer7, char_type, "int_to_ptr")?)?;
+        let s28 = self.builder.build_load(char_type, s2, "load_s2")?;
+        let op_add_pointer9 = self.builder.build_ptr_to_int(s28.into_pointer_value(), self.context.i64_type(), "op_add_pointer9")?;
+        let op_add_pointer10 = self.builder.build_int_add(op_add_pointer9, self.context.i64_type().const_int(1, false), "op_add_pointer10")?;
+        self.builder.build_store(s2, self.builder.build_int_to_ptr(op_add_pointer10, char_type, "int_to_ptr")?)?;
+        self.builder.build_unconditional_branch(loop_update)?;
+            
+        //     loop.update:                                      ; preds = %loop.start
+        //       br label %loop.pre_condition
+        self.builder.position_at_end(loop_update);
+        self.builder.build_unconditional_branch(loop_pre_condition)?;
+            
+        //     loop.end:                                         ; preds = %and.end
+        //       %s111 = load ptr, ptr %s1, align 8
+        //       %get_value_from_pointer12 = load i8, ptr %s111, align 1
+        //       %s213 = load ptr, ptr %s2, align 8
+        //       %get_value_from_pointer14 = load i8, ptr %s213, align 1
+        //       %sub_int = sub i8 %get_value_from_pointer12, %get_value_from_pointer14
+        //       %cast_from_unsigned_char_to_int = sext i8 %sub_int to i32
+        //       ret i32 %cast_from_unsigned_char_to_int
+        self.builder.position_at_end(loop_end);
+        let s111 = self.builder.build_load(char_type, s1, "load_s1")?;
+        let get_value_from_pointer12 = self.builder.build_load(char_type, s111.into_pointer_value(), "get_value_from_pointer12")?;
+        let s213 = self.builder.build_load(char_type, s2, "load_s2")?;
+        let get_value_from_pointer14 = self.builder.build_load(char_type, s213.into_pointer_value(), "get_value_from_pointer14")?;
+        let sub_int = self.builder.build_int_sub(get_value_from_pointer12.into_int_value(), get_value_from_pointer14.into_int_value(), "sub_int")?;
+        let cast_from_unsigned_char_to_int = self.builder.build_int_s_extend(sub_int, self.context.i32_type(), "cast_from_unsigned_char_to_int")?;
+        self.builder.build_return(Some(&cast_from_unsigned_char_to_int))?;
+            
+        //     and.left:                                         ; preds = %loop.pre_condition
+        //       %s11 = load ptr, ptr %s1, align 8
+        //       %get_value_from_pointer = load i8, ptr %s11, align 1
+        //       %and.not_zero_left = icmp ne i8 %get_value_from_pointer, 0
+        //       br i1 %and.not_zero_left, label %and.right, label %and.false
+        self.builder.position_at_end(and_left);
+        let s11 = self.builder.build_load(char_type, s1, "load_s1")?;
+        let get_value_from_pointer = self.builder.build_load(char_type, s11.into_pointer_value(), "get_value_from_pointer")?;
+        let and_not_zero_left = self.builder.build_int_compare(IntPredicate::NE, get_value_from_pointer.into_int_value(), self.context.i8_type().const_zero(), "and_not_zero_left")?;
+        self.builder.build_conditional_branch(and_not_zero_left, and_right, and_false)?;
+            
+        //     and.right:                                        ; preds = %and.left
+        //       %s12 = load ptr, ptr %s1, align 8
+        //       %get_value_from_pointer3 = load i8, ptr %s12, align 1
+        //       %s24 = load ptr, ptr %s2, align 8
+        //       %get_value_from_pointer5 = load i8, ptr %s24, align 1
+        //       %eq_int = icmp eq i8 %get_value_from_pointer3, %get_value_from_pointer5
+        //       %and.not_zero_right = icmp ne i1 %eq_int, false
+        //       br i1 %and.not_zero_right, label %and.end, label %and.false
+        self.builder.position_at_end(and_right);
+        let s12 = self.builder.build_load(char_type, s1, "load_s1")?;
+        let get_value_from_pointer3 = self.builder.build_load(char_type, s12.into_pointer_value(), "get_value_from_pointer3")?;
+        let s24 = self.builder.build_load(char_type, s2, "load_s2")?;
+        let get_value_from_pointer5 = self.builder.build_load(char_type, s24.into_pointer_value(), "get_value_from_pointer5")?;
+        let eq_int = self.builder.build_int_compare(IntPredicate::EQ, get_value_from_pointer3.into_int_value(), get_value_from_pointer5.into_int_value(), "eq_int")?;
+        let and_not_zero_right = self.builder.build_int_compare(IntPredicate::NE, eq_int, self.context.bool_type().const_zero(), "and_not_zero_right")?;
+        self.builder.build_conditional_branch(and_not_zero_right, and_end, and_false)?;
+            
+        //     and.false:                                        ; preds = %and.right, %and.left
+        //       br label %and.end
+        self.builder.position_at_end(and_false);
+        self.builder.build_unconditional_branch(and_end)?;
+            
+        //     and.end:                                          ; preds = %and.false, %and.right
+        //       %and.result = phi i1 [ true, %and.right ], [ false, %and.false ]
+        //       br i1 %and.result, label %loop.start, label %loop.end
+        //     }
+        self.builder.position_at_end(and_end);
+        let and_result = self.builder.build_phi(self.context.bool_type(), "and.result")?;
+        and_result.add_incoming(&[(&self.context.bool_type().const_all_ones(), and_right), (&self.context.bool_type().const_zero(), and_false)]);
+        self.builder.build_conditional_branch(and_result.as_basic_value().into_int_value(), loop_start, loop_end)?;
+
+        Ok(())
+    }
+
+    fn get_fun_string_match(&self, env: &mut Env<'ctx>) -> Result<FunctionValue<'ctx>, Box<dyn Error>> {
+        if let Some(function) = env.inner_fun_string_match {
+            return Ok(function);
+        }
+
+        // prologue
+        let fn_name = "inner::string_match";
+        let args_type: Vec<BasicMetadataTypeEnum> = vec![
+            self.context.i8_type().ptr_type(AddressSpace::default()).as_basic_type_enum().into(),
+            self.context.i8_type().ptr_type(AddressSpace::default()).as_basic_type_enum().into()
+        ];
+        let fn_type = self.context.i32_type().fn_type(args_type.as_slice(), false);
+        let function = self.module.add_function(fn_name, fn_type, None);
+
+        let basic_block = self.context.append_basic_block(function, "entry");
+        self.builder.position_at_end(basic_block);
+
+        self.code_gen_fun_string_match_body(function)?;
+
+        env.inner_fun_string_match = Some(function);
+
+        Ok(function)
+    }
+
+    fn call_string_match(
+        &self,
+        arg1: BasicMetadataValueEnum<'ctx>,
+        arg2: BasicMetadataValueEnum<'ctx>,
+        env: &mut Env<'ctx>
+    ) -> Result<AnyValueEnum<'ctx>, Box<dyn Error>> {
+
+        let args = [arg1, arg2];
+        let function = self.get_fun_string_match(env)?;
+        let call_site_value = self.builder.build_call(function, &args, "call_inner::fun_string_match")?;
+        let any_val = call_site_value.try_as_basic_value().left().unwrap().as_any_value_enum();
+
+        Ok(any_val)
+    }
+
     pub fn gen_if_let<'b, 'c>(
         &self,
         pattern_list: &Vec<(Box<Pattern>, Position)>,

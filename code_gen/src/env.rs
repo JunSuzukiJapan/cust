@@ -336,6 +336,8 @@ pub struct Env<'ctx> {
     types: HashMap<String, (TypeOrUnion<'ctx>, Option<HashMap<String, usize>>)>,
 
     current_class: Option<*const Class<'ctx>>,
+
+    pub inner_fun_string_match: Option<FunctionValue<'ctx>>,
 }
 
 impl<'ctx> Env<'ctx> {
@@ -355,6 +357,8 @@ impl<'ctx> Env<'ctx> {
             types: HashMap::new(),
 
             current_class: None,
+
+            inner_fun_string_match: None,
         }
     }
 
