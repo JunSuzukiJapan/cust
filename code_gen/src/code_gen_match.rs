@@ -6,8 +6,9 @@ use super::env::{BreakCatcher, ContinueCatcher};
 use crate::Position;
 use crate::CodeGen;
 
+use inkwell::basic_block::BasicBlock;
 use inkwell::types::{BasicType, BasicTypeEnum, BasicMetadataTypeEnum};
-use inkwell::values::{AnyValue, AnyValueEnum, FunctionValue, BasicMetadataValueEnum};
+use inkwell::values::{AnyValue, AnyValueEnum, BasicMetadataValueEnum, FunctionValue, IntValue};
 use inkwell::{IntPredicate, AddressSpace};
 use parser::{NumberType, SpecifierQualifier};
 use std::env;
@@ -32,9 +33,10 @@ impl<'ctx> CodeGen<'ctx> {
         //       %s2 = alloca ptr, align 8
         //       store ptr %1, ptr %s2, align 8
         //       br label %loop.pre_condition
-        let char_type = self.context.i8_type().ptr_type(AddressSpace::default());
-        let s1 = self.builder.build_alloca(char_type, "s1").unwrap();
-        let s2 = self.builder.build_alloca(char_type, "s2").unwrap();
+        let char_type = self.context.i8_type();
+        let char_ptr_type = char_type.ptr_type(AddressSpace::default());
+        let s1 = self.builder.build_alloca(char_ptr_type, "s1").unwrap();
+        let s2 = self.builder.build_alloca(char_ptr_type, "s2").unwrap();
         let param1 = current_function.get_nth_param(0).unwrap();
         let param2 = current_function.get_nth_param(1).unwrap();
         self.builder.build_store(s1, param1)?;
@@ -57,14 +59,14 @@ impl<'ctx> CodeGen<'ctx> {
         //       store i64 %op_add_pointer10, ptr %s2, align 8
         //       br label %loop.update
         self.builder.position_at_end(loop_start);
-        let s16 = self.builder.build_load(char_type, s1, "load_s1")?;
+        let s16 = self.builder.build_load(char_ptr_type, s1, "load_s1")?;
         let op_add_pointer = self.builder.build_ptr_to_int(s16.into_pointer_value(), self.context.i64_type(), "op_add_pointer")?;
         let op_add_pointer7 = self.builder.build_int_add(op_add_pointer, self.context.i64_type().const_int(1, false), "op_add_pointer7")?;
-        self.builder.build_store(s1, self.builder.build_int_to_ptr(op_add_pointer7, char_type, "int_to_ptr")?)?;
-        let s28 = self.builder.build_load(char_type, s2, "load_s2")?;
+        self.builder.build_store(s1, self.builder.build_int_to_ptr(op_add_pointer7, char_ptr_type, "int_to_ptr")?)?;
+        let s28 = self.builder.build_load(char_ptr_type, s2, "load_s2")?;
         let op_add_pointer9 = self.builder.build_ptr_to_int(s28.into_pointer_value(), self.context.i64_type(), "op_add_pointer9")?;
         let op_add_pointer10 = self.builder.build_int_add(op_add_pointer9, self.context.i64_type().const_int(1, false), "op_add_pointer10")?;
-        self.builder.build_store(s2, self.builder.build_int_to_ptr(op_add_pointer10, char_type, "int_to_ptr")?)?;
+        self.builder.build_store(s2, self.builder.build_int_to_ptr(op_add_pointer10, char_ptr_type, "int_to_ptr")?)?;
         self.builder.build_unconditional_branch(loop_update)?;
             
         //     loop.update:                                      ; preds = %loop.start
@@ -81,13 +83,15 @@ impl<'ctx> CodeGen<'ctx> {
         //       %cast_from_unsigned_char_to_int = sext i8 %sub_int to i32
         //       ret i32 %cast_from_unsigned_char_to_int
         self.builder.position_at_end(loop_end);
-        let s111 = self.builder.build_load(char_type, s1, "load_s1")?;
+        let s111 = self.builder.build_load(char_ptr_type, s1, "load_s1")?;
         let get_value_from_pointer12 = self.builder.build_load(char_type, s111.into_pointer_value(), "get_value_from_pointer12")?;
-        let s213 = self.builder.build_load(char_type, s2, "load_s2")?;
+        let s213 = self.builder.build_load(char_ptr_type, s2, "load_s2")?;
         let get_value_from_pointer14 = self.builder.build_load(char_type, s213.into_pointer_value(), "get_value_from_pointer14")?;
         let sub_int = self.builder.build_int_sub(get_value_from_pointer12.into_int_value(), get_value_from_pointer14.into_int_value(), "sub_int")?;
-        let cast_from_unsigned_char_to_int = self.builder.build_int_s_extend(sub_int, self.context.i32_type(), "cast_from_unsigned_char_to_int")?;
-        self.builder.build_return(Some(&cast_from_unsigned_char_to_int))?;
+        // let cast_from_unsigned_char_to_int = self.builder.build_int_s_extend(sub_int, self.context.i32_type(), "cast_from_unsigned_char_to_int")?;
+        // self.builder.build_return(Some(&cast_from_unsigned_char_to_int))?;
+        let eq_zero = self.builder.build_int_compare(IntPredicate::EQ, sub_int, self.context.i8_type().const_zero(), "eq_zero")?;
+        self.builder.build_return(Some(&eq_zero))?;
             
         //     and.left:                                         ; preds = %loop.pre_condition
         //       %s11 = load ptr, ptr %s1, align 8
@@ -95,9 +99,10 @@ impl<'ctx> CodeGen<'ctx> {
         //       %and.not_zero_left = icmp ne i8 %get_value_from_pointer, 0
         //       br i1 %and.not_zero_left, label %and.right, label %and.false
         self.builder.position_at_end(and_left);
-        let s11 = self.builder.build_load(char_type, s1, "load_s1")?;
+        let s11 = self.builder.build_load(char_ptr_type, s1, "load_s1")?;
         let get_value_from_pointer = self.builder.build_load(char_type, s11.into_pointer_value(), "get_value_from_pointer")?;
-        let and_not_zero_left = self.builder.build_int_compare(IntPredicate::NE, get_value_from_pointer.into_int_value(), self.context.i8_type().const_zero(), "and_not_zero_left")?;
+        let int_val = get_value_from_pointer.into_int_value();
+        let and_not_zero_left = self.builder.build_int_compare(IntPredicate::NE, int_val, self.context.i8_type().const_zero(), "and_not_zero_left")?;
         self.builder.build_conditional_branch(and_not_zero_left, and_right, and_false)?;
             
         //     and.right:                                        ; preds = %and.left
@@ -109,11 +114,13 @@ impl<'ctx> CodeGen<'ctx> {
         //       %and.not_zero_right = icmp ne i1 %eq_int, false
         //       br i1 %and.not_zero_right, label %and.end, label %and.false
         self.builder.position_at_end(and_right);
-        let s12 = self.builder.build_load(char_type, s1, "load_s1")?;
+        let s12 = self.builder.build_load(char_ptr_type, s1, "load_s1")?;
         let get_value_from_pointer3 = self.builder.build_load(char_type, s12.into_pointer_value(), "get_value_from_pointer3")?;
-        let s24 = self.builder.build_load(char_type, s2, "load_s2")?;
+        let s24 = self.builder.build_load(char_ptr_type, s2, "load_s2")?;
         let get_value_from_pointer5 = self.builder.build_load(char_type, s24.into_pointer_value(), "get_value_from_pointer5")?;
-        let eq_int = self.builder.build_int_compare(IntPredicate::EQ, get_value_from_pointer3.into_int_value(), get_value_from_pointer5.into_int_value(), "eq_int")?;
+        let int_val = get_value_from_pointer3.into_int_value();
+        let int_val2 = get_value_from_pointer5.into_int_value();
+        let eq_int = self.builder.build_int_compare(IntPredicate::EQ, int_val, int_val2, "eq_int")?;
         let and_not_zero_right = self.builder.build_int_compare(IntPredicate::NE, eq_int, self.context.bool_type().const_zero(), "and_not_zero_right")?;
         self.builder.build_conditional_branch(and_not_zero_right, and_end, and_false)?;
             
@@ -134,10 +141,17 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(())
     }
 
-    fn get_fun_string_match(&self, env: &mut Env<'ctx>) -> Result<FunctionValue<'ctx>, Box<dyn Error>> {
+    fn get_fun_string_match(&self, current_function: FunctionValue<'ctx>, env: &mut Env<'ctx>) -> Result<FunctionValue<'ctx>, Box<dyn Error>> {
         if let Some(function) = env.inner_fun_string_match {
             return Ok(function);
         }
+
+        let jump_label = self.context.append_basic_block(current_function, "jump_label");
+        self.builder.build_unconditional_branch(jump_label)?;
+
+        //
+        // define string_match
+        //
 
         // prologue
         let fn_name = "inner::string_match";
@@ -145,7 +159,7 @@ impl<'ctx> CodeGen<'ctx> {
             self.context.i8_type().ptr_type(AddressSpace::default()).as_basic_type_enum().into(),
             self.context.i8_type().ptr_type(AddressSpace::default()).as_basic_type_enum().into()
         ];
-        let fn_type = self.context.i32_type().fn_type(args_type.as_slice(), false);
+        let fn_type = self.context.bool_type().fn_type(args_type.as_slice(), false);
         let function = self.module.add_function(fn_name, fn_type, None);
 
         let basic_block = self.context.append_basic_block(function, "entry");
@@ -155,22 +169,30 @@ impl<'ctx> CodeGen<'ctx> {
 
         env.inner_fun_string_match = Some(function);
 
+        //
+        // end of define string_match
+        //
+
+        self.builder.position_at_end(jump_label);
+
         Ok(function)
     }
 
-    fn call_string_match(
+    fn gen_string_match(
         &self,
         arg1: BasicMetadataValueEnum<'ctx>,
         arg2: BasicMetadataValueEnum<'ctx>,
+        current_function: FunctionValue<'ctx>,
         env: &mut Env<'ctx>
-    ) -> Result<AnyValueEnum<'ctx>, Box<dyn Error>> {
+    ) -> Result<IntValue<'ctx>, Box<dyn Error>> {
 
         let args = [arg1, arg2];
-        let function = self.get_fun_string_match(env)?;
+        let function = self.get_fun_string_match(current_function, env)?;
         let call_site_value = self.builder.build_call(function, &args, "call_inner::fun_string_match")?;
         let any_val = call_site_value.try_as_basic_value().left().unwrap().as_any_value_enum();
+        let int_val = any_val.into_int_value();
 
-        Ok(any_val)
+        Ok(int_val)
     }
 
     pub fn gen_if_let<'b, 'c>(
@@ -189,6 +211,7 @@ impl<'ctx> CodeGen<'ctx> {
         let (_fun_type, func) = env.get_current_function().ok_or(CodeGenError::no_current_function(pos.clone()))?;
         let func = func.clone();
         let cond_block = self.context.append_basic_block(func, "if_let.cond");
+        let cond_block2 = self.context.append_basic_block(func, "if_let.cond2");
         let then_block = self.context.append_basic_block(func, "if_let.then");
         let else_block = self.context.append_basic_block(func, "if_let.else");
         let end_block  = self.context.append_basic_block(func, "if_let.end");
@@ -200,7 +223,8 @@ impl<'ctx> CodeGen<'ctx> {
 
         // match patterns
         let cond = self.gen_expr(condition, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::condition_is_not_number(condition, (*condition).get_position().clone()))?;
-        let matched = self.gen_pattern_match(pattern_list, pattern_name, pos, &cond, env, func)?.ok_or(CodeGenError::condition_is_not_number(condition, (*condition).get_position().clone()))?;
+        let matched = self.gen_pattern_match(pattern_list, pattern_name, pos, &cond, env, func, cond_block2)?.ok_or(CodeGenError::condition_is_not_number(condition, (*condition).get_position().clone()))?;
+        self.builder.position_at_end(cond_block2);
         let mut comparison = matched.get_value().into_int_value();
         let i1_type = self.context.bool_type();
         comparison = self.builder.build_int_cast(comparison, i1_type, "cast to i1")?;  // cast to i1
@@ -250,7 +274,8 @@ impl<'ctx> CodeGen<'ctx> {
         pattern_pos: &Position,
         value: &CompiledValue<'ctx>,
         env: &mut Env<'ctx>,
-        func: FunctionValue<'ctx>
+        func: FunctionValue<'ctx>,
+        after_match_block: BasicBlock<'ctx>
     ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
         let bool_type = self.context.bool_type();
         let zero = bool_type.const_zero();
@@ -258,7 +283,8 @@ impl<'ctx> CodeGen<'ctx> {
         let condition_ptr = self.builder.build_alloca(bool_type, "matched")?;
         self.builder.build_store(condition_ptr, zero)?;  // set return value false
 
-        let all_end_block  = self.context.append_basic_block(func, "match.all_end");
+        // let all_end_block  = self.context.append_basic_block(func, "match.all_end");
+        let all_end_block = after_match_block;
 
         for (pat, pos) in pattern_list {
             match &**pat {
@@ -419,15 +445,29 @@ impl<'ctx> CodeGen<'ctx> {
                     self.builder.position_at_end(else_block);
                 },
                 Pattern::Str(s) => {
+                    let then_block = self.context.append_basic_block(func, "match.then");
+                    let else_block  = self.context.append_basic_block(func, "match.else");
 
+                    let str1 = self.builder.build_global_string_ptr(s, "global_str_for_match")?;
+                    let str1 = self.try_as_basic_metadata_value(&str1.as_any_value_enum(), pos)?;
 
+                    let str2 = value.get_value();
+                    let str2 = self.try_as_basic_metadata_value(&str2, pos)?;
 
+                    let comparison = self.gen_string_match(str1, str2, func, env)?;
+                    self.builder.build_conditional_branch(comparison, then_block, else_block)?;
 
+                    //
+                    // matched
+                    //
+                    self.builder.position_at_end(then_block);
+                    self.builder.build_store(condition_ptr, one)?;  // set return value true
+                    self.builder.build_unconditional_branch(all_end_block)?;
 
-
-
-
-                    unimplemented!()
+                    //
+                    // not matched
+                    //
+                    self.builder.position_at_end(else_block);
                 },
                 Pattern::Struct(strct) => {
 

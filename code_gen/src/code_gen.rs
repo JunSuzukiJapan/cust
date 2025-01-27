@@ -646,6 +646,7 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(self.try_as_basic_metadata_value(&global_str, pos)?)
     }
 
+    #[inline]
     pub fn gen_implicit_cast(&self, value: &AnyValueEnum<'ctx>, from_type: &Type, to_type: &Type, pos: &Position) -> Result<AnyValueEnum<'ctx>, Box<dyn Error>> {
         Caster::gen_implicit_cast(&self.builder, &self.context, value, from_type, to_type, pos)
     }

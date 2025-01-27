@@ -93,7 +93,6 @@ impl<'ctx> CodeGen<'ctx> {
                 Ok(Some(CompiledValue::new(Type::Number(NumberType::Double).into(), result.as_any_value_enum())))
             },
             ExprAST::StringLiteral(s, _pos) => {
-                // let result = self.context.const_string(s.as_bytes(), false);
                 let result = self.builder.build_global_string_ptr(s, &format!("global_str_{}", s))?;
                 let pointer = Pointer::new(false, false);
                 Ok(Some(CompiledValue::new(Type::Pointer(pointer, Box::new(Type::Number(NumberType::Char).into())).into(), result.as_any_value_enum())))
