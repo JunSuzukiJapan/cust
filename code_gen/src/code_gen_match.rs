@@ -88,8 +88,6 @@ impl<'ctx> CodeGen<'ctx> {
         let s213 = self.builder.build_load(char_ptr_type, s2, "load_s2")?;
         let get_value_from_pointer14 = self.builder.build_load(char_type, s213.into_pointer_value(), "get_value_from_pointer14")?;
         let sub_int = self.builder.build_int_sub(get_value_from_pointer12.into_int_value(), get_value_from_pointer14.into_int_value(), "sub_int")?;
-        // let cast_from_unsigned_char_to_int = self.builder.build_int_s_extend(sub_int, self.context.i32_type(), "cast_from_unsigned_char_to_int")?;
-        // self.builder.build_return(Some(&cast_from_unsigned_char_to_int))?;
         let eq_zero = self.builder.build_int_compare(IntPredicate::EQ, sub_int, self.context.i8_type().const_zero(), "eq_zero")?;
         self.builder.build_return(Some(&eq_zero))?;
             
