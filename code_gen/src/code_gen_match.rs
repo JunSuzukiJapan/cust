@@ -283,7 +283,7 @@ impl<'ctx> CodeGen<'ctx> {
                 },
                 Pattern::Char(ch) => {
                     let then_block = self.context.append_basic_block(func, "match.then");
-                    let next_block  = self.context.append_basic_block(func, "match.next");
+                    let else_block  = self.context.append_basic_block(func, "match.else");
 
                     let i8_type = self.context.i8_type();
                     let i8_ch = i8_type.const_int(*ch as u64, true);
@@ -294,7 +294,7 @@ impl<'ctx> CodeGen<'ctx> {
                     let right_value = right.get_value();
     
                     let comparison = self.builder.build_int_compare(IntPredicate::EQ, left_value.into_int_value(), right_value.into_int_value(), "match_compare_char")?;
-                    self.builder.build_conditional_branch(comparison, then_block, next_block)?;
+                    self.builder.build_conditional_branch(comparison, then_block, else_block)?;
 
                     //
                     // matched
@@ -306,12 +306,12 @@ impl<'ctx> CodeGen<'ctx> {
                     //
                     // not matched
                     //
-                    self.builder.position_at_end(next_block);
+                    self.builder.position_at_end(else_block);
                 },
                 Pattern::CharRange(ch1, ch2) => {
                     let greater_than_block = self.context.append_basic_block(func, "match.greater");
                     let less_than_block = self.context.append_basic_block(func, "match.less");
-                    let next_block  = self.context.append_basic_block(func, "match.next");
+                    let else_block  = self.context.append_basic_block(func, "match.else");
 
                     let i8_type = self.context.i8_type();
                     let i8_ch = i8_type.const_int(*ch1 as u64, true);
@@ -322,7 +322,7 @@ impl<'ctx> CodeGen<'ctx> {
                     let target_value = target.get_value();
     
                     let comparison = self.builder.build_int_compare(IntPredicate::UGE, target_value.into_int_value(), other_value.into_int_value(), "match_compare_char")?;
-                    self.builder.build_conditional_branch(comparison, greater_than_block, next_block)?;
+                    self.builder.build_conditional_branch(comparison, greater_than_block, else_block)?;
 
                     //
                     // 1st matched
@@ -336,7 +336,7 @@ impl<'ctx> CodeGen<'ctx> {
                     let target_value = target.get_value();
     
                     let comparison = self.builder.build_int_compare(IntPredicate::ULE, target_value.into_int_value(), other_value.into_int_value(), "match_compare_char")?;
-                    self.builder.build_conditional_branch(comparison, less_than_block, next_block)?;
+                    self.builder.build_conditional_branch(comparison, less_than_block, else_block)?;
 
                     //
                     // 2nd matched
@@ -348,11 +348,11 @@ impl<'ctx> CodeGen<'ctx> {
                     //
                     // not matched
                     //
-                    self.builder.position_at_end(next_block);
+                    self.builder.position_at_end(else_block);
                 },
                 Pattern::Number(num) => {
                     let then_block = self.context.append_basic_block(func, "match.then");
-                    let next_block  = self.context.append_basic_block(func, "match.next");
+                    let else_block  = self.context.append_basic_block(func, "match.else");
 
                     let i64_type = self.context.i64_type();
                     let i64_num = i64_type.const_int(*num as u64, true);
@@ -362,7 +362,7 @@ impl<'ctx> CodeGen<'ctx> {
                     let left_value = left.get_value();
                     let right_value = right.get_value();
                     let comparison = self.builder.build_int_compare(IntPredicate::EQ, left_value.into_int_value(), right_value.into_int_value(), "match_compare_number")?;
-                    self.builder.build_conditional_branch(comparison, then_block, next_block)?;
+                    self.builder.build_conditional_branch(comparison, then_block, else_block)?;
 
                     //
                     // matched
@@ -374,12 +374,12 @@ impl<'ctx> CodeGen<'ctx> {
                     //
                     // not matched
                     //
-                    self.builder.position_at_end(next_block);
+                    self.builder.position_at_end(else_block);
                 },
                 Pattern::NumberRange(num1, num2) => {
                     let greater_than_block = self.context.append_basic_block(func, "match.greater");
                     let less_than_block = self.context.append_basic_block(func, "match.less");
-                    let next_block  = self.context.append_basic_block(func, "match.next");
+                    let else_block  = self.context.append_basic_block(func, "match.else");
 
                     let i64_type = self.context.i64_type();
                     let i64_num = i64_type.const_int(*num1 as u64, true);
@@ -390,7 +390,7 @@ impl<'ctx> CodeGen<'ctx> {
                     let target_value = target.get_value();
     
                     let comparison = self.builder.build_int_compare(IntPredicate::UGE, target_value.into_int_value(), other_value.into_int_value(), "match_compare_char")?;
-                    self.builder.build_conditional_branch(comparison, greater_than_block, next_block)?;
+                    self.builder.build_conditional_branch(comparison, greater_than_block, else_block)?;
 
                     //
                     // 1st matched
@@ -404,7 +404,7 @@ impl<'ctx> CodeGen<'ctx> {
                     let target_value = target.get_value();
     
                     let comparison = self.builder.build_int_compare(IntPredicate::ULE, target_value.into_int_value(), other_value.into_int_value(), "match_compare_char")?;
-                    self.builder.build_conditional_branch(comparison, less_than_block, next_block)?;
+                    self.builder.build_conditional_branch(comparison, less_than_block, else_block)?;
 
                     //
                     // 2nd matched
@@ -416,16 +416,36 @@ impl<'ctx> CodeGen<'ctx> {
                     //
                     // not matched
                     //
-                    self.builder.position_at_end(next_block);
+                    self.builder.position_at_end(else_block);
                 },
                 Pattern::Str(s) => {
+
+
+
+
+
+
+
+
                     unimplemented!()
                 },
                 Pattern::Struct(strct) => {
+
+
+
+
+
+
                     unimplemented!()
                 },
                 Pattern::Tuple(tpl) => {
+
+
+
+
+
                     unimplemented!()
+
                 },
                 Pattern::Enum(_) => {
 
