@@ -139,13 +139,13 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(())
     }
 
-    fn get_fun_string_match(&self, current_function: FunctionValue<'ctx>, env: &mut Env<'ctx>) -> Result<FunctionValue<'ctx>, Box<dyn Error>> {
+    fn get_fun_string_match(&self, current_function: FunctionValue<'ctx>, current_block: BasicBlock<'ctx>, env: &mut Env<'ctx>) -> Result<FunctionValue<'ctx>, Box<dyn Error>> {
         if let Some(function) = env.inner_fun_string_match {
             return Ok(function);
         }
 
-        let jump_label = self.context.append_basic_block(current_function, "jump_label");
-        self.builder.build_unconditional_branch(jump_label)?;
+        // let jump_label = self.context.append_basic_block(current_function, "jump_label");
+        // self.builder.build_unconditional_branch(jump_label)?;
 
         //
         // define string_match
@@ -171,7 +171,8 @@ impl<'ctx> CodeGen<'ctx> {
         // end of define string_match
         //
 
-        self.builder.position_at_end(jump_label);
+        // self.builder.position_at_end(jump_label);
+        self.builder.position_at_end(current_block);
 
         Ok(function)
     }
@@ -181,11 +182,12 @@ impl<'ctx> CodeGen<'ctx> {
         arg1: BasicMetadataValueEnum<'ctx>,
         arg2: BasicMetadataValueEnum<'ctx>,
         current_function: FunctionValue<'ctx>,
+        current_block: BasicBlock<'ctx>,
         env: &mut Env<'ctx>
     ) -> Result<IntValue<'ctx>, Box<dyn Error>> {
 
         let args = [arg1, arg2];
-        let function = self.get_fun_string_match(current_function, env)?;
+        let function = self.get_fun_string_match(current_function, current_block, env)?;
         let call_site_value = self.builder.build_call(function, &args, "call_inner::fun_string_match")?;
         let any_val = call_site_value.try_as_basic_value().left().unwrap().as_any_value_enum();
         let int_val = any_val.into_int_value();
@@ -221,7 +223,7 @@ impl<'ctx> CodeGen<'ctx> {
 
         // match patterns
         let cond = self.gen_expr(condition, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::condition_is_not_number(condition, (*condition).get_position().clone()))?;
-        let matched = self.gen_pattern_match(pattern_list, pattern_name, pos, &cond, env, func, cond_block2)?.ok_or(CodeGenError::condition_is_not_number(condition, (*condition).get_position().clone()))?;
+        let matched = self.gen_pattern_match(pattern_list, pattern_name, pos, &cond, env, func, cond_block, cond_block2)?.ok_or(CodeGenError::condition_is_not_number(condition, (*condition).get_position().clone()))?;
         self.builder.position_at_end(cond_block2);
         let mut comparison = matched.get_value().into_int_value();
         let i1_type = self.context.bool_type();
@@ -273,6 +275,7 @@ impl<'ctx> CodeGen<'ctx> {
         value: &CompiledValue<'ctx>,
         env: &mut Env<'ctx>,
         func: FunctionValue<'ctx>,
+        current_block: BasicBlock<'ctx>,
         after_match_block: BasicBlock<'ctx>
     ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
         let bool_type = self.context.bool_type();
@@ -452,7 +455,7 @@ impl<'ctx> CodeGen<'ctx> {
                     let str2 = value.get_value();
                     let str2 = self.try_as_basic_metadata_value(&str2, pos)?;
 
-                    let comparison = self.gen_string_match(str1, str2, func, env)?;
+                    let comparison = self.gen_string_match(str1, str2, func, current_block, env)?;
                     self.builder.build_conditional_branch(comparison, then_block, else_block)?;
 
                     //
