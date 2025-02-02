@@ -41,7 +41,7 @@ impl Parser {
 
                             self.parse_expected_token(iter, Token::Assign)?;  // skip '='
 
-                            let expr = self.parse_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()))?;
+                            let expr = self.parse_expression(iter, defs)?.ok_or(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()))?;
 
                             self.parse_expected_token(iter, Token::ParenRight)?;  // skip ')'
 
@@ -91,7 +91,7 @@ impl Parser {
                     } else {
                         self.parse_expected_token(iter, Token::ParenLeft)?;  // skip '('
 
-                        let cond = self.parse_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()))?;
+                        let cond = self.parse_expression(iter, defs)?.ok_or(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()))?;
 
                         self.parse_expected_token(iter, Token::ParenRight)?;  // skip ')'
 
@@ -114,7 +114,7 @@ impl Parser {
                 Token::Switch => {
                     iter.next();  // skip 'switch'
                     self.parse_expected_token(iter, Token::ParenLeft)?;
-                    let expr = self.parse_expression(iter, defs, labels)?;
+                    let expr = self.parse_expression(iter, defs)?;
                     self.parse_expected_token(iter, Token::ParenRight)?;
 
                     let stmt = self.parse_statement(iter, defs, labels)?;
@@ -132,7 +132,7 @@ impl Parser {
                     iter.next();  // skip 'while'
                     self.parse_expected_token(iter, Token::ParenLeft)?;  // skip '('
 
-                    let condition = self.parse_expression(iter, defs, labels)?;
+                    let condition = self.parse_expression(iter, defs)?;
 
                     self.parse_expected_token(iter, Token::ParenRight)?;  // skip ')'
 
@@ -166,7 +166,7 @@ impl Parser {
                             iter.next();  // skip 'match'
 
                             self.parse_expected_token(iter, Token::ParenLeft)?;  // skip '('
-                            let expr = self.parse_expression(iter, defs, labels)?.ok_or(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()))?;
+                            let expr = self.parse_expression(iter, defs)?.ok_or(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()))?;
                             self.parse_expected_token(iter, Token::ParenRight)?;  // skip ')'
 
                             self.parse_expected_token(iter, Token::BraceLeft)?;  // skip '{'
@@ -218,7 +218,7 @@ impl Parser {
                         self.parse_expected_token(iter, Token::While)?;        // skip 'while'
                         self.parse_expected_token(iter, Token::ParenLeft)?;    // skip '('
 
-                        let cond = self.parse_expression(iter, defs, labels)?;
+                        let cond = self.parse_expression(iter, defs)?;
 
                         self.parse_expected_token(iter, Token::ParenRight)?;    // skip ')'
                         self.parse_expected_token(iter, Token::SemiColon)?;     // skip ';'
@@ -280,7 +280,7 @@ impl Parser {
                         iter.next(); // skip ';'
                         Ok(Some(AST::Return(None, pos.clone())))
                     }else{
-                        if let Some(ast) = self.parse_expression(iter, defs, labels)? {
+                        if let Some(ast) = self.parse_expression(iter, defs)? {
                             self.parse_expected_token(iter, Token::SemiColon)?;
                             Ok(Some(AST::Return(Some(Box::new(ast)), pos.clone())))
                         }else{
@@ -301,7 +301,7 @@ eprintln!("parse_statement: Token::Symbol(id) id: {}", id);
                     if defs.exists_var(id) {
                         self.parse_expression_statement(iter, defs, labels)
                     }else if defs.exists_type(id) {
-                        let decl = self.parse_declaration(iter, defs, labels, pos)?;
+                        let decl = self.parse_declaration(iter, defs, pos)?;
                         Ok(decl)
                     }else{
                         iter.next();
@@ -312,7 +312,7 @@ eprintln!("parse_statement: Token::Symbol(id) id: {}", id);
                 Token::Void | Token::Char | Token::Short | Token::Int | Token::Long | Token::Float |
                 Token::Double | Token::Signed | Token::Unsigned | Token::Struct | Token::Enum | Token::TupleTypeStart =>
                 {
-                    self.parse_declaration(iter, defs, labels, pos)
+                    self.parse_declaration(iter, defs, pos)
                 },
                 _ => {
                     self.parse_expression_statement(iter, defs, labels)
@@ -346,7 +346,7 @@ eprintln!("parse_statement: Token::Symbol(id) id: {}", id);
         let cond = if *tok3 == Token::SemiColon {
             None
         }else{
-            self.parse_expression(iter, defs, labels)?
+            self.parse_expression(iter, defs)?
         };
 
         self.parse_expected_token(iter, Token::SemiColon)?; // ';'
@@ -357,7 +357,7 @@ eprintln!("parse_statement: Token::Symbol(id) id: {}", id);
         let step = if *tok4 == Token::ParenRight {
             None
         }else{
-            self.parse_expression(iter, defs, labels)?
+            self.parse_expression(iter, defs)?
         };
 
         self.parse_expected_token(iter, Token::ParenRight)?; // ')'
@@ -492,7 +492,7 @@ eprintln!("parse_statement: Token::Symbol(id) id: {}", id);
 
     fn parse_case_labeled_statement(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>, pos: &Position) -> Result<Option<AST>, ParserError> {
         self.parse_expected_token(iter, Token::Case)?;
-        let constant_condition = if let Some(cond) = self.parse_constant_expression(iter, defs, labels)? {
+        let constant_condition = if let Some(cond) = self.parse_constant_expression(iter, defs)? {
             cond
         }else{
             return Err(ParserError::no_constant_expr_after_case(iter.peek().unwrap().1.clone()));
@@ -531,7 +531,7 @@ eprintln!("parse_statement: Token::Symbol(id) id: {}", id);
                     Ok(None)
                 },
                 _ => {
-                    let expr = self.parse_expression(iter, defs, labels)?;
+                    let expr = self.parse_expression(iter, defs)?;
                     self.parse_expected_token(iter, Token::SemiColon)?;
                     if let Some(e) = expr {
                         Ok(Some(AST::Expr(Box::new(e), pos.clone())))
