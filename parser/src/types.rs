@@ -762,6 +762,11 @@ pub enum Type {
     },
     Tuple(Vec<Rc<Type>>),
     GenericType(GenericType),
+    BoundGeneric {
+        generic: Rc<Type>,
+        bounds: Vec<Rc<Type>>,
+        map: HashMap<String, Rc<Type>>,
+    },
 }
 
 impl Type {
@@ -1140,6 +1145,9 @@ impl fmt::Display for Type {
             },
             Type::GenericType(g_type) => {
                 write!(f, "<generic type: {}>", g_type.get_name())
+            },
+            Type::BoundGeneric { generic, bounds, map } => {
+                write!(f, "<bound generic type: {}>", generic.get_type_name())
             },
         }
     }

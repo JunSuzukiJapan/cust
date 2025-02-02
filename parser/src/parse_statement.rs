@@ -297,6 +297,7 @@ impl Parser {
                 },
                 // labeled-statement or expression-statement
                 Token::Symbol(id) => {
+eprintln!("parse_statement: Token::Symbol(id) id: {}", id);
                     if defs.exists_var(id) {
                         self.parse_expression_statement(iter, defs, labels)
                     }else if defs.exists_type(id) {

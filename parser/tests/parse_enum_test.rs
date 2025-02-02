@@ -540,4 +540,37 @@ mod tests {
             panic!()
         }
     }
+
+    #[test]
+    fn parse_enum_generics() {
+        let src = "
+            enum Option<T> {
+                Some<T>,
+                None,
+            };
+
+            int test(){
+                enum Option<int> opt = Some(10);
+                if let (Some(x) = opt) {
+                    return x;
+                }
+
+                return 0;
+            }
+        ";
+        let ast = parse_translation_unit_from_str(src).unwrap();
+
+        if let ToplevelAST::DefineEnum { name, fields, pos: _ } = &ast[0] {
+            assert_eq!(name, "Foo");
+
+            let fields = fields.get_fields();
+            assert_eq!(fields.len(), 3);
+            assert_eq!(fields[0], Enumerator::new("A", 0));
+            assert_eq!(fields[1], Enumerator::new("B", 1));
+            assert_eq!(fields[2], Enumerator::new("C", 2));
+
+        }else{
+            panic!()
+        }
+    }
 }
