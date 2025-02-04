@@ -49,12 +49,11 @@ impl Parser {
 
     pub fn parse_translation_unit(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Vec<ToplevelAST>, ParserError> {
         let mut declarations = Vec::new();
-        let mut labels = Vec::new();
 
         while let Some((tok, _pos)) = iter.peek() {
             if tok.is_eof() { break; }
 
-            if let Some(decl) = self.parse_external_declaration(iter, defs, &mut Some(&mut labels))? {
+            if let Some(decl) = self.parse_external_declaration(iter, defs)? {
                 declarations.push(decl);
             }
         }
@@ -122,12 +121,12 @@ impl Parser {
         Ok((ds, declarations))
     }
 
-    pub fn  parse_external_declaration(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ToplevelAST>, ParserError> {
+    pub fn  parse_external_declaration(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Option<ToplevelAST>, ParserError> {
         let (tok, pos) = iter.peek().unwrap();
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
 
         if *tok == Token::Impl {
-            return self.parse_impl(iter, defs, labels);
+            return self.parse_impl(iter, defs);
         }
 
         let ds = self.parse_declaration_specifier(iter, defs)?;
@@ -299,7 +298,7 @@ impl Parser {
         }
     }
 
-     pub fn parse_declaration_specifier(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &Defines) -> Result<DeclarationSpecifierOrVariadic, ParserError> {
+     pub fn parse_declaration_specifier(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<DeclarationSpecifierOrVariadic, ParserError> {
         let (sq, type_or_variadic, _pos) = self.parse_type_specifier_qualifier(iter, defs)?;
 
         match type_or_variadic {
@@ -311,7 +310,7 @@ impl Parser {
         }
     }
 
-    pub fn parse_type_specifier_qualifier(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &Defines) -> Result<(SpecifierQualifier, TypeOrVariadic, Position), ParserError> {
+    pub fn parse_type_specifier_qualifier(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<(SpecifierQualifier, TypeOrVariadic, Position), ParserError> {
         let mut sq = SpecifierQualifier::new();
         let mut opt_signed: Option<(bool, Position)> = None;
         let mut opt_unsigned: Option<(bool, Position)> = None;
@@ -749,18 +748,26 @@ impl Parser {
         let (tok2, _pos2) = iter.peek().unwrap();
         if *tok2 != Token::Greater {  // NOT '>'
             'outer: loop {
-                let (_sq, tv, _pos3) = self.parse_type_specifier_qualifier(iter, defs)?;
-                if let TypeOrVariadic::Type(typ) = tv {
-                    let pointer = self.parse_pointer(iter, defs)?;
-                    if let Some(ptr) = pointer {
-                        let typ2 = Type::Pointer(ptr, Box::new(typ));
-                        list.push(Rc::new(typ2));
-                    }else{
-                        list.push(typ);
-                    }
+                // let (_sq, tv, _pos3) = self.parse_type_specifier_qualifier(iter, defs)?;
+                // if let TypeOrVariadic::Type(typ) = tv {
+                //     let pointer = self.parse_pointer(iter, defs)?;
+                //     if let Some(ptr) = pointer {
+                //         let typ2 = Type::Pointer(ptr, Box::new(typ));
+                //         list.push(Rc::new(typ2));
+                //     }else{
+                //         list.push(typ);
+                //     }
+                // }else{
+                //     panic!()
+                // }
 
+                let typ = self.parse_type(iter, defs)?;
+                let pointer = self.parse_pointer(iter, defs)?;
+                if let Some(ptr) = pointer {
+                    let typ2 = Type::Pointer(ptr, Box::new(typ));
+                    list.push(Rc::new(typ2));
                 }else{
-                    panic!()
+                    list.push(typ);
                 }
 
                 let (tok3, pos3) = iter.peek().unwrap();
@@ -1148,7 +1155,7 @@ impl Parser {
         unimplemented!()
     }
 
-    fn parse_struct_declaration_list(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &Defines) -> Result<Vec<StructDeclaration>, ParserError> {
+    fn parse_struct_declaration_list(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Vec<StructDeclaration>, ParserError> {
         let mut list: Vec<StructDeclaration> = Vec::new();
 
         loop {
@@ -1165,7 +1172,7 @@ impl Parser {
         Ok(list)
     }
 
-    fn parse_struct_declaration(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &Defines) -> Result<StructDeclaration, ParserError> {
+    fn parse_struct_declaration(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<StructDeclaration, ParserError> {
         let mut list: Vec<StructDeclarator> = Vec::new();
         let (sq, type_or_variadic, pos) = self.parse_type_specifier_qualifier(iter, defs)?;
 
@@ -1204,7 +1211,7 @@ impl Parser {
         Ok(StructDeclaration::new(sq, Some(Rc::clone(typ)), list))
     }
 
-    fn parse_struct_declarator(&self, typ: &Rc<Type>, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &Defines) -> Result<StructDeclarator, ParserError> {
+    fn parse_struct_declarator(&self, typ: &Rc<Type>, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<StructDeclarator, ParserError> {
         let (tok, pos) = iter.peek().unwrap();
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
         if *tok == Token::Colon {
@@ -1217,7 +1224,6 @@ impl Parser {
         }else{
             let (decl, _initializer) = self.parse_declarator(typ, iter, defs)?;
 
-            // let (tok, pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
             let (tok, pos) = iter.peek().unwrap();
             if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
             if *tok == Token::Colon {
@@ -1233,7 +1239,7 @@ impl Parser {
         }
     }
 
-    fn parse_enumerator_list(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &Defines) -> Result<(Vec<Enumerator>, bool), ParserError> {
+    fn parse_enumerator_list(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<(Vec<Enumerator>, bool), ParserError> {
         let mut list: Vec<Enumerator> = Vec::new();
         let mut value: u32 = 0;
 
@@ -1336,7 +1342,7 @@ impl Parser {
         Ok((list, is_tagged))
     }
 
-    pub fn parse_declarator(&self, typ: &Rc<Type>, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &Defines) -> Result<(Declarator, Option<Initializer>), ParserError> {
+    pub fn parse_declarator(&self, typ: &Rc<Type>, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<(Declarator, Option<Initializer>), ParserError> {
         let opt_pointer = self.parse_pointer(iter, defs)?;
         let (direct, initializer) = self.parse_direct_declarator(typ, iter, defs)?;
         Ok((Declarator::new(opt_pointer, direct), initializer))
@@ -1414,7 +1420,7 @@ impl Parser {
         }
     }
 
-    fn parse_direct_declarator(&self, typ: &Rc<Type>, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &Defines) -> Result<(DirectDeclarator, Option<Initializer>), ParserError> {
+    fn parse_direct_declarator(&self, typ: &Rc<Type>, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<(DirectDeclarator, Option<Initializer>), ParserError> {
         let (tok, pos) = iter.peek().unwrap();
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
 
@@ -1439,7 +1445,7 @@ impl Parser {
         self.parse_direct_declarator_sub(typ, decl, iter, defs)
     }
 
-    fn parse_direct_declarator_sub(&self, typ: &Rc<Type>, decl: DirectDeclarator, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &Defines) -> Result<(DirectDeclarator, Option<Initializer>), ParserError> {
+    fn parse_direct_declarator_sub(&self, typ: &Rc<Type>, decl: DirectDeclarator, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<(DirectDeclarator, Option<Initializer>), ParserError> {
         let (tok, pos) = iter.peek().unwrap();
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
         let cust_self;
@@ -1549,7 +1555,7 @@ impl Parser {
         }
     }
 
-    pub fn parse_constant_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &Defines) -> Result<Option<ConstExpr>, ParserError> {
+    pub fn parse_constant_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Option<ConstExpr>, ParserError> {
         if let Some(expr) = self.parse_conditional_expression(iter, defs)? {
             Ok(Some(expr.to_const(defs, &iter.peek().unwrap().1)?))
         }else{
@@ -1557,7 +1563,7 @@ impl Parser {
         }
     }
 
-    fn parse_conditional_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &Defines) -> Result<Option<ExprAST>, ParserError> {
+    fn parse_conditional_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Option<ExprAST>, ParserError> {
         if let Some(expr) = self.parse_logical_or_expression(iter, defs)? {
             if let Some((tok, pos)) = iter.peek() {
                 if *tok == Token::Question {
@@ -1584,7 +1590,7 @@ impl Parser {
         }
     }
 
-    fn parse_logical_or_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &Defines) -> Result<Option<ExprAST>, ParserError> {
+    fn parse_logical_or_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Option<ExprAST>, ParserError> {
         if let Some(mut ast) = self.parse_logical_and_expression(iter, defs)? {
             if let Some((tok, _pos)) = iter.peek() {
                 match tok {
@@ -1603,7 +1609,7 @@ impl Parser {
         }
     }
 
-    fn parse_logical_or_expression2(&self, iter: &mut Peekable<Iter<(Token, Position)>>, ast: ExprAST, defs: &Defines) -> Result<Option<ExprAST>, ParserError> {
+    fn parse_logical_or_expression2(&self, iter: &mut Peekable<Iter<(Token, Position)>>, ast: ExprAST, defs: &mut Defines) -> Result<Option<ExprAST>, ParserError> {
         let mut result = None;
 
         loop {
@@ -1635,7 +1641,7 @@ impl Parser {
     }
 
 
-    fn parse_logical_and_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &Defines) -> Result<Option<ExprAST>, ParserError> {
+    fn parse_logical_and_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Option<ExprAST>, ParserError> {
         if let Some(mut ast) = self.parse_inclusive_or_expression(iter, defs)? {
             if let Some((tok, _pos)) = iter.peek() {
                 match tok {
@@ -1654,7 +1660,7 @@ impl Parser {
         }
     }
 
-    fn parse_logical_and_expression2(&self, iter: &mut Peekable<Iter<(Token, Position)>>, ast: ExprAST, defs: &Defines) -> Result<Option<ExprAST>, ParserError> {
+    fn parse_logical_and_expression2(&self, iter: &mut Peekable<Iter<(Token, Position)>>, ast: ExprAST, defs: &mut Defines) -> Result<Option<ExprAST>, ParserError> {
         let mut result = None;
 
         loop {
@@ -1686,7 +1692,7 @@ impl Parser {
     }
 
 
-    fn parse_inclusive_or_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &Defines) -> Result<Option<ExprAST>, ParserError> {
+    fn parse_inclusive_or_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Option<ExprAST>, ParserError> {
         if let Some(mut ast) = self.parse_exclusive_or_expression(iter, defs)? {
             if let Some((tok, _pos)) = iter.peek() {
                 match tok {
@@ -1705,7 +1711,7 @@ impl Parser {
         }
     }
 
-    fn parse_inclusive_or_expression2(&self, iter: &mut Peekable<Iter<(Token, Position)>>, ast: ExprAST, defs: &Defines) -> Result<Option<ExprAST>, ParserError> {
+    fn parse_inclusive_or_expression2(&self, iter: &mut Peekable<Iter<(Token, Position)>>, ast: ExprAST, defs: &mut Defines) -> Result<Option<ExprAST>, ParserError> {
         let mut result = None;
 
         loop {
@@ -1736,7 +1742,7 @@ impl Parser {
         Ok(result)
     }
 
-    fn parse_exclusive_or_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &Defines) -> Result<Option<ExprAST>, ParserError> {
+    fn parse_exclusive_or_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Option<ExprAST>, ParserError> {
         if let Some(mut ast) = self.parse_and_expression(iter, defs)? {
             if let Some((tok, _pos)) = iter.peek() {
                 match tok {
@@ -1755,7 +1761,7 @@ impl Parser {
         }
     }
 
-    fn parse_exclusive_or_expression2(&self, iter: &mut Peekable<Iter<(Token, Position)>>, ast: ExprAST, defs: &Defines) -> Result<Option<ExprAST>, ParserError> {
+    fn parse_exclusive_or_expression2(&self, iter: &mut Peekable<Iter<(Token, Position)>>, ast: ExprAST, defs: &mut Defines) -> Result<Option<ExprAST>, ParserError> {
         let mut result = None;
 
         loop {
@@ -1787,7 +1793,7 @@ impl Parser {
     }
 
 
-    fn parse_and_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &Defines) -> Result<Option<ExprAST>, ParserError> {
+    fn parse_and_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Option<ExprAST>, ParserError> {
         if let Some(mut ast) = self.parse_equality_expression(iter, defs)? {
             if let Some((tok, _pos)) = iter.peek() {
                 match tok {
@@ -1806,7 +1812,7 @@ impl Parser {
         }
     }
 
-    fn parse_and_expression2(&self, iter: &mut Peekable<Iter<(Token, Position)>>, ast: ExprAST, defs: &Defines) -> Result<Option<ExprAST>, ParserError> {
+    fn parse_and_expression2(&self, iter: &mut Peekable<Iter<(Token, Position)>>, ast: ExprAST, defs: &mut Defines) -> Result<Option<ExprAST>, ParserError> {
         let mut result = None;
 
         loop {
@@ -1837,7 +1843,7 @@ impl Parser {
         Ok(result)
     }
 
-    fn parse_equality_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &Defines) -> Result<Option<ExprAST>, ParserError> {
+    fn parse_equality_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Option<ExprAST>, ParserError> {
         if let Some(mut ast) = self.parse_relational_expression(iter, defs)? {
             if let Some((tok, _pos)) = iter.peek() {
                 match tok {
@@ -1856,7 +1862,7 @@ impl Parser {
         }
     }
 
-    fn parse_equality_expression2(&self, iter: &mut Peekable<Iter<(Token, Position)>>, ast: ExprAST, defs: &Defines) -> Result<Option<ExprAST>, ParserError> {
+    fn parse_equality_expression2(&self, iter: &mut Peekable<Iter<(Token, Position)>>, ast: ExprAST, defs: &mut Defines) -> Result<Option<ExprAST>, ParserError> {
         let mut result = None;
 
         loop {
@@ -1887,7 +1893,7 @@ impl Parser {
         Ok(result)
     }
 
-    fn parse_relational_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &Defines) -> Result<Option<ExprAST>, ParserError> {
+    fn parse_relational_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Option<ExprAST>, ParserError> {
         if let Some(mut ast) = self.parse_shift_expression(iter, defs)? {
             if let Some((tok, _pos)) = iter.peek() {
                 match tok {
@@ -1906,7 +1912,7 @@ impl Parser {
         }
     }
 
-    fn parse_relational_expression2(&self, iter: &mut Peekable<Iter<(Token, Position)>>, ast: ExprAST, defs: &Defines) -> Result<Option<ExprAST>, ParserError> {
+    fn parse_relational_expression2(&self, iter: &mut Peekable<Iter<(Token, Position)>>, ast: ExprAST, defs: &mut Defines) -> Result<Option<ExprAST>, ParserError> {
         let mut result = None;
 
         loop {
@@ -1937,7 +1943,7 @@ impl Parser {
         Ok(result)
     }
 
-    fn parse_shift_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &Defines) -> Result<Option<ExprAST>, ParserError> {
+    fn parse_shift_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Option<ExprAST>, ParserError> {
         if let Some(mut ast) = self.parse_additive_expression(iter, defs)? {
             if let Some((tok, _pos)) = iter.peek() {
                 match tok {
@@ -1956,7 +1962,7 @@ impl Parser {
         }
     }
 
-    fn parse_shift_expression2(&self, iter: &mut Peekable<Iter<(Token, Position)>>, ast: ExprAST, defs: &Defines) -> Result<Option<ExprAST>, ParserError> {
+    fn parse_shift_expression2(&self, iter: &mut Peekable<Iter<(Token, Position)>>, ast: ExprAST, defs: &mut Defines) -> Result<Option<ExprAST>, ParserError> {
         let mut result = None;
 
         loop {
@@ -1987,7 +1993,7 @@ impl Parser {
         Ok(result)
     }
 
-    fn parse_additive_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &Defines) -> Result<Option<ExprAST>, ParserError> {
+    fn parse_additive_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Option<ExprAST>, ParserError> {
         if let Some(mut ast) = self.parse_multiplicative_expression(iter, defs)? {
             if let Some((tok, _pos)) = iter.peek() {
                 match tok {
@@ -2006,7 +2012,7 @@ impl Parser {
         }
     }
 
-    fn parse_additive_expression2(&self, iter: &mut Peekable<Iter<(Token, Position)>>, ast: ExprAST, defs: &Defines) -> Result<Option<ExprAST>, ParserError> {
+    fn parse_additive_expression2(&self, iter: &mut Peekable<Iter<(Token, Position)>>, ast: ExprAST, defs: &mut Defines) -> Result<Option<ExprAST>, ParserError> {
         let mut result = None;
 
         loop {
@@ -2037,7 +2043,7 @@ impl Parser {
         Ok(result)
     }
 
-    fn parse_multiplicative_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &Defines) -> Result<Option<ExprAST>, ParserError> {
+    fn parse_multiplicative_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Option<ExprAST>, ParserError> {
         if let Some(mut ast) = self.parse_cast_expression(iter, defs)? {
             if let Some((tok, _pos)) = iter.peek() {
                 match tok {
@@ -2055,7 +2061,7 @@ impl Parser {
         }
     }
 
-    fn parse_multiplicative_expression2(&self, iter: &mut Peekable<Iter<(Token, Position)>>, ast: ExprAST, defs: &Defines) -> Result<Option<ExprAST>, ParserError> {
+    fn parse_multiplicative_expression2(&self, iter: &mut Peekable<Iter<(Token, Position)>>, ast: ExprAST, defs: &mut Defines) -> Result<Option<ExprAST>, ParserError> {
         let mut result = None;
 
         loop {
@@ -2086,7 +2092,7 @@ impl Parser {
         Ok(result)
     }
 
-    fn parse_cast_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &Defines) -> Result<Option<ExprAST>, ParserError> {
+    fn parse_cast_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Option<ExprAST>, ParserError> {
         let (next_tok, _pos) = iter.peek().unwrap();
         let result = self.parse_unary_expression(iter, defs);
 
@@ -2122,7 +2128,7 @@ impl Parser {
         }
     }
 
-    fn parse_cast_expression_sub(&self, iter: &mut Peekable<Iter<(Token, Position)>>, pos: &Position, defs: &Defines) -> Result<Option<ExprAST>, ParserError> {
+    fn parse_cast_expression_sub(&self, iter: &mut Peekable<Iter<(Token, Position)>>, pos: &Position, defs: &mut Defines) -> Result<Option<ExprAST>, ParserError> {
         let (_sq, type_or_variadic, opt_abstract_decl) = self.parse_type_name(iter, defs)?;
         let cast_type = type_or_variadic.get_type().ok_or(ParserError::no_type_defined(None, pos.clone()))?;
         self.parse_expected_token(iter, Token::ParenRight)?;
@@ -2135,7 +2141,7 @@ impl Parser {
         Ok(Some(ExprAST::Cast(cast_type, Box::new(expr), pos.clone())))
     }
 
-    fn parse_unary_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &Defines) -> Result<Option<ExprAST>, ParserError> {
+    fn parse_unary_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Option<ExprAST>, ParserError> {
         if let Some(ast) = self.parse_postfix_expression(iter, defs)? {
             Ok(Some(ast))
 
@@ -2247,7 +2253,7 @@ impl Parser {
         }
     }
 
-    fn parse_postfix_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &Defines) -> Result<Option<ExprAST>, ParserError> {
+    fn parse_postfix_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Option<ExprAST>, ParserError> {
         if let Some(mut ast) = self.parse_primary_expression(iter, defs)? {
             loop {
                 if let Some((tok, pos)) = iter.peek() {
@@ -2390,7 +2396,7 @@ impl Parser {
         }
     }
 
-    fn parse_primary_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &Defines) -> Result<Option<ExprAST>, ParserError> {
+    fn parse_primary_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Option<ExprAST>, ParserError> {
         if let Some((tok, pos)) = iter.peek() {
             match &*tok {
                 Token::Symbol(name) => {
@@ -2510,7 +2516,7 @@ impl Parser {
         }
     }
 
-    fn parse_after_wcolon(&self, typ: &Rc<Type>, enum_name: &str, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &Defines) -> Result<EnumInitializer, ParserError> {
+    fn parse_after_wcolon(&self, typ: &Rc<Type>, enum_name: &str, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<EnumInitializer, ParserError> {
         let (tok, pos) = iter.next().unwrap();
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
 
@@ -2560,7 +2566,7 @@ impl Parser {
         }
     }
 
-    fn parse_struct_literal(&self, typ: Rc<Type>, name: &str, pos: &Position, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &Defines) -> Result<StructLiteral, ParserError> {
+    fn parse_struct_literal(&self, typ: Rc<Type>, name: &str, pos: &Position, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<StructLiteral, ParserError> {
         iter.next();  // skip '{'
 
         let mut map = HashMap::new();
@@ -2644,7 +2650,7 @@ impl Parser {
         Ok(struct_init)
     }
 
-    fn parse_tuple_literal(&self, typ: Rc<Type>, name: &str, pos: &Position, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &Defines) -> Result<TupleLiteral, ParserError> {
+    fn parse_tuple_literal(&self, typ: Rc<Type>, name: &str, pos: &Position, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<TupleLiteral, ParserError> {
         iter.next();  // skip '('
 
         let mut vec = Vec::new();
@@ -2717,7 +2723,7 @@ impl Parser {
         Ok(tuple_init)
     }
 
-    fn parse_union_literal(&self, typ: Rc<Type>, _name: &str, pos: &Position, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &Defines) -> Result<Option<ExprAST>, ParserError> {
+    fn parse_union_literal(&self, typ: Rc<Type>, _name: &str, pos: &Position, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Option<ExprAST>, ParserError> {
         iter.next();  // skip '{'
 
         let mut hash_set = HashSet::new();
@@ -2869,7 +2875,7 @@ impl Parser {
         }
     }
 
-    pub fn parse_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &Defines) -> Result<Option<ExprAST>, ParserError> {
+    pub fn parse_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Option<ExprAST>, ParserError> {
         if let Some(mut ast) = self.parse_assignment_expression(iter, defs)? {
             if let Some((tok, _pos)) = iter.peek() {
                 match tok {
@@ -2888,7 +2894,7 @@ impl Parser {
         }
     }
 
-    fn parse_expression_sub<'a>(&'a self, iter: &mut Peekable<Iter<(Token, Position)>>, ast: ExprAST, defs: &Defines) -> Result<Option<ExprAST>, ParserError> {
+    fn parse_expression_sub<'a>(&'a self, iter: &mut Peekable<Iter<(Token, Position)>>, ast: ExprAST, defs: &mut Defines) -> Result<Option<ExprAST>, ParserError> {
         let mut result = None;
 
         loop {
@@ -2918,7 +2924,7 @@ impl Parser {
         Ok(result)
     }
 
-    fn parse_assignment_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &Defines) -> Result<Option<ExprAST>, ParserError> {
+    fn parse_assignment_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Option<ExprAST>, ParserError> {
         if let Some(mut ast) = self.parse_logical_or_expression(iter, defs)? {
             if let Some((tok, pos)) = iter.peek() {
                 match tok {
@@ -2953,7 +2959,7 @@ impl Parser {
         }
     }
         
-    fn parse_assignment_expression2(&self, iter: &mut Peekable<Iter<(Token, Position)>>, l_value: ExprAST, defs: &Defines) -> Result<ExprAST, ParserError> {
+    fn parse_assignment_expression2(&self, iter: &mut Peekable<Iter<(Token, Position)>>, l_value: ExprAST, defs: &mut Defines) -> Result<ExprAST, ParserError> {
         let mut result = l_value;
         loop {
             if let Some((tok, pos)) = iter.peek() {
@@ -3044,7 +3050,7 @@ impl Parser {
         Ok(result)
     }
 
-    fn parse_parameter_type_list(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &Defines) -> Result<Params, ParserError> {
+    fn parse_parameter_type_list(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Params, ParserError> {
         let (tok, pos) = iter.peek().unwrap();
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
         let cust_self;
@@ -3102,11 +3108,11 @@ impl Parser {
         Ok(params)
     }
 
-    fn parse_parameter_list(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &Defines) -> Result<(Vec<Param>, bool), ParserError> {
+    fn parse_parameter_list(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<(Vec<Param>, bool), ParserError> {
         self.parse_parameter_declaration(iter, defs)
     }
 
-    fn parse_parameter_declaration(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &Defines) -> Result<(Vec<Param>, bool), ParserError> {
+    fn parse_parameter_declaration(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<(Vec<Param>, bool), ParserError> {
         let mut list = Vec::new();
         let mut has_variadic = false;
         let ds_or_variadic = self.parse_declaration_specifier(iter, defs)?;
@@ -3138,7 +3144,7 @@ impl Parser {
         Ok((list, has_variadic))
     }
 
-    fn parse_parameter_declaration2(&self, mut list: Vec<Param>, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &Defines) -> Result<(Vec<Param>, bool), ParserError> {
+    fn parse_parameter_declaration2(&self, mut list: Vec<Param>, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<(Vec<Param>, bool), ParserError> {
         let mut has_variadic = false;
         loop {
             if let Some((tok, pos)) = iter.peek() {
@@ -3168,13 +3174,13 @@ impl Parser {
         Ok((list, has_variadic))
     }
 
-    fn parse_type_name(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &Defines) -> Result<(SpecifierQualifier, TypeOrVariadic, Option<AbstractDeclarator>), ParserError> {
+    fn parse_type_name(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<(SpecifierQualifier, TypeOrVariadic, Option<AbstractDeclarator>), ParserError> {
         let (sq, type_or_variadic, _pos) = self.parse_type_specifier_qualifier(iter, defs)?;
         let opt_abstract_decl = self.parse_abstract_declarator(iter, defs)?;
         Ok((sq, type_or_variadic, opt_abstract_decl))
     }
 
-    fn parse_abstract_declarator(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &Defines) -> Result<Option<AbstractDeclarator>, ParserError> {
+    fn parse_abstract_declarator(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Option<AbstractDeclarator>, ParserError> {
         let pointer = self.parse_pointer(iter, defs)?;
         let direct_abs_decl = self.parse_direct_abstract_declarator(iter, defs)?;
 
@@ -3185,8 +3191,7 @@ impl Parser {
         }
     }
 
-    fn parse_direct_abstract_declarator(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &Defines) -> Result<Option<DirectAbstractDeclarator>, ParserError> {
-        // let (tok, _pos) = iter.peek().ok_or(ParserError::illegal_end_of_input(None))?;
+    fn parse_direct_abstract_declarator(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Option<DirectAbstractDeclarator>, ParserError> {
         let (tok, pos) = iter.peek().unwrap();
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
 
@@ -3201,8 +3206,7 @@ impl Parser {
         }
     }
 
-    fn parse_direct_abstract_declarator_sub(&self, abs_decl: Option<AbstractDeclarator>, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &Defines) -> Result<DirectAbstractDeclarator, ParserError> {
-        // let (tok, _pos) = iter.next().ok_or(ParserError::illegal_end_of_input(None))?;
+    fn parse_direct_abstract_declarator_sub(&self, abs_decl: Option<AbstractDeclarator>, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<DirectAbstractDeclarator, ParserError> {
         let (tok, pos) = iter.next().unwrap();
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
 
@@ -3301,7 +3305,7 @@ impl Parser {
         Ok(Some(ast))
     }
 
-    pub fn parse_initializer(&self, target_type: &Rc<Type>, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &Defines) -> Result<Initializer, ParserError> {
+    pub fn parse_initializer(&self, target_type: &Rc<Type>, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Initializer, ParserError> {
         let (tok, pos) = iter.peek().unwrap();
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
 
@@ -3316,7 +3320,7 @@ impl Parser {
         Ok(init_expr)
     }
 
-    fn parse_struct_initializer_list(&self, target_type: &Rc<Type>, start_pos: &Position, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &Defines) -> Result<Initializer, ParserError> {
+    fn parse_struct_initializer_list(&self, target_type: &Rc<Type>, start_pos: &Position, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Initializer, ParserError> {
         let mut list: Vec<Box<Initializer>> = Vec::new();
 
         if ! target_type.is_struct() { return Err(ParserError::not_struct_type_when_parsing_struct_initializer(start_pos.clone())) }
@@ -3358,7 +3362,7 @@ impl Parser {
         Ok(Initializer::Struct(list, Rc::clone(target_type), start_pos.clone()))
     }
 
-    fn parse_array_initializer(&self, item_type: &Rc<Type>, dimension: &mut Vec<Option<u32>>, index: usize, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &Defines) -> Result<Initializer, ParserError> {
+    fn parse_array_initializer(&self, item_type: &Rc<Type>, dimension: &mut Vec<Option<u32>>, index: usize, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Initializer, ParserError> {
         let (tok, pos) = iter.next().unwrap();  // skip '{'
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
         if *tok != Token::BraceLeft { return Err(ParserError::not_l_brace_parsing_array_initializer(tok.clone(), pos.clone())) }

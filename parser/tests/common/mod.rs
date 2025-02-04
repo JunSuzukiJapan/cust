@@ -17,8 +17,7 @@ pub fn parse_expression_from_str(src: &str) -> Result<Option<ExprAST>, ParserErr
     let mut iter = token_list.iter().peekable();
     let parser = Parser::new();
     let mut defs = Defines::new();
-    let mut labels = Vec::new();
-    parser.parse_expression(&mut iter, &mut defs, &mut Some(&mut labels))
+    parser.parse_expression(&mut iter, &mut defs)
 }
 
 pub fn parse_external_declaration_from_str(src: &str) -> Result<Option<ToplevelAST>, ParserError> {
@@ -26,8 +25,7 @@ pub fn parse_external_declaration_from_str(src: &str) -> Result<Option<ToplevelA
     let mut iter = token_list.iter().peekable();
     let parser = Parser::new();
     let mut defs = Defines::new();
-    let mut labels = Vec::new();
-    parser.parse_external_declaration(&mut iter, &mut defs, &mut Some(&mut labels))
+    parser.parse_external_declaration(&mut iter, &mut defs)
 }
 
 pub fn parse_translation_unit_from_str(src: &str) -> Result<Vec<ToplevelAST>, ParserError> {

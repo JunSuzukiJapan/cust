@@ -28,8 +28,7 @@ fn parse_expression_from_str(src: &str) -> Result<Option<ExprAST>, ParserError> 
     let mut iter = token_list.iter().peekable();
     let parser = parser::Parser::new();
     let mut defs = Defines::new();
-    let mut labels = Vec::new();
-    parser.parse_expression(&mut iter, &mut defs, &mut Some(&mut labels))
+    parser.parse_expression(&mut iter, &mut defs)
 }
 
 fn main() {

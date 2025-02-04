@@ -32,8 +32,7 @@ pub fn parse_expression_from_str(src: &str) -> Result<Option<ExprAST>, ParserErr
     let mut iter = token_list.iter().peekable();
     let parser = Parser::new();
     let mut defs = Defines::new();
-    let mut labels = Vec::new();
-    parser.parse_expression(&mut iter, &mut defs, &mut Some(&mut labels))
+    parser.parse_expression(&mut iter, &mut defs)
 }
 
 fn gen_prologue<'ctx>(gen: &CodeGen<'ctx>, env: &mut Env<'ctx>, fn_name: &str, fn_type: FunctionType<'ctx>, cust_fn_type: CustFunctionType) {

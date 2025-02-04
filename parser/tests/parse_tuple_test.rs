@@ -80,9 +80,8 @@ mod tests {
         let mut iter = token_list.iter().peekable();
         let parser = Parser::new();
         let mut defs = Defines::new();
-        let mut labels = Vec::new();
 
-        let (sq, type_or_variadic, _pos) = parser.parse_type_specifier_qualifier(&mut iter, &mut defs, &mut Some(&mut labels)).unwrap();
+        let (sq, type_or_variadic, _pos) = parser.parse_type_specifier_qualifier(&mut iter, &mut defs).unwrap();
         let typ = type_or_variadic.get_type().unwrap();
 
         let ptr = Rc::as_ptr(&typ);

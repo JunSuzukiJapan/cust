@@ -12,7 +12,7 @@ use std::iter::Peekable;
 use std::rc::Rc;
 
 impl Parser {
-    pub fn parse_impl(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ToplevelAST>, ParserError> {
+    pub fn parse_impl(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Option<ToplevelAST>, ParserError> {
         let (tok, pos) = iter.peek().unwrap();
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
         if *tok != Token::Impl {
@@ -78,13 +78,13 @@ impl Parser {
         }
         iter.next();  // skip '{'
 
-        let decl = self.parse_impl_declaration_list(iter, defs, labels)?;
+        let decl = self.parse_impl_declaration_list(iter, defs)?;
         self.parse_expected_token(iter, Token::BraceRight)?;  // skip '}'
         let ast_impl = ToplevelAST::new_impl(impl_name, impl_type, for_something, decl, pos);
         Ok(Some(ast_impl))
     }
 
-    pub fn  parse_impl_declaration_list(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Vec<ImplElement>, ParserError> {
+    pub fn  parse_impl_declaration_list(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Vec<ImplElement>, ParserError> {
         let mut list = Vec::new();
         loop {
             let (tok, pos) = iter.peek().unwrap();
@@ -94,7 +94,7 @@ impl Parser {
                 break;
             }
 
-            if let Some(toplevel_ast) = self.parse_impl_declaration(iter, defs, labels)? {
+            if let Some(toplevel_ast) = self.parse_impl_declaration(iter, defs)? {
                 // syntax check
                 match toplevel_ast {
                     ToplevelAST::DefineEnum { name: _, fields: _, pos } => {
@@ -139,11 +139,11 @@ impl Parser {
         Ok(list)
     }
 
-    pub fn  parse_impl_declaration(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ToplevelAST>, ParserError> {
+    pub fn  parse_impl_declaration(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Option<ToplevelAST>, ParserError> {
         let (tok, pos) = iter.peek().unwrap();
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
 
-        let ds = self.parse_declaration_specifier(iter, defs, labels)?;
+        let ds = self.parse_declaration_specifier(iter, defs)?;
         let ds = ds.get_declaration_specifier().unwrap();
 
         let (tok, pos) = iter.peek().unwrap();
@@ -168,7 +168,7 @@ impl Parser {
             }
         }
 
-        let (decl, opt_initializer) = self.parse_declarator(ds.get_type(), iter, defs, &mut None)?;
+        let (decl, opt_initializer) = self.parse_declarator(ds.get_type(), iter, defs)?;
 
         if ds.is_typedef() {
             self.parse_expected_token(iter, Token::SemiColon)?;  // skip ';'
@@ -199,9 +199,8 @@ impl Parser {
                     Token::Assign => {
                         iter.next();  // skip '='
 
-                        let mut labels = Vec::new();
                         let typ = ds.get_type();
-                        let init_expr = self.parse_initializer(typ, iter, defs, &mut Some(&mut labels))?;
+                        let init_expr = self.parse_initializer(typ, iter, defs)?;
                         self.parse_expected_token(iter, Token::SemiColon)?;
                         let declaration = Declaration::new(decl, Some(init_expr));
 
