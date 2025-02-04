@@ -1144,15 +1144,7 @@ impl Parser {
             typ
         };
 
-
-
-
-
-
-
-        // Ok((sq, TypeOrVariadic::Type(typ), pos))
-
-        unimplemented!()
+        Ok(typ)
     }
 
     fn parse_struct_declaration_list(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Vec<StructDeclaration>, ParserError> {
