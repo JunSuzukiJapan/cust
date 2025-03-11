@@ -97,16 +97,16 @@ impl Parser {
             if let Some(toplevel_ast) = self.parse_impl_declaration(iter, defs)? {
                 // syntax check
                 match toplevel_ast {
-                    ToplevelAST::DefineEnum { name: _, fields: _, pos } => {
+                    ToplevelAST::DefineEnum { pos, .. } => {
                         return Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()));
                     },
-                    ToplevelAST::DefineStruct { name: _, fields: _, pos } => {
+                    ToplevelAST::DefineStruct { pos, .. } => {
                         return Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()));
                     },
-                    ToplevelAST::DefineUnion { name: _, fields: _, pos } => {
+                    ToplevelAST::DefineUnion { pos, .. } => {
                         return Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()));
                     },
-                    ToplevelAST::Impl { name: _, typ: _, for_type: _, defines: _, pos } => {
+                    ToplevelAST::Impl { pos, .. } => {
                         return Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()));
                     },
                     ToplevelAST::TypeDef(_, _, pos) => {
@@ -152,14 +152,26 @@ impl Parser {
             iter.next();  // skip ';'
 
             match ds.get_type().as_ref() {
-                Type::Struct { name, fields } => {
-                    return Ok(Some(ToplevelAST::DefineStruct{name: name.clone(), fields: fields.clone(), pos: pos.clone()}));
+                Type::Struct { name, fields, type_variables, .. } => {
+                    return Ok(Some(ToplevelAST::DefineStruct{
+                        name: name.clone(),
+                        fields: fields.clone(),
+                        type_variables: type_variables.clone(),
+                        pos: pos.clone()}));
                 },
-                Type::Union { name, fields } => {
-                    return Ok(Some(ToplevelAST::DefineUnion{name: name.clone(), fields: fields.clone(), pos: pos.clone()}));
+                Type::Union { name, fields, type_variables, .. } => {
+                    return Ok(Some(ToplevelAST::DefineUnion{
+                        name: name.clone(),
+                        fields: fields.clone(),
+                        type_variables: type_variables.clone(),
+                        pos: pos.clone()}));
                 },
-                Type::Enum { name, enum_def } => {
-                    return Ok(Some(ToplevelAST::DefineEnum {name: name.clone(), fields: enum_def.clone(), pos: pos.clone()}));
+                Type::Enum { name, enum_def, type_variables, .. } => {
+                    return Ok(Some(ToplevelAST::DefineEnum {
+                        name: name.clone(),
+                        fields: enum_def.clone(),
+                        type_variables: type_variables.clone(),
+                        pos: pos.clone()}));
                 }
                 _ => {
                     // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());

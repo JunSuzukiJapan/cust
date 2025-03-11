@@ -4,9 +4,9 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::{ParserError, Pattern, Initializer};
+// use crate::types::GenericType;
 use super::{Type, Pointer, ConstExpr, Defines, StructDefinition, EnumDefinition};
 use tokenizer::{Token, Position};
-use super::initializer::ConstInitializer;
 
 #[derive(Debug, Clone)]
 pub struct DefVar {
@@ -1162,16 +1162,19 @@ pub enum ToplevelAST {
     DefineStruct {
         name: Option<String>,
         fields: StructDefinition,
+        type_variables: Option<Vec<String>>,
         pos: Position,
     },
     DefineUnion {
         name: Option<String>,
         fields: StructDefinition,
+        type_variables: Option<Vec<String>>,
         pos: Position,
     },
     DefineEnum {
         name: String,
         fields: EnumDefinition,
+        type_variables: Option<Vec<String>>,
         pos: Position,
     },
     Impl {
@@ -1197,9 +1200,10 @@ impl ToplevelAST {
 
     pub fn get_position(&self) -> &Position {
         match self {
-            ToplevelAST::DefineEnum { name: _, fields: _, pos } => pos,
-            ToplevelAST::DefineStruct { name: _, fields: _, pos } => pos,
-            ToplevelAST::DefineUnion { name: _, fields: _, pos } => pos,
+            ToplevelAST::DefineEnum { pos, .. } => pos,
+            ToplevelAST::DefineStruct { pos, .. } => pos,
+            ToplevelAST::DefineUnion { pos, .. } => pos,
+            // ToplevelAST::DefineGenericType { name: _, generic_type: _, pos } => pos,
             ToplevelAST::FunProto(_, pos) => pos,
             ToplevelAST::Function(_, pos) => pos,
             ToplevelAST::GlobalDefVar { specifiers: _, declaration: _, pos } => pos,

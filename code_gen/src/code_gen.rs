@@ -21,7 +21,7 @@ use inkwell::module::Module;
 use inkwell::values::{AnyValue, AnyValueEnum, ArrayValue, AsValueRef, BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, GlobalValue, PointerValue, StructValue};
 use inkwell::types::{AnyTypeEnum, BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FunctionType, IntType};
 use inkwell::AddressSpace;
-use parser::ExprAST;
+use parser::{ExprAST, StructDefinition};
 use std::error::Error;
 use std::rc::Rc;
 
@@ -128,16 +128,16 @@ impl<'ctx> CodeGen<'ctx> {
 
                 Ok(Some(AnyValueEnum::FunctionValue(fun_proto)))
             },
-            ToplevelAST::DefineStruct{name, fields, pos} => {
-                self.gen_define_struct(name, fields, env, break_catcher, continue_catcher, pos)?;
+            ToplevelAST::DefineStruct{name, fields, type_variables, pos} => {
+                self.gen_define_struct(name, fields, type_variables, env, break_catcher, continue_catcher, pos)?;
                 Ok(None)
             },
-            ToplevelAST::DefineUnion { name, fields, pos } => {
-                self.gen_define_union(name, fields, env, break_catcher, continue_catcher, pos)?;
+            ToplevelAST::DefineUnion { name, fields, type_variables, pos } => {
+                self.gen_define_union(name, fields, type_variables, env, break_catcher, continue_catcher, pos)?;
                 Ok(None)
             },
-            ToplevelAST::DefineEnum { name, fields, pos } => {
-                self.gen_define_enum(name, fields, env, break_catcher, continue_catcher, pos)?;
+            ToplevelAST::DefineEnum { name, fields, type_variables, pos } => {
+                self.gen_define_enum(name, fields, type_variables, env, break_catcher, continue_catcher, pos)?;
                 Ok(None)
             },
             ToplevelAST::Impl { name, typ, for_type, defines, pos } => {
@@ -889,11 +889,21 @@ impl<'ctx> CodeGen<'ctx> {
         match decl.get_init_expr() {
             Some(initializer) => {
                 match typ.as_ref() {
-                    Type::Struct { fields, .. } => {
+                    Type::Struct { fields, type_variables, .. } => {
+                        if let Some(variables) = type_variables {
+                            self.gen_global_init_type_variables(&variables, ptr, &*initializer, env, break_catcher, continue_catcher)?;
+                        }
                         self.gen_global_struct_init(&fields, ptr, &*initializer, env, break_catcher, continue_catcher)?;
                     },
-                    Type::Array { name: _, typ, size_list } => {
+                    Type::Array { typ, size_list, .. } => {
                         self.gen_global_array_init(&size_list, ptr, &*typ, &*initializer, env, break_catcher, continue_catcher)?;
+                    },
+                    Type::Enum { name, enum_def, type_variables } => {
+                        if let Some(variables) = type_variables {
+                            self.gen_global_init_type_variables(&variables, ptr, &*initializer, env, break_catcher, continue_catcher)?;
+                        }
+
+                        unimplemented!()
                     },
                     Type::Tuple(type_list) => {
                         self.gen_global_tuple_init(&type_list, ptr, &*initializer, env, break_catcher, continue_catcher)?;
@@ -912,6 +922,59 @@ impl<'ctx> CodeGen<'ctx> {
         env.insert_global_var(&name, typ.clone(), sq.clone(), ptr);
 
         Ok(())
+    }
+
+    fn gen_global_init_type_variables<'b, 'c>(
+        &self,
+        variables: &Vec<String>,
+        target_ptr: GlobalValue<'ctx>,
+        init: &Initializer,
+        env: &mut Env<'ctx>,
+        break_catcher: Option<&'b BreakCatcher>,
+        continue_catcher: Option<&'c ContinueCatcher>
+    ) -> Result<(), Box<dyn Error>> {
+
+        // let init_value_list = if let Initializer::Simple(ExprAST::TupleLiteral(expr_list, _pos), _pos2) = init {
+        //     expr_list
+        // }else{
+        //     return Err(Box::new(CodeGenError::initializer_is_not_tuple(init.get_position().clone())));
+        // };
+
+        // let target_len = fields.len();
+        // let init_len = init_value_list.len();
+        // if target_len < init_len {
+        //     return  Err(Box::new(CodeGenError::initial_list_is_too_long(init.get_position().clone())));
+        // }
+
+        // let mut vec = Vec::new();
+        // for i in 0..target_len {
+        //     let field = &fields[i];
+        //     let typ = &field.get_type();
+        //     let var = &variables[i];
+
+        //     if i < init_len {
+        //         let init_value = &init_value_list[i];
+        //         let init_type = TypeUtil::get_type(&init_value, env)?;
+        //         if **typ != *init_type {
+        //             return Err(Box::new(CodeGenError::mismatch_initializer_type(&typ, &init_type, init_value.get_position().clone())));
+        //         }
+
+        //         let compiled_val = self.gen_expr(&**init_value, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::mismatch_initializer_type(&typ, &init_type, init_value.get_position().clone()))?;
+        //         let value = self.try_as_basic_value(&compiled_val.get_value(), init_value.get_position())?;
+        //         vec.push(value);
+
+        //     }else{  // zero clear
+        //         let zero_value = self.const_zero(&typ, init.get_position())?;
+        //         vec.push(zero_value);
+        //     }
+        // }
+
+        // let values = self.context.const_struct(&vec, false);
+        // target_ptr.set_initializer(&values.as_basic_value_enum());
+
+        // Ok(())
+
+        unimplemented!("gen_global_init_type_variables")
     }
 
     pub fn make_function_name_in_impl(class_name: &str, fun_name: &str) -> String {

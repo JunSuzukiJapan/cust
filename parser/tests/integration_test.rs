@@ -743,7 +743,7 @@ mod tests {
         //
         // test first statement
         //
-        if let ToplevelAST::DefineStruct {name: Some(id), fields, pos: _} = &list[0] {
+        if let ToplevelAST::DefineStruct {name: Some(id), fields, type_variables: _, pos: _} = &list[0] {
             assert_eq!(*id, "date".to_string());
 
             let fields = fields.get_fields().unwrap();
@@ -780,7 +780,7 @@ mod tests {
         // test 2nd statement
         //
         if let ToplevelAST::TypeDef(name, rc_type, _pos) = &list[1] {
-            if let Type::Struct {name: Some(id), fields} = rc_type.as_ref() {
+            if let Type::Struct {name: Some(id), fields, type_variables: _} = rc_type.as_ref() {
                 assert_eq!(*name, "Date".to_string());
                 assert_eq!(*id, "date".to_string());
                 assert!(fields.has_fields());
@@ -831,7 +831,7 @@ mod tests {
 
             let dummy_pos = Position::new(1, 1);
             let struct_definition = StructDefinition::try_new(Some("date".to_string()), Some(field_list), &dummy_pos)?;
-            let type_struct = Rc::new(Type::Struct { name: Some("date".to_string()), fields: struct_definition.clone() });
+            let type_struct = Rc::new(Type::Struct { name: Some("date".to_string()), fields: struct_definition.clone(), type_variables: None });
             let specifier = DeclarationSpecifier::new(&Rc::clone(&type_struct), sq);
 
             let mut v = Vec::new();

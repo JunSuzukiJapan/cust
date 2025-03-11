@@ -138,15 +138,30 @@ impl Parser {
             iter.next();  // skip ';'
 
             match ds.get_type().as_ref() {
-                Type::Struct { name, fields } => {
-                    return Ok(Some(ToplevelAST::DefineStruct{name: name.clone(), fields: fields.clone(), pos: pos.clone()}));
+                Type::Struct { name, fields, type_variables } => {
+                    return Ok(Some(ToplevelAST::DefineStruct{
+                        name: name.clone(),
+                        fields: fields.clone(),
+                        type_variables: type_variables.clone(),
+                        pos: pos.clone()}));
                 },
-                Type::Union { name, fields } => {
-                    return Ok(Some(ToplevelAST::DefineUnion{name: name.clone(), fields: fields.clone(), pos: pos.clone()}));
+                Type::Union { name, fields, type_variables } => {
+                    return Ok(Some(ToplevelAST::DefineUnion{
+                        name: name.clone(),
+                        fields: fields.clone(),
+                        type_variables: type_variables.clone(),
+                        pos: pos.clone()}));
                 },
-                Type::Enum { name, enum_def } => {
-                    return Ok(Some(ToplevelAST::DefineEnum {name: name.clone(), fields: enum_def.clone(), pos: pos.clone()}));
+                Type::Enum { name, enum_def, type_variables } => {
+                    return Ok(Some(ToplevelAST::DefineEnum {
+                        name: name.clone(),
+                        fields: enum_def.clone(),
+                        type_variables: type_variables.clone(),
+                        pos: pos.clone()}));
                 }
+                // Type::GenericType(g_type) => {
+                //     return Ok(Some(ToplevelAST::DefineGenericType {name: g_type.get_name().to_string(), generic_type: g_type.clone(), pos: pos.clone()}));
+                // },
                 _ => {
                     // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                     return Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()));
@@ -411,8 +426,8 @@ impl Parser {
 
                                         let declaration = self.parse_struct_declaration_list(iter, defs)?;
                                         let definition = StructDefinition::try_new(Some(name.clone()), Some(declaration), pos3)?;
-                                        let type_struct = Type::struct_from_struct_definition(Some(name.clone()), definition.clone());
-                                        defs.set_struct(name, definition, pos3)?;
+                                        let type_struct = Type::struct_from_struct_definition(Some(name.clone()), definition.clone(), None);
+                                        defs.set_struct(name, definition, None, pos3)?;
 
                                         opt_type = Some((
                                             Rc::new(type_struct),
@@ -426,7 +441,7 @@ impl Parser {
                                             t.clone()
                                         }else{
                                             let definition = StructDefinition::try_new(Some(name.clone()), None, pos3)?;
-                                            let typ = Type::struct_from_struct_definition(Some(name.clone()), definition);
+                                            let typ = Type::struct_from_struct_definition(Some(name.clone()), definition, None);
                                             Rc::new(typ)
                                         };
 
@@ -441,7 +456,7 @@ impl Parser {
                                 iter.next();  // skip '{'
                                 let declaration = self.parse_struct_declaration_list(iter, defs)?;
                                 let definition = StructDefinition::try_new(None, Some(declaration), pos2)?;
-                                let type_struct = Type::struct_from_struct_definition(None, definition);
+                                let type_struct = Type::struct_from_struct_definition(None, definition, None);
                                 opt_type = Some((
                                     Rc::new(type_struct),
                                     pos.clone()
@@ -472,8 +487,8 @@ impl Parser {
 
                                         let declaration = self.parse_struct_declaration_list(iter, defs)?;
                                         let definition = StructDefinition::try_new(Some(name.clone()), Some(declaration), pos2)?;
-                                        let type_union = Type::union_from_struct_definition(Some(name.clone()), definition.clone());
-                                        defs.set_union(name, definition, pos3)?;
+                                        let type_union = Type::union_from_struct_definition(Some(name.clone()), definition.clone(), None);
+                                        defs.set_union(name, definition, None, pos3)?;
 
                                         opt_type = Some((
                                             Rc::new(type_union),
@@ -487,7 +502,7 @@ impl Parser {
                                             t.clone()
                                         }else{
                                             let definition = StructDefinition::try_new(Some(name.clone()), None, pos2)?;
-                                            let typ = Type::union_from_struct_definition(Some(name.clone()), definition);
+                                            let typ = Type::union_from_struct_definition(Some(name.clone()), definition, None);
                                             Rc::new(typ)
                                         };
 
@@ -505,7 +520,7 @@ impl Parser {
                                 iter.next();  // skip '{'
                                 let declaration = self.parse_struct_declaration_list(iter, defs)?;
                                 let definition = StructDefinition::try_new(None, Some(declaration), pos2)?;
-                                let type_struct = Type::union_from_struct_definition(None, definition);
+                                let type_struct = Type::union_from_struct_definition(None, definition, None);
                                 opt_type = Some((
                                     Rc::new(type_struct),
                                     pos.clone()
@@ -534,16 +549,35 @@ impl Parser {
                                     Token::BraceLeft => {
                                         iter.next();  // skip '{'
 
-                                        let type_struct = self.parse_enum_body(name, pos3, iter, defs)?;
+                                        let enum_def = self.parse_enum_body(name, pos3, iter, defs)?;
+                                        let type_enum = Type::enum_from_enum_definition(name.clone(), enum_def.clone(), None);
+                                        defs.set_enum(name, enum_def, None, pos3)?;
+
                                         opt_type = Some((
-                                            Rc::new(type_struct),
+                                            Rc::new(type_enum),
                                             pos.clone()
                                         ));
                                     },
                                     Token::Less => {  // '<'
-                                        if let Some(typ) = defs.get_type(name) {
-                                            let bound_type = self.parse_generic_params(typ, iter, defs)?;
+                                        if let Some(typ) = defs.get_type(name) {  // すでに存在する型の場合は、型変数ではなく、実際の型がくるはず。
+                                            iter.next();  // skip '<'
 
+                                            if ! typ.has_type_variables() {
+                                                return Err(ParserError::has_not_type_variables(name.to_string(), pos.clone()));
+                                            }
+
+                                            let type_vars = typ.get_type_variables().as_ref().unwrap();
+                                            let bound_type_list = self.parse_generic_params(typ, iter, defs)?;
+
+                                            if type_vars.len() != bound_type_list.len() {
+                                                return Err(ParserError::type_variable_count_mismatch(pos.clone()));
+                                            }
+
+                                            let mut map = HashMap::new();
+                                            for i in 0..type_vars.len() {
+                                                map.insert(type_vars[i].clone(), bound_type_list[i].clone());
+                                            }
+eprintln!("map: {:?}", map);
 
 
                                             unimplemented!()
@@ -553,13 +587,17 @@ impl Parser {
                                         }else{
                                             defs.add_new_generics();
 
-                                            let _g_list = self.parse_generic_types(iter, defs)?;
+                                            let type_variables = self.parse_type_variables(iter, defs)?;
 
                                             self.parse_expected_token(iter, Token::BraceLeft)?;  // skip '{'
 
-                                            let type_struct = self.parse_enum_body(name, pos3, iter, defs)?;
+                                            let enum_def = self.parse_enum_body(name, pos3, iter, defs)?;
+                                            // let type_enum = Type::generic_enum_from_enum_definition(name.clone(), enum_def.clone(), Some(type_variables));
+                                            let type_enum = Type::enum_from_enum_definition(name.clone(), enum_def.clone(), None);
+                                            defs.set_enum(name, enum_def, Some(type_variables), pos3)?;
+
                                             opt_type = Some((
-                                                Rc::new(type_struct),
+                                                Rc::new(type_enum),
                                                 pos.clone()
                                             ));
 
@@ -571,7 +609,7 @@ impl Parser {
                                             Rc::clone(t)
                                         }else{
                                             let definition = EnumDefinition::new_standard(name.clone(), Vec::new());
-                                            let typ = Type::enum_from_enum_definition(name.clone(), definition);
+                                            let typ = Type::enum_from_enum_definition(name.clone(), definition, None);
                                             Rc::new(typ)
                                         };
                 
@@ -760,7 +798,7 @@ impl Parser {
                 // }else{
                 //     panic!()
                 // }
-
+eprintln!("parse_type_list_in_tuple. pos: {:?}", iter.peek().unwrap().1);
                 let typ = self.parse_type(iter, defs)?;
                 let pointer = self.parse_pointer(iter, defs)?;
                 if let Some(ptr) = pointer {
@@ -785,7 +823,7 @@ impl Parser {
         Ok(list)
     }
 
-    fn parse_enum_body(&self, name: &String, pos3: &Position, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Type, ParserError> {
+    fn parse_enum_body(&self, name: &String, pos3: &Position, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<EnumDefinition, ParserError> {
         let (enum_list, is_tagged) = self.parse_enumerator_list(iter, defs)?;
 
         let definition;
@@ -795,15 +833,17 @@ impl Parser {
             definition = EnumDefinition::new_standard(name.clone(), enum_list);
         }
 
-        let type_struct = Type::enum_from_enum_definition(name.clone(), definition.clone());
-        defs.set_enum(name, definition, pos3)?;
-
         self.parse_expected_token(iter, Token::BraceRight)?;  // skip '}'
 
-        Ok(type_struct)
+        Ok(definition)
+
+        // let type_enum = Type::enum_from_enum_definition(name.clone(), definition.clone());
+        // defs.set_enum(name, definition, pos3)?;
+
+        // Ok(type_enum)
     }
 
-    fn parse_generic_types(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Vec<Rc<Type>>, ParserError> {
+    fn parse_type_variables(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Vec<String>, ParserError> {
         iter.next();  // skip '<'
 
         let mut list = Vec::new();
@@ -822,31 +862,41 @@ impl Parser {
                     defs.check_exist(name, pos)?;
 
                     let g_type = defs.add_generic_type(name, pos)?;
+                    // list.push(g_type);
 
-                    list.push(g_type);
+                    list.push(name.to_string());
                 },
                 _ => {
                     return Err(ParserError::not_generic_type(tok.clone(), pos.clone()));
                 }
             }
         }
-
+eprintln!("parse_type_variables. list: {:?}", list);
         Ok(list)
     }
 
     fn parse_generic_params(&self, base_type: &Rc<Type>, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &Defines) -> Result<Vec<Rc<Type>>, ParserError> {
         let mut list = Vec::new();
 
+        let (tok, pos) = iter.peek().unwrap();
+        if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
+        if *tok == Token::Greater {
+            iter.next();  // skip '>'
+            return Ok(list);
+        }
+
         loop {
-            let (tok, pos) = iter.peek().unwrap();
-            if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
-            if *tok == Token::Greater {
+            let typ = self.parse_type(iter, defs)?;
+            list.push(typ);
+
+            let (tok2, pos2) = iter.peek().unwrap();
+            if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
+            if *tok2 == Token::Comma {
+                iter.next();  // skip ','
+            }else if *tok2 == Token::Greater {
                 iter.next();  // skip '>'
                 break;
             }
-
-            let typ = self.parse_type(iter, defs)?;
-            list.push(typ);
         }
 
         Ok(list)
@@ -854,7 +904,6 @@ impl Parser {
 
 
     pub fn parse_type(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &Defines) -> Result<Rc<Type>, ParserError> {
-        let mut sq = SpecifierQualifier::new();
         let mut opt_signed: Option<(bool, Position)> = None;
         let mut opt_unsigned: Option<(bool, Position)> = None;
         let mut opt_type: Option<(Rc<Type>, Position)> = None;
@@ -1136,6 +1185,7 @@ impl Parser {
         let (typ, pos) = if let Some((typ, pos)) = opt_type {
             (typ, pos)
         }else{
+eprintln!("no type defined: {:?}", opt_name);
             return Err(ParserError::no_type_defined(opt_name, iter.peek().unwrap().1.clone()));
         };
         let typ = if let Some((true, _)) = opt_unsigned {
@@ -1143,7 +1193,7 @@ impl Parser {
         }else{
             typ
         };
-
+eprintln!("typ: {:?}", typ);
         Ok(typ)
     }
 

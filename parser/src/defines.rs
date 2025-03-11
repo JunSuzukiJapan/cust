@@ -1,5 +1,4 @@
 use crate::Initializer;
-use crate::types::GenericType;
 
 use super::{ParserError, Type, ConstExpr, DeclarationSpecifier, Declarator, Params};
 use super::{StructDefinition, EnumDefinition, Position};
@@ -78,22 +77,22 @@ enum DefineType {
 }
 
 impl DefineType {
-    pub fn new_struct(name: &str, fields: StructDefinition) -> DefineType {
-        let struct_type = Type::Struct { name: Some(name.to_string()), fields };
+    pub fn new_struct(name: &str, fields: StructDefinition, type_variables: Option<Vec<String>>) -> DefineType {
+        let struct_type = Type::Struct { name: Some(name.to_string()), fields, type_variables };
         DefineType::Struct {
             struct_type: Rc::new(struct_type),
         }
     }
 
-    pub fn new_union(name: &str, fields: StructDefinition) -> DefineType {
-        let union_type = Type::Union { name: Some(name.to_string()), fields };
+    pub fn new_union(name: &str, fields: StructDefinition, type_variables: Option<Vec<String>>) -> DefineType {
+        let union_type = Type::Union { name: Some(name.to_string()), fields, type_variables };
         DefineType::Union {
             union_type: Rc::new(union_type),
         }
     }
 
-    pub fn new_enum(name: &str, enum_def: EnumDefinition) -> DefineType {
-        let enum_type = Type::Enum { name: name.to_string(), enum_def: enum_def };
+    pub fn new_enum(name: &str, enum_def: EnumDefinition, type_variables: Option<Vec<String>>) -> DefineType {
+        let enum_type = Type::Enum { name: name.to_string(), enum_def: enum_def, type_variables };
         DefineType::Enum {
             enum_type: Rc::new(enum_type),
         }
@@ -176,46 +175,46 @@ impl Defines {
         self.generics.pop();
     }
 
-    pub fn set_enum(&mut self, name: &str, enum_def: EnumDefinition, pos: &Position) -> Result<(), ParserError> {
+    pub fn set_enum(&mut self, name: &str, enum_def: EnumDefinition, type_variables: Option<Vec<String>>, pos: &Position) -> Result<(), ParserError> {
         if self.exists_type(name) {
             return Err(ParserError::already_var_defined(name, pos.clone()));
         }
 
         if self.local_maps.last().unwrap().len() > 0 {
-            self.local_maps.last_mut().unwrap().last_mut().unwrap().struct_map.insert(name.to_string(), DefineType::new_enum(name, enum_def));
+            self.local_maps.last_mut().unwrap().last_mut().unwrap().struct_map.insert(name.to_string(), DefineType::new_enum(name, enum_def, type_variables));
         }else{
-            self.global_maps.type_map.insert(name.to_string(), DefineType::new_enum(name, enum_def.clone()));
-            self.global_maps.struct_map.insert(name.to_string(), DefineType::new_enum(name, enum_def));
+            self.global_maps.type_map.insert(name.to_string(), DefineType::new_enum(name, enum_def.clone(), type_variables.clone()));
+            self.global_maps.struct_map.insert(name.to_string(), DefineType::new_enum(name, enum_def, type_variables));
         }
 
         Ok(())
     }
 
-    pub fn set_struct(&mut self, name: &str, struct_def: StructDefinition, pos: &Position) -> Result<(), ParserError> {
+    pub fn set_struct(&mut self, name: &str, struct_def: StructDefinition, type_variables: Option<Vec<String>>, pos: &Position) -> Result<(), ParserError> {
         if self.exists_type(name) {
             return Err(ParserError::already_var_defined(name, pos.clone()));
         }
 
         if self.local_maps.last().unwrap().len() > 0 {
-            self.local_maps.last_mut().unwrap().last_mut().unwrap().struct_map.insert(name.to_string(), DefineType::new_struct(name, struct_def));
+            self.local_maps.last_mut().unwrap().last_mut().unwrap().struct_map.insert(name.to_string(), DefineType::new_struct(name, struct_def, type_variables));
         }else{
-            self.global_maps.type_map.insert(name.to_string(), DefineType::new_struct(name, struct_def.clone()));
-            self.global_maps.struct_map.insert(name.to_string(), DefineType::new_struct(name, struct_def));
+            self.global_maps.type_map.insert(name.to_string(), DefineType::new_struct(name, struct_def.clone(), type_variables.clone()));
+            self.global_maps.struct_map.insert(name.to_string(), DefineType::new_struct(name, struct_def, type_variables));
         }
 
         Ok(())
     }
 
-    pub fn set_union(&mut self, name: &str, struct_def: StructDefinition, pos: &Position) -> Result<(), ParserError> {
+    pub fn set_union(&mut self, name: &str, struct_def: StructDefinition, type_variables: Option<Vec<String>>, pos: &Position) -> Result<(), ParserError> {
         if self.exists_type(name) {
             return Err(ParserError::already_var_defined(name, pos.clone()));
         }
 
         if self.local_maps.last().unwrap().len() > 0 {
-            self.local_maps.last_mut().unwrap().last_mut().unwrap().struct_map.insert(name.to_string(), DefineType::new_union(name, struct_def));
+            self.local_maps.last_mut().unwrap().last_mut().unwrap().struct_map.insert(name.to_string(), DefineType::new_union(name, struct_def, type_variables));
         }else{
-            self.global_maps.type_map.insert(name.to_string(), DefineType::new_union(name, struct_def.clone()));
-            self.global_maps.struct_map.insert(name.to_string(), DefineType::new_union(name, struct_def));
+            self.global_maps.type_map.insert(name.to_string(), DefineType::new_union(name, struct_def.clone(), type_variables.clone()));
+            self.global_maps.struct_map.insert(name.to_string(), DefineType::new_union(name, struct_def, type_variables));
         }
 
         Ok(())
@@ -272,7 +271,7 @@ impl Defines {
             return Err(ParserError::already_type_defined_in_env(typedef_name, pos.clone()));
         }
 
-        if let Type::Struct { name, fields } = typ.as_ref() {
+        if let Type::Struct { name, fields, .. } = typ.as_ref() {
             if let Some(id) = name {
                 if ! fields.has_fields() {
                     let t = &self.get_struct_type(id).ok_or(ParserError::no_such_a_struct(id, pos.clone()))?;
@@ -589,8 +588,7 @@ impl Defines {
             return Err(ParserError::already_generics_type_defined(name.to_string(), pos.clone()));
         }
 
-        let g_type = GenericType::new(name);
-        let typ = Type::GenericType(g_type);
+        let typ = Type::TypeVariable(name.to_string());
         let origin = Rc::new(typ);
         let clone = Rc::clone(&origin);
         map.insert(name.to_string(), origin);

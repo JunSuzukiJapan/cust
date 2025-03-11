@@ -1373,7 +1373,7 @@ impl<'ctx> CodeGen<'ctx> {
                 let (typ, ptr, _sq) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
 
                 match typ.as_ref() {
-                    Type::Struct {name, fields} => {
+                    Type::Struct {name, fields, .. } => {
                         let index = fields.get_index(member_name).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
                         let elem_type = fields.get_type(member_name).unwrap();
                         let sq = fields.get_specifier_qualifier(member_name).unwrap();
@@ -1390,7 +1390,7 @@ impl<'ctx> CodeGen<'ctx> {
                             return Err(Box::new(CodeGenError::cannot_access_struct_member(&member_name, pos.clone())));
                         }
                     },
-                    Type::Union { name, fields } => {
+                    Type::Union { name, fields, .. } => {
                         let elem_type = fields.get_type(member_name).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
                         let sq = fields.get_specifier_qualifier(member_name).unwrap();
 
@@ -1427,7 +1427,7 @@ impl<'ctx> CodeGen<'ctx> {
                                     return Err(Box::new(CodeGenError::not_pointer(&expr_type, pos.clone())));
                                 };
                                 match typ.as_ref() {
-                                    Type::Struct {name, fields} => {
+                                    Type::Struct {name, fields, .. } => {
                                         let index = fields.get_index(member_name).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
                                         let elem_type = fields.get_type(member_name).unwrap();
                                         let sq = fields.get_specifier_qualifier(member_name).unwrap();
@@ -1444,7 +1444,7 @@ impl<'ctx> CodeGen<'ctx> {
                                             return Err(Box::new(CodeGenError::cannot_access_struct_member(&member_name, pos.clone())));
                                         }
                                     },
-                                    Type::Union { name, fields } => {
+                                    Type::Union { name, fields, .. } => {
                                         let type2 = fields.get_type(member_name).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
                                         let sq = fields.get_specifier_qualifier(member_name).unwrap();
                                         let to_type = TypeUtil::to_basic_type_enum(type2, self.context, pos)?;
@@ -1524,7 +1524,7 @@ impl<'ctx> CodeGen<'ctx> {
                 let pointed_type = typ.get_pointed_type(pos)?;
 
                 match pointed_type {
-                    Type::Struct {fields, name} => {
+                    Type::Struct {fields, name, .. } => {
                         let index = fields.get_index(member_name).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
                         let sq = fields.get_specifier_qualifier(member_name).unwrap();
                         let elem_ptr = self.builder.build_struct_gep(TypeUtil::to_basic_type_enum(&pointed_type, &self.context, pos)?, ptr, index as u32, "struct_member_access");
@@ -1535,7 +1535,7 @@ impl<'ctx> CodeGen<'ctx> {
                             return Err(Box::new(CodeGenError::cannot_access_struct_member(&member_name, pos.clone())));
                         }
                     },
-                    Type::Union { name, fields } => {
+                    Type::Union { name, fields, .. } => {
                         let type2 = fields.get_type(member_name).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
                         let sq = fields.get_specifier_qualifier(member_name).unwrap();
                         let to_type = TypeUtil::to_basic_type_enum(type2, self.context, pos)?;

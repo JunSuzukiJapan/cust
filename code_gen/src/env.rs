@@ -560,7 +560,7 @@ impl<'ctx> Env<'ctx> {
                 let t = self.get_type(name).ok_or(CodeGenError::no_such_a_type(name, pos.clone()))?.clone();
                 self.types.insert(key.to_string(), (t.clone(), None));
             },
-            Type::Struct { name, fields } => {
+            Type::Struct { name, fields, type_variables } => {
                 if let Some(struct_name) = name {
                     if let Some(t) = self.get_type(struct_name) {
                         if ! t.is_struct_type() {
@@ -572,7 +572,7 @@ impl<'ctx> Env<'ctx> {
                     }
                 }
 
-                let (struct_type, index_map) = CodeGen::struct_from_struct_definition(name, fields, ctx, pos)?;
+                let (struct_type, index_map) = CodeGen::struct_from_struct_definition(name, fields, type_variables, ctx, pos)?;
                 if let Some(struct_name) = name {
                     self.insert_struct(struct_name, &struct_type, index_map, pos)?;
                     let raw_ptr = self.get_type(&struct_name).unwrap() as *const TypeOrUnion;
@@ -582,7 +582,7 @@ impl<'ctx> Env<'ctx> {
                     self.insert_struct(key, &struct_type, index_map, pos)?;
                 };
             },
-            Type::Union { name, fields } => {
+            Type::Union { name, fields, type_variables } => {
                 if let Some(id) = name {
                     if let Some(t) = self.get_type(id) {
                         if ! t.is_union_type() {
@@ -594,7 +594,7 @@ impl<'ctx> Env<'ctx> {
                     }
                 }
 
-                let (type_list, index_map, max_size, max_size_type) = CodeGen::union_from_struct_definition(name, fields, ctx, pos)?;
+                let (type_list, index_map, max_size, max_size_type) = CodeGen::union_from_struct_definition(name, fields, type_variables, ctx, pos)?;
                 if let Some(union_name) = name {
                     self.insert_union(&union_name, type_list, index_map, max_size, max_size_type, pos)?;
 
@@ -652,7 +652,7 @@ impl<'ctx> Env<'ctx> {
 
     pub fn basic_type_enum_from_type(&self, typ: &Type, ctx: &'ctx Context, pos: &Position) -> Result<BasicTypeEnum<'ctx>, Box<dyn Error>> {
         match typ {
-            Type::Struct { name, fields } => {
+            Type::Struct { name, fields, type_variables } => {
                 if let Some(id) = name {
                     if let Some(type_or_union) = self.get_type(id) {
                         let mut type_or_union = type_or_union;
@@ -693,17 +693,17 @@ impl<'ctx> Env<'ctx> {
                             }
                         }
                     }else{
-                        let (any_type, _index_map) = CodeGen::struct_from_struct_definition(&None, fields, ctx, pos)?;
+                        let (any_type, _index_map) = CodeGen::struct_from_struct_definition(&None, fields, type_variables, ctx, pos)?;
                         let basic_type = BasicTypeEnum::try_from(any_type).unwrap();
                         Ok(basic_type)
                     }
                 }else{
-                    let (any_type, _index_map) = CodeGen::struct_from_struct_definition(&None, fields, ctx, pos)?;
+                    let (any_type, _index_map) = CodeGen::struct_from_struct_definition(&None, fields, type_variables, ctx, pos)?;
                     let basic_type = BasicTypeEnum::try_from(any_type).unwrap();
                     Ok(basic_type)
                 }
             },
-            Type::Union { name, fields } => {
+            Type::Union { name, fields, type_variables } => {
                 if let Some(id) = name {
                     if let Some(type_or_union) = self.get_type(id) {
                         let mut type_or_union = type_or_union;
@@ -747,17 +747,17 @@ impl<'ctx> Env<'ctx> {
                                 },                            }
                         }
                     }else{
-                        let (_type_list, _index_map, _max_size, max_size_type_opt) = CodeGen::union_from_struct_definition(&None, fields, ctx, pos)?;
+                        let (_type_list, _index_map, _max_size, max_size_type_opt) = CodeGen::union_from_struct_definition(&None, fields, type_variables, ctx, pos)?;
                         let max_size_type = max_size_type_opt.ok_or(CodeGenError::union_has_no_field(None, pos.clone()))?;
                         Ok(max_size_type)
                     }
                 }else{
-                    let (_type_list, _index_map, _max_size, max_size_type_opt) = CodeGen::union_from_struct_definition(&None, fields, ctx, pos)?;
+                    let (_type_list, _index_map, _max_size, max_size_type_opt) = CodeGen::union_from_struct_definition(&None, fields, type_variables, ctx, pos)?;
                     let max_size_type = max_size_type_opt.ok_or(CodeGenError::union_has_no_field(None, pos.clone()))?;
                     Ok(max_size_type)
                 }
             },
-            Type::Enum { name, enum_def } => {
+            Type::Enum { name, enum_def, type_variables: _ } => {
                 if enum_def.is_standard() {
                     Ok(BasicTypeEnum::IntType(ctx.i32_type()))
                 }else{

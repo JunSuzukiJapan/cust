@@ -76,6 +76,7 @@ pub enum ParserError {
     DuplicateFieldInStructInitializer(String, Position),
     NumberOfElementsDoesNotMatch(Position),
     NotGenericType(Token, Position),
+    HasNotTypeVariables(String, Position),
     AlreadyGenericsTypeDefined(String, Position),
     TaggedEnumCannotHaveValue(Position),
     StandardEnumCannotBeTagged(Position),
@@ -87,6 +88,7 @@ pub enum ParserError {
     NotConstInArrayInitializer(Position),
     NotTupleType(String, Position),
     NotTypeToken(Token, Position),
+    TypeVariableCountMismatch(Position),
 }
 
 impl ParserError {
@@ -337,6 +339,10 @@ impl ParserError {
         ParserError::NotGenericType(tok, pos)
     }
 
+    pub fn has_not_type_variables(name: String, pos: Position) -> Self {
+        ParserError::HasNotTypeVariables(name, pos)
+    }
+
     pub fn already_generics_type_defined(name: String, pos: Position) -> Self {
         ParserError::AlreadyGenericsTypeDefined(name, pos)
     }
@@ -379,6 +385,10 @@ impl ParserError {
 
     pub fn not_type_token(tok: Token, pos: Position) -> Self {
         ParserError::NotTypeToken(tok, pos)
+    }
+
+    pub fn type_variable_count_mismatch(pos: Position) -> Self {
+        ParserError::TypeVariableCountMismatch(pos)
     }
 }
 
@@ -461,6 +471,7 @@ impl fmt::Display for ParserError {
             Self::DuplicateFieldInStructInitializer(field_name, _pos) => write!(f, "duplicate field '{field_name}' in struct initializer"),
             Self::NumberOfElementsDoesNotMatch(_pos) => write!(f, "number of elements does not match"),
             Self::NotGenericType(tok, _pos) => write!(f, "{tok:?} cannot not be generic type"),
+            Self::HasNotTypeVariables(name, _pos) => write!(f, "{name} has not type variables"),
             Self::AlreadyGenericsTypeDefined(name, _pos) => write!(f, "already generics type '{name}' is defined"),
             Self::TaggedEnumCannotHaveValue(_pos) => write!(f, "tagged enum cannot have value"),
             Self::StandardEnumCannotBeTagged(_pos) => write!(f, "standard enum cannot be tagged"),
@@ -472,6 +483,7 @@ impl fmt::Display for ParserError {
             Self::NotConstInArrayInitializer(_pos) => write!(f, "not const expr in array initializer"),
             Self::NotTupleType(name, _pos) => write!(f, "{name} is not tuple"),
             Self::NotTypeToken(tok, _pos) => write!(f, "{tok:?} is not type token"),
+            Self::TypeVariableCountMismatch(_pos) => write!(f, "type variable count mismatch"),
         }
     }
 }

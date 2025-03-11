@@ -20,6 +20,7 @@ impl<'ctx> CodeGen<'ctx> {
         &self,
         enum_name: &str,
         enum_def: &EnumDefinition,
+        type_variables: &Option<Vec<String>>,
         env: &mut Env<'ctx>,
         _break_catcher: Option<&'b BreakCatcher>,
         _continue_catcher: Option<&'c ContinueCatcher>,
@@ -28,14 +29,14 @@ impl<'ctx> CodeGen<'ctx> {
 
         match enum_def {
             EnumDefinition::StandardEnum { fields, .. } => {
-                let (enumerator_list, index_map) = self.enum_from_enum_standard(fields, env)?;
+                let (enumerator_list, index_map) = self.enum_from_enum_standard(fields, type_variables, env)?;
                 let i32_type = self.context.i32_type();
                 env.insert_enum_const(enum_name.into(), &i32_type, enumerator_list, index_map, pos)?;
 
                 Ok(None)
             },
             EnumDefinition::TaggedEnum { fields, .. } => {
-                let (type_list, index_map, max_size, max_size_type) = Self::tagged_enum_from_enum_definition(enum_name, fields, &self.enum_tag_type, self.context, pos)?;
+                let (type_list, index_map, max_size, max_size_type) = Self::tagged_enum_from_enum_definition(enum_name, fields, &self.enum_tag_type, type_variables, self.context, pos)?;
                 env.insert_tagged_enum(enum_name.into(), type_list, index_map, max_size, max_size_type, pos)?;
         
                 if let Some(t) = max_size_type {
@@ -51,6 +52,7 @@ impl<'ctx> CodeGen<'ctx> {
         _enum_name: &str,
         fields: &Vec<Enumerator>,
         tag_type: &Rc<Type>,
+        _type_variables: &Option<Vec<String>>,
         ctx: &'ctx Context,
         pos: &Position
     ) -> Result<(Vec<(Rc<Type>, BasicTypeEnum<'ctx>)>, HashMap<String, usize>, u64, Option<BasicTypeEnum<'ctx>>), Box<dyn Error>> {
@@ -85,8 +87,9 @@ impl<'ctx> CodeGen<'ctx> {
                 },
                 Enumerator::TypeStruct { name, struct_type } => {
                     let def = struct_type.get_struct_definition().unwrap();
+                    let type_variables = struct_type.get_type_variables();
 
-                    let typ = Type::struct_from_struct_definition(Some(name.to_string()), def.clone());
+                    let typ = Type::struct_from_struct_definition(Some(name.to_string()), def.clone(), type_variables.clone());
                     let t = TypeUtil::to_basic_type_enum(&typ, ctx, pos)?;
                     let t = Self::add_tag_type(tag_basic_type, t, ctx);
                     list.push((Rc::new(typ), t.clone()));
@@ -131,7 +134,7 @@ impl<'ctx> CodeGen<'ctx> {
         BasicTypeEnum::StructType(struct_type)
     }
 
-    pub fn enum_from_enum_standard(&self, fields: &Vec<Enumerator>, _env: &mut Env<'ctx>) -> Result<(Vec<(String, IntValue<'ctx>)>, HashMap<String, usize>), CodeGenError> {
+    pub fn enum_from_enum_standard(&self, fields: &Vec<Enumerator>, type_variables: &Option<Vec<String>>, _env: &mut Env<'ctx>) -> Result<(Vec<(String, IntValue<'ctx>)>, HashMap<String, usize>), CodeGenError> {
         let mut enumerator_list: Vec<(String, IntValue<'ctx>)> = Vec::new();
         let mut index_map: HashMap<String, usize> = HashMap::new();
         let mut index: usize = 0;

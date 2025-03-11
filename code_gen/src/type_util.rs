@@ -73,12 +73,12 @@ impl TypeUtil {
 
                 Ok(to_type)
             },
-            Type::Struct { name, fields } => {
-                let (struct_type, _index_map) = CodeGen::struct_from_struct_definition(name, fields, ctx, pos)?;
+            Type::Struct { name, fields, type_variables } => {
+                let (struct_type, _index_map) = CodeGen::struct_from_struct_definition(name, fields, type_variables, ctx, pos)?;
                 Ok(BasicTypeEnum::StructType(struct_type))
             },
-            Type::Union { name, fields } => {
-                let (_union_type, _index_map, _max_size, max_size_type) = CodeGen::union_from_struct_definition(name, fields, ctx, pos)?;
+            Type::Union { name, fields, type_variables } => {
+                let (_union_type, _index_map, _max_size, max_size_type) = CodeGen::union_from_struct_definition(name, fields, type_variables, ctx, pos)?;
                 if let Some(typ) = max_size_type {
                     Ok(typ)
                 }else{
@@ -89,12 +89,12 @@ impl TypeUtil {
                     }
                 }
             },
-            Type::Enum { name, enum_def } => {
+            Type::Enum { name, enum_def, type_variables } => {
                 if enum_def.is_standard() {
                     Ok(BasicTypeEnum::IntType(ctx.i32_type()))
                 }else{
                     let enum_tag_type = Rc::new(Type::Number(global().enum_tag_type.clone()));
-                    let (_type_list, _index_map, _max_size, max_size_type) = CodeGen::tagged_enum_from_enum_definition(name, enum_def.get_fields(), &enum_tag_type, ctx, pos)?;
+                    let (_type_list, _index_map, _max_size, max_size_type) = CodeGen::tagged_enum_from_enum_definition(name, enum_def.get_fields(), &enum_tag_type, type_variables, ctx, pos)?;
 
                     if let Some(typ) = max_size_type {
                         Ok(typ)
@@ -143,13 +143,13 @@ impl TypeUtil {
             Type::Number(NumberType::UnsignedInt)    => Ok(AnyTypeEnum::IntType(ctx.i32_type())),
             Type::Number(NumberType::UnsignedLong)   => Ok(AnyTypeEnum::IntType(ctx.i64_type())),
             Type::Void   => Ok(AnyTypeEnum::VoidType(ctx.void_type())),
-            Type::Struct { name, fields } => {
+            Type::Struct { name, fields, type_variables } => {
                 let name = if let Some(id) = name {
                     Some(id.clone())
                 }else{
                     None
                 };
-                let (struct_type, _tbl) = CodeGen::struct_from_struct_definition(&name, &fields, ctx, pos)?;
+                let (struct_type, _tbl) = CodeGen::struct_from_struct_definition(&name, &fields, type_variables, ctx, pos)?;
                 Ok(struct_type.as_any_type_enum())
             },
             Type::Pointer(_ptr, typ) => {
@@ -180,13 +180,13 @@ impl TypeUtil {
             Type::Number(NumberType::UnsignedInt)    => Ok(ctx.i32_type().ptr_type(AddressSpace::default())),
             Type::Number(NumberType::UnsignedLong)   => Ok(ctx.i64_type().ptr_type(AddressSpace::default())),
             Type::Void   => Ok(ctx.i8_type().ptr_type(AddressSpace::default())),
-            Type::Struct { name, fields } => {
+            Type::Struct { name, fields, type_variables } => {
                 let name = if let Some(id) = name {
                     Some(id.clone())
                 }else{
                     None
                 };
-                let (struct_type, _tbl) = CodeGen::struct_from_struct_definition(&name, &fields, ctx, pos)?;
+                let (struct_type, _tbl) = CodeGen::struct_from_struct_definition(&name, &fields, type_variables, ctx, pos)?;
                 Ok(struct_type.ptr_type(AddressSpace::default()))
             },
             Type::Pointer(_ptr, typ) => {
@@ -344,11 +344,11 @@ impl TypeUtil {
                 let typ = TypeUtil::get_type(ast, env)?;
 
                 match typ.as_ref() {
-                    Type::Struct { name: _, fields } => {
+                    Type::Struct { name: _, fields, type_variables: _ } => {
                         let t = fields.get_type(&field_name).ok_or(CodeGenError::type_has_not_member(&field_name, pos.clone()))?;
                         Ok(t.clone())
                     },
-                    Type::Union { name: _, fields } => {
+                    Type::Union { name: _, fields, type_variables: _ } => {
                         let t = fields.get_type(&field_name).ok_or(CodeGenError::type_has_not_member(&field_name, pos.clone()))?;
                         Ok(t.clone())
                     },
@@ -363,11 +363,11 @@ impl TypeUtil {
                 let pointed_type = typ.get_pointed_type(pos)?;
 
                 match pointed_type {
-                    Type::Struct { name: _, fields } => {
+                    Type::Struct { name: _, fields, type_variables: _ } => {
                         let t = fields.get_type(&field_name).ok_or(CodeGenError::type_has_not_member(&field_name, pos.clone()))?;
                         Ok(t.clone())
                     },
-                    Type::Union { name: _, fields } => {
+                    Type::Union { name: _, fields, type_variables: _ } => {
                         let t = fields.get_type(&field_name).ok_or(CodeGenError::type_has_not_member(&field_name, pos.clone()))?;
                         Ok(t.clone())
                     },

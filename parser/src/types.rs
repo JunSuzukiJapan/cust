@@ -516,7 +516,7 @@ impl Enumerator {
     }
 
     pub fn new_struct(name: &str, definition: StructDefinition) -> Enumerator {
-        let struct_type = Type::struct_from_struct_definition(None, definition);
+        let struct_type = Type::struct_from_struct_definition(None, definition, None);
         Enumerator::TypeStruct { name: name.to_string(), struct_type: Rc::new(struct_type) }
     }
 
@@ -719,21 +719,42 @@ impl CustFunctionType {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct GenericType {
-    name: String,
-}
+// #[derive(Debug, Clone, PartialEq)]
+// pub enum GenericType {
+//     Struct {
+//         name: String,
+//         fields: StructDefinition,
+//         type_variables: Vec<String>,
+//     },
+//     Union {
+//         name: String,
+//         fields: StructDefinition,
+//         type_variables: Vec<String>,
+//     },
+//     Enum {
+//         name: String,
+//         fields: EnumDefinition,
+//         type_variables: Vec<String>,
+//     },
+// }
 
-impl GenericType {
-    pub fn new(name: &str) -> GenericType {
-        GenericType { name: name.to_string() }
-    }
+// impl GenericType {
+//     pub fn get_name(&self) -> &str {
+//         match self {
+//             GenericType::Struct { name, .. } => name,
+//             GenericType::Union { name, .. } => name,
+//             GenericType::Enum { name, .. } => name,
+//         }
+//     }
 
-    #[inline]
-    pub fn get_name(&self) -> &str {
-        &self.name
-    }
-}
+//     pub fn get_type_variables(&self) -> &Vec<String> {
+//         match self {
+//             GenericType::Struct { type_variables, .. } => type_variables,
+//             GenericType::Union { type_variables, .. } => type_variables,
+//             GenericType::Enum { type_variables, .. } => type_variables,
+//         }
+//     }
+// }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Type {
@@ -742,26 +763,30 @@ pub enum Type {
     Symbol(String),
     Pointer(Pointer, Box<Rc<Type>>),
     Function(CustFunctionType),
-    Struct {
-        name: Option<String>,
-        fields: StructDefinition,
-    },
-    Union {
-        name: Option<String>,
-        fields: StructDefinition,
-    },
     BitField,  // only for union member
     Array {
         name: Option<String>,
         typ: Box<Rc<Type>>,
         size_list: Vec<u32>,
     },
+    Struct {
+        name: Option<String>,
+        fields: StructDefinition,
+        type_variables: Option<Vec<String>>,
+    },
+    Union {
+        name: Option<String>,
+        fields: StructDefinition,
+        type_variables: Option<Vec<String>>,
+    },
     Enum {
         name: String,
         enum_def: EnumDefinition,
+        type_variables: Option<Vec<String>>,
     },
     Tuple(Vec<Rc<Type>>),
-    GenericType(GenericType),
+    TypeVariable(String),
+    // GenericType(GenericType),
     BoundGeneric {
         generic: Rc<Type>,
         bounds: Vec<Rc<Type>>,
@@ -799,17 +824,21 @@ impl Type {
         }
     }
 
-    pub fn struct_from_struct_definition(name: Option<String>, fields: StructDefinition) -> Type {
-        Type::Struct { name, fields }
+    pub fn struct_from_struct_definition(name: Option<String>, fields: StructDefinition, type_variables:Option<Vec<String>>) -> Type {
+        Type::Struct { name, fields, type_variables }
     }
 
-    pub fn union_from_struct_definition(name: Option<String>, fields: StructDefinition) -> Type {
-        Type::Union { name, fields }
+    pub fn union_from_struct_definition(name: Option<String>, fields: StructDefinition, type_variables:Option<Vec<String>>) -> Type {
+        Type::Union { name, fields, type_variables }
     }
 
-    pub fn enum_from_enum_definition(name: String, enum_def: EnumDefinition) -> Type {
-        Type::Enum { name: name, enum_def: enum_def }
+    pub fn enum_from_enum_definition(name: String, enum_def: EnumDefinition, type_variables:Option<Vec<String>>) -> Type {
+        Type::Enum { name, enum_def, type_variables }
     }
+
+    // pub fn generic_enum_from_enum_definition(name: String, enum_def: EnumDefinition, type_variables: Vec<String>) -> Type {
+    //     Type::GenericType(GenericType::Enum { name, fields: enum_def, type_variables })
+    // }
 
     #[inline]
     pub fn is_void(&self) -> bool {
@@ -953,7 +982,7 @@ impl Type {
 
     pub fn get_union_fields(&self) -> Option<&Vec<StructField>> {
         match self {
-            Type::Union { name: _, fields } => fields.get_fields(),
+            Type::Union { fields, .. } => fields.get_fields(),
             _ => None,
         }
     }
@@ -1066,6 +1095,24 @@ impl Type {
             _ => None,
         }
     }
+
+    pub fn has_type_variables(&self) -> bool {
+        match self {
+            Type::Struct { type_variables, .. } => type_variables.is_some(),
+            Type::Union { type_variables, .. } => type_variables.is_some(),
+            Type::Enum { type_variables, .. } => type_variables.is_some(),
+            _ => false,
+        }
+    }
+
+    pub fn get_type_variables(&self) -> &Option<Vec<String>> {
+        match self {
+            Type::Struct { type_variables, .. } => type_variables,
+            Type::Union { type_variables, .. } => type_variables,
+            Type::Enum { type_variables, .. } => type_variables,
+            _ => &None,
+        }
+    }
 }
 
 impl fmt::Display for Type {
@@ -1093,7 +1140,7 @@ impl fmt::Display for Type {
             Type::Pointer(p, t) => {
                 write!(f, "{} {}", *t, p)
             },
-            Type::Struct {name, fields: _} => {
+            Type::Struct {name, .. } => {
                 let name = if let Some(id) = name {
                     id
                 }else{
@@ -1101,7 +1148,7 @@ impl fmt::Display for Type {
                 };
                 write!(f, "struct {}", name)
             },
-            Type::Union {name, fields: _} => {
+            Type::Union {name, .. } => {
                 let name = if let Some(id) = name {
                     id
                 }else{
@@ -1109,7 +1156,7 @@ impl fmt::Display for Type {
                 };
                 write!(f, "union {}", name)
             },
-            Type::Enum { name, enum_def: _} => {
+            Type::Enum { name, .. } => {
                 write!(f, "Enum {}", name)
             },
             Type::Array { name, typ: _, size_list } => {
@@ -1143,10 +1190,17 @@ impl fmt::Display for Type {
             Type::Tuple(_type_list) => {
                 write!(f, "tuple")
             },
-            Type::GenericType(g_type) => {
-                write!(f, "<generic type: {}>", g_type.get_name())
+            Type::TypeVariable(name) => {
+                write!(f, "<generic type: {}>", name)
             },
-            Type::BoundGeneric { generic, bounds, map } => {
+            // Type::GenericType(g_type) => {
+            //     match g_type {
+            //         GenericType::Struct { name, .. } => write!(f, "<generic struct '{}'>", name),
+            //         GenericType::Union { name, .. } => write!(f, "<generic union '{}'>", name),
+            //         GenericType::Enum { name, .. } => write!(f, "<generic enum '{}'>", name),
+            //     }
+            // },
+            Type::BoundGeneric { generic, .. } => {
                 write!(f, "<bound generic type: {}>", generic.get_type_name())
             },
         }
