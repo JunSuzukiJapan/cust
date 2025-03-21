@@ -559,15 +559,15 @@ impl Parser {
                                         ));
                                     },
                                     Token::Less => {  // '<'
-                                        if let Some(typ) = defs.get_type(name) {  // すでに存在する型の場合は、型変数ではなく、実際の型がくるはず。
+                                        if let Some(mut generic_type) = defs.get_type(name) {  // すでに存在する型の場合は、型変数ではなく、実際の型がくるはず。
                                             iter.next();  // skip '<'
 
-                                            if ! typ.has_type_variables() {
+                                            if ! generic_type.has_type_variables() {
                                                 return Err(ParserError::has_not_type_variables(name.to_string(), pos.clone()));
                                             }
 
-                                            let type_vars = typ.get_type_variables().as_ref().unwrap();
-                                            let bound_type_list = self.parse_generic_params(typ, iter, defs)?;
+                                            let type_vars = generic_type.get_type_variables().as_ref().unwrap();
+                                            let bound_type_list = self.parse_generic_params(generic_type, iter, defs)?;
 
                                             if type_vars.len() != bound_type_list.len() {
                                                 return Err(ParserError::type_variable_count_mismatch(pos.clone()));
@@ -577,12 +577,12 @@ impl Parser {
                                             for i in 0..type_vars.len() {
                                                 map.insert(type_vars[i].clone(), bound_type_list[i].clone());
                                             }
-eprintln!("map: {:?}", map);
 
-
-                                            unimplemented!()
-
-
+                                            let typ = generic_type.bind_type_variables(map, pos)?;
+                                            opt_type = Some((
+                                                typ,
+                                                pos.clone()
+                                            ));
 
                                         }else{
                                             defs.add_new_generics();

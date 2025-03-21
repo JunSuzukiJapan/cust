@@ -89,6 +89,8 @@ pub enum ParserError {
     NotTupleType(String, Position),
     NotTypeToken(Token, Position),
     TypeVariableCountMismatch(Position),
+    NotMatchTypeVariablesCount(usize, usize, Position),
+    NoSuchATypeVariable(String, Position),
 }
 
 impl ParserError {
@@ -390,6 +392,14 @@ impl ParserError {
     pub fn type_variable_count_mismatch(pos: Position) -> Self {
         ParserError::TypeVariableCountMismatch(pos)
     }
+
+    pub fn not_match_type_variables_count(required_count: usize, real_count: usize, pos: Position) -> Self {
+        ParserError::NotMatchTypeVariablesCount(required_count, real_count, pos)
+    }
+
+    pub fn no_such_a_type_variable(name: String, pos: Position) -> Self {
+        ParserError::NoSuchATypeVariable(name, pos)
+    }
 }
 
 impl From<TokenizerError> for ParserError {
@@ -484,6 +494,8 @@ impl fmt::Display for ParserError {
             Self::NotTupleType(name, _pos) => write!(f, "{name} is not tuple"),
             Self::NotTypeToken(tok, _pos) => write!(f, "{tok:?} is not type token"),
             Self::TypeVariableCountMismatch(_pos) => write!(f, "type variable count mismatch"),
+            Self::NotMatchTypeVariablesCount(type_var_len, map_len, _pos) => write!(f, "type variables count mismatch. required {type_var_len}, but {map_len}"),
+            Self::NoSuchATypeVariable(name, _pos) => write!(f, "no such a type variable '{name}'"),
         }
     }
 }

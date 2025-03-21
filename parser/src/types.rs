@@ -786,10 +786,16 @@ pub enum Type {
     },
     Tuple(Vec<Rc<Type>>),
     TypeVariable(String),
-    // GenericType(GenericType),
-    BoundGeneric {
-        generic: Rc<Type>,
-        bounds: Vec<Rc<Type>>,
+    BoundStructType {
+        struct_type: Rc<Type>,
+        map: HashMap<String, Rc<Type>>,
+    },
+    BoundUnionType {
+        union_type: Rc<Type>,
+        map: HashMap<String, Rc<Type>>,
+    },
+    BoundEnumType {
+        enum_type: Rc<Type>,
         map: HashMap<String, Rc<Type>>,
     },
 }
@@ -835,10 +841,6 @@ impl Type {
     pub fn enum_from_enum_definition(name: String, enum_def: EnumDefinition, type_variables:Option<Vec<String>>) -> Type {
         Type::Enum { name, enum_def, type_variables }
     }
-
-    // pub fn generic_enum_from_enum_definition(name: String, enum_def: EnumDefinition, type_variables: Vec<String>) -> Type {
-    //     Type::GenericType(GenericType::Enum { name, fields: enum_def, type_variables })
-    // }
 
     #[inline]
     pub fn is_void(&self) -> bool {
@@ -1113,6 +1115,50 @@ impl Type {
             _ => &None,
         }
     }
+
+    fn check_exist_type_variables(type_variables: &Option<Vec<String>>, map:&HashMap<String, Rc<Type>>, pos: &Position) -> Result<(), ParserError> {
+        if let Some(vars) = type_variables {
+            for var in vars {
+                if map.len() != vars.len() {
+                    return Err(ParserError::not_match_type_variables_count(vars.len(), map.len(), pos.clone()));
+                }
+
+                if ! map.contains_key(var) {
+                    return Err(ParserError::no_such_a_type_variable(var.into(), pos.clone()));
+                }
+            }
+        }else{
+            if map.len() > 0 {
+                return Err(ParserError::not_match_type_variables_count(0, map.len(), pos.clone()));
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn bind_type_variables(&self, map: HashMap<String, Rc<Type>>, pos: &Position) -> Result<Rc<Type>, ParserError> {
+        match self {
+            Type::Struct { type_variables, .. } => {
+                Self::check_exist_type_variables(&type_variables, &map, pos)?;
+
+                let typ = Type::BoundStructType { struct_type: Rc::new(self.clone()), map: map };
+                Ok(Rc::new(typ))
+            },
+            Type::Union { type_variables, .. } => {
+                Self::check_exist_type_variables(&type_variables, &map, pos)?;
+
+                let typ = Type::BoundUnionType { union_type: Rc::new(self.clone()), map: map };
+                Ok(Rc::new(typ))
+            },
+            Type::Enum { type_variables, .. } => {
+                Self::check_exist_type_variables(type_variables, &map, pos)?;
+
+                let typ = Type::BoundEnumType { enum_type: Rc::new(self.clone()), map: map };
+                Ok(Rc::new(typ))
+            },
+            _ => panic!("not a type with type variables"),
+        }
+    }
 }
 
 impl fmt::Display for Type {
@@ -1193,16 +1239,37 @@ impl fmt::Display for Type {
             Type::TypeVariable(name) => {
                 write!(f, "<generic type: {}>", name)
             },
-            // Type::GenericType(g_type) => {
-            //     match g_type {
-            //         GenericType::Struct { name, .. } => write!(f, "<generic struct '{}'>", name),
-            //         GenericType::Union { name, .. } => write!(f, "<generic union '{}'>", name),
-            //         GenericType::Enum { name, .. } => write!(f, "<generic enum '{}'>", name),
-            //     }
-            // },
-            Type::BoundGeneric { generic, .. } => {
-                write!(f, "<bound generic type: {}>", generic.get_type_name())
+            Type::BoundStructType { struct_type, .. } => {
+                if let Type::Struct { name, .. } = struct_type.as_ref() {
+                    let name = if let Some(id) = name {
+                        id
+                    }else{
+                        "<no_name>"
+                    };
+                    write!(f, "bound struct {}", name)
+                }else{
+                    panic!("not a struct type")
+                }
             },
+            Type::BoundUnionType { union_type: struct_type, .. } => {
+                if let Type::Union { name, .. } = struct_type.as_ref() {
+                    let name = if let Some(id) = name {
+                        id
+                    }else{
+                        "<no_name>"
+                    };
+                    write!(f, "bound union {}", name)
+                }else{
+                    panic!("not a union type")
+                }
+            },
+            Type::BoundEnumType { enum_type, .. } => {
+                if let Type::Enum { name, .. } = enum_type.as_ref() {
+                    write!(f, "bound enum {}", name)
+                }else{
+                    panic!("not a enum type")
+                }
+            }
         }
     }
 }
