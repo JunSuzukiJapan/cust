@@ -37,6 +37,10 @@ mod tests {
             assert_eq!(fields[0], Enumerator::new_tuple("Some", vec![Rc::new(Type::TypeVariable("T".to_string()))]));
             assert_eq!(fields[1], Enumerator::new("None", 1));
 
+            let type_variables = type_variables.as_ref().unwrap();
+            assert_eq!(type_variables.len(), 1);
+            assert_eq!(type_variables[0], "T");
+
         }else{
             panic!()
         }

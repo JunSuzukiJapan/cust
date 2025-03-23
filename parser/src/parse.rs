@@ -592,8 +592,7 @@ impl Parser {
                                             self.parse_expected_token(iter, Token::BraceLeft)?;  // skip '{'
 
                                             let enum_def = self.parse_enum_body(name, pos3, iter, defs)?;
-                                            // let type_enum = Type::generic_enum_from_enum_definition(name.clone(), enum_def.clone(), Some(type_variables));
-                                            let type_enum = Type::enum_from_enum_definition(name.clone(), enum_def.clone(), None);
+                                            let type_enum = Type::enum_from_enum_definition(name.clone(), enum_def.clone(), Some(type_variables.clone()));
                                             defs.set_enum(name, enum_def, Some(type_variables), pos3)?;
 
                                             opt_type = Some((
@@ -798,7 +797,7 @@ impl Parser {
                 // }else{
                 //     panic!()
                 // }
-eprintln!("parse_type_list_in_tuple. pos: {:?}", iter.peek().unwrap().1);
+
                 let typ = self.parse_type(iter, defs)?;
                 let pointer = self.parse_pointer(iter, defs)?;
                 if let Some(ptr) = pointer {
@@ -871,7 +870,7 @@ eprintln!("parse_type_list_in_tuple. pos: {:?}", iter.peek().unwrap().1);
                 }
             }
         }
-eprintln!("parse_type_variables. list: {:?}", list);
+
         Ok(list)
     }
 
@@ -1185,7 +1184,6 @@ eprintln!("parse_type_variables. list: {:?}", list);
         let (typ, pos) = if let Some((typ, pos)) = opt_type {
             (typ, pos)
         }else{
-eprintln!("no type defined: {:?}", opt_name);
             return Err(ParserError::no_type_defined(opt_name, iter.peek().unwrap().1.clone()));
         };
         let typ = if let Some((true, _)) = opt_unsigned {
@@ -1193,7 +1191,7 @@ eprintln!("no type defined: {:?}", opt_name);
         }else{
             typ
         };
-eprintln!("typ: {:?}", typ);
+
         Ok(typ)
     }
 
