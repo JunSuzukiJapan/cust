@@ -881,6 +881,13 @@ impl Type {
         }
     }
 
+    pub fn is_bound_struct(&self) -> bool {
+        match self {
+            Type::BoundStructType {..} => true,
+            _ => false,
+        }
+    }
+
     pub fn is_union(&self) -> bool {
         match self {
             Type::Union {..} => true,
@@ -971,6 +978,7 @@ impl Type {
     pub fn get_struct_fields(&self) -> Option<&Vec<StructField>> {
         match self {
             Type::Struct {fields, ..} => fields.get_fields(),
+            Type::BoundStructType { struct_type, .. } => struct_type.get_struct_fields(),
             _ => None,
         }
     }

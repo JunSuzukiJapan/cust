@@ -12,6 +12,7 @@ use super::{CustSelf, Function, FunProto};
 use crate::ast::ForInitExpr;
 use crate::initializer::{Initializer, ConstInitializer, ArrayInitializer};
 
+use std::f32::consts::E;
 use std::slice::Iter;
 use std::iter::Peekable;
 use std::collections::{HashMap, HashSet};
@@ -133,10 +134,12 @@ impl Parser {
         let ds = ds.get_declaration_specifier().unwrap();
 
         let (tok, pos) = iter.peek().unwrap();
+eprintln!("tok: {:?}", tok);
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
         if *tok == Token::SemiColon {
             iter.next();  // skip ';'
-
+eprintln!("{}:{}:{}", file!(), line!(), column!());
+eprintln!("-- {:?}", ds);
             match ds.get_type().as_ref() {
                 Type::Struct { name, fields, type_variables } => {
                     return Ok(Some(ToplevelAST::DefineStruct{
@@ -168,7 +171,7 @@ impl Parser {
                 },
             }
         }
-
+eprintln!("{}:{}:{}", file!(), line!(), column!());
         let (decl, opt_initializer) = self.parse_declarator(ds.get_type(), iter, defs)?;
 
         if ds.is_typedef() {
@@ -433,8 +436,53 @@ impl Parser {
                                             Rc::new(type_struct),
                                             pos.clone()
                                         ));
+                                    },
+                                    Token::Less => {  // '<'
+eprintln!("parse_type_specifier_qualifier: '<'");
+                                    if let Some(generic_type) = defs.get_type(name) {  // すでに存在する型の場合は、型変数ではなく、実際の型がくるはず。
+                                            iter.next();  // skip '<'
+eprintln!("-- bind");
+                                            if ! generic_type.has_type_variables() {
+                                                return Err(ParserError::has_not_type_variables(name.to_string(), pos.clone()));
+                                            }
 
-                                        self.parse_expected_token(iter, Token::BraceRight)?;
+                                            let type_vars = generic_type.get_type_variables().as_ref().unwrap();
+                                            let bound_type_list = self.parse_generic_params(generic_type, iter, defs)?;
+
+                                            if type_vars.len() != bound_type_list.len() {
+                                                return Err(ParserError::type_variable_count_mismatch(pos.clone()));
+                                            }
+
+                                            let mut map = HashMap::new();
+                                            for i in 0..type_vars.len() {
+                                                map.insert(type_vars[i].clone(), bound_type_list[i].clone());
+                                            }
+
+                                            let typ = generic_type.bind_type_variables(map, pos)?;
+                                            opt_type = Some((
+                                                typ,
+                                                pos.clone()
+                                            ));
+eprintln!("-- bind end");
+                                        }else{
+                                            defs.add_new_generics();
+eprintln!("-- new generics");
+                                            let type_variables = self.parse_type_variables(iter, defs)?;
+
+                                            self.parse_expected_token(iter, Token::BraceLeft)?;  // skip '{'
+
+                                            let declaration = self.parse_struct_declaration_list(iter, defs)?;
+                                            let definition = StructDefinition::try_new(Some(name.clone()), Some(declaration), pos3)?;
+                                            let type_struct = Type::struct_from_struct_definition(Some(name.clone()), definition.clone(), Some(type_variables.clone()));
+                                            defs.set_struct(name, definition, Some(type_variables), pos3)?;
+eprintln!("-- set struct");
+                                            opt_type = Some((
+                                                Rc::new(type_struct),
+                                                pos.clone()
+                                            ));
+
+                                            defs.remove_generics();
+                                        }
                                     },
                                     _ => {
                                         let type_struct = if let Some(t) = defs.get_type(&name) {
@@ -453,6 +501,7 @@ impl Parser {
                                 }
                             },
                             Token::BraceLeft => {
+eprintln!("parse_type_specifier_qualifier: '{{'");
                                 iter.next();  // skip '{'
                                 let declaration = self.parse_struct_declaration_list(iter, defs)?;
                                 let definition = StructDefinition::try_new(None, Some(declaration), pos2)?;
@@ -461,8 +510,6 @@ impl Parser {
                                     Rc::new(type_struct),
                                     pos.clone()
                                 ));
-
-                                self.parse_expected_token(iter, Token::BraceRight)?;
                             },
                             _ => {
                                 // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
@@ -494,8 +541,6 @@ impl Parser {
                                             Rc::new(type_union),
                                             pos.clone()
                                         ));
-
-                                        self.parse_expected_token(iter, Token::BraceRight)?;
                                     },
                                     _ => {
                                         let type_union = if let Some(t) = defs.get_type(&name) {
@@ -525,8 +570,6 @@ impl Parser {
                                     Rc::new(type_struct),
                                     pos.clone()
                                 ));
-
-                                self.parse_expected_token(iter, Token::BraceRight)?;
                             },
                             _ => {
                                 // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
@@ -869,6 +912,15 @@ impl Parser {
                     return Err(ParserError::not_generic_type(tok.clone(), pos.clone()));
                 }
             }
+
+            let (tok2, pos2) = iter.peek().unwrap();
+            if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
+            if *tok2 == Token::Comma {
+                iter.next();  // skip ','
+            }else if *tok2 == Token::Greater {
+                iter.next();  // skip '>'
+                break;
+            }
         }
 
         Ok(list)
@@ -946,6 +998,7 @@ impl Parser {
                         }
                     },
                     Token::Struct => {
+eprintln!("{}:{}:{}", file!(), line!(), column!());
                         iter.next();  // skip 'struct'
 
                         let (tok2, pos2) = iter.next().unwrap();
@@ -1202,6 +1255,7 @@ impl Parser {
             let (tok, pos) = iter.peek().unwrap();
             if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
             if *tok == Token::BraceRight {
+                iter.next();  // skip '}'
                 break;
             }
 
@@ -1262,6 +1316,7 @@ impl Parser {
             Ok(StructDeclarator::new(None, Some(const_expr)))
 
         }else{
+eprintln!("file: {}, line: {}, column: {}", file!(), line!(), column!());
             let (decl, _initializer) = self.parse_declarator(typ, iter, defs)?;
 
             let (tok, pos) = iter.peek().unwrap();
@@ -1360,8 +1415,6 @@ impl Parser {
                     let declaration = self.parse_struct_declaration_list(iter, defs)?;
                     let definition = StructDefinition::try_new(None, Some(declaration), pos2)?;
 
-                    self.parse_expected_token(iter, Token::BraceRight)?;
-
                     enumerator = Enumerator::new_struct(name, definition);
 
                     let (tok3, pos3) = iter.peek().unwrap();
@@ -1383,6 +1436,7 @@ impl Parser {
     }
 
     pub fn parse_declarator(&self, typ: &Rc<Type>, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<(Declarator, Option<Initializer>), ParserError> {
+eprintln!("parse_declarator");
         let opt_pointer = self.parse_pointer(iter, defs)?;
         let (direct, initializer) = self.parse_direct_declarator(typ, iter, defs)?;
         Ok((Declarator::new(opt_pointer, direct), initializer))
@@ -1472,12 +1526,13 @@ impl Parser {
             },
             Token::ParenLeft => {
                 iter.next();  // skip '('
-
+eprintln!("file: {}, line: {}, column: {}", file!(), line!(), column!());
                 let (d, _initializer) = self.parse_declarator(typ, iter, defs)?;
                 self.parse_expected_token(iter, Token::ParenRight)?;
                 decl = DirectDeclarator::Enclosed(d, pos.clone());
             },
             _ => {
+eprintln!("tok: {:?}", tok);
                 return Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()))
             }
         }
@@ -2424,6 +2479,7 @@ impl Parser {
             if tok.is_type() {  // int, etc
                 true
             }else{
+eprintln!("{}:{}:{}", file!(), line!(), column!());
                 match tok {
                     Token::Struct => true,
                     Token::Symbol(id) => defs.exists_type(id),
@@ -3159,6 +3215,7 @@ impl Parser {
 
         match ds_or_variadic {
             DeclarationSpecifierOrVariadic::DS(ds) => {
+eprintln!("file: {}, line: {}, column: {}", file!(), line!(), column!());
                 let (decl, _initializer) = self.parse_declarator(ds.get_type(), iter, defs)?;
                 list.push(Param::new(ds, decl, defs, &iter.peek().unwrap().1)?);
         
@@ -3195,6 +3252,7 @@ impl Parser {
                         let ds_or_variadic = self.parse_declaration_specifier(iter, defs)?;
                         match ds_or_variadic {
                             DeclarationSpecifierOrVariadic::DS(ds) => {
+eprintln!("file: {}, line: {}, column: {}", file!(), line!(), column!());
                                 let (decl2, _initializer2) = self.parse_declarator(ds.get_type(), iter, defs)?;
                                 list.push(Param::new(ds, decl2, defs, pos)?);
                             },
@@ -3290,6 +3348,7 @@ impl Parser {
         let mut v = Vec::new();
         let mut cur_pos;
         loop {
+eprintln!("parse_declaration: {:?}", iter.peek().unwrap());
             let (decl, opt_initializer) = self.parse_declarator(typ, iter, defs)?;
             let name = decl.get_name();
             if defs.exists_var(&name) {
@@ -3363,7 +3422,7 @@ impl Parser {
     fn parse_struct_initializer_list(&self, target_type: &Rc<Type>, start_pos: &Position, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Initializer, ParserError> {
         let mut list: Vec<Box<Initializer>> = Vec::new();
 
-        if ! target_type.is_struct() { return Err(ParserError::not_struct_type_when_parsing_struct_initializer(start_pos.clone())) }
+        if ! (target_type.is_struct() || target_type.is_bound_struct()) { return Err(ParserError::not_struct_type_when_parsing_struct_initializer(start_pos.clone())) }
         let fields = target_type.get_struct_fields().unwrap();
         let mut index = 0;
 
@@ -3490,6 +3549,7 @@ impl Parser {
 
     fn parse_simple_declaration(&self, start_pos: &Position, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Option<ForInitExpr>, ParserError> {
         let ds = self.parse_declaration_specifier(iter, defs)?;
+eprintln!("parse_simple_declaration: {:?}", ds);
         let ds = ds.get_declaration_specifier().unwrap();
         let (decl, _opt_initializer) = self.parse_declarator(ds.get_type(), iter, defs)?;
 
