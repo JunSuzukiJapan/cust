@@ -134,12 +134,10 @@ impl Parser {
         let ds = ds.get_declaration_specifier().unwrap();
 
         let (tok, pos) = iter.peek().unwrap();
-eprintln!("tok: {:?}", tok);
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
         if *tok == Token::SemiColon {
             iter.next();  // skip ';'
-eprintln!("{}:{}:{}", file!(), line!(), column!());
-eprintln!("-- {:?}", ds);
+
             match ds.get_type().as_ref() {
                 Type::Struct { name, fields, type_variables } => {
                     return Ok(Some(ToplevelAST::DefineStruct{
@@ -171,7 +169,7 @@ eprintln!("-- {:?}", ds);
                 },
             }
         }
-eprintln!("{}:{}:{}", file!(), line!(), column!());
+
         let (decl, opt_initializer) = self.parse_declarator(ds.get_type(), iter, defs)?;
 
         if ds.is_typedef() {
@@ -438,10 +436,9 @@ eprintln!("{}:{}:{}", file!(), line!(), column!());
                                         ));
                                     },
                                     Token::Less => {  // '<'
-eprintln!("parse_type_specifier_qualifier: '<'");
                                     if let Some(generic_type) = defs.get_type(name) {  // すでに存在する型の場合は、型変数ではなく、実際の型がくるはず。
                                             iter.next();  // skip '<'
-eprintln!("-- bind");
+
                                             if ! generic_type.has_type_variables() {
                                                 return Err(ParserError::has_not_type_variables(name.to_string(), pos.clone()));
                                             }
@@ -463,10 +460,10 @@ eprintln!("-- bind");
                                                 typ,
                                                 pos.clone()
                                             ));
-eprintln!("-- bind end");
+
                                         }else{
                                             defs.add_new_generics();
-eprintln!("-- new generics");
+
                                             let type_variables = self.parse_type_variables(iter, defs)?;
 
                                             self.parse_expected_token(iter, Token::BraceLeft)?;  // skip '{'
@@ -475,7 +472,7 @@ eprintln!("-- new generics");
                                             let definition = StructDefinition::try_new(Some(name.clone()), Some(declaration), pos3)?;
                                             let type_struct = Type::struct_from_struct_definition(Some(name.clone()), definition.clone(), Some(type_variables.clone()));
                                             defs.set_struct(name, definition, Some(type_variables), pos3)?;
-eprintln!("-- set struct");
+
                                             opt_type = Some((
                                                 Rc::new(type_struct),
                                                 pos.clone()
@@ -501,7 +498,6 @@ eprintln!("-- set struct");
                                 }
                             },
                             Token::BraceLeft => {
-eprintln!("parse_type_specifier_qualifier: '{{'");
                                 iter.next();  // skip '{'
                                 let declaration = self.parse_struct_declaration_list(iter, defs)?;
                                 let definition = StructDefinition::try_new(None, Some(declaration), pos2)?;
@@ -998,7 +994,6 @@ eprintln!("parse_type_specifier_qualifier: '{{'");
                         }
                     },
                     Token::Struct => {
-eprintln!("{}:{}:{}", file!(), line!(), column!());
                         iter.next();  // skip 'struct'
 
                         let (tok2, pos2) = iter.next().unwrap();
@@ -1316,7 +1311,6 @@ eprintln!("{}:{}:{}", file!(), line!(), column!());
             Ok(StructDeclarator::new(None, Some(const_expr)))
 
         }else{
-eprintln!("file: {}, line: {}, column: {}", file!(), line!(), column!());
             let (decl, _initializer) = self.parse_declarator(typ, iter, defs)?;
 
             let (tok, pos) = iter.peek().unwrap();
@@ -1436,7 +1430,6 @@ eprintln!("file: {}, line: {}, column: {}", file!(), line!(), column!());
     }
 
     pub fn parse_declarator(&self, typ: &Rc<Type>, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<(Declarator, Option<Initializer>), ParserError> {
-eprintln!("parse_declarator");
         let opt_pointer = self.parse_pointer(iter, defs)?;
         let (direct, initializer) = self.parse_direct_declarator(typ, iter, defs)?;
         Ok((Declarator::new(opt_pointer, direct), initializer))
@@ -1526,13 +1519,12 @@ eprintln!("parse_declarator");
             },
             Token::ParenLeft => {
                 iter.next();  // skip '('
-eprintln!("file: {}, line: {}, column: {}", file!(), line!(), column!());
+
                 let (d, _initializer) = self.parse_declarator(typ, iter, defs)?;
                 self.parse_expected_token(iter, Token::ParenRight)?;
                 decl = DirectDeclarator::Enclosed(d, pos.clone());
             },
             _ => {
-eprintln!("tok: {:?}", tok);
                 return Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()))
             }
         }
@@ -2479,7 +2471,6 @@ eprintln!("tok: {:?}", tok);
             if tok.is_type() {  // int, etc
                 true
             }else{
-eprintln!("{}:{}:{}", file!(), line!(), column!());
                 match tok {
                     Token::Struct => true,
                     Token::Symbol(id) => defs.exists_type(id),
@@ -3215,7 +3206,6 @@ eprintln!("{}:{}:{}", file!(), line!(), column!());
 
         match ds_or_variadic {
             DeclarationSpecifierOrVariadic::DS(ds) => {
-eprintln!("file: {}, line: {}, column: {}", file!(), line!(), column!());
                 let (decl, _initializer) = self.parse_declarator(ds.get_type(), iter, defs)?;
                 list.push(Param::new(ds, decl, defs, &iter.peek().unwrap().1)?);
         
@@ -3252,7 +3242,6 @@ eprintln!("file: {}, line: {}, column: {}", file!(), line!(), column!());
                         let ds_or_variadic = self.parse_declaration_specifier(iter, defs)?;
                         match ds_or_variadic {
                             DeclarationSpecifierOrVariadic::DS(ds) => {
-eprintln!("file: {}, line: {}, column: {}", file!(), line!(), column!());
                                 let (decl2, _initializer2) = self.parse_declarator(ds.get_type(), iter, defs)?;
                                 list.push(Param::new(ds, decl2, defs, pos)?);
                             },
@@ -3348,7 +3337,6 @@ eprintln!("file: {}, line: {}, column: {}", file!(), line!(), column!());
         let mut v = Vec::new();
         let mut cur_pos;
         loop {
-eprintln!("parse_declaration: {:?}", iter.peek().unwrap());
             let (decl, opt_initializer) = self.parse_declarator(typ, iter, defs)?;
             let name = decl.get_name();
             if defs.exists_var(&name) {
@@ -3549,7 +3537,6 @@ eprintln!("parse_declaration: {:?}", iter.peek().unwrap());
 
     fn parse_simple_declaration(&self, start_pos: &Position, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Option<ForInitExpr>, ParserError> {
         let ds = self.parse_declaration_specifier(iter, defs)?;
-eprintln!("parse_simple_declaration: {:?}", ds);
         let ds = ds.get_declaration_specifier().unwrap();
         let (decl, _opt_initializer) = self.parse_declarator(ds.get_type(), iter, defs)?;
 
