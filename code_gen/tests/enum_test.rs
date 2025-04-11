@@ -6,7 +6,7 @@ mod common;
 
 use common::*;
 
-/*
+
 #[test]
 fn code_gen_struct_type_enum() {
     let src = "
@@ -49,4 +49,3 @@ fn code_gen_struct_type_enum() {
     assert_eq!(unsafe { f.call(0) }, 2);
     assert_eq!(unsafe { f.call(1) }, 4);
 }
-*/

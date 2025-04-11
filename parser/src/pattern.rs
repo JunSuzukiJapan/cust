@@ -16,8 +16,11 @@ pub enum Pattern {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum EnumPattern {
+    // Name::SubName
     Simple(String, String),
+    // Name::SubName(pattern1 @ pat_name, pattern2, ...)
     Tuple(String, String, Vec<(Vec<(Box<Pattern>, Position)>, Option<String>)>),
+    // Name::SubName { field1: struct_pattern1, field2: struct_pattern2, ... }
     Struct(String, String, StructPattern),
 }
 

@@ -94,7 +94,6 @@ impl<'ctx> CodeGen<'ctx> {
                     let t = Self::add_tag_type(tag_basic_type, t, ctx);
                     list.push((Rc::new(typ), t.clone()));
 
-                    // let size = Self::size_of(&t)? + tag_size;
                     let size = Self::size_of(&t)?;
                     if size > max_size {
                         max_size = size;

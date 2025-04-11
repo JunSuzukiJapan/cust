@@ -634,6 +634,13 @@ impl EnumDefinition {
         index_map
     }
 
+    pub fn get_name(&self) -> &str {
+        match self {
+            EnumDefinition::StandardEnum { name, .. } => name,
+            EnumDefinition::TaggedEnum { name, .. } => name,
+        }
+    }
+
     pub fn get_fields(&self) -> &Vec<Enumerator> {
         match self {
             EnumDefinition::StandardEnum { fields, .. } => &fields,
@@ -648,9 +655,27 @@ impl EnumDefinition {
         }
     }
 
+    pub fn get_index(&self, name: &str) -> Option<usize> {
+        match self {
+            EnumDefinition::StandardEnum { index_map, .. } => {
+                if let Some(index) = index_map.get(name) {
+                    Some(*index)
+                }else{
+                    None
+                }
+            },
+            EnumDefinition::TaggedEnum { index_map, .. } => {
+                if let Some(index) = index_map.get(name) {
+                    Some(*index)
+                }else{
+                    None
+                }
+            },
+        }
+    }
+
     pub fn get_struct_type_index(&self, sub_type_name: &str, member_name: &str) -> Option<usize> {
         match self {
-            EnumDefinition::StandardEnum { index_map, .. } => None,
             EnumDefinition::TaggedEnum { index_map, fields, .. } => {
                 let index = index_map.get(sub_type_name).map(|x| *x)?;
                 let sub_type = fields.get(index)?;
@@ -663,6 +688,7 @@ impl EnumDefinition {
                     _ => None,
                 }
             },
+            _ => None,
         }
     }
 
@@ -874,6 +900,7 @@ impl Type {
         }
     }
 
+    #[inline]
     pub fn is_struct(&self) -> bool {
         match self {
             Type::Struct {..} => true,
@@ -881,6 +908,7 @@ impl Type {
         }
     }
 
+    #[inline]
     pub fn is_bound_struct(&self) -> bool {
         match self {
             Type::BoundStructType {..} => true,
@@ -888,6 +916,7 @@ impl Type {
         }
     }
 
+    #[inline]
     pub fn is_union(&self) -> bool {
         match self {
             Type::Union {..} => true,
@@ -895,6 +924,7 @@ impl Type {
         }
     }
 
+    #[inline]
     pub fn is_enum(&self) -> bool {
         match self {
             Type::Enum { .. } => true,
@@ -902,6 +932,7 @@ impl Type {
         }
     }
 
+    #[inline]
     pub fn is_tagged_enum(&self) -> bool {
         match self {
             Type::Enum { enum_def, .. } => {
@@ -914,6 +945,7 @@ impl Type {
         }
     }
 
+    #[inline]
     pub fn is_tuple(&self) -> bool {
         match self {
             Type::Tuple(..) => true,
@@ -935,6 +967,7 @@ impl Type {
         }
     }
 
+    #[inline]
     pub fn is_number(&self) -> bool {
         match self {
             Type::Number(_) => true,

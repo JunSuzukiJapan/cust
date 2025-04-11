@@ -194,6 +194,36 @@ impl<'ctx> TypeOrUnion<'ctx> {
         }
     }
 
+    #[allow(unused)]
+    pub fn is_enum_type(&self) -> bool {
+        match self {
+            TypeOrUnion::StandardEnum {..} => true,
+            TypeOrUnion::TaggedEnum {..} => true,
+            _ => false,
+        }
+    }
+
+    #[allow(unused)]
+    pub fn is_tagged_enum_type(&self) -> bool {
+        match self {
+            TypeOrUnion::TaggedEnum {..} => true,
+            _ => false,
+        }
+    }
+
+    // pub fn get_tagged_enum_type(&self) -> Option<Type> {
+    //     match self {
+    //         TypeOrUnion::TaggedEnum { type_list, .. } => {
+    //             if type_list.len() == 1 {
+    //                 Some(type_list[0].0.clone())
+    //             }else{
+    //                 None
+    //             }
+    //         },
+    //         _ => None,
+    //     }
+    // }
+
     pub fn as_any_type_enum(&self) -> AnyTypeEnum<'ctx> {
         match self {
             TypeOrUnion::Type(t) => t.as_any_type_enum(),

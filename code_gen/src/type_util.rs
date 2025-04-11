@@ -93,9 +93,11 @@ impl TypeUtil {
                 if enum_def.is_standard() {
                     Ok(BasicTypeEnum::IntType(ctx.i32_type()))
                 }else{
+eprintln!("enum_def: {:?}", enum_def);
                     let enum_tag_type = Rc::new(Type::Number(global().enum_tag_type.clone()));
+eprintln!("enum_tag_type: {:?}", enum_tag_type);
                     let (_type_list, _index_map, _max_size, max_size_type) = CodeGen::tagged_enum_from_enum_definition(name, enum_def.get_fields(), &enum_tag_type, type_variables, ctx, pos)?;
-
+eprintln!("_type_list: {:?}", _type_list);
                     if let Some(typ) = max_size_type {
                         Ok(typ)
                     }else{
