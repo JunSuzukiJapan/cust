@@ -675,8 +675,28 @@ impl EnumDefinition {
     }
 
     pub fn get_struct_type_index(&self, sub_type_name: &str, member_name: &str) -> Option<usize> {
+eprintln!("self: {:?}\n", self);
         match self {
             EnumDefinition::TaggedEnum { index_map, fields, .. } => {
+eprintln!("tagged\n");
+eprintln!("index_map: {:?}\n", index_map);
+eprintln!("fields: {:?}\n", fields);
+eprintln!("sub_type_name: {:?}\n", sub_type_name);
+eprintln!("member_name: {:?}\n", member_name);
+                let index = index_map.get(sub_type_name).map(|x| *x)?;
+                let sub_type = fields.get(index)?;
+eprintln!("sub_type: {:?}\n", sub_type);
+                match sub_type {
+                    Enumerator::TypeStruct { struct_type, .. } => {
+eprintln!("struct_type: {:?}\n", struct_type);
+                        let struct_def = struct_type.get_struct_definition()?;
+                        struct_def.get_index(member_name)
+                    },
+                    _ => None,
+                }
+            },
+            EnumDefinition::StandardEnum { index_map, fields, .. } => {
+eprintln!("standard\n");
                 let index = index_map.get(sub_type_name).map(|x| *x)?;
                 let sub_type = fields.get(index)?;
 

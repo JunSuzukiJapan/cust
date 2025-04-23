@@ -12,7 +12,6 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicMetadataValueEnum, BasicValue
 use inkwell::types::{AnyTypeEnum, BasicType, BasicTypeEnum};
 use inkwell::types::AnyType;
 use inkwell::types::StructType;
-use inkwell::AddressSpace;
 use std::error::Error;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -56,7 +55,7 @@ impl<'ctx> CodeGen<'ctx> {
                     struct_ty = struct_type;
                 }
 
-                let basic_val = self.builder.build_load(struct_ty, struct_ptr, &format!("load_struct_{}_literal", struct_name))?;
+                let basic_val = self.builder.build_load(struct_ty, struct_ptr, &format!("load_struct_{}_normal_literal", struct_name))?;
                 let any_val = basic_val.as_any_value_enum();
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
@@ -85,7 +84,7 @@ impl<'ctx> CodeGen<'ctx> {
                     struct_ty = struct_type;
                 }
 
-                let basic_val = self.builder.build_load(struct_ty, struct_ptr, &format!("load_struct_{}_literal", struct_name))?;
+                let basic_val = self.builder.build_load(struct_ty, struct_ptr, &format!("load_struct_{}_const_literal", struct_name))?;
                 let any_val = basic_val.as_any_value_enum();
 
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
