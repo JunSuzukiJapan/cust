@@ -121,6 +121,7 @@ pub enum CodeGenError {
     NotStructOrTupleInTaggedEnum(String, String, Position),
     NotEnum(Type, Position),
     NoSuchAField(String, String, Position),  // (struct name, field name, Position)
+    CannotInitEnum(String, Position),  // (enum name, field name, Position)
 }
 
 impl CodeGenError {
@@ -537,6 +538,10 @@ impl CodeGenError {
     pub fn no_such_a_field(struct_name: String, field_name: String, pos: Position) -> Self {
         Self::NoSuchAField(struct_name, field_name, pos)
     }
+
+    pub fn cannot_init_enum(enum_name: String, pos: Position) -> Self {
+        Self::CannotInitEnum(enum_name, pos)
+    }
 }
 
 impl From<ParserError> for CodeGenError {
@@ -873,6 +878,9 @@ impl fmt::Display for CodeGenError {
             },
             Self::NoSuchAField(struct_name, field_name, _pos) => {
                 write!(f, "no such a field '{field_name}' in '{struct_name}'")
+            },
+            Self::CannotInitEnum(enum_name, _pos) => {
+                write!(f, "cannot init enum '{enum_name}'")
             },
         }
     }
