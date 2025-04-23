@@ -226,14 +226,14 @@ impl<'ctx> CodeGen<'ctx> {
         let func = func.clone();
         let cond_block = self.context.append_basic_block(func, "if_let.cond");
         let cond_block2 = self.context.append_basic_block(func, "if_let.cond2");
-        // let then_block = self.context.append_basic_block(func, "if_let.then");
+        let then_block = self.context.append_basic_block(func, "if_let.then");
         let else_block = self.context.append_basic_block(func, "if_let.else");
         let end_block  = self.context.append_basic_block(func, "if_let.end");
 
         self.builder.build_unconditional_branch(cond_block)?;
         self.builder.position_at_end(cond_block);
 
-        // env.add_new_local();
+        env.add_new_local();
 
         // match patterns
         let cond = self.gen_expr(condition, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::condition_is_not_number(condition, (*condition).get_position().clone()))?;
@@ -255,24 +255,24 @@ impl<'ctx> CodeGen<'ctx> {
         let mut comparison = matched.get_value().into_int_value();
         let i1_type = self.context.bool_type();
         comparison = self.builder.build_int_cast(comparison, i1_type, "cast to i1")?;  // cast to i1
-        // self.builder.build_conditional_branch(comparison, then_block, else_block)?;
-        self.builder.build_conditional_branch(comparison, end_block, else_block)?;
+        self.builder.build_conditional_branch(comparison, then_block, else_block)?;
+        // self.builder.build_conditional_branch(comparison, end_block, else_block)?;
 
-        // // then block
-        // self.builder.position_at_end(then_block);
-        // self.gen_stmt(then, env, break_catcher, continue_catcher)?;
-        // if let Some(blk) = self.builder.get_insert_block() {
-        //     if ! self.last_is_jump_statement(blk) {
-        //         self.builder.position_at_end(blk);
-        //         self.builder.build_unconditional_branch(end_block)?;
-        //     }
-        // }
-        // if ! self.last_is_jump_statement(then_block) {
-        //     self.builder.position_at_end(then_block);
-        //     self.builder.build_unconditional_branch(end_block)?;
-        // }
+        // then block
+        self.builder.position_at_end(then_block);
+        self.gen_stmt(then, env, break_catcher, continue_catcher)?;
+        if let Some(blk) = self.builder.get_insert_block() {
+            if ! self.last_is_jump_statement(blk) {
+                self.builder.position_at_end(blk);
+                self.builder.build_unconditional_branch(end_block)?;
+            }
+        }
+        if ! self.last_is_jump_statement(then_block) {
+            self.builder.position_at_end(then_block);
+            self.builder.build_unconditional_branch(end_block)?;
+        }
 
-        // env.remove_local();
+        env.remove_local();
 
         // else block
         self.builder.position_at_end(else_block);
