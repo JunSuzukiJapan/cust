@@ -313,6 +313,7 @@ impl<'ctx> CodeGen<'ctx> {
         let zero = bool_type.const_zero();
         let one = bool_type.const_all_ones();
         let condition_ptr = self.builder.build_alloca(bool_type, "matched")?;
+eprintln!("store zero to condition_ptr\n");
         self.builder.build_store(condition_ptr, zero)?;  // set return value false
 
         // let all_end_block  = self.context.append_basic_block(func, "match.all_end");
@@ -605,7 +606,9 @@ eprintln!("{}:{}:{}", file!(), line!(), column!());
 eprintln!("value: {:?}", value);
                             let real_tag = self.gen_get_tag(value, env, pos)?;
 eprintln!("real_tag: {:?}", real_tag);
-                            let (left, right) = self.bin_expr_implicit_cast(n, value.clone(), pos)?;
+                            let ty = Rc::new(Type::Number(NumberType::Int));
+                            let right = CompiledValue::new(ty, real_tag.as_any_value_enum());
+                            let (left, right) = self.bin_expr_implicit_cast(n, right, pos)?;
                             let left_value = left.get_value();
                             let right_value = right.get_value();
 eprintln!("left_value: {:?}", left_value);
@@ -616,39 +619,38 @@ eprintln!("{}:{}:{}", file!(), line!(), column!());
                             self.builder.build_conditional_branch(comparison, then_block, else_block)?;
 eprintln!("{}:{}:{}", file!(), line!(), column!());
 
+
+
+
+
+
+
+
+                            // let then_block = self.context.append_basic_block(func, "match.then");
+                            // let else_block  = self.context.append_basic_block(func, "match.else");
+        
+                            // let i8_type = self.context.i8_type();
+                            // let i8_ch = i8_type.const_int(*ch as u64, true);
+                            // let c = CompiledValue::new(Type::Number(NumberType::Char).into(), i8_ch.as_any_value_enum());
+        
+                            // let (left, right) = self.bin_expr_implicit_cast(c, value.clone(), pos)?;
+                            // let left_value = left.get_value();
+                            // let right_value = right.get_value();
+            
+                            // let comparison = self.builder.build_int_compare(IntPredicate::EQ, left_value.into_int_value(), right_value.into_int_value(), "match_compare_char")?;
+                            // self.builder.build_conditional_branch(comparison, then_block, else_block)?;
+        
                             //
                             // matched
                             //
                             self.builder.position_at_end(then_block);
-                            self.builder.build_store(condition_ptr, one)?;  // set return value true
+                            self.builder.build_store(condition_ptr, one)?;
                             self.builder.build_unconditional_branch(all_end_block)?;
-
-                            // then block
-                            env.add_new_local();
-eprintln!("{}:{}:{}", file!(), line!(), column!());
-
-                            self.builder.position_at_end(then_block);
-                            self.gen_stmt(then, env, break_catcher, continue_catcher)?;
-                            if let Some(blk) = self.builder.get_insert_block() {
-                                if ! self.last_is_jump_statement(blk) {
-                                    self.builder.position_at_end(blk);
-                                    self.builder.build_unconditional_branch(all_end_block)?;
-                                }
-                            }
-                            if ! self.last_is_jump_statement(then_block) {
-                                self.builder.position_at_end(then_block);
-                                self.builder.build_unconditional_branch(all_end_block)?;
-                            }
-
-                            env.remove_local();
-eprintln!("{}:{}:{}", file!(), line!(), column!());
-
+        
                             //
                             // not matched
                             //
                             self.builder.position_at_end(else_block);
-
-                            unimplemented!()
                         },
                     }
 
@@ -660,7 +662,7 @@ eprintln!("{}:{}:{}", file!(), line!(), column!());
 
 
 
-                    unimplemented!()
+                    // unimplemented!()
                 },
             }
         }
@@ -687,6 +689,8 @@ eprintln!("{}:{}:{}", file!(), line!(), column!());
         let num_type = Type::Number(NumberType::_Bool);
         let result_any_value: AnyValueEnum = self.builder.build_load(bool_type, condition_ptr, "get_condition")?.as_any_value_enum();
         Ok(Some(CompiledValue::new(Rc::new(num_type), result_any_value)))
+        // let result_any_value = condition_ptr.as_any_value_enum();
+        // Ok(Some(CompiledValue::new(Rc::new(num_type), result_any_value)))
     }
 
     fn gen_get_tag(&self,
