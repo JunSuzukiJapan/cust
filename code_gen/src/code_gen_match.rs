@@ -313,194 +313,31 @@ impl<'ctx> CodeGen<'ctx> {
         let zero = bool_type.const_zero();
         let one = bool_type.const_all_ones();
         let condition_ptr = self.builder.build_alloca(bool_type, "matched")?;
-eprintln!("store zero to condition_ptr\n");
         self.builder.build_store(condition_ptr, zero)?;  // set return value false
 
-        // let all_end_block  = self.context.append_basic_block(func, "match.all_end");
         let all_end_block = after_match_block;
 
         for (pat, pos) in pattern_list {
             match &**pat {
                 Pattern::Var(name) => {
-                    self.builder.build_store(condition_ptr, one)?;
-
-                    let sq = SpecifierQualifier::default();
-
-                    let typ = value.get_type();
-                    let basic_type = env.basic_type_enum_from_type(&typ, self.context, pos)?;
-                    let ptr = self.builder.build_alloca(basic_type, name)?;
-
-                    let any_value = value.get_value();
-                    let basic_value = self.try_as_basic_value(&any_value, pos)?;
-                    self.builder.build_store(ptr, basic_value)?;
-
-                    env.insert_local(name, Rc::clone(typ), sq, ptr);
-
-                    // self.builder.build_unconditional_branch(all_end_block)?;
+                    self.gen_ver_match(value, env, one, condition_ptr, pos, name)?;
 
                     break;
                 },
                 Pattern::Char(ch) => {
-                    let then_block = self.context.append_basic_block(func, "match.then");
-                    let else_block  = self.context.append_basic_block(func, "match.else");
-
-                    let i8_type = self.context.i8_type();
-                    let i8_ch = i8_type.const_int(*ch as u64, true);
-                    let c = CompiledValue::new(Type::Number(NumberType::Char).into(), i8_ch.as_any_value_enum());
-
-                    let (left, right) = self.bin_expr_implicit_cast(c, value.clone(), pos)?;
-                    let left_value = left.get_value();
-                    let right_value = right.get_value();
-    
-                    let comparison = self.builder.build_int_compare(IntPredicate::EQ, left_value.into_int_value(), right_value.into_int_value(), "match_compare_char")?;
-                    self.builder.build_conditional_branch(comparison, then_block, else_block)?;
-
-                    //
-                    // matched
-                    //
-                    self.builder.position_at_end(then_block);
-                    self.builder.build_store(condition_ptr, one)?;
-                    self.builder.build_unconditional_branch(all_end_block)?;
-
-                    //
-                    // not matched
-                    //
-                    self.builder.position_at_end(else_block);
+                    self.gen_char_match(value, func, one, condition_ptr, all_end_block, pos, ch)?;
                 },
                 Pattern::CharRange(ch1, ch2) => {
-                    let greater_than_block = self.context.append_basic_block(func, "match.greater");
-                    let less_than_block = self.context.append_basic_block(func, "match.less");
-                    let else_block  = self.context.append_basic_block(func, "match.else");
-
-                    let i8_type = self.context.i8_type();
-                    let i8_ch = i8_type.const_int(*ch1 as u64, true);
-                    let c = CompiledValue::new(Type::Number(NumberType::Char).into(), i8_ch.as_any_value_enum());
-
-                    let (other, target) = self.bin_expr_implicit_cast(c, value.clone(), pos)?;
-                    let other_value = other.get_value();
-                    let target_value = target.get_value();
-    
-                    let comparison = self.builder.build_int_compare(IntPredicate::UGE, target_value.into_int_value(), other_value.into_int_value(), "match_compare_char")?;
-                    self.builder.build_conditional_branch(comparison, greater_than_block, else_block)?;
-
-                    //
-                    // 1st matched
-                    //
-                    self.builder.position_at_end(greater_than_block);
-                    let i8_ch2 = i8_type.const_int(*ch2 as u64, true);
-                    let c2 = CompiledValue::new(Type::Number(NumberType::Char).into(), i8_ch2.as_any_value_enum());
-
-                    let (other, target) = self.bin_expr_implicit_cast(c2, value.clone(), pos)?;
-                    let other_value = other.get_value();
-                    let target_value = target.get_value();
-    
-                    let comparison = self.builder.build_int_compare(IntPredicate::ULE, target_value.into_int_value(), other_value.into_int_value(), "match_compare_char")?;
-                    self.builder.build_conditional_branch(comparison, less_than_block, else_block)?;
-
-                    //
-                    // 2nd matched
-                    //
-                    self.builder.position_at_end(less_than_block);
-                    self.builder.build_store(condition_ptr, one)?;
-                    self.builder.build_unconditional_branch(all_end_block)?;
-
-                    //
-                    // not matched
-                    //
-                    self.builder.position_at_end(else_block);
+                    self.gen_char_range_match(value, func, one, condition_ptr, all_end_block, pos, ch1, ch2)?;
                 },
                 Pattern::Number(num) => {
-                    let then_block = self.context.append_basic_block(func, "match.then");
-                    let else_block  = self.context.append_basic_block(func, "match.else");
-
-                    let i64_type = self.context.i64_type();
-                    let i64_num = i64_type.const_int(*num as u64, true);
-                    let n = CompiledValue::new(Type::Number(NumberType::LongLong).into(), i64_num.as_any_value_enum());
-
-                    let (left, right) = self.bin_expr_implicit_cast(n, value.clone(), pos)?;
-                    let left_value = left.get_value();
-                    let right_value = right.get_value();
-                    let comparison = self.builder.build_int_compare(IntPredicate::EQ, left_value.into_int_value(), right_value.into_int_value(), "match_compare_number")?;
-                    self.builder.build_conditional_branch(comparison, then_block, else_block)?;
-
-                    //
-                    // matched
-                    //
-                    self.builder.position_at_end(then_block);
-                    self.builder.build_store(condition_ptr, one)?;  // set return value true
-                    self.builder.build_unconditional_branch(all_end_block)?;
-
-                    //
-                    // not matched
-                    //
-                    self.builder.position_at_end(else_block);
+                    self.gen_number_match(value, func, one, condition_ptr, all_end_block, pos, num)?;
                 },
                 Pattern::NumberRange(num1, num2) => {
-                    let greater_than_block = self.context.append_basic_block(func, "match.greater");
-                    let less_than_block = self.context.append_basic_block(func, "match.less");
-                    let else_block  = self.context.append_basic_block(func, "match.else");
-
-                    let i64_type = self.context.i64_type();
-                    let i64_num = i64_type.const_int(*num1 as u64, true);
-                    let n = CompiledValue::new(Type::Number(NumberType::LongLong).into(), i64_num.as_any_value_enum());
-
-                    let (other, target) = self.bin_expr_implicit_cast(n, value.clone(), pos)?;
-                    let other_value = other.get_value();
-                    let target_value = target.get_value();
-    
-                    let comparison = self.builder.build_int_compare(IntPredicate::UGE, target_value.into_int_value(), other_value.into_int_value(), "match_compare_char")?;
-                    self.builder.build_conditional_branch(comparison, greater_than_block, else_block)?;
-
-                    //
-                    // 1st matched
-                    //
-                    self.builder.position_at_end(greater_than_block);
-                    let i64_num2 = i64_type.const_int(*num2 as u64, true);
-                    let n2 = CompiledValue::new(Type::Number(NumberType::LongLong).into(), i64_num2.as_any_value_enum());
-
-                    let (other, target) = self.bin_expr_implicit_cast(n2, value.clone(), pos)?;
-                    let other_value = other.get_value();
-                    let target_value = target.get_value();
-    
-                    let comparison = self.builder.build_int_compare(IntPredicate::ULE, target_value.into_int_value(), other_value.into_int_value(), "match_compare_char")?;
-                    self.builder.build_conditional_branch(comparison, less_than_block, else_block)?;
-
-                    //
-                    // 2nd matched
-                    //
-                    self.builder.position_at_end(less_than_block);
-                    self.builder.build_store(condition_ptr, one)?;
-                    self.builder.build_unconditional_branch(all_end_block)?;
-
-                    //
-                    // not matched
-                    //
-                    self.builder.position_at_end(else_block);
+                    self.gen_number_range_match(value, func, one, condition_ptr, all_end_block, pos, num1, num2)?;
                 },
                 Pattern::Str(s) => {
-                    let then_block = self.context.append_basic_block(func, "match.then");
-                    let else_block  = self.context.append_basic_block(func, "match.else");
-
-                    let str1 = self.builder.build_global_string_ptr(s, "global_str_for_match")?;
-                    let str1 = self.try_as_basic_metadata_value(&str1.as_any_value_enum(), pos)?;
-
-                    let str2 = value.get_value();
-                    let str2 = self.try_as_basic_metadata_value(&str2, pos)?;
-
-                    let comparison = self.gen_string_match(str1, str2, func, current_block, env)?;
-                    self.builder.build_conditional_branch(comparison, then_block, else_block)?;
-
-                    //
-                    // matched
-                    //
-                    self.builder.position_at_end(then_block);
-                    self.builder.build_store(condition_ptr, one)?;  // set return value true
-                    self.builder.build_unconditional_branch(all_end_block)?;
-
-                    //
-                    // not matched
-                    //
-                    self.builder.position_at_end(else_block);
+                    self.gen_str_match(value, env, func, current_block, one, condition_ptr, all_end_block, pos, s)?;
                 },
                 Pattern::Struct(strct) => {
 
@@ -521,148 +358,7 @@ eprintln!("store zero to condition_ptr\n");
 
                 },
                 Pattern::Enum(enum_pat) => {
-                    match enum_pat {
-                        EnumPattern::Simple(name, _) => {
-                            let then_block = self.context.append_basic_block(func, "match.then");
-                            let else_block  = self.context.append_basic_block(func, "match.else");
-
-
-
-
-
-
-                            // let enum_name = name.clone();
-                            // let enum_value = value.get_value();
-                            // let enum_value = self.try_as_basic_metadata_value(&enum_value, pos)?;
-
-                            // let comparison = self.gen_string_match(enum_name.as_str(), enum_value, func, current_block, env)?;
-                            // self.builder.build_conditional_branch(comparison, then_block, else_block)?;
-
-                            // //
-                            // // matched
-                            // //
-                            // self.builder.position_at_end(then_block);
-                            // self.builder.build_store(condition_ptr, one)?;  // set return value true
-                            // self.builder.build_unconditional_branch(all_end_block)?;
-
-                            // //
-                            // // not matched
-                            // //
-                            // self.builder.position_at_end(else_block);
-
-                            unimplemented!()
-                        },
-                        EnumPattern::Tuple(name, sub_name, pattern_list) => {
-                            // let then_block = self.context.append_basic_block(func, "match.then");
-                            // let else_block  = self.context.append_basic_block(func, "match.else");
-
-                            // let enum_name = name.clone();
-                            // let enum_value = value.get_value();
-                            // let enum_value = self.try_as_basic_metadata_value(&enum_value, pos)?;
-
-                            // let comparison = self.gen_string_match(enum_name.as_str(), enum_value, func, current_block, env)?;
-                            // self.builder.build_conditional_branch(comparison, then_block, else_block)?;
-
-                            // //
-                            // // matched
-                            // //
-                            // self.builder.position_at_end(then_block);
-                            // self.builder.build_store(condition_ptr, one)?;  // set return value true
-                            // self.builder.build_unconditional_branch(all_end_block)?;
-
-                            // //
-                            // // not matched
-                            // //
-                            // self.builder.position_at_end(else_block);
-
-                            unimplemented!()
-                        },
-                        EnumPattern::Struct(name, field_name, struct_pat) => {
-                            let then_block = self.context.append_basic_block(func, "match.then");
-                            let else_block  = self.context.append_basic_block(func, "match.else");
-
-                            let arg_type = value.get_type();
-eprintln!("arg_type: {:?}", arg_type);
-                            let pat_type = env.get_type(name).ok_or(CodeGenError::no_such_a_type(name, pos.clone()))?;
-eprintln!("pat_type: {:?}", pat_type);
-eprintln!("bool: {:?}", pat_type.is_enum_type());
-
-                            // if arg_type != pat_type {
-                            //     return Err(CodeGenError::type_mismatch(arg_type.clone(), pat_type, pos.clone()).into());
-                            // }
-
-                            let arg_enum_def = arg_type.get_enum_definition().ok_or(CodeGenError::not_enum(arg_type.as_ref().clone(), pos.clone()))?;
-eprintln!("arg_enum_def: {:?}", arg_enum_def);
-                            let required_tag = arg_enum_def.get_index(&field_name).ok_or(CodeGenError::no_such_a_field(arg_enum_def.get_name().to_string(), name.to_string(), pos.clone()))?;
-eprintln!("{name}::{field_name}  tag: {:?}", required_tag);
-
-                            let i64_type = self.context.i64_type();
-                            let i64_num = i64_type.const_int(required_tag as u64, true);
-                            let n = CompiledValue::new(Type::Number(NumberType::LongLong).into(), i64_num.as_any_value_enum());
-
-
-
-eprintln!("{}:{}:{}", file!(), line!(), column!());
-eprintln!("value: {:?}", value);
-                            let real_tag = self.gen_get_tag(value, env, pos)?;
-eprintln!("real_tag: {:?}", real_tag);
-                            let ty = Rc::new(Type::Number(NumberType::Int));
-                            let right = CompiledValue::new(ty, real_tag.as_any_value_enum());
-                            let (left, right) = self.bin_expr_implicit_cast(n, right, pos)?;
-                            let left_value = left.get_value();
-                            let right_value = right.get_value();
-eprintln!("left_value: {:?}", left_value);
-eprintln!("right_value: {:?}", right_value);
-eprintln!("{}:{}:{}", file!(), line!(), column!());
-                            let comparison = self.builder.build_int_compare(IntPredicate::EQ, left_value.into_int_value(), right_value.into_int_value(), "match_compare_number")?;
-eprintln!("{}:{}:{}", file!(), line!(), column!());
-                            self.builder.build_conditional_branch(comparison, then_block, else_block)?;
-eprintln!("{}:{}:{}", file!(), line!(), column!());
-
-
-
-
-
-
-
-
-                            // let then_block = self.context.append_basic_block(func, "match.then");
-                            // let else_block  = self.context.append_basic_block(func, "match.else");
-        
-                            // let i8_type = self.context.i8_type();
-                            // let i8_ch = i8_type.const_int(*ch as u64, true);
-                            // let c = CompiledValue::new(Type::Number(NumberType::Char).into(), i8_ch.as_any_value_enum());
-        
-                            // let (left, right) = self.bin_expr_implicit_cast(c, value.clone(), pos)?;
-                            // let left_value = left.get_value();
-                            // let right_value = right.get_value();
-            
-                            // let comparison = self.builder.build_int_compare(IntPredicate::EQ, left_value.into_int_value(), right_value.into_int_value(), "match_compare_char")?;
-                            // self.builder.build_conditional_branch(comparison, then_block, else_block)?;
-        
-                            //
-                            // matched
-                            //
-                            self.builder.position_at_end(then_block);
-                            self.builder.build_store(condition_ptr, one)?;
-                            self.builder.build_unconditional_branch(all_end_block)?;
-        
-                            //
-                            // not matched
-                            //
-                            self.builder.position_at_end(else_block);
-                        },
-                    }
-
-
-
-
-
-
-
-
-
-                    // unimplemented!()
+                    self.gen_enum_match(value, env, func, one, condition_ptr, all_end_block, pos, enum_pat)?;
                 },
             }
         }
@@ -692,7 +388,225 @@ eprintln!("{}:{}:{}", file!(), line!(), column!());
         // let result_any_value = condition_ptr.as_any_value_enum();
         // Ok(Some(CompiledValue::new(Rc::new(num_type), result_any_value)))
     }
+    
+    fn gen_ver_match(&self, value: &CompiledValue<'ctx>, env: &mut Env<'ctx>, one: IntValue<'_>, condition_ptr: inkwell::values::PointerValue<'ctx>, pos: &Position, name: &String) -> Result<(), Box<dyn Error>> {
+        self.builder.build_store(condition_ptr, one)?;
+        let sq = SpecifierQualifier::default();
+        let typ = value.get_type();
+        let basic_type = env.basic_type_enum_from_type(&typ, self.context, pos)?;
+        let ptr = self.builder.build_alloca(basic_type, name)?;
+        let any_value = value.get_value();
+        let basic_value = self.try_as_basic_value(&any_value, pos)?;
+        self.builder.build_store(ptr, basic_value)?;
+        env.insert_local(name, Rc::clone(typ), sq, ptr);
+        Ok(())
+    }
+    
+    fn gen_char_match(&self, value: &CompiledValue<'ctx>, func: FunctionValue<'ctx>, one: IntValue<'_>, condition_ptr: inkwell::values::PointerValue<'ctx>, all_end_block: BasicBlock<'ctx>, pos: &Position, ch: &char) -> Result<(), Box<dyn Error>> {
+        let then_block = self.context.append_basic_block(func, "match.then");
+        let else_block  = self.context.append_basic_block(func, "match.else");
+        let i8_type = self.context.i8_type();
+        let i8_ch = i8_type.const_int(*ch as u64, true);
+        let c = CompiledValue::new(Type::Number(NumberType::Char).into(), i8_ch.as_any_value_enum());
+        let (left, right) = self.bin_expr_implicit_cast(c, value.clone(), pos)?;
+        let left_value = left.get_value();
+        let right_value = right.get_value();
+        let comparison = self.builder.build_int_compare(IntPredicate::EQ, left_value.into_int_value(), right_value.into_int_value(), "match_compare_char")?;
+        self.builder.build_conditional_branch(comparison, then_block, else_block)?;
+        self.builder.position_at_end(then_block);
+        self.builder.build_store(condition_ptr, one)?;
+        self.builder.build_unconditional_branch(all_end_block)?;
+        self.builder.position_at_end(else_block);
+        Ok(())
+    }
 
+    fn gen_char_range_match(&self, value: &CompiledValue<'ctx>, func: FunctionValue<'ctx>, one: IntValue<'_>, condition_ptr: inkwell::values::PointerValue<'ctx>, all_end_block: BasicBlock<'ctx>, pos: &Position, ch1: &char, ch2: &char) -> Result<(), Box<dyn Error>> {
+        let greater_than_block = self.context.append_basic_block(func, "match.greater");
+        let less_than_block = self.context.append_basic_block(func, "match.less");
+        let else_block  = self.context.append_basic_block(func, "match.else");
+        let i8_type = self.context.i8_type();
+        let i8_ch = i8_type.const_int(*ch1 as u64, true);
+        let c = CompiledValue::new(Type::Number(NumberType::Char).into(), i8_ch.as_any_value_enum());
+        let (other, target) = self.bin_expr_implicit_cast(c, value.clone(), pos)?;
+        let other_value = other.get_value();
+        let target_value = target.get_value();
+        let comparison = self.builder.build_int_compare(IntPredicate::UGE, target_value.into_int_value(), other_value.into_int_value(), "match_compare_char")?;
+        self.builder.build_conditional_branch(comparison, greater_than_block, else_block)?;
+        self.builder.position_at_end(greater_than_block);
+        let i8_ch2 = i8_type.const_int(*ch2 as u64, true);
+        let c2 = CompiledValue::new(Type::Number(NumberType::Char).into(), i8_ch2.as_any_value_enum());
+        let (other, target) = self.bin_expr_implicit_cast(c2, value.clone(), pos)?;
+        let other_value = other.get_value();
+        let target_value = target.get_value();
+        let comparison = self.builder.build_int_compare(IntPredicate::ULE, target_value.into_int_value(), other_value.into_int_value(), "match_compare_char")?;
+        self.builder.build_conditional_branch(comparison, less_than_block, else_block)?;
+        self.builder.position_at_end(less_than_block);
+        self.builder.build_store(condition_ptr, one)?;
+        self.builder.build_unconditional_branch(all_end_block)?;
+        self.builder.position_at_end(else_block);
+        Ok(())
+    }
+    
+    fn gen_number_match(&self, value: &CompiledValue<'ctx>, func: FunctionValue<'ctx>, one: IntValue<'_>, condition_ptr: inkwell::values::PointerValue<'ctx>, all_end_block: BasicBlock<'ctx>, pos: &Position, num: &i128) -> Result<(), Box<dyn Error>> {
+        let then_block = self.context.append_basic_block(func, "match.then");
+        let else_block  = self.context.append_basic_block(func, "match.else");
+        let i64_type = self.context.i64_type();
+        let i64_num = i64_type.const_int(*num as u64, true);
+        let n = CompiledValue::new(Type::Number(NumberType::LongLong).into(), i64_num.as_any_value_enum());
+        let (left, right) = self.bin_expr_implicit_cast(n, value.clone(), pos)?;
+        let left_value = left.get_value();
+        let right_value = right.get_value();
+        let comparison = self.builder.build_int_compare(IntPredicate::EQ, left_value.into_int_value(), right_value.into_int_value(), "match_compare_number")?;
+        self.builder.build_conditional_branch(comparison, then_block, else_block)?;
+        self.builder.position_at_end(then_block);
+        self.builder.build_store(condition_ptr, one)?;
+        self.builder.build_unconditional_branch(all_end_block)?;
+        self.builder.position_at_end(else_block);
+        Ok(())
+    }
+    
+    fn gen_number_range_match(&self, value: &CompiledValue<'ctx>, func: FunctionValue<'ctx>, one: IntValue<'_>, condition_ptr: inkwell::values::PointerValue<'ctx>, all_end_block: BasicBlock<'ctx>, pos: &Position, num1: &i128, num2: &i128) -> Result<(), Box<dyn Error>> {
+        let greater_than_block = self.context.append_basic_block(func, "match.greater");
+        let less_than_block = self.context.append_basic_block(func, "match.less");
+        let else_block  = self.context.append_basic_block(func, "match.else");
+        let i64_type = self.context.i64_type();
+        let i64_num = i64_type.const_int(*num1 as u64, true);
+        let n = CompiledValue::new(Type::Number(NumberType::LongLong).into(), i64_num.as_any_value_enum());
+        let (other, target) = self.bin_expr_implicit_cast(n, value.clone(), pos)?;
+        let other_value = other.get_value();
+        let target_value = target.get_value();
+        let comparison = self.builder.build_int_compare(IntPredicate::UGE, target_value.into_int_value(), other_value.into_int_value(), "match_compare_char")?;
+        self.builder.build_conditional_branch(comparison, greater_than_block, else_block)?;
+        self.builder.position_at_end(greater_than_block);
+        let i64_num2 = i64_type.const_int(*num2 as u64, true);
+        let n2 = CompiledValue::new(Type::Number(NumberType::LongLong).into(), i64_num2.as_any_value_enum());
+        let (other, target) = self.bin_expr_implicit_cast(n2, value.clone(), pos)?;
+        let other_value = other.get_value();
+        let target_value = target.get_value();
+        let comparison = self.builder.build_int_compare(IntPredicate::ULE, target_value.into_int_value(), other_value.into_int_value(), "match_compare_char")?;
+        self.builder.build_conditional_branch(comparison, less_than_block, else_block)?;
+        self.builder.position_at_end(less_than_block);
+        self.builder.build_store(condition_ptr, one)?;
+        self.builder.build_unconditional_branch(all_end_block)?;
+        self.builder.position_at_end(else_block);
+        Ok(())
+    }
+    
+    fn gen_str_match(&self, value: &CompiledValue<'ctx>, env: &mut Env<'ctx>, func: FunctionValue<'ctx>, current_block: BasicBlock<'ctx>, one: IntValue<'_>, condition_ptr: inkwell::values::PointerValue<'ctx>, all_end_block: BasicBlock<'ctx>, pos: &Position, s: &String) -> Result<(), Box<dyn Error>> {
+        let then_block = self.context.append_basic_block(func, "match.then");
+        let else_block  = self.context.append_basic_block(func, "match.else");
+        let str1 = self.builder.build_global_string_ptr(s, "global_str_for_match")?;
+        let str1 = self.try_as_basic_metadata_value(&str1.as_any_value_enum(), pos)?;
+        let str2 = value.get_value();
+        let str2 = self.try_as_basic_metadata_value(&str2, pos)?;
+        let comparison = self.gen_string_match(str1, str2, func, current_block, env)?;
+        self.builder.build_conditional_branch(comparison, then_block, else_block)?;
+        self.builder.position_at_end(then_block);
+        self.builder.build_store(condition_ptr, one)?;
+        self.builder.build_unconditional_branch(all_end_block)?;
+        self.builder.position_at_end(else_block);
+        Ok(())
+    }
+
+    fn gen_enum_match(&self, value: &CompiledValue<'ctx>, env: &mut Env<'ctx>, func: FunctionValue<'ctx>, one: IntValue<'_>, condition_ptr: inkwell::values::PointerValue<'ctx>, all_end_block: BasicBlock<'ctx>, pos: &Position, enum_pat: &EnumPattern) -> Result<(), Box<dyn Error>> {
+        Ok(match enum_pat {
+            EnumPattern::Simple(name, _) => {
+                let then_block = self.context.append_basic_block(func, "match.then");
+                let else_block  = self.context.append_basic_block(func, "match.else");
+    
+    
+    
+    
+    
+    
+                // let enum_name = name.clone();
+                // let enum_value = value.get_value();
+                // let enum_value = self.try_as_basic_metadata_value(&enum_value, pos)?;
+    
+                // let comparison = self.gen_string_match(enum_name.as_str(), enum_value, func, current_block, env)?;
+                // self.builder.build_conditional_branch(comparison, then_block, else_block)?;
+    
+                // //
+                // // matched
+                // //
+                // self.builder.position_at_end(then_block);
+                // self.builder.build_store(condition_ptr, one)?;  // set return value true
+                // self.builder.build_unconditional_branch(all_end_block)?;
+    
+                // //
+                // // not matched
+                // //
+                // self.builder.position_at_end(else_block);
+    
+                unimplemented!()
+            },
+            EnumPattern::Tuple(name, sub_name, pattern_list) => {
+                // let then_block = self.context.append_basic_block(func, "match.then");
+                // let else_block  = self.context.append_basic_block(func, "match.else");
+    
+                // let enum_name = name.clone();
+                // let enum_value = value.get_value();
+                // let enum_value = self.try_as_basic_metadata_value(&enum_value, pos)?;
+    
+                // let comparison = self.gen_string_match(enum_name.as_str(), enum_value, func, current_block, env)?;
+                // self.builder.build_conditional_branch(comparison, then_block, else_block)?;
+    
+                // //
+                // // matched
+                // //
+                // self.builder.position_at_end(then_block);
+                // self.builder.build_store(condition_ptr, one)?;  // set return value true
+                // self.builder.build_unconditional_branch(all_end_block)?;
+    
+                // //
+                // // not matched
+                // //
+                // self.builder.position_at_end(else_block);
+    
+                unimplemented!()
+            },
+            EnumPattern::Struct(name, field_name, struct_pat) => {
+                let then_block = self.context.append_basic_block(func, "match.then");
+                let else_block  = self.context.append_basic_block(func, "match.else");
+    
+                let arg_type = value.get_type();
+                // let pat_type = env.get_type(name).ok_or(CodeGenError::no_such_a_type(name, pos.clone()))?;
+                // if arg_type != pat_type {
+                //     return Err(CodeGenError::type_mismatch(arg_type.clone(), pat_type, pos.clone()).into());
+                // }
+    
+                let arg_enum_def = arg_type.get_enum_definition().ok_or(CodeGenError::not_enum(arg_type.as_ref().clone(), pos.clone()))?;
+                let required_tag = arg_enum_def.get_index(&field_name).ok_or(CodeGenError::no_such_a_field(arg_enum_def.get_name().to_string(), name.to_string(), pos.clone()))?;
+    
+                let i64_type = self.context.i64_type();
+                let i64_num = i64_type.const_int(required_tag as u64, true);
+                let left = CompiledValue::new(Type::Number(NumberType::LongLong).into(), i64_num.as_any_value_enum());
+    
+                let real_tag = self.gen_get_tag(value, env, pos)?;
+                let ty = Rc::new(Type::Number(NumberType::Int));
+                let right = CompiledValue::new(ty, real_tag.as_any_value_enum());
+    
+                let (left, right) = self.bin_expr_implicit_cast(left, right, pos)?;
+                let left_value = left.get_value();
+                let right_value = right.get_value();
+                let comparison = self.builder.build_int_compare(IntPredicate::EQ, left_value.into_int_value(), right_value.into_int_value(), "match_compare_number")?;
+                self.builder.build_conditional_branch(comparison, then_block, else_block)?;
+    
+                //
+                // matched
+                //
+                self.builder.position_at_end(then_block);
+                self.builder.build_store(condition_ptr, one)?;
+                self.builder.build_unconditional_branch(all_end_block)?;
+        
+                //
+                // not matched
+                //
+                self.builder.position_at_end(else_block);
+            },
+        })
+    }
+    
     fn gen_get_tag(&self,
         value: &CompiledValue<'ctx>,
         env: &mut Env<'ctx>,
