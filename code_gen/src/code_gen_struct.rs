@@ -8,10 +8,11 @@ use crate::Position;
 use crate::CodeGen;
 
 use inkwell::context::Context;
-use inkwell::values::{AnyValue, AnyValueEnum, BasicMetadataValueEnum, BasicValue, BasicValueEnum, GlobalValue, PointerValue, StructValue};
+use inkwell::values::{self, AnyValue, AnyValueEnum, BasicMetadataValueEnum, BasicValue, BasicValueEnum, GlobalValue, PointerValue, StructValue};
 use inkwell::types::{AnyTypeEnum, BasicType, BasicTypeEnum};
 use inkwell::types::AnyType;
 use inkwell::types::StructType;
+use std::any;
 use std::error::Error;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -26,6 +27,7 @@ impl<'ctx> CodeGen<'ctx> {
     ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
         match struct_literal {
             StructLiteral::NormalLiteral(typ, map, pos) => {
+                let literal;
                 let struct_ty;
                 let struct_name = typ.get_type_name();
                 let type_variables = typ.get_type_variables();
@@ -37,11 +39,14 @@ impl<'ctx> CodeGen<'ctx> {
                     let (struct_type, _index_map) = Self::struct_from_fields(&None, fields, type_variables, &self.context, pos)?;
                     struct_ty = struct_type;
                     let mut index = 0;
+                    let mut values = Vec::new();
                     for field in fields {
                         let name = field.get_name().as_ref().unwrap();
                         let expr_ast = map.get(name).unwrap();
                         let any_value = self.gen_expr(expr_ast, env, break_catcher, continue_catcher)?.unwrap().get_value();
                         let basic_value = BasicValueEnum::try_from(any_value).map_err(|_e| CodeGenError::system_error(pos.clone()))?;
+
+                        values.push(basic_value);
 
                         let const_index = i32_type.const_int(index, false);
                         let indexes = vec![const_zero, const_index];
@@ -50,13 +55,21 @@ impl<'ctx> CodeGen<'ctx> {
 
                         index += 1;
                     }
+
+                    literal = struct_ty.const_named_struct(values.as_slice());
+
                 }else{
                     let (struct_type, _index_map) =  Self::struct_from_fields(&None, &Vec::new(), type_variables, &self.context, pos)?;
                     struct_ty = struct_type;
+
+                    literal = struct_ty.const_named_struct(&Vec::new());
                 }
 
                 let basic_val = self.builder.build_load(struct_ty, struct_ptr, &format!("load_struct_{}_normal_literal", struct_name))?;
                 let any_val = basic_val.as_any_value_enum();
+
+                // let any_val = literal.as_any_value_enum();
+
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
             StructLiteral::ConstLiteral(typ, const_map, pos) => {
@@ -240,7 +253,7 @@ impl<'ctx> CodeGen<'ctx> {
 
                                 self.gen_call_member_function(&class_name, &fun_name, &args, env, break_catcher, continue_catcher, pos2)?.unwrap()
                             },
-                            ExprAST::StructStaticSymbol(class_name, method_name, pos2) => {
+                            ExprAST::TypeMemberAccess(class_name, method_name, pos2) => {
                                 if let Some((fn_typ, _function)) = env.get_class_function(class_name, &method_name) {
                                     let ret_type = fn_typ.get_return_type();
                                     if typ != ret_type.as_ref() {

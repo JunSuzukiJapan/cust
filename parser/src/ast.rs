@@ -785,17 +785,17 @@ impl TupleLiteral {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum EnumLiteral {
-    // None,
+    Symbol(String, u64),  // (elem name, index)
     Struct(StructLiteral),
     Tuple(TupleLiteral),
 }
 
 impl EnumLiteral {
-    pub fn get_type(&self) -> &Rc<Type> {
+    pub fn get_type(&self) -> Rc<Type> {
         match self {
-            // Self::None => &Rc::new(Type::Number(crate::NumberType::Int)),
-            Self::Struct(literal) => literal.get_type(),
-            Self::Tuple(literal) => literal.get_type(),
+            Self::Symbol(_, _) => Rc::new(Type::Number(crate::NumberType::Int)),
+            Self::Struct(literal) => Rc::clone(literal.get_type()),
+            Self::Tuple(literal) => Rc::clone(literal.get_type()),
         }
     }
 
@@ -864,7 +864,7 @@ pub enum ExprAST {
     // },
     _self(Position),
     SelfStaticSymbol(String, Position),
-    StructStaticSymbol(String, String, Position),  // struct_name::feature_name
+    TypeMemberAccess(String, String, Position),  // type_name::feature_name
     StructLiteral(StructLiteral),
     UnionLiteral(Rc<Type>, Vec<(String, Box<ExprAST>)>, Position),
     UnionConstLiteral(Rc<Type>, Vec<(String, ConstExpr)>, Position),
@@ -909,7 +909,7 @@ impl ExprAST {
             ExprAST::ArrayAccess(_expr, _index, pos) => pos,
             ExprAST::Symbol(_name, pos) => pos,
             ExprAST::SelfStaticSymbol(_, pos) => pos,
-            ExprAST::StructStaticSymbol(_, _, pos) => pos,
+            ExprAST::TypeMemberAccess(_, _, pos) => pos,
             ExprAST::_self(pos) => pos,
             ExprAST::Not(_expr, pos) => pos,
             // ExprAST::ExpressionPair(_, _right, pos) => pos,

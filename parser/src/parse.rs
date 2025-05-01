@@ -2501,7 +2501,11 @@ impl Parser {
                                 let enum_init = self.parse_after_wcolon(&typ, name, iter, defs)?;
                                 match enum_init {
                                     EnumInitializer::Symbol(elem_name) => {
-                                        Ok(Some(ExprAST::StructStaticSymbol(name.clone(), elem_name.clone(), pos.clone())))
+                                        Ok(Some(ExprAST::TypeMemberAccess(name.into(), elem_name, pos.clone())))
+                                    },
+                                    EnumInitializer::SymbolWithIndex(elem_name, index) => {
+                                        let literal = EnumLiteral::Symbol(elem_name.clone(), index);
+                                        Ok(Some(ExprAST::EnumLiteral(typ, index, literal, pos.clone())))
                                     },
                                     EnumInitializer::Tuple(_id, index, literal) => {
                                         let literal = EnumLiteral::Tuple(literal);
@@ -2603,7 +2607,7 @@ impl Parser {
         }
     }
 
-    fn parse_after_wcolon(&self, typ: &Rc<Type>, enum_name: &str, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<EnumInitializer, ParserError> {
+    fn parse_after_wcolon(&self, typ: &Rc<Type>, type_name: &str, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<EnumInitializer, ParserError> {
         let (tok, pos) = iter.next().unwrap();
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
 
@@ -2618,37 +2622,57 @@ impl Parser {
 
         match tok2 {
             Token::ParenLeft => {  // '('
-                if ! typ.is_enum() {
+                if typ.is_enum() {
+                    let enum_def = typ.get_enum_definition().unwrap();
+                    let fields = enum_def.get_fields();
+                    let index_map = enum_def.get_index_map().ok_or(ParserError::not_tagged_enum(pos.clone()))?;
+                    let index = index_map.get(elem_name).ok_or(ParserError::no_such_a_field(type_name.to_string(), elem_name.to_string(), pos.clone()))?;
+                    let elem = &fields[*index];
+                    let tpl_type = elem.get_tuple_type().ok_or(ParserError::not_tuple_type_enum(type_name.to_string(), elem_name.to_string(), pos.clone()))?;
+                    let init = self.parse_tuple_literal(Rc::clone(tpl_type), type_name, pos, iter, defs)?;
+
+                    Ok(EnumInitializer::Tuple(elem_name.to_string(), *index as u64, init))
+
+                }else if typ.is_struct() {
                     return Ok(EnumInitializer::Symbol(elem_name.to_string()));
+                }else{
+                    return Err(ParserError::not_struct_or_enum_type(type_name.into(), pos.clone()));
                 }
-
-                let enum_def = typ.get_enum_definition().unwrap();
-                let fields = enum_def.get_fields();
-                let index_map = enum_def.get_index_map().ok_or(ParserError::not_tagged_enum(pos.clone()))?;
-                let index = index_map.get(elem_name).ok_or(ParserError::no_such_a_field(enum_name.to_string(), elem_name.to_string(), pos.clone()))?;
-                let elem = &fields[*index];
-                let tpl_type = elem.get_tuple_type().ok_or(ParserError::not_tuple_type_enum(enum_name.to_string(), elem_name.to_string(), pos.clone()))?;
-                let init = self.parse_tuple_literal(Rc::clone(tpl_type), enum_name, pos, iter, defs)?;
-
-                Ok(EnumInitializer::Tuple(elem_name.to_string(), *index as u64, init))
             },
             Token::BraceLeft => {  // '{'
                 if ! typ.is_enum() {
-                    return Ok(EnumInitializer::Symbol(elem_name.to_string()));
+                    // return Ok(EnumInitializer::Symbol(elem_name.to_string(), None));
+                    unimplemented!()
                 }
 
                 let enum_def = typ.get_enum_definition().unwrap();
                 let fields = enum_def.get_fields();
                 let index_map = enum_def.get_index_map().ok_or(ParserError::not_tagged_enum(pos.clone()))?;
-                let index = index_map.get(elem_name).ok_or(ParserError::no_such_a_field(enum_name.to_string(), elem_name.to_string(), pos.clone()))?;
+                let index = index_map.get(elem_name).ok_or(ParserError::no_such_a_field(type_name.to_string(), elem_name.to_string(), pos.clone()))?;
                 let elem = &fields[*index];
-                let struct_type = elem.get_struct_type().ok_or(ParserError::not_struct_type_enum(enum_name.to_string(), elem_name.to_string(), pos.clone()))?;
-                let init = self.parse_struct_literal(Rc::clone(struct_type), enum_name, pos, iter, defs)?;
+                let struct_type = elem.get_struct_type().ok_or(ParserError::not_struct_type_enum(type_name.to_string(), elem_name.to_string(), pos.clone()))?;
+                let init = self.parse_struct_literal(Rc::clone(struct_type), type_name, pos, iter, defs)?;
 
                 Ok(EnumInitializer::Struct(elem_name.to_string(), *index as u64, init))
             },
             _ => {
-                Ok(EnumInitializer::Symbol(elem_name.to_string()))
+                if typ.is_tagged_enum() {
+                    let enum_def = typ.get_enum_definition().unwrap();
+                    let index_map = enum_def.get_index_map().ok_or(ParserError::not_tagged_enum(pos.clone()))?;
+                    let index = index_map.get(elem_name).ok_or(ParserError::no_such_a_field(type_name.to_string(), elem_name.to_string(), pos.clone()))?;
+
+                    Ok(EnumInitializer::SymbolWithIndex(elem_name.clone(), *index as u64))
+
+                }else if typ.is_enum() {
+                    let enum_def = typ.get_enum_definition().unwrap();
+                    let index_map = enum_def.get_index_map().ok_or(ParserError::not_tagged_enum(pos.clone()))?;
+                    let index = index_map.get(elem_name).ok_or(ParserError::no_such_a_field(type_name.to_string(), elem_name.to_string(), pos.clone()))?;
+
+                    Ok(EnumInitializer::SymbolWithIndex(elem_name.clone(), *index as u64))
+
+                }else{
+                    Ok(EnumInitializer::Symbol(elem_name.to_string()))
+                }
             }
         }
     }

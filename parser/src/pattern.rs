@@ -30,3 +30,17 @@ pub struct StructPattern {
     pub map: HashMap<String, Option<(Vec<(Box<Pattern>, Position)>, Option<String>)>>,
     pub has_optional: bool,
 }
+
+impl StructPattern {
+    pub fn get_name(&self) -> &String {
+        &self.name
+    }
+
+    pub fn get_map(&self) -> &HashMap<String, Option<(Vec<(Box<Pattern>, Position)>, Option<String>)>> {
+        &self.map
+    }
+
+    pub fn get_has_optional(&self) -> bool {
+        self.has_optional
+    }
+}

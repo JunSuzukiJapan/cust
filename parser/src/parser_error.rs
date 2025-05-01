@@ -91,6 +91,7 @@ pub enum ParserError {
     TypeVariableCountMismatch(Position),
     NotMatchTypeVariablesCount(usize, usize, Position),
     NoSuchATypeVariable(String, Position),
+    NotStructOrEnumType(String, Position),
 }
 
 impl ParserError {
@@ -400,6 +401,10 @@ impl ParserError {
     pub fn no_such_a_type_variable(name: String, pos: Position) -> Self {
         ParserError::NoSuchATypeVariable(name, pos)
     }
+
+    pub fn not_struct_or_enum_type(name: String, pos: Position) -> Self {
+        ParserError::NotStructOrEnumType(name, pos)
+    }
 }
 
 impl From<TokenizerError> for ParserError {
@@ -496,6 +501,7 @@ impl fmt::Display for ParserError {
             Self::TypeVariableCountMismatch(_pos) => write!(f, "type variable count mismatch"),
             Self::NotMatchTypeVariablesCount(type_var_len, map_len, _pos) => write!(f, "type variables count mismatch. required {type_var_len}, but {map_len}"),
             Self::NoSuchATypeVariable(name, _pos) => write!(f, "no such a type variable '{name}'"),
+            Self::NotStructOrEnumType(name, _pos) => write!(f, "{name} is not struct or enum type"),
         }
     }
 }

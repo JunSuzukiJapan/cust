@@ -457,6 +457,18 @@ impl StructDefinition {
         }
     }
 
+    pub fn get_field_by_name(&self, name: &str) -> Option<&StructField> {
+        if let Some((list, index_map)) = &self.fields_and_index_map {
+            if let Some(val) = index_map.get(name) {
+                Some(&list[*val])
+            }else{
+                None
+            }
+        }else{
+            None
+        }
+    }
+
     pub fn get_specifier_qualifier(&self, name: &str) -> Option<&SpecifierQualifier> {
         if let Some(tuple) = &self.fields_and_index_map {
             if let Some(val) = tuple.1.get(name) {
@@ -648,9 +660,18 @@ impl EnumDefinition {
         }
     }
 
+    pub fn get_field_by_name(&self, name: &str) -> &Enumerator {
+        let fields = self.get_fields();
+        let index_map = self.get_index_map().unwrap();
+        let index = index_map[name];
+        let field = &fields[index];
+        field
+    }
+
     pub fn get_index_map(&self) -> Option<&HashMap<String, usize>> {
         match self {
             EnumDefinition::TaggedEnum { index_map, .. } => Some(index_map),
+            EnumDefinition::StandardEnum { index_map, .. } => Some(index_map),
             _ => None,
         }
     }
@@ -675,20 +696,13 @@ impl EnumDefinition {
     }
 
     pub fn get_struct_type_index(&self, sub_type_name: &str, member_name: &str) -> Option<usize> {
-eprintln!("self: {:?}\n", self);
         match self {
             EnumDefinition::TaggedEnum { index_map, fields, .. } => {
-eprintln!("tagged\n");
-eprintln!("index_map: {:?}\n", index_map);
-eprintln!("fields: {:?}\n", fields);
-eprintln!("sub_type_name: {:?}\n", sub_type_name);
-eprintln!("member_name: {:?}\n", member_name);
                 let index = index_map.get(sub_type_name).map(|x| *x)?;
                 let sub_type = fields.get(index)?;
-eprintln!("sub_type: {:?}\n", sub_type);
+
                 match sub_type {
                     Enumerator::TypeStruct { struct_type, .. } => {
-eprintln!("struct_type: {:?}\n", struct_type);
                         let struct_def = struct_type.get_struct_definition()?;
                         struct_def.get_index(member_name)
                     },
@@ -696,7 +710,6 @@ eprintln!("struct_type: {:?}\n", struct_type);
                 }
             },
             EnumDefinition::StandardEnum { index_map, fields, .. } => {
-eprintln!("standard\n");
                 let index = index_map.get(sub_type_name).map(|x| *x)?;
                 let sub_type = fields.get(index)?;
 
@@ -737,7 +750,7 @@ eprintln!("standard\n");
 #[derive(Debug, Clone, PartialEq)]
 pub enum EnumInitializer {
     Symbol(String),
-    // Tuple(String, u64, Vec<ExprAST>),
+    SymbolWithIndex(String, u64),
     Tuple(String, u64, TupleLiteral),
     Struct(String, u64, StructLiteral),
 }

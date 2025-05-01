@@ -52,6 +52,7 @@ pub struct CodeGen<'ctx> {
     pub execution_engine: ExecutionEngine<'ctx>,
     pub enum_tag_type: Rc<Type>,
     pub enum_tag_llvm_type: IntType<'ctx>,
+    pub enum_only_tag_type: Rc<Type>,
 }
 
 impl<'ctx> CodeGen<'ctx> {
@@ -60,6 +61,12 @@ impl<'ctx> CodeGen<'ctx> {
         let execution_engine = module.create_jit_execution_engine(OptimizationLevel::None)?;
         let enum_tag_type = Rc::new(Type::Number(global().enum_tag_type.clone()));
         let enum_tag_llvm_type = context.i64_type();
+        let t = Type::Array {
+            name: None,
+            typ: Box::new(Rc::new(Type::Number(NumberType::Long))),
+            size_list: vec![],
+        };
+        let enum_only_tag_type = Rc::new(t);
 
         Ok(CodeGen {
             context: &context,
@@ -68,6 +75,7 @@ impl<'ctx> CodeGen<'ctx> {
             execution_engine,
             enum_tag_type,
             enum_tag_llvm_type,
+            enum_only_tag_type,
         })
     }
 

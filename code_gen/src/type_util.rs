@@ -93,11 +93,9 @@ impl TypeUtil {
                 if enum_def.is_standard() {
                     Ok(BasicTypeEnum::IntType(ctx.i32_type()))
                 }else{
-eprintln!("enum_def: {:?}", enum_def);
                     let enum_tag_type = Rc::new(Type::Number(global().enum_tag_type.clone()));
-eprintln!("enum_tag_type: {:?}", enum_tag_type);
                     let (_type_list, _index_map, _max_size, max_size_type) = CodeGen::tagged_enum_from_enum_definition(name, enum_def.get_fields(), &enum_tag_type, type_variables, ctx, pos)?;
-eprintln!("_type_list: {:?}", _type_list);
+
                     if let Some(typ) = max_size_type {
                         Ok(typ)
                     }else{
@@ -286,7 +284,7 @@ eprintln!("_type_list: {:?}", _type_list);
                 let (typ, _sq, _expr) = env.get_ptr("Self").ok_or(CodeGenError::access_self_type_without_impl(pos.clone()))?;
                 Ok(typ.clone())
             },
-            ExprAST::StructStaticSymbol(class_name, var_name, pos) => {
+            ExprAST::TypeMemberAccess(class_name, var_name, pos) => {
                 let (typ, _sq, _global_value) = env.get_class_var(class_name, var_name).ok_or(CodeGenError::no_such_a_variable(&format!("{}::{}", class_name, var_name), pos.clone()))?;
                 Ok(Rc::clone(typ))
             },

@@ -173,6 +173,21 @@ impl<'ctx> CodeGen<'ctx> {
     ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
 
         match literal {
+            EnumLiteral::Symbol(_elem_name, _index) => {
+                let tag_type = self.enum_tag_llvm_type;
+                let vec: Vec<BasicTypeEnum> = vec!(tag_type.into());
+                let tagged_type = self.context.struct_type(&vec, false);
+                let tagged_ptr = self.builder.build_alloca(tagged_type, "enum_literal")?;
+                let tag_ptr = self.builder.build_struct_gep(tagged_type, tagged_ptr, 0, "struct_gep_in_tagged_enum")?;
+
+                let tag_value = tag_type.const_int(*tag as u64, false);
+                let _ = self.builder.build_store(tag_ptr, tag_value);
+
+                let basic_val = self.builder.build_load(tagged_type, tagged_ptr, &format!("load_enum_literal"))?;
+                let any_val = basic_val.as_any_value_enum();
+                let typ = &self.enum_only_tag_type;
+                Ok(Some(CompiledValue::new(Rc::clone(typ), any_val)))
+            },
             EnumLiteral::Struct(struct_literal) => {
                 let typ = struct_literal.get_type();
                 let pos = struct_literal.get_position();
@@ -181,8 +196,7 @@ impl<'ctx> CodeGen<'ctx> {
                 let raw_type = env.basic_type_enum_from_type(&typ, self.context, pos)?;
                 let vec: Vec<BasicTypeEnum> = vec!(tag_type.into(), raw_type);
                 let tagged_type = self.context.struct_type(&vec, false);
-eprintln!("tagged_type: {:?}\n", tagged_type);
-                let mut tagged_ptr = self.builder.build_alloca(tagged_type, "enum_literal")?;
+                let tagged_ptr = self.builder.build_alloca(tagged_type, "enum_literal")?;
                 let tag_ptr = self.builder.build_struct_gep(tagged_type, tagged_ptr, 0, "struct_gep_in_tagged_enum")?;
                 let struct_ptr = self.builder.build_struct_gep(tagged_type, tagged_ptr, 1, "struct_gep_in_tagged_enum")?;
 
@@ -190,10 +204,7 @@ eprintln!("tagged_type: {:?}\n", tagged_type);
                 let _ = self.builder.build_store(tag_ptr, tag_value);
 
                 let initialized_literal = self.gen_struct_literal(struct_literal, struct_ptr, env, break_catcher, continue_catcher)?;
-eprintln!("initialized_literal: {:?}\n", initialized_literal);
-                let initialized_literal = initialized_literal.ok_or(CodeGenError::cannot_init_enum(literal.get_type().get_type_name(), pos.clone()))?;
-eprintln!("initialized_literal: {:?}\n", initialized_literal);
-eprintln!("tagged_ptr: {:?}\n", tagged_ptr);
+                let _initialized_literal = initialized_literal.ok_or(CodeGenError::cannot_init_enum(literal.get_type().get_type_name(), pos.clone()))?;
                 // tagged_ptr = initialized_literal.get_value().into_pointer_value();
 
                 let basic_val = self.builder.build_load(tagged_type, tagged_ptr, &format!("load_enum_literal"))?;

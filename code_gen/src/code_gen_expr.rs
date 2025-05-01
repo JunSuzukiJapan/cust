@@ -14,7 +14,6 @@ use inkwell::{IntPredicate, FloatPredicate};
 use inkwell::AddressSpace;
 use inkwell::types::{AnyType, IntType};
 use parser::{Position, SpecifierQualifier};
-use core::prelude;
 use std::error::Error;
 use std::rc::Rc;
 
@@ -442,7 +441,7 @@ impl<'ctx> CodeGen<'ctx> {
                         self.gen_call_member_function(&class_name, &fun_name, &args, env, break_catcher, continue_catcher, pos)
 
                     },
-                    ExprAST::StructStaticSymbol(class_name, method_name, _pos2) => {
+                    ExprAST::TypeMemberAccess(class_name, method_name, _pos2) => {
                         self.gen_call_class_function(&class_name, &method_name, &v, env, break_catcher, continue_catcher, pos)
                     },
                     _ => {
@@ -488,7 +487,6 @@ impl<'ctx> CodeGen<'ctx> {
     
                     }else{
                         let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(typ, &self.context, pos)?, ptr, name)?;
-eprintln!("basic_val: {:?}\n", basic_val);
                         let any_val = basic_val.as_any_value_enum();
                         Ok(Some(CompiledValue::new(typ.clone(), any_val)))
                     }
@@ -603,7 +601,7 @@ eprintln!("basic_val: {:?}\n", basic_val);
                 let result = Caster::gen_cast(&self.builder, self.context, &value, &from, to_type, &**expr)?;
                 Ok(Some(CompiledValue::new(to_type.clone(), result)))
             },
-            ExprAST::StructStaticSymbol(struct_name, var_name, pos) => {  // struct_name::var_name
+            ExprAST::TypeMemberAccess(struct_name, var_name, pos) => {  // struct_name::var_name
                 if let Some(type_or_union) = env.get_type(struct_name) {
                     match type_or_union {
                         TypeOrUnion::StandardEnum { i32_type: _, enumerator_list, index_map } => {
@@ -1490,9 +1488,7 @@ eprintln!("basic_val: {:?}\n", basic_val);
 //                         if enum_def.is_standard() {
 //                             return Err(Box::new(CodeGenError::not_tagged_enum(type_name.to_string(), pos.clone())));
 //                         }
-// eprintln!("enum_def: {:?}\n", enum_def);
 //                         let index = enum_def.get_struct_type_index(sub_type_name, member_name).ok_or(CodeGenError::no_such_a_member(&Some(type_name.into()), member_name, pos.clone()))?;
-// eprintln!("index: {:?}\n", index);
 //                         let elem_type = enum_def.get_type(member_name).unwrap();
 
 //                         match &**elem_type {
@@ -1656,7 +1652,7 @@ eprintln!("basic_val: {:?}\n", basic_val);
                     return Err(Box::new(CodeGenError::no_such_a_class_var(cls.get_name().to_string(), var_name.clone(), pos.clone())));
                 }
             },
-            ExprAST::StructStaticSymbol(struct_name, var_name, pos) => {
+            ExprAST::TypeMemberAccess(struct_name, var_name, pos) => {
                 if let Some((type2, sq, ptr)) = env.get_class_var(struct_name, var_name) {
                     Ok((Rc::clone(type2), ptr.as_pointer_value(), sq.clone()))
                 }else{

@@ -9,7 +9,7 @@ use crate::CodeGen;
 
 use inkwell::basic_block::BasicBlock;
 use inkwell::types::{BasicType, BasicMetadataTypeEnum};
-use inkwell::values::{AnyValue, AnyValueEnum, BasicMetadataValueEnum, FunctionValue, IntValue};
+use inkwell::values::{AnyValue, AnyValueEnum, BasicMetadataValueEnum, FunctionValue, IntValue, PointerValue, StructValue};
 use inkwell::{IntPredicate, AddressSpace};
 use parser::{NumberType, SpecifierQualifier};
 use std::error::Error;
@@ -597,6 +597,13 @@ impl<'ctx> CodeGen<'ctx> {
                 //
                 self.builder.position_at_end(then_block);
                 self.builder.build_store(condition_ptr, one)?;
+
+                // TODO: 
+                let map = struct_pat.get_map();
+                let struct_value = self.gen_get_struct_value(value, env, pos)?;
+
+
+
                 self.builder.build_unconditional_branch(all_end_block)?;
         
                 //
@@ -618,8 +625,34 @@ impl<'ctx> CodeGen<'ctx> {
         let ptr = st_value.get_field_at_index(0).unwrap().into_pointer_value();
         let ty = st_value.get_type();
         let ty2 = ty.get_field_type_at_index(0).unwrap();
-        let value = self.builder.build_load(ty2, ptr, "get tag")?;
+        let tag_value = self.builder.build_load(ty2, ptr, "get_tag")?;
 
-        Ok(value.into_int_value())
+        // let v = value.get_value();
+        // let st_value = v.into_struct_value();
+        // let ty = st_value.get_type();
+        // let tag_type = ty.get_field_type_at_index(0).unwrap();
+        // let ptr = st_value.get_field_at_index(0).unwrap().into_pointer_value();
+        // let tag_ptr = self.builder.build_struct_gep(tag_type, ptr, 0, "get_tag_ptr")?;
+        // let tag_value = self.builder.build_load(tag_type, tag_ptr, "load_tag_value")?;
+
+        Ok(tag_value.into_int_value())
+    }
+
+    fn gen_get_struct_value(&self,
+        value: &CompiledValue<'ctx>,
+        env: &mut Env<'ctx>,
+        pos: &Position
+    ) -> Result<StructValue<'ctx>, Box<dyn Error>> {
+
+        let v = value.get_value();
+        let st_value = v.into_struct_value();
+        let ty = st_value.get_type();
+        let struct_type = ty.get_field_type_at_index(1).unwrap();
+
+        let ptr = st_value.get_field_at_index(0).unwrap().into_pointer_value();
+        let struct_ptr = self.builder.build_struct_gep(struct_type, ptr, 1, "get_struct_ptr")?;
+        let struct_value = self.builder.build_load(struct_type, struct_ptr, "load_struct_value")?;
+
+        Ok(struct_value.into_struct_value())
     }
 }
