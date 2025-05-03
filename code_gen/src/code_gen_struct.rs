@@ -32,6 +32,13 @@ impl<'ctx> CodeGen<'ctx> {
                 let struct_name = typ.get_type_name();
                 let type_variables = typ.get_type_variables();
 
+                let mut all_const = true;
+                map.iter().for_each(|(_key, value)| {
+                    if ! value.as_ref().is_const() {
+                        all_const = false;
+                    }
+                });
+
                 if let Some(fields) = typ.get_struct_fields() {
                     let i32_type = self.context.i32_type();
                     let const_zero = i32_type.const_int(0, false);
@@ -65,10 +72,13 @@ impl<'ctx> CodeGen<'ctx> {
                     literal = struct_ty.const_named_struct(&Vec::new());
                 }
 
-                let basic_val = self.builder.build_load(struct_ty, struct_ptr, &format!("load_struct_{}_normal_literal", struct_name))?;
-                let any_val = basic_val.as_any_value_enum();
-
-                // let any_val = literal.as_any_value_enum();
+                let any_val;
+                if all_const {
+                    any_val = literal.as_any_value_enum();
+                }else{
+                    let basic_val = self.builder.build_load(struct_ty, struct_ptr, &format!("load_struct_{}_normal_literal", struct_name))?;
+                    any_val = basic_val.as_any_value_enum();
+                }
 
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },

@@ -1126,6 +1126,14 @@ impl ExprAST {
         }
     }
 
+    pub fn is_const(&self) -> bool {
+        if let Ok(_) = self.to_const(&Defines::new(), &self.get_position()) {
+            true
+        }else{
+            false
+        }
+    }
+
     pub fn is_array_access(&self) -> bool {
         match self {
             ExprAST::ArrayAccess(_, _, _) => true,

@@ -256,7 +256,6 @@ impl<'ctx> CodeGen<'ctx> {
         let i1_type = self.context.bool_type();
         comparison = self.builder.build_int_cast(comparison, i1_type, "cast to i1")?;  // cast to i1
         self.builder.build_conditional_branch(comparison, then_block, else_block)?;
-        // self.builder.build_conditional_branch(comparison, end_block, else_block)?;
 
         // then block
         self.builder.position_at_end(then_block);

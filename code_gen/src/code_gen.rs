@@ -23,6 +23,7 @@ use inkwell::types::{AnyTypeEnum, BasicMetadataTypeEnum, BasicType, BasicTypeEnu
 use inkwell::AddressSpace;
 use parser::{ExprAST, StructDefinition};
 use std::error::Error;
+use std::f32::consts::E;
 use std::rc::Rc;
 
 #[cfg(test)] use crate::parser::{DirectDeclarator, Defines, Param};
@@ -1304,6 +1305,23 @@ impl<'ctx> CodeGen<'ctx> {
 
                     }
                 },
+                Some(AST::IfLet { pattern_list: _, pattern_name: _, expr: _, then, else_, pos }) => {
+                    let typ = self.calc_ret_type_in_if(then, else_, pos, env)?;
+                    if typ.is_void() {
+                        Err(Box::new(CodeGenError::return_type_mismatch(ret_type.as_ref().clone(), Type::Void, pos.clone())))
+                    }else{
+                        if *ret_type == typ {
+                            // 最後の文が、ifのとき、ラベルif.endの後にコードが生成されないのでセグフォが起きることへのケア
+                            // self.builder.build_return(None)?;
+                            self.builder.build_unreachable()?;
+
+                            Ok(())
+                        }else{
+                            Err(Box::new(CodeGenError::return_type_mismatch(ret_type.as_ref().clone(), typ.as_ref().clone(), pos.clone())))
+                        }
+
+                    }
+                },
                 Some(stmt) => {  // TODO: if文などの時に内部でreturnしているかもしれないので、その処理。
                     // if let Some(typ) = self.calc_ret_type(stmt, env)? {
                     let typ = self.calc_ret_type(stmt, env)?;
@@ -1336,36 +1354,11 @@ impl<'ctx> CodeGen<'ctx> {
                 Ok(typ)
             },
             AST::If(_cond, if_then, if_else, pos) => {
-                let then_type = self.calc_ret_type(if_then, env)?;
-
-                if then_type.is_void() {
-                    if let Some(else_expr) = if_else {
-                        let else_type = self.calc_ret_type(else_expr, env)?;
-
-                        if else_type.is_void() {
-                            Ok(Rc::new(Type::Void))
-                        }else{
-                            Err(Box::new(CodeGenError::mismatch_type_in_if(pos.clone(), then_type.as_ref().clone(), else_type.as_ref().clone())))
-                        }
-
-                    }else{
-                        Ok(Rc::new(Type::Void))
-                    }
-
-                }else{
-                    if let Some(else_expr) = if_else {
-                        let else_type = self.calc_ret_type(else_expr, env)?;
-                        if else_type.is_void() {
-                            Err(Box::new(CodeGenError::mismatch_type_in_if(pos.clone(), then_type.as_ref().clone(), else_type.as_ref().clone())))
-                        }else{
-                            Ok(else_type)
-                        }
-
-                    }else{
-                        Err(Box::new(CodeGenError::mismatch_type_in_if(pos.clone(), then_type.as_ref().clone(), Type::Void)))
-                    }
-                }
+                self.calc_ret_type_in_if(if_then, if_else, pos, env)
             },
+            AST::IfLet { pattern_list: _, pattern_name: _, expr: _, then, else_, pos } => {
+                self.calc_ret_type_in_if(then, else_, pos, env)
+            }
             AST::Block(blk, _pos) => {
                 let mut typ = Rc::new(Type::Void);
 
@@ -1388,6 +1381,37 @@ impl<'ctx> CodeGen<'ctx> {
             _ => {
                 Ok(Rc::new(Type::Void))
             },
+        }
+    }
+
+    fn calc_ret_type_in_if(&self, if_then: &AST, if_else: &Option<Box<AST>>, pos: &Position, env: &Env) -> Result<Rc<Type>, Box<dyn Error>> {
+        let then_type = self.calc_ret_type(if_then, env)?;
+
+        if then_type.is_void() {
+            if let Some(else_expr) = if_else {
+                let else_type = self.calc_ret_type(else_expr, env)?;
+                if else_type.is_void() {
+                    Ok(Rc::new(Type::Void))
+                }else{
+                    Err(Box::new(CodeGenError::mismatch_type_in_if(pos.clone(), then_type.as_ref().clone(), else_type.as_ref().clone())))
+                }
+
+            }else{
+                Ok(Rc::new(Type::Void))
+            }
+
+        }else{
+            if let Some(else_expr) = if_else {
+                let else_type = self.calc_ret_type(else_expr, env)?;
+                if else_type.is_void() {
+                    Err(Box::new(CodeGenError::mismatch_type_in_if(pos.clone(), then_type.as_ref().clone(), else_type.as_ref().clone())))
+                }else{
+                    Ok(else_type)
+                }
+
+            }else{
+                Err(Box::new(CodeGenError::mismatch_type_in_if(pos.clone(), then_type.as_ref().clone(), Type::Void)))
+            }
         }
     }
 
