@@ -1296,7 +1296,8 @@ impl<'ctx> CodeGen<'ctx> {
                     }else{
                         if *ret_type == typ {
                             // 最後の文が、ifのとき、ラベルif.endの後にコードが生成されないのでセグフォが起きることへのケア
-                            self.builder.build_return(None)?;
+                            // self.builder.build_return(None)?;
+                            self.builder.build_unreachable()?;
 
                             Ok(())
                         }else{
