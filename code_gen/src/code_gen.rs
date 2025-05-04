@@ -1323,8 +1323,16 @@ impl<'ctx> CodeGen<'ctx> {
 
                     }
                 },
+                Some(AST::Switch(_switch, pos)) => {
+                    let typ = self.calc_ret_type(last_stmt.unwrap(), env)?;
+
+                    if *ret_type == typ {
+                        Ok(())
+                    }else{
+                        Err(Box::new(CodeGenError::return_type_mismatch(ret_type.as_ref().clone(), typ.as_ref().clone(), pos.clone())))
+                    }
+                },
                 Some(stmt) => {  // TODO: if文などの時に内部でreturnしているかもしれないので、その処理。
-                    // if let Some(typ) = self.calc_ret_type(stmt, env)? {
                     let typ = self.calc_ret_type(stmt, env)?;
                     if typ.is_void() {
                         Err(Box::new(CodeGenError::return_type_mismatch(ret_type.as_ref().clone(), Type::Void, stmt.get_position().clone())))
@@ -1376,7 +1384,50 @@ impl<'ctx> CodeGen<'ctx> {
 
                 Ok(typ)
             },
-            AST::Switch(..) => {
+            AST::Switch(switch, _pos1) => {
+                let opt_stmt = switch.get_stmt();
+                if let Some(stmt) = opt_stmt {
+                    if let AST::Block(blk, _pos2) = stmt {
+                        // let mut typ = Rc::new(Type::Void);
+                        let mut typ = None;
+
+                        for e in &blk.body {
+                            match e {
+                                AST::Return(Some(boxed_ast), _) => {
+                                    let t = TypeUtil::get_type(&**boxed_ast, env)?;
+
+                                    if typ.is_none() {
+                                        typ = Some(t);
+                                    }else{
+                                        if typ.as_ref().unwrap() != &t {
+                                            return Err(Box::new(CodeGenError::return_type_mismatch(typ.as_ref().unwrap().as_ref().clone(), t.as_ref().clone(), boxed_ast.get_position().clone())));
+                                        }
+                                    }
+                                },
+                                AST::Case(case, _pos3) => {
+                                    let stmt = case.get_stmt();
+                                    let typ2 = self.calc_ret_type(stmt, env)?;
+
+                                    if typ.is_none() {
+                                        typ = Some(typ2);
+                                    }else{
+                                        if typ.as_ref().unwrap() != &typ2 {
+                                            return Err(Box::new(CodeGenError::return_type_mismatch(typ.as_ref().unwrap().as_ref().clone(), typ2.as_ref().clone(), case.get_position().clone())));
+                                        }
+                                    }
+                                },
+                                _ => (),  // do nothing
+                            }
+                        }
+
+                        if let Some(typ) = typ {
+                            return Ok(typ);
+                        }else{
+                            return Ok(Rc::new(Type::Void));
+                        }
+                    }
+                }
+
                 Ok(Rc::new(Type::Void))
             },
             _ => {
