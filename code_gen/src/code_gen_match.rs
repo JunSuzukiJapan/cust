@@ -13,6 +13,7 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicMetadataValueEnum, FunctionVa
 use inkwell::{IntPredicate, AddressSpace};
 use parser::{NumberType, SpecifierQualifier};
 use std::error::Error;
+use std::f32::consts::E;
 use std::rc::Rc;
 
 impl<'ctx> CodeGen<'ctx> {
@@ -564,7 +565,7 @@ impl<'ctx> CodeGen<'ctx> {
     
                 unimplemented!()
             },
-            EnumPattern::Struct(name, field_name, struct_pat) => {
+            EnumPattern::Struct(type_name, field_name, struct_pat) => {
                 let then_block = self.context.append_basic_block(func, "match.then");
                 let else_block  = self.context.append_basic_block(func, "match.else");
     
@@ -575,7 +576,7 @@ impl<'ctx> CodeGen<'ctx> {
                 // }
     
                 let arg_enum_def = arg_type.get_enum_definition().ok_or(CodeGenError::not_enum(arg_type.as_ref().clone(), pos.clone()))?;
-                let required_tag = arg_enum_def.get_index(&field_name).ok_or(CodeGenError::no_such_a_field(arg_enum_def.get_name().to_string(), name.to_string(), pos.clone()))?;
+                let required_tag = arg_enum_def.get_index(&field_name).ok_or(CodeGenError::no_such_a_field(arg_enum_def.get_name().to_string(), type_name.to_string(), pos.clone()))?;
     
                 let i64_type = self.context.i64_type();
                 let i64_num = i64_type.const_int(required_tag as u64, true);
@@ -598,8 +599,32 @@ impl<'ctx> CodeGen<'ctx> {
                 self.builder.build_store(condition_ptr, one)?;
 
                 // TODO: 
-                let map = struct_pat.get_map();
+                let pattern_map = struct_pat.get_map();
+eprintln!("struct_pat: {:?}\n", struct_pat);
                 let struct_value = self.gen_get_struct_value(value, env, pos)?;
+eprintln!("pattern_map: {:?}\n", pattern_map);
+eprintln!("struct_value: {:?}\n", struct_value);
+
+                for (pat_name, item) in pattern_map.iter() {
+eprintln!("name: {:?}\n", pat_name);
+eprintln!("item: {:?}\n", item);
+                    if let Some((pattern_list, opt_at_name)) = item {  // if let (type_name::FieldName {pat_name: item})
+
+
+
+
+
+
+                    }else{ // item is None.                               if let (type_name::FieldName {pat_name})
+
+
+
+
+
+                    }
+                }
+
+
 
 
 

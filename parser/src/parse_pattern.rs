@@ -231,7 +231,7 @@ impl Parser {
                     let (tok2, _pos2) = iter.peek().unwrap();
                     match tok2 {
                         Token::Comma => {  // ','
-                            iter.next();  // skip ','
+                        iter.next();  // skip ','
                             map.insert(name.to_string(), None);
                         },
                         Token::Colon => {  // ':'
@@ -245,7 +245,9 @@ impl Parser {
                                 iter.next();  // skip ','
                             }
                         },
-                        _ => ()  // do nothing
+                        _ => {
+                            map.insert(name.to_string(), None);
+                        }
                     }
                 },
                 Token::TripleDot => {
