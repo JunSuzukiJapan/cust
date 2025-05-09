@@ -122,6 +122,9 @@ pub enum CodeGenError {
     NotEnum(Type, Position),
     NoSuchAField(String, String, Position),  // (struct name, field name, Position)
     CannotInitEnum(String, Position),  // (enum name, field name, Position)
+    NoIndexMap(String, Position),  // (type name, Position)
+    NoTypeList(String, Position),  // (type name, Position)
+    NotStructInEnum(String, String, Position),  // (enum name, field name, Position)
 }
 
 impl CodeGenError {
@@ -542,6 +545,18 @@ impl CodeGenError {
     pub fn cannot_init_enum(enum_name: String, pos: Position) -> Self {
         Self::CannotInitEnum(enum_name, pos)
     }
+
+    pub fn no_index_map(type_name: String, pos: Position) -> Self {
+        Self::NoIndexMap(type_name, pos)
+    }
+
+    pub fn no_type_list(type_name: String, pos: Position) -> Self {
+        Self::NoTypeList(type_name, pos)
+    }
+
+    pub fn not_struct_in_enum(enum_name: String, field_name: String, pos: Position) -> Self {
+        Self::NotStructInEnum(enum_name, field_name, pos)
+    }
 }
 
 impl From<ParserError> for CodeGenError {
@@ -881,6 +896,15 @@ impl fmt::Display for CodeGenError {
             },
             Self::CannotInitEnum(enum_name, _pos) => {
                 write!(f, "cannot init enum '{enum_name}'")
+            },
+            Self::NoIndexMap(type_name, _pos) => {
+                write!(f, "no index map for type '{type_name}'")
+            },
+            Self::NoTypeList(type_name, _pos) => {
+                write!(f, "no type list for type '{type_name}'")
+            },
+            Self::NotStructInEnum(enum_name, field_name, _pos) => {
+                write!(f, "{field_name} is not struct in enum '{enum_name}'")
             },
         }
     }

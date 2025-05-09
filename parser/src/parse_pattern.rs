@@ -8,6 +8,7 @@ use super::defines::Defines;
 use std::collections::HashMap;
 use std::slice::Iter;
 use std::iter::Peekable;
+use std::rc::Rc;
 
 
 impl Parser {
@@ -91,7 +92,6 @@ impl Parser {
                                 return Err(ParserError::syntax_error(file!(), line!(), column!(), pos3.clone()));
                             }
                             let sub_name = tok3.get_symbol_name().unwrap();
-
                             let pat = self.parse_enum_pattern(name, sub_name, iter, defs, labels)?;
                             v.push((Box::new(pat), pos.clone()));
                         },
@@ -107,7 +107,11 @@ impl Parser {
 
                             let pat = self.parse_tuple_pattern(iter, defs, labels)?;
                             if let Pattern::Tuple(list) = pat {
-                                let enum_pat = EnumPattern::Tuple("".into(), name.to_string(), list);
+eprintln!("NO TYPE '{}'. list: {:?}", name, list);
+                                let enum_type = defs.get_type(name).ok_or(ParserError::no_type_defined(Some(name.into()), pos.clone()))?;
+                                let enum_type = Rc::clone(enum_type);
+
+                                let enum_pat = EnumPattern::Tuple(enum_type, "".into(), name.to_string(), list);
                                 let pat = Pattern::Enum(enum_pat);
                                 v.push((Box::new(pat), pos.clone()))
 
@@ -186,14 +190,17 @@ impl Parser {
     }
 
     fn parse_enum_pattern(&self, name: &str, sub_name: &str, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Pattern, ParserError> {
-        let (tok, _pos) = iter.peek().unwrap();
+        let (tok, pos) = iter.peek().unwrap();
+eprintln!("NO TYPE. parse_enum_pattern: {:?}", tok);
+        let enum_type = defs.get_type(name).ok_or(ParserError::no_type_defined(Some(name.into()), pos.clone()))?;
+        let enum_type = Rc::clone(enum_type);
         
         match tok {
             Token::ParenLeft => {  // Tuple pattern
                 iter.next();  // skip '('
 
                 if let Pattern::Tuple(list) = self.parse_tuple_pattern(iter, defs, labels)? {
-                    let enum_pat = EnumPattern::Tuple(name.to_string(), sub_name.to_string(), list);
+                    let enum_pat = EnumPattern::Tuple(enum_type, name.to_string(), sub_name.to_string(), list);
                     Ok(Pattern::Enum(enum_pat))
 
                 }else{
@@ -203,11 +210,11 @@ impl Parser {
             Token::BraceLeft => {  // Struct pattern
                 iter.next();  // skip '{'
                 let struct_pat = self.parse_struct_pattern(&format!("{name}::{sub_name}"), iter, defs, labels)?;
-                let enum_pat = EnumPattern::Struct(name.to_string(), sub_name.to_string(), struct_pat);
+                let enum_pat = EnumPattern::Struct(enum_type, name.to_string(), sub_name.to_string(), struct_pat);
                 Ok(Pattern::Enum(enum_pat))
             },
             _ => {  // pattern 'Name::SubName'
-                let enum_pat = EnumPattern::Simple(name.to_string(), sub_name.to_string());
+                let enum_pat = EnumPattern::Simple(enum_type, name.to_string(), sub_name.to_string());
                 Ok(Pattern::Enum(enum_pat))
             },
         }
@@ -215,6 +222,7 @@ impl Parser {
 
     fn parse_struct_pattern(&self, name: &str, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<StructPattern, ParserError> {
         let mut map: HashMap<String, Option<(Vec<(Box<Pattern>, Position)>, Option<String>)>> = HashMap::new();
+        let mut list = Vec::new();
         let mut has_optional = false;
 
         loop {
@@ -233,12 +241,14 @@ impl Parser {
                         Token::Comma => {  // ','
                         iter.next();  // skip ','
                             map.insert(name.to_string(), None);
+                            list.push(name.to_string());
                         },
                         Token::Colon => {  // ':'
                             iter.next();  // skip ';'
 
                             let (pat, pattern_name) = self.parse_pattern(iter, defs, labels)?;
                             map.insert(name.to_string(), Some((pat, pattern_name)));
+                            list.push(name.to_string());
 
                             let (tok3, _pos3) = iter.peek().unwrap();
                             if *tok3 == Token::Comma {
@@ -247,6 +257,7 @@ impl Parser {
                         },
                         _ => {
                             map.insert(name.to_string(), None);
+                            list.push(name.to_string());
                         }
                     }
                 },
@@ -264,6 +275,7 @@ impl Parser {
 
         let struct_pat = StructPattern {
             name: name.to_string(),
+            keys: list,
             map,
             has_optional,
         };
@@ -274,7 +286,7 @@ impl Parser {
 
 #[cfg(test)]
 mod tests {
-    use crate::pattern;
+    use crate::{pattern, EnumDefinition};
 
     use super::*;
     use pattern::StructPattern;
@@ -287,6 +299,14 @@ mod tests {
         let mut defs = Defines::new();
         let mut labels = Vec::new();
         parser.parse_pattern(&mut iter, &mut defs, &mut Some(&mut labels))
+    }
+
+    fn parse_pattern_from_str_with_defs(src: &str, defs: &mut Defines) -> Result<(Vec<(Box<Pattern>, Position)>, Option<String>), ParserError> {
+        let token_list = Tokenizer::tokenize(src).unwrap();
+        let mut iter = token_list.iter().peekable();
+        let parser = Parser::new();
+        let mut labels = Vec::new();
+        parser.parse_pattern(&mut iter, defs, &mut Some(&mut labels))
     }
 
     #[test]
@@ -491,14 +511,17 @@ mod tests {
     #[test]
     fn parse_enum_simple_pattern() {
         let src = "EnumName::SubName";
-        let (pat_vec, _name) = parse_pattern_from_str(src).unwrap();
+        let mut defs = Defines::new();
+        let enum_def = EnumDefinition::new_tagged("EnumName".to_string(), Vec::new());
+        defs.set_enum("EnumName", enum_def, None, &Position::new(0, 0)).unwrap();
+        let (pat_vec, _name) = parse_pattern_from_str_with_defs(src, &mut defs).unwrap();
 
         assert_eq!(pat_vec.len(), 1);
 
         let (pat, _pos) = &pat_vec[0];
         if let Pattern::Enum(enum_pat) = &**pat {
             match enum_pat {
-                EnumPattern::Simple(name, sub_name) => {
+                EnumPattern::Simple(_typ, name, sub_name) => {
                     assert_eq!(name, "EnumName");
                     assert_eq!(sub_name, "SubName");
                 },
@@ -514,14 +537,17 @@ mod tests {
     #[test]
     fn parse_enum_tuple_pattern() {
         let src = "EnumName::SubName(1, 'a', \"Hello\")";
-        let (pat_vec, _name) = parse_pattern_from_str(src).unwrap();
+        let mut defs = Defines::new();
+        let enum_def = EnumDefinition::new_tagged("EnumName".to_string(), Vec::new());
+        defs.set_enum("EnumName", enum_def, None, &Position::new(0, 0)).unwrap();
+        let (pat_vec, _name) = parse_pattern_from_str_with_defs(src, &mut defs).unwrap();
 
         assert_eq!(pat_vec.len(), 1);
 
         let (pat, _pos) = &pat_vec[0];
         if let Pattern::Enum(enum_pat) = &**pat {
             match enum_pat {
-                EnumPattern::Tuple(name, sub_name, patterns_list) => {
+                EnumPattern::Tuple(_typ, name, sub_name, patterns_list) => {
                     assert_eq!(name, "EnumName");
                     assert_eq!(sub_name, "SubName");
                     assert_eq!(patterns_list.len(), 3);
@@ -562,9 +588,13 @@ mod tests {
 
         let (pat, _pos) = &pat_vec[0];
         if let Pattern::Struct(strct_pat) = &**pat {
-            let StructPattern {name, map, has_optional} = strct_pat;
+            let StructPattern {name, keys: list, map, has_optional} = strct_pat;
             assert_eq!(name, "Foo");
             assert_eq!(*has_optional, true);
+
+            assert_eq!(list.len(), 2);
+            assert_eq!(list[0], "x");
+            assert_eq!(list[1], "y");
 
             assert_eq!(map.len(), 2);
             assert_eq!(map["x"], None);
@@ -585,20 +615,28 @@ mod tests {
     #[test]
     fn parse_enum_struct_pattern() {
         let src = "Some::Foo {x, y: 0, z: 'a' | 'b'} ";
-        let (pat_vec, _name) = parse_pattern_from_str(src).unwrap();
+        let mut defs = Defines::new();
+        let enum_def = EnumDefinition::new_tagged("Some".to_string(), Vec::new());
+        defs.set_enum("Some", enum_def, None, &Position::new(0, 0)).unwrap();
+        let (pat_vec, _name) = parse_pattern_from_str_with_defs(src, &mut defs).unwrap();
 
         assert_eq!(pat_vec.len(), 1);
 
         let (pat, _pos) = &pat_vec[0];
         if let Pattern::Enum(enum_pat) = &**pat {
             match enum_pat {
-                EnumPattern::Struct(name, sub_name, struct_pat) => {
+                EnumPattern::Struct(_typ, name, sub_name, struct_pat) => {
                     assert_eq!(name, "Some");
                     assert_eq!(sub_name, "Foo");
 
-                    let StructPattern {name, map, has_optional} = struct_pat;
+                    let StructPattern {name, keys: list, map, has_optional} = struct_pat;
                     assert_eq!(name, "Some::Foo");
                     assert_eq!(*has_optional, false);
+
+                    assert_eq!(list.len(), 3);
+                    assert_eq!(list[0], "x");
+                    assert_eq!(list[1], "y");
+                    assert_eq!(list[2], "z");
 
                     assert_eq!(map.len(), 3);
                     assert_eq!(map["x"], None);

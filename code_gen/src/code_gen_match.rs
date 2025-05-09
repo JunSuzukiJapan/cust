@@ -9,7 +9,7 @@ use crate::CodeGen;
 
 use inkwell::basic_block::BasicBlock;
 use inkwell::types::{BasicType, BasicMetadataTypeEnum};
-use inkwell::values::{AnyValue, AnyValueEnum, BasicMetadataValueEnum, FunctionValue, IntValue, PointerValue, StructValue};
+use inkwell::values::{AnyValue, AnyValueEnum, AsValueRef, BasicMetadataValueEnum, FunctionValue, IntValue, PointerValue, StructValue};
 use inkwell::{IntPredicate, AddressSpace};
 use parser::{NumberType, SpecifierQualifier};
 use std::error::Error;
@@ -235,7 +235,7 @@ impl<'ctx> CodeGen<'ctx> {
         self.builder.position_at_end(cond_block);
 
         env.add_new_local();
-
+eprintln!("ADD new local");
         // match patterns
         let cond = self.gen_expr(condition, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::condition_is_not_number(condition, (*condition).get_position().clone()))?;
         let matched = self.gen_pattern_match(
@@ -273,7 +273,7 @@ impl<'ctx> CodeGen<'ctx> {
         }
 
         env.remove_local();
-
+eprintln!("REMOVE local");
         // else block
         self.builder.position_at_end(else_block);
         if let Some(expr) = else_ {
@@ -380,13 +380,12 @@ impl<'ctx> CodeGen<'ctx> {
             self.builder.build_store(ptr, basic_value)?;
 
             env.insert_local(alias_name, Rc::clone(typ), sq, ptr);
+eprintln!("{}: {} = {:?}", pattern_pos, alias_name, value.get_value());
         }
 
         let num_type = Type::Number(NumberType::_Bool);
         let result_any_value: AnyValueEnum = self.builder.build_load(bool_type, condition_ptr, "get_condition")?.as_any_value_enum();
         Ok(Some(CompiledValue::new(Rc::new(num_type), result_any_value)))
-        // let result_any_value = condition_ptr.as_any_value_enum();
-        // Ok(Some(CompiledValue::new(Rc::new(num_type), result_any_value)))
     }
     
     fn gen_ver_match(&self, value: &CompiledValue<'ctx>, env: &mut Env<'ctx>, one: IntValue<'_>, condition_ptr: inkwell::values::PointerValue<'ctx>, pos: &Position, name: &String) -> Result<(), Box<dyn Error>> {
@@ -399,6 +398,7 @@ impl<'ctx> CodeGen<'ctx> {
         let basic_value = self.try_as_basic_value(&any_value, pos)?;
         self.builder.build_store(ptr, basic_value)?;
         env.insert_local(name, Rc::clone(typ), sq, ptr);
+eprintln!("{}: {} = {:?}", pos, name, value.get_value());
         Ok(())
     }
     
@@ -508,9 +508,19 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(())
     }
 
-    fn gen_enum_match(&self, value: &CompiledValue<'ctx>, env: &mut Env<'ctx>, func: FunctionValue<'ctx>, one: IntValue<'_>, condition_ptr: inkwell::values::PointerValue<'ctx>, all_end_block: BasicBlock<'ctx>, pos: &Position, enum_pat: &EnumPattern) -> Result<(), Box<dyn Error>> {
+    fn gen_enum_match(&self,
+        value: &CompiledValue<'ctx>,
+        env: &mut Env<'ctx>,
+        func: FunctionValue<'ctx>,
+        one: IntValue<'_>,
+        condition_ptr: inkwell::values::PointerValue<'ctx>,
+        all_end_block: BasicBlock<'ctx>,
+        pos: &Position,
+        enum_pat: &EnumPattern
+    ) -> Result<(), Box<dyn Error>> {
+
         Ok(match enum_pat {
-            EnumPattern::Simple(name, _) => {
+            EnumPattern::Simple(enum_type, name, _) => {
                 let then_block = self.context.append_basic_block(func, "match.then");
                 let else_block  = self.context.append_basic_block(func, "match.else");
     
@@ -540,7 +550,7 @@ impl<'ctx> CodeGen<'ctx> {
     
                 unimplemented!()
             },
-            EnumPattern::Tuple(name, sub_name, pattern_list) => {
+            EnumPattern::Tuple(enum_type, name, sub_name, pattern_list) => {
                 // let then_block = self.context.append_basic_block(func, "match.then");
                 // let else_block  = self.context.append_basic_block(func, "match.else");
     
@@ -565,7 +575,7 @@ impl<'ctx> CodeGen<'ctx> {
     
                 unimplemented!()
             },
-            EnumPattern::Struct(type_name, field_name, struct_pat) => {
+            EnumPattern::Struct(enum_type, type_name, field_name, struct_pat) => {
                 let then_block = self.context.append_basic_block(func, "match.then");
                 let else_block  = self.context.append_basic_block(func, "match.else");
     
@@ -600,14 +610,16 @@ impl<'ctx> CodeGen<'ctx> {
 
                 // TODO: 
                 let pattern_map = struct_pat.get_map();
-eprintln!("struct_pat: {:?}\n", struct_pat);
-                let struct_value = self.gen_get_struct_value(value, env, pos)?;
-eprintln!("pattern_map: {:?}\n", pattern_map);
-eprintln!("struct_value: {:?}\n", struct_value);
+                let pattern_list = struct_pat.get_keys();
+                let struct_ptr = self.gen_get_struct_ptr(value)?;
 
-                for (pat_name, item) in pattern_map.iter() {
-eprintln!("name: {:?}\n", pat_name);
-eprintln!("item: {:?}\n", item);
+                let enum_type = env.get_type(type_name).ok_or(CodeGenError::no_such_a_type(type_name, pos.clone()))?;
+                let enum_type = enum_type.clone();  // env.insert_localメソッドを使用可能にするため。
+                let index_map = enum_type.get_index_map().ok_or(CodeGenError::no_index_map(type_name.to_string(), pos.clone()))?;
+                let type_list = enum_type.get_type_list().ok_or(CodeGenError::no_type_list(type_name.to_string(), pos.clone()))?;
+
+                for pat_name in pattern_list.iter() {
+                    let item = pattern_map.get(pat_name).unwrap();
                     if let Some((pattern_list, opt_at_name)) = item {  // if let (type_name::FieldName {pat_name: item})
 
 
@@ -616,11 +628,23 @@ eprintln!("item: {:?}\n", item);
 
 
                     }else{ // item is None.                               if let (type_name::FieldName {pat_name})
+                        let index = index_map.get(field_name).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), field_name.to_string(), pos.clone()))?;
+                        let (cust_type, llvm_type) = type_list.get(*index).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), field_name.to_string(), pos.clone()))?;
+                        let struct_def = cust_type.get_struct_definition().ok_or(CodeGenError::not_struct_in_enum(type_name.to_string(), field_name.to_string(), pos.clone()))?;
 
+                        let raw_field_index = struct_def.get_index(pat_name).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), pat_name.to_string(), pos.clone()))?;
+                        let field_index = self.context.i32_type().const_int(raw_field_index as u64, false);
+                        let field_value = unsafe { struct_ptr.const_gep(*llvm_type, &[field_index]) };
 
+                        let field_type = cust_type.as_ref().get_field_type_at_index(raw_field_index).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), pat_name.to_string(), pos.clone()))?;
 
+                        let field = struct_def.get_field_by_name(pat_name).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), field_name.to_string(), pos.clone()))?;
+                        let sq = field.get_specifier_qualifier();
 
-
+eprintln!("field_value: {:?}\n", field_value);
+eprintln!("field_type: {:?}\n", field_type);
+                        env.insert_local(&pat_name, Rc::clone(field_type), sq.clone(), field_value);
+eprintln!("insert local: {} {}\n", pat_name, field_value);
                     }
                 }
 
@@ -662,12 +686,7 @@ eprintln!("item: {:?}\n", item);
         Ok(tag_value.into_int_value())
     }
 
-    fn gen_get_struct_value(&self,
-        value: &CompiledValue<'ctx>,
-        env: &mut Env<'ctx>,
-        pos: &Position
-    ) -> Result<StructValue<'ctx>, Box<dyn Error>> {
-
+    fn gen_get_struct_ptr(&self, value: &CompiledValue<'ctx>) -> Result<PointerValue<'ctx>, Box<dyn Error>> {
         let v = value.get_value();
         let st_value = v.into_struct_value();
         let ty = st_value.get_type();
@@ -675,8 +694,7 @@ eprintln!("item: {:?}\n", item);
 
         let ptr = st_value.get_field_at_index(0).unwrap().into_pointer_value();
         let struct_ptr = self.builder.build_struct_gep(struct_type, ptr, 1, "get_struct_ptr")?;
-        let struct_value = self.builder.build_load(struct_type, struct_ptr, "load_struct_value")?;
 
-        Ok(struct_value.into_struct_value())
+        Ok(struct_ptr)
     }
 }

@@ -2,8 +2,6 @@ mod common;
 
 mod tests {
     use super::common::*;
-    use crate::common::StructDefinition;
-    use parser::ast::TupleLiteral;
     use core::panic;
     use std::{ops::Deref, rc::Rc};
 
@@ -17,14 +15,21 @@ mod tests {
             };
 
             int test(){
-                enum Option<int> opt = Some(10);
-                if let (Some(x) = opt) {
+                enum Option<int> opt = Option::Some(10);
+                if let (Option::Some(x) = opt) {
                     return x;
                 }
 
                 return 0;
             }
         ";
+        let mut defs = Defines::new();
+        let list = vec![
+            Enumerator::new_tuple("Some", vec![Rc::new(Type::TypeVariable("T".to_string()))]),
+            Enumerator::new("None", 1),
+        ];
+        let enum_def = EnumDefinition::new_tagged("Option".to_string(), list);
+        defs.set_enum("Option", enum_def, None, &Position::new(0, 0)).unwrap();
         let ast = parse_translation_unit_from_str(src).unwrap();
 
         assert_eq!(ast.len(), 2);
@@ -60,11 +65,11 @@ mod tests {
                 assert_eq!(decl.get_declarator().get_name(), "opt");
 
                 if let Initializer::Simple(expr, _pos) = decl.get_init_expr().as_ref().unwrap() {
-                    if let ExprAST::CallFunction(func, args, _pos) = expr {
-                        let (name, _pos) = func.get_symbol().unwrap();
-                        assert_eq!(name, "Some");
-                        assert_eq!(args.len(), 1);
-                        assert_eq!(args[0], ExprAST::Int(10, Position::new(8, 44)));
+                    if let ExprAST::EnumLiteral(typ, 0, _literal, pos) = expr {
+                        let enum_def = typ.get_enum_definition().unwrap();
+                        assert_eq!(enum_def.get_name(), "Option");
+
+                        assert_eq!(pos, &Position::new(8, 39));
 
                     }else{
                         panic!()
@@ -84,15 +89,15 @@ mod tests {
             if let AST::IfLet { pattern_list, pattern_name, expr, then, else_, pos: _ } = &body.body[1] {
                 assert_eq!(pattern_list.len(), 1);
                 assert!(pattern_name.is_none());
-                assert_eq!(expr.deref(), &ExprAST::Symbol("opt".to_string(), Position::new(9, 34)));
+                assert_eq!(expr.deref(), &ExprAST::Symbol("opt".to_string(), Position::new(9, 42)));
                 assert!(else_.is_none());
 
                 //
                 // Some(x)
                 //
                 let (pat, _pos) = &pattern_list[0];
-                if let Pattern::Enum(EnumPattern::Tuple(name, variant, fields)) = &**pat {
-                    assert_eq!(name, "");
+                if let Pattern::Enum(EnumPattern::Tuple(_typ, name, variant, fields)) = &**pat {
+                    assert_eq!(name, "Option");
                     assert_eq!(variant, "Some");
                     assert_eq!(fields.len(), 1);
                     assert_eq!(fields[0].0.len(), 1);

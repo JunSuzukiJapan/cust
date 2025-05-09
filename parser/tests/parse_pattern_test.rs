@@ -2,6 +2,7 @@ mod common;
 
 mod tests {
     use super::common::*;
+    use std::rc::Rc;
 
     #[test]
     fn parse_if_let() {
@@ -14,7 +15,14 @@ mod tests {
         ";
     
         // parse
-        let ast = parse_stmt_from_str(src).unwrap().unwrap();
+        let mut defs = Defines::new();
+        let list = vec![
+            Enumerator::new_tuple("Some", vec![Rc::new(Type::TypeVariable("T".to_string()))]),
+            Enumerator::new("None", 1),
+        ];
+        let enum_def = EnumDefinition::new_tagged("Option".to_string(), list);
+        defs.set_enum("Some", enum_def, None, &Position::new(0, 0)).unwrap();
+        let ast = parse_stmt_from_str_with_defs(src, &mut defs).unwrap().unwrap();
 
         if let AST::IfLet { pattern_list, pattern_name, expr, then, else_, pos: _ } = ast {
             //
@@ -25,7 +33,7 @@ mod tests {
             let (pat, _pos) = &pattern_list[0];
             if let Pattern::Enum(enum_pat) = &**pat {
                 match enum_pat {
-                    EnumPattern::Tuple(name, sub_name, patterns_list) => {
+                    EnumPattern::Tuple(_typ, name, sub_name, patterns_list) => {
                         assert_eq!(name, "");
                         assert_eq!(sub_name, "Some");
 
@@ -118,7 +126,14 @@ mod tests {
         ";
     
         // parse
-        let ast = parse_stmt_from_str(src).unwrap().unwrap();
+        let mut defs = Defines::new();
+        let list = vec![
+            Enumerator::new_tuple("Some", vec![Rc::new(Type::TypeVariable("T".to_string()))]),
+            Enumerator::new("None", 1),
+        ];
+        let enum_def = EnumDefinition::new_tagged("Option".to_string(), list);
+        defs.set_enum("Some", enum_def, None, &Position::new(0, 0)).unwrap();
+        let ast = parse_stmt_from_str_with_defs(src, &mut defs).unwrap().unwrap();
 
         if let AST::Match { expr, pattern_list_list, pos } = ast {
             //
@@ -145,7 +160,7 @@ mod tests {
             let (pat, _pos) = &pattern_list[0];
             if let Pattern::Enum(enum_pat) = &**pat {
                 match enum_pat {
-                    EnumPattern::Tuple(name, sub_name, patterns_list) => {
+                    EnumPattern::Tuple(_typ, name, sub_name, patterns_list) => {
                         assert_eq!(name, "");
                         assert_eq!(sub_name, "Some");
 

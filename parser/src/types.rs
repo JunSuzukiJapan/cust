@@ -1049,6 +1049,24 @@ impl Type {
         }
     }
 
+    pub fn get_field_type_at_index(&self, index: usize) -> Option<&Rc<Type>> {
+        match self {
+            Type::Struct { fields, .. } => {
+                if let Some(field) = fields.get_fields() {
+                    if index < field.len() {
+                        field[index].get_type()
+                    }else{
+                        None
+                    }
+                }else{
+                    None
+                }
+            },
+            Type::BoundStructType { struct_type, .. } => struct_type.get_field_type_at_index(index),
+            _ => None,
+        }
+    }
+
     pub fn get_struct_definition(&self) -> Option<&StructDefinition> {
         match self {
             Type::Struct { fields, .. } => Some(fields),

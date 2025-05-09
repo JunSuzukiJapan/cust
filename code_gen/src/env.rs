@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 use std::error::Error;
+use std::f32::consts::E;
 use std::rc::Rc;
 use inkwell::values::{PointerValue, FunctionValue, GlobalValue, AnyValueEnum, IntValue, BasicValueEnum, BasicValue};
 use inkwell::types::{StructType, AnyTypeEnum, AnyType, BasicTypeEnum, IntType, BasicType};
@@ -223,6 +224,47 @@ impl<'ctx> TypeOrUnion<'ctx> {
     //         _ => None,
     //     }
     // }
+
+    pub fn get_index_map(&self) -> Option<&HashMap<String, usize>> {
+        match self {
+            TypeOrUnion::Union { index_map, .. } => Some(index_map),
+            TypeOrUnion::StandardEnum { index_map, .. } => Some(index_map),
+            TypeOrUnion::TaggedEnum { index_map, .. } => Some(index_map),
+            TypeOrUnion::TypeDefStruct(_, raw_ptr) => {
+                let t = unsafe {
+                    raw_ptr.as_ref().unwrap()
+                };
+                t.get_index_map()
+            },
+            TypeOrUnion::TypeDefUnion(_, raw_ptr) => {
+                let t = unsafe {
+                    raw_ptr.as_ref().unwrap()
+                };
+                t.get_index_map()
+            },
+            _ => None,
+        }
+    }
+
+    pub fn get_type_list(&self) -> Option<&Vec<(Rc<Type>, BasicTypeEnum<'ctx>)>> {
+        match self {
+            TypeOrUnion::Union { type_list, .. } => Some(type_list),
+            TypeOrUnion::TaggedEnum { type_list, .. } => Some(type_list),
+            TypeOrUnion::TypeDefStruct(_, raw_ptr) => {
+                let t = unsafe {
+                    raw_ptr.as_ref().unwrap()
+                };
+                t.get_type_list()
+            },
+            TypeOrUnion::TypeDefUnion(_, raw_ptr) => {
+                let t = unsafe {
+                    raw_ptr.as_ref().unwrap()
+                };
+                t.get_type_list()
+            },
+            _ => None,
+        }
+    }
 
     pub fn as_any_type_enum(&self) -> AnyTypeEnum<'ctx> {
         match self {
@@ -500,6 +542,10 @@ impl<'ctx> Env<'ctx> {
             unimplemented!()
         }
         self.locals.last_mut().unwrap().last_mut().unwrap().insert(key.to_string(), (typ, sq, ptr));
+let temp = self.locals.last_mut().unwrap().last_mut().unwrap().get(key).unwrap();
+eprintln!("KEY: {} VALUE: {:?}\n", key, temp);
+eprintln!(" -- temp.2: {:?}\n", temp.2);
+eprintln!(" -- ptr: {:?}\n", ptr);
     }
 
     pub fn insert_label(&mut self, key: &str, block: BasicBlock<'ctx>) -> Result<(), CodeGenError> {
@@ -876,6 +922,7 @@ impl<'ctx> Env<'ctx> {
     }
 
     pub fn get_ptr(&self, key: &str) -> Option<(&Rc<Type>, &SpecifierQualifier, PointerValue<'ctx>)> {
+eprintln!("get_ptr: {}\n", key);
         if let Some((typ, sq, ptr)) = self.get_ptr_from_local(key) {
             Some((typ, sq, *ptr))
         }else if let Some((typ, sq, val)) = self.global_def.get(key) {
@@ -889,6 +936,7 @@ impl<'ctx> Env<'ctx> {
     }
 
     pub fn get_value(&self, key: &str) -> Option<(&Rc<Type>, &SpecifierQualifier, BasicValueEnum<'ctx>)> {
+eprintln!("get_value: {}\n", key);
         if let Some((typ, sq, val)) = self.global_def.get(key) {
             match val {
                 ConstOrGlobalValue::Const { value } => Some((typ, sq, *value)),
