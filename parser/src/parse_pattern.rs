@@ -107,7 +107,6 @@ impl Parser {
 
                             let pat = self.parse_tuple_pattern(iter, defs, labels)?;
                             if let Pattern::Tuple(list) = pat {
-eprintln!("NO TYPE '{}'. list: {:?}", name, list);
                                 let enum_type = defs.get_type(name).ok_or(ParserError::no_type_defined(Some(name.into()), pos.clone()))?;
                                 let enum_type = Rc::clone(enum_type);
 
@@ -191,7 +190,7 @@ eprintln!("NO TYPE '{}'. list: {:?}", name, list);
 
     fn parse_enum_pattern(&self, name: &str, sub_name: &str, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Pattern, ParserError> {
         let (tok, pos) = iter.peek().unwrap();
-eprintln!("NO TYPE. parse_enum_pattern: {:?}", tok);
+
         let enum_type = defs.get_type(name).ok_or(ParserError::no_type_defined(Some(name.into()), pos.clone()))?;
         let enum_type = Rc::clone(enum_type);
         

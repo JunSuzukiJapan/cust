@@ -542,10 +542,6 @@ impl<'ctx> Env<'ctx> {
             unimplemented!()
         }
         self.locals.last_mut().unwrap().last_mut().unwrap().insert(key.to_string(), (typ, sq, ptr));
-let temp = self.locals.last_mut().unwrap().last_mut().unwrap().get(key).unwrap();
-eprintln!("KEY: {} VALUE: {:?}\n", key, temp);
-eprintln!(" -- temp.2: {:?}\n", temp.2);
-eprintln!(" -- ptr: {:?}\n", ptr);
     }
 
     pub fn insert_label(&mut self, key: &str, block: BasicBlock<'ctx>) -> Result<(), CodeGenError> {
@@ -922,7 +918,6 @@ eprintln!(" -- ptr: {:?}\n", ptr);
     }
 
     pub fn get_ptr(&self, key: &str) -> Option<(&Rc<Type>, &SpecifierQualifier, PointerValue<'ctx>)> {
-eprintln!("get_ptr: {}\n", key);
         if let Some((typ, sq, ptr)) = self.get_ptr_from_local(key) {
             Some((typ, sq, *ptr))
         }else if let Some((typ, sq, val)) = self.global_def.get(key) {
@@ -936,7 +931,6 @@ eprintln!("get_ptr: {}\n", key);
     }
 
     pub fn get_value(&self, key: &str) -> Option<(&Rc<Type>, &SpecifierQualifier, BasicValueEnum<'ctx>)> {
-eprintln!("get_value: {}\n", key);
         if let Some((typ, sq, val)) = self.global_def.get(key) {
             match val {
                 ConstOrGlobalValue::Const { value } => Some((typ, sq, *value)),

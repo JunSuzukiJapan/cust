@@ -201,7 +201,6 @@ impl<'ctx> CodeGen<'ctx> {
 
             let sq = specifiers.get_specifier_qualifier();
             env.insert_local(name, typ.clone(), sq.clone(), ptr);
-eprintln!("{}:{}:{} {}: {} -> {:?}", file!(), line!(), column!(), name, typ, sq);
         }
 
         Ok(())
@@ -1234,7 +1233,6 @@ eprintln!("{}:{}:{} {}: {} -> {:?}", file!(), line!(), column!(), name, typ, sq)
             let ptr = function.get_nth_param(0).unwrap().into_pointer_value();
             let sq = SpecifierQualifier::default();
             env.insert_local(name, typ.clone(), sq, ptr);
-eprintln!("gen_code_function_sub: name: {name}, {:?}", typ);
         }
 
         // 引数の処理
@@ -1246,7 +1244,6 @@ eprintln!("gen_code_function_sub: name: {name}, {:?}", typ);
             let value = function.get_nth_param(i as u32).unwrap();
             self.builder.build_store(ptr, value)?;
             env.insert_local(name, typ, sq.clone(), ptr);
-eprintln!("gen_code_function_sub: name: {}", name);
         }
 
         // labels

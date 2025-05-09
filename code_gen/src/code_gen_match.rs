@@ -235,7 +235,7 @@ impl<'ctx> CodeGen<'ctx> {
         self.builder.position_at_end(cond_block);
 
         env.add_new_local();
-eprintln!("ADD new local");
+
         // match patterns
         let cond = self.gen_expr(condition, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::condition_is_not_number(condition, (*condition).get_position().clone()))?;
         let matched = self.gen_pattern_match(
@@ -248,6 +248,7 @@ eprintln!("ADD new local");
             func,
             cond_block,
             cond_block2,
+            then_block,
             break_catcher,
             continue_catcher
         )?.ok_or(CodeGenError::condition_is_not_number(condition, (*condition).get_position().clone()))?;
@@ -273,7 +274,7 @@ eprintln!("ADD new local");
         }
 
         env.remove_local();
-eprintln!("REMOVE local");
+
         // else block
         self.builder.position_at_end(else_block);
         if let Some(expr) = else_ {
@@ -306,6 +307,7 @@ eprintln!("REMOVE local");
         func: FunctionValue<'ctx>,
         current_block: BasicBlock<'ctx>,
         after_match_block: BasicBlock<'ctx>,
+        then_block: BasicBlock<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
@@ -358,7 +360,7 @@ eprintln!("REMOVE local");
 
                 },
                 Pattern::Enum(enum_pat) => {
-                    self.gen_enum_match(value, env, func, one, condition_ptr, all_end_block, pos, enum_pat)?;
+                    self.gen_enum_match(value, env, func, one, condition_ptr, all_end_block, then_block, pos, enum_pat)?;
                 },
             }
         }
@@ -380,7 +382,6 @@ eprintln!("REMOVE local");
             self.builder.build_store(ptr, basic_value)?;
 
             env.insert_local(alias_name, Rc::clone(typ), sq, ptr);
-eprintln!("{}: {} = {:?}", pattern_pos, alias_name, value.get_value());
         }
 
         let num_type = Type::Number(NumberType::_Bool);
@@ -398,7 +399,7 @@ eprintln!("{}: {} = {:?}", pattern_pos, alias_name, value.get_value());
         let basic_value = self.try_as_basic_value(&any_value, pos)?;
         self.builder.build_store(ptr, basic_value)?;
         env.insert_local(name, Rc::clone(typ), sq, ptr);
-eprintln!("{}: {} = {:?}", pos, name, value.get_value());
+
         Ok(())
     }
     
@@ -515,6 +516,7 @@ eprintln!("{}: {} = {:?}", pos, name, value.get_value());
         one: IntValue<'_>,
         condition_ptr: inkwell::values::PointerValue<'ctx>,
         all_end_block: BasicBlock<'ctx>,
+        then_block: BasicBlock<'ctx>,
         pos: &Position,
         enum_pat: &EnumPattern
     ) -> Result<(), Box<dyn Error>> {
@@ -576,8 +578,8 @@ eprintln!("{}: {} = {:?}", pos, name, value.get_value());
                 unimplemented!()
             },
             EnumPattern::Struct(enum_type, type_name, field_name, struct_pat) => {
-                let then_block = self.context.append_basic_block(func, "match.then");
-                let else_block  = self.context.append_basic_block(func, "match.else");
+                let match_then_block = self.context.append_basic_block(func, "match.then");
+                let match_else_block  = self.context.append_basic_block(func, "match.else");
     
                 let arg_type = value.get_type();
                 // let pat_type = env.get_type(name).ok_or(CodeGenError::no_such_a_type(name, pos.clone()))?;
@@ -600,15 +602,17 @@ eprintln!("{}: {} = {:?}", pos, name, value.get_value());
                 let left_value = left.get_value();
                 let right_value = right.get_value();
                 let comparison = self.builder.build_int_compare(IntPredicate::EQ, left_value.into_int_value(), right_value.into_int_value(), "match_compare_number")?;
-                self.builder.build_conditional_branch(comparison, then_block, else_block)?;
+                self.builder.build_conditional_branch(comparison, match_then_block, match_else_block)?;
     
                 //
                 // matched
                 //
-                self.builder.position_at_end(then_block);
+                let current_block = self.builder.get_insert_block().unwrap();
+                self.builder.position_at_end(match_then_block);
                 self.builder.build_store(condition_ptr, one)?;
 
                 // TODO: 
+                self.builder.position_at_end(then_block);
                 let pattern_map = struct_pat.get_map();
                 let pattern_list = struct_pat.get_keys();
                 let struct_ptr = self.gen_get_struct_ptr(value)?;
@@ -628,36 +632,39 @@ eprintln!("{}: {} = {:?}", pos, name, value.get_value());
 
 
                     }else{ // item is None.                               if let (type_name::FieldName {pat_name})
+
                         let index = index_map.get(field_name).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), field_name.to_string(), pos.clone()))?;
                         let (cust_type, llvm_type) = type_list.get(*index).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), field_name.to_string(), pos.clone()))?;
+                        // let field_cust_type = cust_type.get_field_type_at_index(*index).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), field_name.to_string(), pos.clone()))?;
                         let struct_def = cust_type.get_struct_definition().ok_or(CodeGenError::not_struct_in_enum(type_name.to_string(), field_name.to_string(), pos.clone()))?;
 
                         let raw_field_index = struct_def.get_index(pat_name).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), pat_name.to_string(), pos.clone()))?;
-                        let field_index = self.context.i32_type().const_int(raw_field_index as u64, false);
-                        let field_value = unsafe { struct_ptr.const_gep(*llvm_type, &[field_index]) };
+
+                        let tagged_struct_type = llvm_type.into_struct_type();
+                        let struct_type = tagged_struct_type.get_field_type_at_index(1).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), field_name.to_string(), pos.clone()))?.into_struct_type();
+                        // let field_llvm_type = struct_type.get_field_type_at_index(raw_field_index as u32).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), field_name.to_string(), pos.clone()))?;
+                        let field_ptr = self.builder.build_struct_gep(struct_type, struct_ptr, raw_field_index as u32, "get_field_ptr")?;
+                        // let field_value = self.builder.build_load(field_llvm_type, field_ptr, "get_field_value")?;
 
                         let field_type = cust_type.as_ref().get_field_type_at_index(raw_field_index).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), pat_name.to_string(), pos.clone()))?;
 
                         let field = struct_def.get_field_by_name(pat_name).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), field_name.to_string(), pos.clone()))?;
                         let sq = field.get_specifier_qualifier();
 
-eprintln!("field_value: {:?}\n", field_value);
-eprintln!("field_type: {:?}\n", field_type);
-                        env.insert_local(&pat_name, Rc::clone(field_type), sq.clone(), field_value);
-eprintln!("insert local: {} {}\n", pat_name, field_value);
+                        env.insert_local(&pat_name, Rc::clone(field_type), sq.clone(), field_ptr);
                     }
                 }
 
 
 
 
-
+                self.builder.position_at_end(match_then_block);
                 self.builder.build_unconditional_branch(all_end_block)?;
         
                 //
                 // not matched
                 //
-                self.builder.position_at_end(else_block);
+                self.builder.position_at_end(match_else_block);
             },
         })
     }
@@ -690,10 +697,10 @@ eprintln!("insert local: {} {}\n", pat_name, field_value);
         let v = value.get_value();
         let st_value = v.into_struct_value();
         let ty = st_value.get_type();
-        let struct_type = ty.get_field_type_at_index(1).unwrap();
+        // let struct_type = ty.get_field_type_at_index(1).unwrap();
 
         let ptr = st_value.get_field_at_index(0).unwrap().into_pointer_value();
-        let struct_ptr = self.builder.build_struct_gep(struct_type, ptr, 1, "get_struct_ptr")?;
+        let struct_ptr = self.builder.build_struct_gep(ty, ptr, 1, "get_struct_ptr")?;
 
         Ok(struct_ptr)
     }
