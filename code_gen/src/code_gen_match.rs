@@ -355,7 +355,7 @@ impl<'ctx> CodeGen<'ctx> {
 
                 },
                 Pattern::Enum(enum_pat) => {
-                    // self.gen_match_enum_pattern(enum_pat, value, env, func, one, condition_ptr, after_match_block, then_block, pos)?;
+                    self.gen_match_enum_pattern(enum_pat, value, then_block, else_block, env, func, pos)?;
                 },
             }
         }
@@ -585,19 +585,21 @@ impl<'ctx> CodeGen<'ctx> {
     fn gen_match_enum_pattern(&self,
         enum_pat: &EnumPattern,
         value: &CompiledValue<'ctx>,
+        then_block: BasicBlock<'ctx>,
+        else_block: BasicBlock<'ctx>,
         env: &mut Env<'ctx>,
         func: FunctionValue<'ctx>,
-        one: IntValue<'_>,
-        condition_ptr: inkwell::values::PointerValue<'ctx>,
-        all_end_block: BasicBlock<'ctx>,
-        then_block: BasicBlock<'ctx>,
+        // one: IntValue<'_>,
+        // condition_ptr: inkwell::values::PointerValue<'ctx>,
+        // all_end_block: BasicBlock<'ctx>,
+        // then_block: BasicBlock<'ctx>,
         pos: &Position
     ) -> Result<(), Box<dyn Error>> {
 
         Ok(match enum_pat {
             EnumPattern::Simple(enum_type, name, _) => {
-                let then_block = self.context.append_basic_block(func, "match.then");
-                let else_block  = self.context.append_basic_block(func, "match.else");
+                // let then_block = self.context.append_basic_block(func, "match.then");
+                // let else_block  = self.context.append_basic_block(func, "match.else");
     
     
     
@@ -651,15 +653,14 @@ impl<'ctx> CodeGen<'ctx> {
                 unimplemented!()
             },
             EnumPattern::Struct(enum_type, type_name, field_name, struct_pat) => {
-                let match_then_block = self.context.append_basic_block(func, "match.then");
-                let match_else_block  = self.context.append_basic_block(func, "match.else");
+                // let match_then_block = self.context.append_basic_block(func, "match.then");
+                // let match_else_block  = self.context.append_basic_block(func, "match.else");
     
                 let arg_type = value.get_type();
                 // let pat_type = env.get_type(name).ok_or(CodeGenError::no_such_a_type(name, pos.clone()))?;
                 // if arg_type != pat_type {
                 //     return Err(CodeGenError::type_mismatch(arg_type.clone(), pat_type, pos.clone()).into());
                 // }
-    
                 let arg_enum_def = arg_type.get_enum_definition().ok_or(CodeGenError::not_enum(arg_type.as_ref().clone(), pos.clone()))?;
                 let required_tag = arg_enum_def.get_index(&field_name).ok_or(CodeGenError::no_such_a_field(arg_enum_def.get_name().to_string(), type_name.to_string(), pos.clone()))?;
     
@@ -675,14 +676,14 @@ impl<'ctx> CodeGen<'ctx> {
                 let left_value = left.get_value();
                 let right_value = right.get_value();
                 let comparison = self.builder.build_int_compare(IntPredicate::EQ, left_value.into_int_value(), right_value.into_int_value(), "match_compare_number")?;
-                self.builder.build_conditional_branch(comparison, match_then_block, match_else_block)?;
+                self.builder.build_conditional_branch(comparison, then_block, else_block)?;
     
                 //
                 // matched
                 //
                 let current_block = self.builder.get_insert_block().unwrap();
-                self.builder.position_at_end(match_then_block);
-                self.builder.build_store(condition_ptr, one)?;
+                // self.builder.position_at_end(match_then_block);
+                // self.builder.build_store(condition_ptr, one)?;
 
                 // TODO: 
                 self.builder.position_at_end(then_block);
@@ -698,7 +699,7 @@ impl<'ctx> CodeGen<'ctx> {
                 for pat_name in pattern_list.iter() {
                     let item = pattern_map.get(pat_name).unwrap();
                     if let Some((pattern_list, opt_at_name)) = item {  // if let (type_name::FieldName {pat_name: item})
-                        self.gen_match_pattern_list(pattern_list, value, env, func, one, condition_ptr, all_end_block, then_block, pos)?;
+                        // self.gen_match_pattern_list(pattern_list, value, env, func, one, condition_ptr, all_end_block, then_block, pos)?;
 
 
 
@@ -729,13 +730,13 @@ impl<'ctx> CodeGen<'ctx> {
 
 
 
-                self.builder.position_at_end(match_then_block);
-                self.builder.build_unconditional_branch(all_end_block)?;
+                // self.builder.position_at_end(match_then_block);
+                // self.builder.build_unconditional_branch(all_end_block)?;
         
                 //
                 // not matched
                 //
-                self.builder.position_at_end(match_else_block);
+                self.builder.position_at_end(else_block);
             },
         })
     }
