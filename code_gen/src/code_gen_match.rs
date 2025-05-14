@@ -322,7 +322,7 @@ impl<'ctx> CodeGen<'ctx> {
                     break;  // シンボルは、すべてにマッチするので、この後のパターンにマッチすることはないはず。
                 },
                 Pattern::Char(ch) => {
-                    self.gen_char_match(value, then_block, else_block, func, pos, ch)?;
+                    self.gen_char_match(value, then_block, else_block, pos, ch)?;
                 },
                 Pattern::CharRange(ch1, ch2) => {
                     // self.gen_char_range_match(value, func, one, condition_ptr, after_match_block, pos, ch1, ch2)?;
@@ -417,7 +417,7 @@ impl<'ctx> CodeGen<'ctx> {
         value: &CompiledValue<'ctx>,
         then_block: BasicBlock<'ctx>,
         else_block: BasicBlock<'ctx>,
-        func: FunctionValue<'ctx>,
+        // func: FunctionValue<'ctx>,
         // one: IntValue<'_>,
         // condition_ptr: inkwell::values::PointerValue<'ctx>,
         // all_end_block: BasicBlock<'ctx>,
