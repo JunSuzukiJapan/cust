@@ -35,9 +35,9 @@ fn code_gen_match_var() {
     let f: JitFunction<FuncType_i32_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
     assert_eq!(unsafe { f.call(3) }, 12);
 }
-/*
+
 #[test]
-fn code_gen_if_let2() {
+fn code_gen_match_var2() {
     let src = "
         int test(){
             if let (x = 5) {
@@ -67,7 +67,7 @@ fn code_gen_if_let2() {
 }
 
 #[test]
-fn code_gen_if_let3() {
+fn code_gen_match_var3() {
     let src = "
         int test(int i){
             if let (x @ alias_x = i) {
@@ -95,7 +95,7 @@ fn code_gen_if_let3() {
     let f: JitFunction<FuncType_i32_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
     assert_eq!(unsafe { f.call(5) }, 25);
 }
-
+/*
 #[test]
 fn code_gen_if_let_char() {
     let src = "
