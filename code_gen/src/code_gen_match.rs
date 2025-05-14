@@ -328,7 +328,7 @@ impl<'ctx> CodeGen<'ctx> {
                     self.gen_char_range_match(value, then_block, else_block, func, pos, ch1, ch2)?;
                 },
                 Pattern::Number(num) => {
-                    // self.gen_number_match(value, func, one, condition_ptr, after_match_block, then_block, else_block, pos, num)?;
+                    self.gen_number_match(value, then_block, else_block, pos, num)?;
                 },
                 Pattern::NumberRange(num1, num2) => {
                     // self.gen_number_range_match(value, func, one, condition_ptr, after_match_block, pos, num1, num2)?;
@@ -483,9 +483,19 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(())
     }
     
-    fn gen_number_match(&self, value: &CompiledValue<'ctx>, func: FunctionValue<'ctx>, one: IntValue<'_>, condition_ptr: inkwell::values::PointerValue<'ctx>, all_end_block: BasicBlock<'ctx>, then_block: BasicBlock<'ctx>, else_block: BasicBlock<'ctx>, pos: &Position, num: &i128) -> Result<(), Box<dyn Error>> {
-        let then_block = self.context.append_basic_block(func, "match.then");
-        let else_block  = self.context.append_basic_block(func, "match.else");
+    fn gen_number_match(&self,
+        value: &CompiledValue<'ctx>,
+        then_block: BasicBlock<'ctx>,
+        else_block: BasicBlock<'ctx>,
+        // func: FunctionValue<'ctx>,
+        // one: IntValue<'_>,
+        // condition_ptr: inkwell::values::PointerValue<'ctx>,
+        // all_end_block: BasicBlock<'ctx>,
+        pos: &Position,
+        num: &i128
+    ) -> Result<(), Box<dyn Error>> {
+        // let then_block = self.context.append_basic_block(func, "match.then");
+        // let else_block  = self.context.append_basic_block(func, "match.else");
         let i64_type = self.context.i64_type();
         let i64_num = i64_type.const_int(*num as u64, true);
         let n = CompiledValue::new(Type::Number(NumberType::LongLong).into(), i64_num.as_any_value_enum());
@@ -494,10 +504,10 @@ impl<'ctx> CodeGen<'ctx> {
         let right_value = right.get_value();
         let comparison = self.builder.build_int_compare(IntPredicate::EQ, left_value.into_int_value(), right_value.into_int_value(), "match_compare_number")?;
         self.builder.build_conditional_branch(comparison, then_block, else_block)?;
-        self.builder.position_at_end(then_block);
-        self.builder.build_store(condition_ptr, one)?;
-        self.builder.build_unconditional_branch(all_end_block)?;
-        self.builder.position_at_end(else_block);
+        // self.builder.position_at_end(then_block);
+        // self.builder.build_store(condition_ptr, one)?;
+        // self.builder.build_unconditional_branch(all_end_block)?;
+        // self.builder.position_at_end(else_block);
         Ok(())
     }
     
