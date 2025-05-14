@@ -1,6 +1,5 @@
 use crate::parser::{AST, ExprAST, Type};
 use crate::parser::{Pattern, EnumPattern, StructPattern};
-use crate::type_util::TypeUtil;
 use super::{CompiledValue, CodeGenError};
 use super::Env;
 use super::env::{BreakCatcher, ContinueCatcher};
@@ -13,7 +12,6 @@ use inkwell::values::{AnyValue, AnyValueEnum, AsValueRef, BasicMetadataValueEnum
 use inkwell::{IntPredicate, AddressSpace};
 use parser::{NumberType, SpecifierQualifier};
 use std::error::Error;
-use std::f32::consts::E;
 use std::rc::Rc;
 
 impl<'ctx> CodeGen<'ctx> {
@@ -147,9 +145,6 @@ impl<'ctx> CodeGen<'ctx> {
 
         let current_block = self.builder.get_insert_block().unwrap();
 
-        // let jump_label = self.context.append_basic_block(current_function, "jump_label");
-        // self.builder.build_unconditional_branch(jump_label)?;
-
         //
         // define string_match
         //
@@ -184,7 +179,6 @@ impl<'ctx> CodeGen<'ctx> {
         arg1: BasicMetadataValueEnum<'ctx>,
         arg2: BasicMetadataValueEnum<'ctx>,
         current_function: FunctionValue<'ctx>,
-        // current_block: BasicBlock<'ctx>,
         env: &mut Env<'ctx>
     ) -> Result<IntValue<'ctx>, Box<dyn Error>> {
 
@@ -227,7 +221,6 @@ impl<'ctx> CodeGen<'ctx> {
         let (_fun_type, func) = env.get_current_function().ok_or(CodeGenError::no_current_function(pos.clone()))?;
         let func = func.clone();
         let cond_block = self.context.append_basic_block(func, "if_let.cond");
-        // let cond_block2 = self.context.append_basic_block(func, "if_let.cond2");
         let then_block = self.context.append_basic_block(func, "if_let.then");
         let else_block = self.context.append_basic_block(func, "if_let.else");
         let end_block  = self.context.append_basic_block(func, "if_let.end");
@@ -246,17 +239,9 @@ impl<'ctx> CodeGen<'ctx> {
             &cond,
             env,
             func,
-            // cond_block,
             then_block,
             else_block
-        // )?.ok_or(CodeGenError::condition_is_not_number(condition, (*condition).get_position().clone()))?;
         )?;
-
-        // self.builder.position_at_end(cond_block2);
-        // let mut comparison = matched.get_value().into_int_value();
-        // let i1_type = self.context.bool_type();
-        // comparison = self.builder.build_int_cast(comparison, i1_type, "cast to i1")?;  // cast to i1
-        // self.builder.build_conditional_branch(comparison, then_block, else_block)?;
 
         // then block
         self.builder.position_at_end(then_block);
@@ -303,17 +288,13 @@ impl<'ctx> CodeGen<'ctx> {
         value: &CompiledValue<'ctx>,
         env: &mut Env<'ctx>,
         func: FunctionValue<'ctx>,
-        // current_block: BasicBlock<'ctx>,  // cond_block
-        // after_match_block: BasicBlock<'ctx>,  // cond_block2
         then_block: BasicBlock<'ctx>,
         else_block: BasicBlock<'ctx>,
-    ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
-        let bool_type = self.context.bool_type();
+    ) -> Result<(), Box<dyn Error>> {
 
         for (pat, pos) in pattern_list {
             match &**pat {
                 Pattern::Var(name) => {
-                    // self.gen_ver_match(value, env, one, condition_ptr, pos, name)?;
                     self.gen_ver_match(value, then_block, env, pos, name)?;
                     break;  // シンボルは、すべてにマッチするので、この後のパターンにマッチすることはないはず。
                 },
@@ -356,10 +337,6 @@ impl<'ctx> CodeGen<'ctx> {
             }
         }
 
-        // self.builder.build_unconditional_branch(after_match_block)?;
-
-        // self.builder.position_at_end(after_match_block);
-
         // '@' 以降に対応する。
         if let Some(alias_name) = pattern_name {
             self.builder.position_at_end(then_block);
@@ -376,24 +353,17 @@ impl<'ctx> CodeGen<'ctx> {
             env.insert_local(alias_name, Rc::clone(typ), sq, ptr);
         }
 
-        // let num_type = Type::Number(NumberType::_Bool);
-        // let result_any_value: AnyValueEnum = self.builder.build_load(bool_type, condition_ptr, "get_condition")?.as_any_value_enum();
-        // Ok(Some(CompiledValue::new(Rc::new(num_type), result_any_value)))
-        Ok(None)
+        Ok(())
     }
     
     fn gen_ver_match(&self,
         value: &CompiledValue<'ctx>,
         then_block: BasicBlock<'ctx>,
-        // else_block: BasicBlock<'ctx>,
         env: &mut Env<'ctx>,
-        // one: IntValue<'_>,
-        // condition_ptr: inkwell::values::PointerValue<'ctx>,
         pos: &Position,
         name: &String
     ) -> Result<(), Box<dyn Error>> {
 
-        // self.builder.build_store(condition_ptr, one)?;
         let mut sq = SpecifierQualifier::default();
         // sq.const_ = true;
         let typ = value.get_type();
@@ -413,15 +383,10 @@ impl<'ctx> CodeGen<'ctx> {
         value: &CompiledValue<'ctx>,
         then_block: BasicBlock<'ctx>,
         else_block: BasicBlock<'ctx>,
-        // func: FunctionValue<'ctx>,
-        // one: IntValue<'_>,
-        // condition_ptr: inkwell::values::PointerValue<'ctx>,
-        // all_end_block: BasicBlock<'ctx>,
         pos: &Position,
         ch: &char
     ) -> Result<(), Box<dyn Error>> {
-        // let then_block = self.context.append_basic_block(func, "match.then");
-        // let else_block  = self.context.append_basic_block(func, "match.else");
+
         let i8_type = self.context.i8_type();
         let i8_ch = i8_type.const_int(*ch as u64, true);
         let c = CompiledValue::new(Type::Number(NumberType::Char).into(), i8_ch.as_any_value_enum());
@@ -430,10 +395,7 @@ impl<'ctx> CodeGen<'ctx> {
         let right_value = right.get_value();
         let comparison = self.builder.build_int_compare(IntPredicate::EQ, left_value.into_int_value(), right_value.into_int_value(), "match_compare_char")?;
         self.builder.build_conditional_branch(comparison, then_block, else_block)?;
-        // self.builder.position_at_end(then_block);
-        // self.builder.build_store(condition_ptr, one)?;
-        // self.builder.build_unconditional_branch(all_end_block)?;
-        // self.builder.position_at_end(else_block);
+
         Ok(())
     }
 
@@ -442,16 +404,11 @@ impl<'ctx> CodeGen<'ctx> {
         then_block: BasicBlock<'ctx>,
         else_block: BasicBlock<'ctx>,
         func: FunctionValue<'ctx>,
-        // one: IntValue<'_>,
-        // condition_ptr: inkwell::values::PointerValue<'ctx>,
-        // all_end_block: BasicBlock<'ctx>,
         pos: &Position,
         ch1: &char,
         ch2: &char
     ) -> Result<(), Box<dyn Error>> {
         let greater_than_block = self.context.append_basic_block(func, "match.greater");
-        // let less_than_block = self.context.append_basic_block(func, "match.less");
-        // let else_block  = self.context.append_basic_block(func, "match.else");
 
         let i8_type = self.context.i8_type();
         let i8_ch = i8_type.const_int(*ch1 as u64, true);
@@ -471,9 +428,6 @@ impl<'ctx> CodeGen<'ctx> {
         let comparison = self.builder.build_int_compare(IntPredicate::ULE, target_value.into_int_value(), other_value.into_int_value(), "match_compare_char")?;
         self.builder.build_conditional_branch(comparison, then_block, else_block)?;
 
-        // self.builder.position_at_end(less_than_block);
-        // self.builder.build_store(condition_ptr, one)?;
-        // self.builder.build_unconditional_branch(all_end_block)?;
         self.builder.position_at_end(else_block);
 
         Ok(())
@@ -483,15 +437,10 @@ impl<'ctx> CodeGen<'ctx> {
         value: &CompiledValue<'ctx>,
         then_block: BasicBlock<'ctx>,
         else_block: BasicBlock<'ctx>,
-        // func: FunctionValue<'ctx>,
-        // one: IntValue<'_>,
-        // condition_ptr: inkwell::values::PointerValue<'ctx>,
-        // all_end_block: BasicBlock<'ctx>,
         pos: &Position,
         num: &i128
     ) -> Result<(), Box<dyn Error>> {
-        // let then_block = self.context.append_basic_block(func, "match.then");
-        // let else_block  = self.context.append_basic_block(func, "match.else");
+
         let i64_type = self.context.i64_type();
         let i64_num = i64_type.const_int(*num as u64, true);
         let n = CompiledValue::new(Type::Number(NumberType::LongLong).into(), i64_num.as_any_value_enum());
@@ -500,10 +449,7 @@ impl<'ctx> CodeGen<'ctx> {
         let right_value = right.get_value();
         let comparison = self.builder.build_int_compare(IntPredicate::EQ, left_value.into_int_value(), right_value.into_int_value(), "match_compare_number")?;
         self.builder.build_conditional_branch(comparison, then_block, else_block)?;
-        // self.builder.position_at_end(then_block);
-        // self.builder.build_store(condition_ptr, one)?;
-        // self.builder.build_unconditional_branch(all_end_block)?;
-        // self.builder.position_at_end(else_block);
+
         Ok(())
     }
     
@@ -512,16 +458,11 @@ impl<'ctx> CodeGen<'ctx> {
         then_block: BasicBlock<'ctx>,
         else_block: BasicBlock<'ctx>,
         func: FunctionValue<'ctx>,
-        // one: IntValue<'_>,
-        // condition_ptr: inkwell::values::PointerValue<'ctx>,
-        // all_end_block: BasicBlock<'ctx>,
         pos: &Position,
         num1: &i128,
         num2: &i128
     ) -> Result<(), Box<dyn Error>> {
         let greater_than_block = self.context.append_basic_block(func, "match.greater");
-        // let less_than_block = self.context.append_basic_block(func, "match.less");
-        // let else_block  = self.context.append_basic_block(func, "match.else");
 
         let i64_type = self.context.i64_type();
         let i64_num = i64_type.const_int(*num1 as u64, true);
@@ -541,9 +482,6 @@ impl<'ctx> CodeGen<'ctx> {
         let comparison = self.builder.build_int_compare(IntPredicate::ULE, target_value.into_int_value(), other_value.into_int_value(), "match_compare_char")?;
         self.builder.build_conditional_branch(comparison, then_block, else_block)?;
 
-        // self.builder.position_at_end(less_than_block);
-        // self.builder.build_store(condition_ptr, one)?;
-        // self.builder.build_unconditional_branch(all_end_block)?;
         self.builder.position_at_end(else_block);
 
         Ok(())
@@ -555,15 +493,10 @@ impl<'ctx> CodeGen<'ctx> {
         else_block: BasicBlock<'ctx>,
         env: &mut Env<'ctx>,
         func: FunctionValue<'ctx>,
-        // current_block: BasicBlock<'ctx>,
-        // one: IntValue<'_>,
-        // condition_ptr: inkwell::values::PointerValue<'ctx>,
-        // all_end_block: BasicBlock<'ctx>,
         pos: &Position,
         s: &String
     ) -> Result<(), Box<dyn Error>> {
-        // let then_block = self.context.append_basic_block(func, "match.then");
-        // let else_block  = self.context.append_basic_block(func, "match.else");
+
         let str1 = self.builder.build_global_string_ptr(s, "global_str_for_match")?;
         let str1 = self.try_as_basic_metadata_value(&str1.as_any_value_enum(), pos)?;
         let str2 = value.get_value();
@@ -571,9 +504,6 @@ impl<'ctx> CodeGen<'ctx> {
         let comparison = self.gen_string_match(str1, str2, func, env)?;
         self.builder.build_conditional_branch(comparison, then_block, else_block)?;
 
-        // self.builder.position_at_end(then_block);
-        // self.builder.build_store(condition_ptr, one)?;
-        // self.builder.build_unconditional_branch(all_end_block)?;
         self.builder.position_at_end(else_block);
         Ok(())
     }
@@ -585,10 +515,6 @@ impl<'ctx> CodeGen<'ctx> {
         else_block: BasicBlock<'ctx>,
         env: &mut Env<'ctx>,
         func: FunctionValue<'ctx>,
-        // one: IntValue<'_>,
-        // condition_ptr: inkwell::values::PointerValue<'ctx>,
-        // all_end_block: BasicBlock<'ctx>,
-        // then_block: BasicBlock<'ctx>,
         pos: &Position
     ) -> Result<(), Box<dyn Error>> {
 
@@ -649,8 +575,6 @@ impl<'ctx> CodeGen<'ctx> {
                 unimplemented!()
             },
             EnumPattern::Struct(enum_type, type_name, field_name, struct_pat) => {
-                // let match_then_block = self.context.append_basic_block(func, "match.then");
-                // let match_else_block  = self.context.append_basic_block(func, "match.else");
     
                 let arg_type = value.get_type();
                 // let pat_type = env.get_type(name).ok_or(CodeGenError::no_such_a_type(name, pos.clone()))?;
@@ -677,9 +601,6 @@ impl<'ctx> CodeGen<'ctx> {
                 //
                 // matched
                 //
-                let current_block = self.builder.get_insert_block().unwrap();
-                // self.builder.position_at_end(match_then_block);
-                // self.builder.build_store(condition_ptr, one)?;
 
                 // TODO: 
                 self.builder.position_at_end(then_block);
@@ -723,12 +644,6 @@ impl<'ctx> CodeGen<'ctx> {
                     }
                 }
 
-
-
-
-                // self.builder.position_at_end(match_then_block);
-                // self.builder.build_unconditional_branch(all_end_block)?;
-        
                 //
                 // not matched
                 //
@@ -747,7 +662,7 @@ impl<'ctx> CodeGen<'ctx> {
         pos: &Position
     ) -> Result<(), Box<dyn Error>> {
 
-        for (pat, pos) in pattern_list {
+        for (pat, _pat_pos) in pattern_list {
             self.gen_pattern_match(
                 pattern_list,
                 &None,  // &Option<pattern_name>
@@ -755,7 +670,6 @@ impl<'ctx> CodeGen<'ctx> {
                 value,
                 env,
                 func,
-                // cond_block,
                 then_block,
                 else_block
             )?;
