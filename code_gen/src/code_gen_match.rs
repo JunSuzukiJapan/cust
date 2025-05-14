@@ -325,7 +325,7 @@ impl<'ctx> CodeGen<'ctx> {
                     self.gen_char_match(value, then_block, else_block, pos, ch)?;
                 },
                 Pattern::CharRange(ch1, ch2) => {
-                    // self.gen_char_range_match(value, func, one, condition_ptr, after_match_block, pos, ch1, ch2)?;
+                    self.gen_char_range_match(value, then_block, else_block, func, pos, ch1, ch2)?;
                 },
                 Pattern::Number(num) => {
                     // self.gen_number_match(value, func, one, condition_ptr, after_match_block, then_block, else_block, pos, num)?;
@@ -441,10 +441,22 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(())
     }
 
-    fn gen_char_range_match(&self, value: &CompiledValue<'ctx>, func: FunctionValue<'ctx>, one: IntValue<'_>, condition_ptr: inkwell::values::PointerValue<'ctx>, all_end_block: BasicBlock<'ctx>, pos: &Position, ch1: &char, ch2: &char) -> Result<(), Box<dyn Error>> {
+    fn gen_char_range_match(&self,
+        value: &CompiledValue<'ctx>,
+        then_block: BasicBlock<'ctx>,
+        else_block: BasicBlock<'ctx>,
+        func: FunctionValue<'ctx>,
+        // one: IntValue<'_>,
+        // condition_ptr: inkwell::values::PointerValue<'ctx>,
+        // all_end_block: BasicBlock<'ctx>,
+        pos: &Position,
+        ch1: &char,
+        ch2: &char
+    ) -> Result<(), Box<dyn Error>> {
         let greater_than_block = self.context.append_basic_block(func, "match.greater");
-        let less_than_block = self.context.append_basic_block(func, "match.less");
-        let else_block  = self.context.append_basic_block(func, "match.else");
+        // let less_than_block = self.context.append_basic_block(func, "match.less");
+        // let else_block  = self.context.append_basic_block(func, "match.else");
+
         let i8_type = self.context.i8_type();
         let i8_ch = i8_type.const_int(*ch1 as u64, true);
         let c = CompiledValue::new(Type::Number(NumberType::Char).into(), i8_ch.as_any_value_enum());
@@ -453,6 +465,7 @@ impl<'ctx> CodeGen<'ctx> {
         let target_value = target.get_value();
         let comparison = self.builder.build_int_compare(IntPredicate::UGE, target_value.into_int_value(), other_value.into_int_value(), "match_compare_char")?;
         self.builder.build_conditional_branch(comparison, greater_than_block, else_block)?;
+
         self.builder.position_at_end(greater_than_block);
         let i8_ch2 = i8_type.const_int(*ch2 as u64, true);
         let c2 = CompiledValue::new(Type::Number(NumberType::Char).into(), i8_ch2.as_any_value_enum());
@@ -460,11 +473,13 @@ impl<'ctx> CodeGen<'ctx> {
         let other_value = other.get_value();
         let target_value = target.get_value();
         let comparison = self.builder.build_int_compare(IntPredicate::ULE, target_value.into_int_value(), other_value.into_int_value(), "match_compare_char")?;
-        self.builder.build_conditional_branch(comparison, less_than_block, else_block)?;
-        self.builder.position_at_end(less_than_block);
-        self.builder.build_store(condition_ptr, one)?;
-        self.builder.build_unconditional_branch(all_end_block)?;
+        self.builder.build_conditional_branch(comparison, then_block, else_block)?;
+
+        // self.builder.position_at_end(less_than_block);
+        // self.builder.build_store(condition_ptr, one)?;
+        // self.builder.build_unconditional_branch(all_end_block)?;
         self.builder.position_at_end(else_block);
+
         Ok(())
     }
     
