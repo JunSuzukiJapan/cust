@@ -480,7 +480,7 @@ fn code_gen_if_let_number3() {
     let f: JitFunction<FuncType_void_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
     assert_eq!(unsafe { f.call() }, 4);
 }
-/*
+
 #[test]
 fn code_gen_if_let_number_range() {
     let src = "
@@ -620,7 +620,7 @@ fn code_gen_if_let_number_range4() {
     let f: JitFunction<FuncType_void_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
     assert_eq!(unsafe { f.call() }, 4);
 }
-
+/*
 #[test]
 fn code_gen_if_let_string() {
     let src = "

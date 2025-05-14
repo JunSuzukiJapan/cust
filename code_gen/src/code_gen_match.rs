@@ -331,10 +331,10 @@ impl<'ctx> CodeGen<'ctx> {
                     self.gen_number_match(value, then_block, else_block, pos, num)?;
                 },
                 Pattern::NumberRange(num1, num2) => {
-                    // self.gen_number_range_match(value, func, one, condition_ptr, after_match_block, pos, num1, num2)?;
+                    self.gen_number_range_match(value, then_block, else_block, func, pos, num1, num2)?;
                 },
                 Pattern::Str(s) => {
-                    // self.gen_str_match(value, env, func, current_block, one, condition_ptr, after_match_block, pos, s)?;
+                    self.gen_str_match(value, then_block, else_block, env, func, current_block, pos, s)?;
                 },
                 Pattern::Struct(strct) => {
 
@@ -511,10 +511,22 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(())
     }
     
-    fn gen_number_range_match(&self, value: &CompiledValue<'ctx>, func: FunctionValue<'ctx>, one: IntValue<'_>, condition_ptr: inkwell::values::PointerValue<'ctx>, all_end_block: BasicBlock<'ctx>, pos: &Position, num1: &i128, num2: &i128) -> Result<(), Box<dyn Error>> {
+    fn gen_number_range_match(&self,
+        value: &CompiledValue<'ctx>,
+        then_block: BasicBlock<'ctx>,
+        else_block: BasicBlock<'ctx>,
+        func: FunctionValue<'ctx>,
+        // one: IntValue<'_>,
+        // condition_ptr: inkwell::values::PointerValue<'ctx>,
+        // all_end_block: BasicBlock<'ctx>,
+        pos: &Position,
+        num1: &i128,
+        num2: &i128
+    ) -> Result<(), Box<dyn Error>> {
         let greater_than_block = self.context.append_basic_block(func, "match.greater");
-        let less_than_block = self.context.append_basic_block(func, "match.less");
-        let else_block  = self.context.append_basic_block(func, "match.else");
+        // let less_than_block = self.context.append_basic_block(func, "match.less");
+        // let else_block  = self.context.append_basic_block(func, "match.else");
+
         let i64_type = self.context.i64_type();
         let i64_num = i64_type.const_int(*num1 as u64, true);
         let n = CompiledValue::new(Type::Number(NumberType::LongLong).into(), i64_num.as_any_value_enum());
@@ -523,6 +535,7 @@ impl<'ctx> CodeGen<'ctx> {
         let target_value = target.get_value();
         let comparison = self.builder.build_int_compare(IntPredicate::UGE, target_value.into_int_value(), other_value.into_int_value(), "match_compare_char")?;
         self.builder.build_conditional_branch(comparison, greater_than_block, else_block)?;
+
         self.builder.position_at_end(greater_than_block);
         let i64_num2 = i64_type.const_int(*num2 as u64, true);
         let n2 = CompiledValue::new(Type::Number(NumberType::LongLong).into(), i64_num2.as_any_value_enum());
@@ -530,26 +543,41 @@ impl<'ctx> CodeGen<'ctx> {
         let other_value = other.get_value();
         let target_value = target.get_value();
         let comparison = self.builder.build_int_compare(IntPredicate::ULE, target_value.into_int_value(), other_value.into_int_value(), "match_compare_char")?;
-        self.builder.build_conditional_branch(comparison, less_than_block, else_block)?;
-        self.builder.position_at_end(less_than_block);
-        self.builder.build_store(condition_ptr, one)?;
-        self.builder.build_unconditional_branch(all_end_block)?;
+        self.builder.build_conditional_branch(comparison, then_block, else_block)?;
+
+        // self.builder.position_at_end(less_than_block);
+        // self.builder.build_store(condition_ptr, one)?;
+        // self.builder.build_unconditional_branch(all_end_block)?;
         self.builder.position_at_end(else_block);
+
         Ok(())
     }
     
-    fn gen_str_match(&self, value: &CompiledValue<'ctx>, env: &mut Env<'ctx>, func: FunctionValue<'ctx>, current_block: BasicBlock<'ctx>, one: IntValue<'_>, condition_ptr: inkwell::values::PointerValue<'ctx>, all_end_block: BasicBlock<'ctx>, pos: &Position, s: &String) -> Result<(), Box<dyn Error>> {
-        let then_block = self.context.append_basic_block(func, "match.then");
-        let else_block  = self.context.append_basic_block(func, "match.else");
+    fn gen_str_match(&self,
+        value: &CompiledValue<'ctx>,
+        then_block: BasicBlock<'ctx>,
+        else_block: BasicBlock<'ctx>,
+        env: &mut Env<'ctx>,
+        func: FunctionValue<'ctx>,
+        current_block: BasicBlock<'ctx>,
+        // one: IntValue<'_>,
+        // condition_ptr: inkwell::values::PointerValue<'ctx>,
+        // all_end_block: BasicBlock<'ctx>,
+        pos: &Position,
+        s: &String
+    ) -> Result<(), Box<dyn Error>> {
+        // let then_block = self.context.append_basic_block(func, "match.then");
+        // let else_block  = self.context.append_basic_block(func, "match.else");
         let str1 = self.builder.build_global_string_ptr(s, "global_str_for_match")?;
         let str1 = self.try_as_basic_metadata_value(&str1.as_any_value_enum(), pos)?;
         let str2 = value.get_value();
         let str2 = self.try_as_basic_metadata_value(&str2, pos)?;
         let comparison = self.gen_string_match(str1, str2, func, current_block, env)?;
         self.builder.build_conditional_branch(comparison, then_block, else_block)?;
-        self.builder.position_at_end(then_block);
-        self.builder.build_store(condition_ptr, one)?;
-        self.builder.build_unconditional_branch(all_end_block)?;
+
+        // self.builder.position_at_end(then_block);
+        // self.builder.build_store(condition_ptr, one)?;
+        // self.builder.build_unconditional_branch(all_end_block)?;
         self.builder.position_at_end(else_block);
         Ok(())
     }
