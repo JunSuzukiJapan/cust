@@ -95,7 +95,7 @@ fn code_gen_match_var3() {
     let f: JitFunction<FuncType_i32_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
     assert_eq!(unsafe { f.call(5) }, 25);
 }
-/*
+
 #[test]
 fn code_gen_if_let_char() {
     let src = "
@@ -235,7 +235,7 @@ fn code_gen_if_let_char4() {
     let f: JitFunction<FuncType_void_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
     assert_eq!(unsafe { f.call() }, 10);
 }
-
+/*
 #[test]
 fn code_gen_if_let_char_range() {
     let src = "
