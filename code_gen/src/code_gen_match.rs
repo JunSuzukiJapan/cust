@@ -140,10 +140,12 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(())
     }
 
-    fn get_fun_string_match(&self, current_function: FunctionValue<'ctx>, current_block: BasicBlock<'ctx>, env: &mut Env<'ctx>) -> Result<FunctionValue<'ctx>, Box<dyn Error>> {
+    fn get_fun_string_match(&self, current_function: FunctionValue<'ctx>, env: &mut Env<'ctx>) -> Result<FunctionValue<'ctx>, Box<dyn Error>> {
         if let Some(function) = env.inner_fun_string_match {
             return Ok(function);
         }
+
+        let current_block = self.builder.get_insert_block().unwrap();
 
         // let jump_label = self.context.append_basic_block(current_function, "jump_label");
         // self.builder.build_unconditional_branch(jump_label)?;
@@ -172,7 +174,6 @@ impl<'ctx> CodeGen<'ctx> {
         // end of define string_match
         //
 
-        // self.builder.position_at_end(jump_label);
         self.builder.position_at_end(current_block);
 
         Ok(function)
@@ -183,12 +184,12 @@ impl<'ctx> CodeGen<'ctx> {
         arg1: BasicMetadataValueEnum<'ctx>,
         arg2: BasicMetadataValueEnum<'ctx>,
         current_function: FunctionValue<'ctx>,
-        current_block: BasicBlock<'ctx>,
+        // current_block: BasicBlock<'ctx>,
         env: &mut Env<'ctx>
     ) -> Result<IntValue<'ctx>, Box<dyn Error>> {
 
         let args = [arg1, arg2];
-        let function = self.get_fun_string_match(current_function, current_block, env)?;
+        let function = self.get_fun_string_match(current_function, env)?;
         let call_site_value = self.builder.build_call(function, &args, "call_inner::fun_string_match")?;
         let any_val = call_site_value.try_as_basic_value().left().unwrap().as_any_value_enum();
         let int_val = any_val.into_int_value();
@@ -245,8 +246,7 @@ impl<'ctx> CodeGen<'ctx> {
             &cond,
             env,
             func,
-            cond_block,
-            // cond_block2,
+            // cond_block,
             then_block,
             else_block
         // )?.ok_or(CodeGenError::condition_is_not_number(condition, (*condition).get_position().clone()))?;
@@ -303,16 +303,12 @@ impl<'ctx> CodeGen<'ctx> {
         value: &CompiledValue<'ctx>,
         env: &mut Env<'ctx>,
         func: FunctionValue<'ctx>,
-        current_block: BasicBlock<'ctx>,  // cond_block
+        // current_block: BasicBlock<'ctx>,  // cond_block
         // after_match_block: BasicBlock<'ctx>,  // cond_block2
         then_block: BasicBlock<'ctx>,
         else_block: BasicBlock<'ctx>,
     ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
         let bool_type = self.context.bool_type();
-        let zero = bool_type.const_zero();
-        let one = bool_type.const_all_ones();
-        // let condition_ptr = self.builder.build_alloca(bool_type, "matched")?;
-        // self.builder.build_store(condition_ptr, zero)?;  // set return value false
 
         for (pat, pos) in pattern_list {
             match &**pat {
@@ -334,7 +330,7 @@ impl<'ctx> CodeGen<'ctx> {
                     self.gen_number_range_match(value, then_block, else_block, func, pos, num1, num2)?;
                 },
                 Pattern::Str(s) => {
-                    self.gen_str_match(value, then_block, else_block, env, func, current_block, pos, s)?;
+                    self.gen_str_match(value, then_block, else_block, env, func, pos, s)?;
                 },
                 Pattern::Struct(strct) => {
 
@@ -559,7 +555,7 @@ impl<'ctx> CodeGen<'ctx> {
         else_block: BasicBlock<'ctx>,
         env: &mut Env<'ctx>,
         func: FunctionValue<'ctx>,
-        current_block: BasicBlock<'ctx>,
+        // current_block: BasicBlock<'ctx>,
         // one: IntValue<'_>,
         // condition_ptr: inkwell::values::PointerValue<'ctx>,
         // all_end_block: BasicBlock<'ctx>,
@@ -572,7 +568,7 @@ impl<'ctx> CodeGen<'ctx> {
         let str1 = self.try_as_basic_metadata_value(&str1.as_any_value_enum(), pos)?;
         let str2 = value.get_value();
         let str2 = self.try_as_basic_metadata_value(&str2, pos)?;
-        let comparison = self.gen_string_match(str1, str2, func, current_block, env)?;
+        let comparison = self.gen_string_match(str1, str2, func, env)?;
         self.builder.build_conditional_branch(comparison, then_block, else_block)?;
 
         // self.builder.position_at_end(then_block);
@@ -699,7 +695,7 @@ impl<'ctx> CodeGen<'ctx> {
                 for pat_name in pattern_list.iter() {
                     let item = pattern_map.get(pat_name).unwrap();
                     if let Some((pattern_list, opt_at_name)) = item {  // if let (type_name::FieldName {pat_name: item})
-                        // self.gen_match_pattern_list(pattern_list, value, env, func, one, condition_ptr, all_end_block, then_block, pos)?;
+                        self.gen_match_pattern_list(pattern_list, value, then_block, else_block, env, func, pos)?;
 
 
 
@@ -744,32 +740,28 @@ impl<'ctx> CodeGen<'ctx> {
     fn gen_match_pattern_list(&self,
         pattern_list: &Vec<(Box<Pattern>, Position)>,
         value: &CompiledValue<'ctx>,
+        then_block: BasicBlock<'ctx>,
+        else_block: BasicBlock<'ctx>,
         env: &mut Env<'ctx>,
         func: FunctionValue<'ctx>,
-        one: IntValue<'_>,
-        condition_ptr: inkwell::values::PointerValue<'ctx>,
-        all_end_block: BasicBlock<'ctx>,
-        then_block: BasicBlock<'ctx>,
         pos: &Position
     ) -> Result<(), Box<dyn Error>> {
 
-        // for (pat, pos) in pattern_list {
-        //     let matched = self.gen_pattern_match(
-        //         pattern_list,
-        //         &None,  // &Option<pattern_name>
-        //         pos,
-        //         value,
-        //         env,
-        //         func,
-        //         cond_block,
-        //         cond_block2,
-        //         then_block
-        //     )?;
+        for (pat, pos) in pattern_list {
+            self.gen_pattern_match(
+                pattern_list,
+                &None,  // &Option<pattern_name>
+                pos,
+                value,
+                env,
+                func,
+                // cond_block,
+                then_block,
+                else_block
+            )?;
 
+        }
 
-
-
-        // }
 
 
 
