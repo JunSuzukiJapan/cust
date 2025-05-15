@@ -7,7 +7,7 @@ use crate::Position;
 use crate::CodeGen;
 
 use inkwell::context::Context;
-use inkwell::values::{IntValue, AnyValue, AnyValueEnum};
+use inkwell::values::{IntValue, AnyValue};
 use inkwell::types::{AnyTypeEnum, BasicTypeEnum};
 use inkwell::types::AnyType;
 use std::error::Error;
@@ -107,7 +107,7 @@ impl<'ctx> CodeGen<'ctx> {
 
                     index_map.insert(name.clone(), index);
                 },
-                Enumerator::TypeTuple { name, tuple_type } => {
+                Enumerator::TypeTuple { name: _, tuple_type: _ } => {
 
 
 
@@ -133,7 +133,7 @@ impl<'ctx> CodeGen<'ctx> {
         BasicTypeEnum::StructType(struct_type)
     }
 
-    pub fn enum_from_enum_standard(&self, fields: &Vec<Enumerator>, type_variables: &Option<Vec<String>>, _env: &mut Env<'ctx>) -> Result<(Vec<(String, IntValue<'ctx>)>, HashMap<String, usize>), CodeGenError> {
+    pub fn enum_from_enum_standard(&self, fields: &Vec<Enumerator>, _type_variables: &Option<Vec<String>>, _env: &mut Env<'ctx>) -> Result<(Vec<(String, IntValue<'ctx>)>, HashMap<String, usize>), CodeGenError> {
         let mut enumerator_list: Vec<(String, IntValue<'ctx>)> = Vec::new();
         let mut index_map: HashMap<String, usize> = HashMap::new();
         let mut index: usize = 0;
@@ -169,7 +169,7 @@ impl<'ctx> CodeGen<'ctx> {
         env: &Env<'ctx>,
         break_catcher: Option<&BreakCatcher>,
         continue_catcher: Option<&ContinueCatcher>,
-        pos: &Position
+        _pos: &Position
     ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
 
         match literal {
@@ -211,7 +211,7 @@ impl<'ctx> CodeGen<'ctx> {
                 let any_val = basic_val.as_any_value_enum();
                 Ok(Some(CompiledValue::new(Rc::clone(typ), any_val)))
             },
-            EnumLiteral::Tuple(literal) => {
+            EnumLiteral::Tuple(_literal) => {
 
 
 

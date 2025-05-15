@@ -2,7 +2,6 @@ mod common;
 
 mod tests {
     use super::common::*;
-    use std::rc::Rc;
 
     #[test]
     fn parse_const_char_pointer() -> Result<(), ParserError> {
@@ -33,7 +32,7 @@ mod tests {
                 assert_eq!(param1.is_const(), true);
                 assert_eq!(param1.is_volatile(), false);
 
-                // parama2
+                // param2
                 let type2 = param2.get_type();
                 assert_eq!(type2.is_pointer(), true);
                 let ptr2 = type2.get_pointer().unwrap();

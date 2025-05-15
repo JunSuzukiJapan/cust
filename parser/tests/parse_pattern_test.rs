@@ -135,7 +135,7 @@ mod tests {
         defs.set_enum("Some", enum_def, None, &Position::new(0, 0)).unwrap();
         let ast = parse_stmt_from_str_with_defs(src, &mut defs).unwrap().unwrap();
 
-        if let AST::Match { expr, pattern_list_list, pos } = ast {
+        if let AST::Match { expr, pattern_list_list, pos: _ } = ast {
             //
             // check expr
             //
@@ -153,7 +153,7 @@ mod tests {
             //
             // check 1st pattern block
             //
-            let ((pattern_list, pattern_name), ast) = &pattern_list_list[0];
+            let ((pattern_list, _pattern_name), ast) = &pattern_list_list[0];
 
             // check pattern
             assert_eq!(pattern_list.len(), 1);
@@ -203,7 +203,7 @@ mod tests {
             //
             // check 2nd pattern block
             //
-            let ((pattern_list, pattern_name), ast) = &pattern_list_list[1];
+            let ((pattern_list, _pattern_name), ast) = &pattern_list_list[1];
 
             // check pattern
             assert_eq!(pattern_list.len(), 1);
@@ -236,7 +236,7 @@ mod tests {
             //
             // check 3rd pattern block
             //
-            let ((pattern_list, pattern_name), ast) = &pattern_list_list[2];
+            let ((pattern_list, _pattern_name), ast) = &pattern_list_list[2];
 
             // check pattern
             assert_eq!(pattern_list.len(), 1);

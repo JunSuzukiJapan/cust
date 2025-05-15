@@ -716,7 +716,7 @@ impl Tokenizer {
                 self.next_char(ctx);  // skip '.'
                 return self.tokenize_float(ctx, i, start_pos);
             }else if *c == '_' {
-                // do nothig. just skip '_'
+                // do nothing. just skip '_'
             }else{
                 break;
             }
@@ -898,7 +898,7 @@ impl Tokenizer {
         }
     }
 
-    fn read_oct(&self, s: &mut String, first_ch: char, ctx: &mut TokenizerContext) -> Result<(), TokenizerError> {
+    fn read_oct(&self, s: &mut String, _first_ch: char, ctx: &mut TokenizerContext) -> Result<(), TokenizerError> {
         let mut oct = 0;
 
         loop {
@@ -925,7 +925,7 @@ impl Tokenizer {
     }
 
     fn read_hex(&self, s: &mut String, ctx: &mut TokenizerContext) -> Result<(), TokenizerError> {
-        let mut hex: u8 = 0;
+        let mut hex: u8;
 
         if let Some(c) = self.next_char(ctx) {
             match c {

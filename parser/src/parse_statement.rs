@@ -2,7 +2,7 @@ use crate::ast::ForInitExpr;
 
 use super::{Position, Token};
 use super::ParserError;
-use super::ast::{AST, ExprAST, BinOp, Block};
+use super::ast::{AST, Block};
 use super::defines::*;
 use super::parse::Parser;
 use super::{Switch, Case};
@@ -522,7 +522,7 @@ impl Parser {
         Ok(Some(AST::Default(Box::new(stmt), pos.clone())))
     }
 
-    fn parse_expression_statement(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<AST>, ParserError> {
+    fn parse_expression_statement(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, _labels: &mut Option<&mut Vec<String>>) -> Result<Option<AST>, ParserError> {
         if let Some((tok, pos)) = iter.peek() {
             match tok {
                 Token::SemiColon => {

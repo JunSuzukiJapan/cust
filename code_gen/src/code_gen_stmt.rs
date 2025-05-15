@@ -109,7 +109,7 @@ impl<'ctx> CodeGen<'ctx> {
             AST::IfLet { pattern_list, pattern_name, expr, then, else_, pos } => {
                 self.gen_if_let(pattern_list, pattern_name, expr, then, else_, pos, env, break_catcher, continue_catcher)
             },
-            AST::Match { expr, pattern_list_list, pos } => {
+            AST::Match { expr: _, pattern_list_list: _, pos: _ } => {
 
 
 
@@ -446,7 +446,7 @@ impl<'ctx> CodeGen<'ctx> {
         }
 
         //
-        // check post condtition
+        // check post condition
         //
         if let Some(cond) = post_condition {
             let cond = self.gen_expr(cond, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::condition_is_not_number(cond, cond.get_position().clone()))?;

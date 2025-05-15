@@ -2,7 +2,6 @@
 
 use std::collections::HashMap;
 use std::error::Error;
-use std::f32::consts::E;
 use std::rc::Rc;
 use inkwell::values::{PointerValue, FunctionValue, GlobalValue, AnyValueEnum, IntValue, BasicValueEnum, BasicValue};
 use inkwell::types::{StructType, AnyTypeEnum, AnyType, BasicTypeEnum, IntType, BasicType};
@@ -11,7 +10,7 @@ use inkwell::context::Context;
 use parser::FunProto;
 use tokenizer::Position;
 use crate::parser::{Type, ConstExpr, NumberType, ExprAST, CustFunctionType, SpecifierQualifier};
-use crate::{type_util, CodeGenError};
+use crate::{CodeGenError};
 use super::type_util::TypeUtil;
 
 use super::CodeGen;
@@ -495,8 +494,8 @@ impl<'ctx> Env<'ctx> {
     fn get_real_class_name(&self, class_name: &str) -> String {
         if let Some((type_or_union, _)) = self.types.get(class_name) {
             match type_or_union {
-                TypeOrUnion::TypeDefStruct(struct_naem, _raw_ptr) => {
-                    struct_naem.to_string()
+                TypeOrUnion::TypeDefStruct(struct_name, _raw_ptr) => {
+                    struct_name.to_string()
                 },
                 TypeOrUnion::TypeDefUnion(name, _raw_ptr) => {
                     name.to_string()
@@ -739,22 +738,14 @@ impl<'ctx> Env<'ctx> {
                                 },
                                 TypeOrUnion::Union { max_size_type, .. } => {
                                     let t = max_size_type.ok_or(CodeGenError::union_has_no_field(None, pos.clone()))?;
-                                    if let Ok(basic_type) = BasicTypeEnum::try_from(t) {
-                                        return Ok(basic_type);
-                                    }else{
-                                        return Err(Box::new(CodeGenError::mismatch_type_union_fields(Some(id), pos.clone())));
-                                    }
+                                    return Ok(t);
                                 },
                                 TypeOrUnion::StandardEnum { i32_type, .. } => {
                                     return Ok(i32_type.as_basic_type_enum());
                                 },
                                 TypeOrUnion::TaggedEnum { name, max_size_type, .. } => {
                                     let t = max_size_type.ok_or(CodeGenError::enum_has_no_field(name.to_string(), pos.clone()))?;
-                                    if let Ok(basic_type) = BasicTypeEnum::try_from(t) {
-                                        return Ok(basic_type);
-                                    }else{
-                                        return Err(Box::new(CodeGenError::mismatch_type_enum_fields(name.to_string(), pos.clone())));
-                                    }
+                                    return Ok(t);
                                 },
                                 TypeOrUnion::TypeDefStruct(_name, raw_ptr) => {
                                     type_or_union = unsafe { raw_ptr.as_ref().unwrap() };
@@ -790,22 +781,14 @@ impl<'ctx> Env<'ctx> {
                                 },
                                 TypeOrUnion::Union { max_size_type, .. } => {
                                     let t = max_size_type.ok_or(CodeGenError::union_has_no_field(None, pos.clone()))?;
-                                    if let Ok(basic_type) = BasicTypeEnum::try_from(t) {
-                                        return Ok(basic_type);
-                                    }else{
-                                        return Err(Box::new(CodeGenError::mismatch_type_union_fields(Some(id), pos.clone())));
-                                    }
+                                    return Ok(t);
                                 },
                                 TypeOrUnion::StandardEnum { i32_type, .. } => {
                                     return Ok(i32_type.as_basic_type_enum());
                                 },
                                 TypeOrUnion::TaggedEnum { name, max_size_type, .. } => {
                                     let t = max_size_type.ok_or(CodeGenError::enum_has_no_field(name.to_string(), pos.clone()))?;
-                                    if let Ok(basic_type) = BasicTypeEnum::try_from(t) {
-                                        return Ok(basic_type);
-                                    }else{
-                                        return Err(Box::new(CodeGenError::mismatch_type_enum_fields(name.to_string(), pos.clone())));
-                                    }
+                                    return Ok(t);
                                 },
                                 TypeOrUnion::TypeDefStruct(_name, raw_ptr) => {
                                     // let t = self.get_type(name).unwrap();
@@ -846,22 +829,14 @@ impl<'ctx> Env<'ctx> {
                                 },
                                 TypeOrUnion::Union { max_size_type, .. } => {
                                     let t = max_size_type.ok_or(CodeGenError::union_has_no_field(None, pos.clone()))?;
-                                    if let Ok(basic_type) = BasicTypeEnum::try_from(t) {
-                                        return Ok(basic_type);
-                                    }else{
-                                        return Err(Box::new(CodeGenError::mismatch_type_union_fields(Some(name), pos.clone())));
-                                    }
+                                    return Ok(t);
                                 },
                                 TypeOrUnion::StandardEnum { i32_type, .. } => {
                                     return Ok(i32_type.as_basic_type_enum());
                                 },
                                 TypeOrUnion::TaggedEnum { name, max_size_type, .. } => {
                                     let t = max_size_type.ok_or(CodeGenError::enum_has_no_field(name.to_string(), pos.clone()))?;
-                                    if let Ok(basic_type) = BasicTypeEnum::try_from(t) {
-                                        return Ok(basic_type);
-                                    }else{
-                                        return Err(Box::new(CodeGenError::mismatch_type_enum_fields(name.to_string(), pos.clone())));
-                                    }
+                                    return Ok(t);
                                 },
                                 TypeOrUnion::TypeDefStruct(_name, raw_ptr) => {
                                     // let t = self.get_type(name).unwrap();

@@ -225,7 +225,7 @@ mod tests {
         // parse
         let ast = parse_external_declaration_from_str(src).unwrap().unwrap();
 
-        if let ToplevelAST::GlobalDefVar { specifiers, declaration, pos } = ast {
+        if let ToplevelAST::GlobalDefVar { specifiers: _, declaration: _, pos: _ } = ast {
 
 
 

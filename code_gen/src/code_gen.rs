@@ -1,7 +1,9 @@
 #![allow(dead_code)]
 
 use crate::global::global;
-use crate::parser::{AST, ToplevelAST, Type, Pointer, Block, Params, NumberType, Function, FunProto, FunOrProt};
+use crate::parser::{AST, ToplevelAST, Type, Block, Params, NumberType, Function, FunProto, FunOrProt};
+#[allow(unused_imports)]
+use crate::parser::Pointer;
 use crate::parser::{Declaration, DeclarationSpecifier, CustFunctionType, Initializer, ConstInitializer, ImplElement, SpecifierQualifier};
 use crate::env::Class;
 use super::{CompiledValue, CodeGenError};
@@ -11,9 +13,9 @@ use super::caster::Caster;
 use super::type_util::TypeUtil;
 use crate::parser::Declarator;
 use crate::parser::{ConstExpr, ArrayInitializer};
-use crate::{compiled_value, Position};
+use crate::{Position};
 
-use inkwell::{values, OptimizationLevel};
+use inkwell::{OptimizationLevel};
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::execution_engine::ExecutionEngine;
@@ -21,9 +23,8 @@ use inkwell::module::Module;
 use inkwell::values::{AnyValue, AnyValueEnum, ArrayValue, AsValueRef, BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, GlobalValue, PointerValue, StructValue};
 use inkwell::types::{AnyTypeEnum, BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FunctionType, IntType};
 use inkwell::AddressSpace;
-use parser::{ExprAST, StructDefinition};
+use parser::{ExprAST};
 use std::error::Error;
-use std::f32::consts::E;
 use std::rc::Rc;
 
 #[cfg(test)] use crate::parser::{DirectDeclarator, Defines, Param};
@@ -300,7 +301,7 @@ impl<'ctx> CodeGen<'ctx> {
 
             for i in 0..init_len {
                 let init_value_list = init_value_list[i].get_array_list().unwrap();
-                let (value, typ) = self.make_array_init_value(size_list_sub, elem_type, init_value_list, env, break_catcher, continue_catcher, pos)?;
+                let (value, _typ) = self.make_array_init_value(size_list_sub, elem_type, init_value_list, env, break_catcher, continue_catcher, pos)?;
 
                 vec.push(value);
             }
@@ -907,7 +908,7 @@ impl<'ctx> CodeGen<'ctx> {
                     Type::Array { typ, size_list, .. } => {
                         self.gen_global_array_init(&size_list, ptr, &*typ, &*initializer, env, break_catcher, continue_catcher)?;
                     },
-                    Type::Enum { name, enum_def, type_variables } => {
+                    Type::Enum { name: _, enum_def: _, type_variables } => {
                         if let Some(variables) = type_variables {
                             self.gen_global_init_type_variables(&variables, ptr, &*initializer, env, break_catcher, continue_catcher)?;
                         }
@@ -935,12 +936,12 @@ impl<'ctx> CodeGen<'ctx> {
 
     fn gen_global_init_type_variables<'b, 'c>(
         &self,
-        variables: &Vec<String>,
-        target_ptr: GlobalValue<'ctx>,
-        init: &Initializer,
-        env: &mut Env<'ctx>,
-        break_catcher: Option<&'b BreakCatcher>,
-        continue_catcher: Option<&'c ContinueCatcher>
+        _variables: &Vec<String>,
+        _target_ptr: GlobalValue<'ctx>,
+        _init: &Initializer,
+        _env: &mut Env<'ctx>,
+        _break_catcher: Option<&'b BreakCatcher>,
+        _continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<(), Box<dyn Error>> {
 
         // let init_value_list = if let Initializer::Simple(ExprAST::TupleLiteral(expr_list, _pos), _pos2) = init {

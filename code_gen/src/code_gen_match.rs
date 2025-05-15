@@ -1,14 +1,16 @@
+#![allow(deprecated)]
+
 use crate::parser::{AST, ExprAST, Type};
-use crate::parser::{Pattern, EnumPattern, StructPattern};
+use crate::parser::{Pattern, EnumPattern};
 use super::{CompiledValue, CodeGenError};
 use super::Env;
 use super::env::{BreakCatcher, ContinueCatcher};
-use crate::Position;
+use crate::{Position};
 use crate::CodeGen;
 
 use inkwell::basic_block::BasicBlock;
 use inkwell::types::{BasicType, BasicMetadataTypeEnum};
-use inkwell::values::{AnyValue, AnyValueEnum, AsValueRef, BasicMetadataValueEnum, FunctionValue, IntValue, PointerValue, StructValue};
+use inkwell::values::{AnyValue, AnyValueEnum, BasicMetadataValueEnum, FunctionValue, IntValue, PointerValue};
 use inkwell::{IntPredicate, AddressSpace};
 use parser::{NumberType, SpecifierQualifier};
 use std::error::Error;
@@ -138,7 +140,7 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(())
     }
 
-    fn get_fun_string_match(&self, current_function: FunctionValue<'ctx>, env: &mut Env<'ctx>) -> Result<FunctionValue<'ctx>, Box<dyn Error>> {
+    fn get_fun_string_match(&self, _current_function: FunctionValue<'ctx>, env: &mut Env<'ctx>) -> Result<FunctionValue<'ctx>, Box<dyn Error>> {
         if let Some(function) = env.inner_fun_string_match {
             return Ok(function);
         }
@@ -191,19 +193,19 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(int_val)
     }
 
-    fn gen_tag_match(
-        &self,
-        arg1: BasicMetadataValueEnum<'ctx>,
-        arg2: BasicMetadataValueEnum<'ctx>,
-        current_function: FunctionValue<'ctx>,
-        current_block: BasicBlock<'ctx>,
-        env: &mut Env<'ctx>
-    ) -> Result<IntValue<'ctx>, Box<dyn Error>> {
+    // fn gen_tag_match(
+    //     &self,
+    //     arg1: BasicMetadataValueEnum<'ctx>,
+    //     arg2: BasicMetadataValueEnum<'ctx>,
+    //     current_function: FunctionValue<'ctx>,
+    //     current_block: BasicBlock<'ctx>,
+    //     env: &mut Env<'ctx>
+    // ) -> Result<IntValue<'ctx>, Box<dyn Error>> {
 
 
 
-        unimplemented!()
-    }
+    //     unimplemented!()
+    // }
 
     pub fn gen_if_let<'b, 'c>(
         &self,
@@ -229,7 +231,7 @@ impl<'ctx> CodeGen<'ctx> {
         self.builder.position_at_end(cond_block);
 
         env.add_new_local();
-
+eprintln!("ADD NEW LOCAL");
         // match patterns
         let cond = self.gen_expr(condition, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::condition_is_not_number(condition, (*condition).get_position().clone()))?;
         let _ = self.gen_pattern_match(
@@ -258,10 +260,11 @@ impl<'ctx> CodeGen<'ctx> {
         }
 
         env.remove_local();
-
+eprintln!("REMOVE LOCAL");
         // else block
         self.builder.position_at_end(else_block);
         if let Some(expr) = else_ {
+eprintln!("*** else_");
             self.gen_stmt(expr, env, break_catcher, continue_catcher)?;
             if let Some(blk) = self.builder.get_insert_block() {
                 if ! self.last_is_jump_statement(blk) {
@@ -277,7 +280,7 @@ impl<'ctx> CodeGen<'ctx> {
 
         // end block
         self.builder.position_at_end(end_block);
-
+eprintln!("*** end_block");
         Ok(None)
     }
 
@@ -293,6 +296,7 @@ impl<'ctx> CodeGen<'ctx> {
     ) -> Result<(), Box<dyn Error>> {
 
         for (pat, pos) in pattern_list {
+eprintln!("pattern: {:?}", pat);
             match &**pat {
                 Pattern::Var(name) => {
                     self.gen_ver_match(value, then_block, env, pos, name)?;
@@ -313,7 +317,7 @@ impl<'ctx> CodeGen<'ctx> {
                 Pattern::Str(s) => {
                     self.gen_str_match(value, then_block, else_block, env, func, pos, s)?;
                 },
-                Pattern::Struct(strct) => {
+                Pattern::Struct(_struct) => {
 
 
 
@@ -322,7 +326,7 @@ impl<'ctx> CodeGen<'ctx> {
 
                     unimplemented!()
                 },
-                Pattern::Tuple(tpl) => {
+                Pattern::Tuple(_tpl) => {
 
 
 
@@ -364,7 +368,7 @@ impl<'ctx> CodeGen<'ctx> {
         name: &String
     ) -> Result<(), Box<dyn Error>> {
 
-        let mut sq = SpecifierQualifier::default();
+        let sq = SpecifierQualifier::default();
         // sq.const_ = true;
         let typ = value.get_type();
         let basic_type = env.basic_type_enum_from_type(&typ, self.context, pos)?;
@@ -373,7 +377,7 @@ impl<'ctx> CodeGen<'ctx> {
         let basic_value = self.try_as_basic_value(&any_value, pos)?;
         self.builder.build_store(ptr, basic_value)?;
         env.insert_local(name, Rc::clone(typ), sq, ptr);
-
+eprintln!("name: {:?}", name);
         self.builder.build_unconditional_branch(then_block)?;
 
         Ok(())
@@ -519,7 +523,7 @@ impl<'ctx> CodeGen<'ctx> {
     ) -> Result<(), Box<dyn Error>> {
 
         Ok(match enum_pat {
-            EnumPattern::Simple(enum_type, name, _) => {
+            EnumPattern::Simple(_enum_type, _name, _) => {
                 // let then_block = self.context.append_basic_block(func, "match.then");
                 // let else_block  = self.context.append_basic_block(func, "match.else");
     
@@ -549,7 +553,7 @@ impl<'ctx> CodeGen<'ctx> {
     
                 unimplemented!()
             },
-            EnumPattern::Tuple(enum_type, name, sub_name, pattern_list) => {
+            EnumPattern::Tuple(_enum_type, _name, _sub_name, _pattern_list) => {
                 // let then_block = self.context.append_basic_block(func, "match.then");
                 // let else_block  = self.context.append_basic_block(func, "match.else");
     
@@ -574,7 +578,7 @@ impl<'ctx> CodeGen<'ctx> {
     
                 unimplemented!()
             },
-            EnumPattern::Struct(enum_type, type_name, field_name, struct_pat) => {
+            EnumPattern::Struct(_enum_type, type_name, field_name, struct_pat) => {
     
                 let arg_type = value.get_type();
                 // let pat_type = env.get_type(name).ok_or(CodeGenError::no_such_a_type(name, pos.clone()))?;
@@ -615,8 +619,25 @@ impl<'ctx> CodeGen<'ctx> {
 
                 for pat_name in pattern_list.iter() {
                     let item = pattern_map.get(pat_name).unwrap();
-                    if let Some((pattern_list, opt_at_name)) = item {  // if let (type_name::FieldName {pat_name: item})
-                        self.gen_match_pattern_list(pattern_list, value, then_block, else_block, env, func, pos)?;
+
+                    let index = index_map.get(field_name).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), field_name.to_string(), pos.clone()))?;
+                    let (cust_type, llvm_type) = type_list.get(*index).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), field_name.to_string(), pos.clone()))?;
+                    let struct_def = cust_type.get_struct_definition().ok_or(CodeGenError::not_struct_in_enum(type_name.to_string(), field_name.to_string(), pos.clone()))?;
+
+                    let raw_field_index = struct_def.get_index(pat_name).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), pat_name.to_string(), pos.clone()))?;
+
+                    let tagged_struct_type = llvm_type.into_struct_type();
+                    let struct_type = tagged_struct_type.get_field_type_at_index(1).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), field_name.to_string(), pos.clone()))?.into_struct_type();
+                    let field_ptr = self.builder.build_struct_gep(struct_type, struct_ptr, raw_field_index as u32, "get_field_ptr")?;
+                    let field_type = cust_type.as_ref().get_field_type_at_index(raw_field_index).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), pat_name.to_string(), pos.clone()))?;
+
+                    if let Some((pattern_list, _opt_at_name)) = item {  // if let (type_name::FieldName {pat_name: item})
+                        let raw_field_type = struct_type.get_field_type_at_index(raw_field_index as u32).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), field_name.to_string(), pos.clone()))?;
+                        let value = self.builder.build_load(raw_field_type, field_ptr, "get_field_value")?;
+                        let compiled_value = CompiledValue::new(Rc::clone(field_type), value.as_any_value_enum());
+eprintln!("pattern_list: {:?}", pattern_list);
+                        // self.gen_match_pattern_list(pattern_list, &compiled_value, then_block, else_block, env, func, pos)?;
+                        self.gen_pattern_match(pattern_list, &None, pos, &compiled_value, env, func, then_block, else_block)?;
 
 
 
@@ -626,16 +647,6 @@ impl<'ctx> CodeGen<'ctx> {
 
                     }else{ // item is None.                               if let (type_name::FieldName {pat_name})
 
-                        let index = index_map.get(field_name).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), field_name.to_string(), pos.clone()))?;
-                        let (cust_type, llvm_type) = type_list.get(*index).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), field_name.to_string(), pos.clone()))?;
-                        let struct_def = cust_type.get_struct_definition().ok_or(CodeGenError::not_struct_in_enum(type_name.to_string(), field_name.to_string(), pos.clone()))?;
-
-                        let raw_field_index = struct_def.get_index(pat_name).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), pat_name.to_string(), pos.clone()))?;
-
-                        let tagged_struct_type = llvm_type.into_struct_type();
-                        let struct_type = tagged_struct_type.get_field_type_at_index(1).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), field_name.to_string(), pos.clone()))?.into_struct_type();
-                        let field_ptr = self.builder.build_struct_gep(struct_type, struct_ptr, raw_field_index as u32, "get_field_ptr")?;
-                        let field_type = cust_type.as_ref().get_field_type_at_index(raw_field_index).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), pat_name.to_string(), pos.clone()))?;
                         let field = struct_def.get_field_by_name(pat_name).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), field_name.to_string(), pos.clone()))?;
                         let mut sq = field.get_specifier_qualifier().clone();
                         sq.const_ = true;
@@ -652,49 +663,10 @@ impl<'ctx> CodeGen<'ctx> {
         })
     }
 
-    fn gen_match_pattern_list(&self,
-        pattern_list: &Vec<(Box<Pattern>, Position)>,
-        value: &CompiledValue<'ctx>,
-        then_block: BasicBlock<'ctx>,
-        else_block: BasicBlock<'ctx>,
-        env: &mut Env<'ctx>,
-        func: FunctionValue<'ctx>,
-        pos: &Position
-    ) -> Result<(), Box<dyn Error>> {
-
-        for (pat, _pat_pos) in pattern_list {
-            self.gen_pattern_match(
-                pattern_list,
-                &None,  // &Option<pattern_name>
-                pos,
-                value,
-                env,
-                func,
-                then_block,
-                else_block
-            )?;
-
-        }
-
-
-
-
-
-
-
-
-
-
-
-
-
-        unimplemented!()
-    }    
-
     fn gen_get_tag(&self,
         value: &CompiledValue<'ctx>,
-        env: &mut Env<'ctx>,
-        pos: &Position
+        _env: &mut Env<'ctx>,
+        _pos: &Position
     ) -> Result<IntValue<'ctx>, Box<dyn Error>> {
 
         let v = value.get_value();

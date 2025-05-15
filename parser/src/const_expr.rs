@@ -1,6 +1,6 @@
 use std::ops::{Add, Sub, Mul, Div, Rem, Not, Neg, Shl, Shr, BitAnd, BitOr, BitXor};
 use std::cmp::Ordering;
-use crate::{ExprAST, NumberType, Type};
+use crate::{NumberType, Type};
 
 use super::{ParserError, Position};
 

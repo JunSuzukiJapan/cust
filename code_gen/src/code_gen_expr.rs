@@ -1,5 +1,6 @@
+#![allow(deprecated)]
+
 use crate::parser::{ExprAST, BinOp, Type, Pointer, NumberType};
-use crate::parser::{Initializer, EnumLiteral};
 use super::{CompiledValue, CodeGenError};
 use super::Env;
 use super::env::{BreakCatcher, ContinueCatcher, TypeOrUnion};
@@ -502,6 +503,7 @@ impl<'ctx> CodeGen<'ctx> {
                     }
     
                 }else{
+eprintln!("{}:{}:{}\n", file!(), line!(), column!());
                     Err(Box::new(CodeGenError::no_such_a_variable(name, pos.clone())))
                 }
             },
@@ -1353,6 +1355,7 @@ impl<'ctx> CodeGen<'ctx> {
     ) -> Result<(Rc<Type>, PointerValue<'ctx>, SpecifierQualifier), Box<dyn Error>> {
         match ast {
             ExprAST::Symbol(name, pos) => {
+eprintln!("{}:{}:{}\n", file!(), line!(), column!());
                 let (typ, sq, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(&name, pos.clone())))?;
                 Ok((Rc::clone(typ), ptr, sq.clone()))
             },
@@ -1403,7 +1406,7 @@ impl<'ctx> CodeGen<'ctx> {
                         match ast {
                             ExprAST::ArrayAccess(expr, index_list, pos) => {
                                 let ast = &**expr;
-                                let (expr_type, base_ptr, sq) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
+                                let (expr_type, base_ptr, _sq) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
                                 let index_len = index_list.len();
 
                                 if index_len > 1 {
@@ -1799,7 +1802,7 @@ impl<'ctx> CodeGen<'ctx> {
         }
     }
 
-    fn as_int_type(&self, num_type: &NumberType, value: &CompiledValue<'ctx>, pos: &Position) -> Result<IntType<'ctx>, Box<dyn Error>> {
+    fn as_int_type(&self, num_type: &NumberType, _value: &CompiledValue<'ctx>, pos: &Position) -> Result<IntType<'ctx>, Box<dyn Error>> {
         match num_type {
             NumberType::Char | NumberType::UnsignedChar => Ok(self.context.i8_type()),
             NumberType::Int | NumberType::UnsignedInt => Ok(self.context.i32_type()),

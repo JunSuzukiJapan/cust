@@ -1,3 +1,5 @@
+#![allow(deprecated)]
+
 use crate::global::global;
 use crate::parser::{Type, NumberType, Pointer, BinOp, Position};
 use crate::Env;
@@ -7,7 +9,7 @@ use std::rc::Rc;
 use inkwell::types::{BasicTypeEnum, AnyTypeEnum, BasicType, BasicMetadataTypeEnum, IntType, PointerType};
 use inkwell::AddressSpace;
 use inkwell::types::AnyType;
-use parser::{ExprAST, Initializer, ConstInitializer, ArrayInitializer};
+use parser::{ExprAST, Initializer, ArrayInitializer};
 use super::{CodeGen, CodeGenError};
 
 pub struct TypeUtil;
@@ -277,6 +279,7 @@ impl TypeUtil {
                 }
             },
             ExprAST::Symbol(name, pos) => {
+eprintln!("{}:{}:{}\n", file!(), line!(), column!());
                 let typ = env.get_type_by_id(&name).ok_or(CodeGenError::no_such_a_variable(&name, pos.clone()))?;
                 Ok(typ.clone())
             },
@@ -444,7 +447,7 @@ impl TypeUtil {
                     Err(CodeGenError::not_tuple_in_tuple_access_by_index(*expr_ast.clone(), pos.clone()))
                 }
             },
-            ExprAST::TuplePointerAccess(expr_ast, index, pos) => {
+            ExprAST::TuplePointerAccess(_expr_ast, _index, _pos) => {
 
 
 
@@ -467,15 +470,15 @@ impl TypeUtil {
         }
     }
 
-    pub fn get_initializer_type_of_const_initializer(init: &ConstInitializer, env: &Env) -> Result<Rc<Type>, CodeGenError> {
-        match init {
-            ConstInitializer::Simple(expr, _pos) => Ok(Rc::new(expr.get_type())),
-            ConstInitializer::Array(_init, typ, _pos) => Ok(Rc::clone(typ)),
-            ConstInitializer::Struct(_init, typ, _pos) => Ok(Rc::clone(typ)),
-        }
-    }
+    // pub fn get_initializer_type_of_const_initializer(init: &ConstInitializer, _env: &Env) -> Result<Rc<Type>, CodeGenError> {
+    //     match init {
+    //         ConstInitializer::Simple(expr, _pos) => Ok(Rc::new(expr.get_type())),
+    //         ConstInitializer::Array(_init, typ, _pos) => Ok(Rc::clone(typ)),
+    //         ConstInitializer::Struct(_init, typ, _pos) => Ok(Rc::clone(typ)),
+    //     }
+    // }
 
-    pub fn get_initializer_type_of_array_initializer(init: &ArrayInitializer, env: &Env) -> Result<Rc<Type>, CodeGenError> {
+    pub fn get_initializer_type_of_array_initializer(init: &ArrayInitializer, _env: &Env) -> Result<Rc<Type>, CodeGenError> {
         match init {
             ArrayInitializer::Const(expr, _pos) => Ok(Rc::clone(&expr.get_type())),
             ArrayInitializer::Array(_init, typ, _pos) => Ok(Rc::clone(typ)),

@@ -157,7 +157,7 @@ mod tests {
             panic!()
         }
 
-        if let ToplevelAST::Function(Function { specifiers, declarator, params, body, labels }, _pos) = &ast[1] {
+        if let ToplevelAST::Function(Function { declarator, params, body, .. }, _pos) = &ast[1] {
             assert_eq!(declarator.get_name(), "main");
             assert_eq!(params.len(), 0);
 
@@ -302,7 +302,7 @@ mod tests {
             panic!()
         }
 
-        if let ToplevelAST::Function(Function { specifiers, declarator, params, body, labels }, _pos) = &ast[1] {
+        if let ToplevelAST::Function(Function { declarator, params, body, .. }, _pos) = &ast[1] {
             assert_eq!(declarator.get_name(), "main");
             assert_eq!(params.len(), 0);
 
@@ -454,7 +454,7 @@ mod tests {
             panic!()
         }
 
-        if let ToplevelAST::Function(Function { specifiers, declarator, params, body, labels }, _pos) = &ast[1] {
+        if let ToplevelAST::Function(Function { declarator, params, body, .. }, _pos) = &ast[1] {
             assert_eq!(declarator.get_name(), "main");
             assert_eq!(params.len(), 0);
 

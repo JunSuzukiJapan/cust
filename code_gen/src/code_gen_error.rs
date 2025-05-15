@@ -519,11 +519,11 @@ impl CodeGenError {
     }
 
     pub fn not_tuple_in_tuple_access_by_index(expr: ExprAST, pos: Position) -> Self {
-        Self::not_tuple_in_tuple_access_by_index(expr, pos)
+        Self::NotTupleInTupleAccessByIndex(expr, pos)
     }
 
     pub fn float_or_double_cannot_convert_to_int_type(pos: Position) -> Self {
-        Self::float_or_double_cannot_convert_to_int_type(pos)
+        Self::FloatOrDoubleCannotConvertToIntType(pos)
     }
 
     pub fn not_tagged_enum(name: String, pos: Position) -> Self {
@@ -876,7 +876,7 @@ impl fmt::Display for CodeGenError {
             Self::TupleIndexTooBig(expected, real, _pos) => {
                 write!(f, "tuple index too big. expected: {expected}, real: {real}")
             },
-            Self::NotTupleInTupleAccessByIndex(expr, _pos) => {
+            Self::NotTupleInTupleAccessByIndex(_expr, _pos) => {
                 write!(f, "not tuple in tuple access by index")
             },
             Self::FloatOrDoubleCannotConvertToIntType(_pos) => {

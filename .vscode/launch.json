@@ -19,7 +19,7 @@
                     "kind": "bin"
                 }
             },
-            "args": [],
+            "args": ["-c", "../cust_tmp/some_enum.cust"],
             "cwd": "${workspaceFolder}"
         },
         {

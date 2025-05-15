@@ -8,11 +8,10 @@ use crate::Position;
 use crate::CodeGen;
 
 use inkwell::context::Context;
-use inkwell::values::{self, AnyValue, AnyValueEnum, BasicMetadataValueEnum, BasicValue, BasicValueEnum, GlobalValue, PointerValue, StructValue};
+use inkwell::values::{AnyValue, AnyValueEnum, BasicMetadataValueEnum, BasicValue, BasicValueEnum, GlobalValue, PointerValue, StructValue};
 use inkwell::types::{AnyTypeEnum, BasicType, BasicTypeEnum};
 use inkwell::types::AnyType;
 use inkwell::types::StructType;
-use std::any;
 use std::error::Error;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -366,19 +365,18 @@ impl<'ctx> CodeGen<'ctx> {
     }
 
     pub fn struct_from_struct_definition(name: &Option<String>, struct_def: &StructDefinition, type_variables: &Option<Vec<String>>, ctx: &'ctx Context, pos: &Position) -> Result<(StructType<'ctx>, HashMap<String, usize>), Box<dyn Error>> {
-        let mut list: Vec<BasicTypeEnum<'ctx>> = Vec::new();
-        let mut packed = false;
-        let mut index_map: HashMap<String, usize> = HashMap::new();
-        let mut index = 0;
-
         if let Some(fields) = struct_def.get_fields() {
             return Self::struct_from_fields(name, fields, type_variables, ctx, pos);
         }
 
+        let list: Vec<BasicTypeEnum<'ctx>> = Vec::new();
+        let packed = false;
+        let index_map: HashMap<String, usize> = HashMap::new();
+
         Ok((ctx.struct_type(&list, packed), index_map))
     }
 
-    fn struct_from_fields(name: &Option<String>, fields: &Vec<StructField>, type_variables: &Option<Vec<String>>, ctx: &'ctx Context, pos: &Position) -> Result<(StructType<'ctx>, HashMap<String, usize>), Box<dyn Error>> {
+    fn struct_from_fields(name: &Option<String>, fields: &Vec<StructField>, _type_variables: &Option<Vec<String>>, ctx: &'ctx Context, pos: &Position) -> Result<(StructType<'ctx>, HashMap<String, usize>), Box<dyn Error>> {
         let mut list: Vec<BasicTypeEnum<'ctx>> = Vec::new();
         let mut packed = false;
         let mut index_map: HashMap<String, usize> = HashMap::new();
@@ -436,7 +434,7 @@ impl<'ctx> CodeGen<'ctx> {
         }
     }
 
-    pub fn union_from_struct_definition(_name: &Option<String>, struct_def: &StructDefinition, type_variables: &Option<Vec<String>>, ctx: &'ctx Context, pos: &Position)
+    pub fn union_from_struct_definition(_name: &Option<String>, struct_def: &StructDefinition, _type_variables: &Option<Vec<String>>, ctx: &'ctx Context, pos: &Position)
       -> Result<(Vec<(Rc<Type>, BasicTypeEnum<'ctx>)>, HashMap<String, usize>, u64, Option<BasicTypeEnum<'ctx>>), Box<dyn Error>>
     {
         let mut list: Vec<(Rc<Type>, BasicTypeEnum<'ctx>)> = Vec::new();

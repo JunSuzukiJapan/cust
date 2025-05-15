@@ -4,7 +4,7 @@ use tokenizer::Token;
 
 use super::{ParserError, StructDeclaration, SpecifierQualifier};
 use crate::ast::{StructLiteral, TupleLiteral};
-use crate::{ExprAST, Position};
+use crate::{Position};
 
 use std::cmp::Ordering;
 use std::fmt;
@@ -571,7 +571,7 @@ impl Enumerator {
 
     pub fn get_tuple_type(&self) -> Option<&Rc<Type>> {
         match self {
-            Self::TypeTuple { name, tuple_type } => Some(tuple_type),
+            Self::TypeTuple { tuple_type, .. } => Some(tuple_type),
             _ => None,
         }
     }
@@ -672,7 +672,6 @@ impl EnumDefinition {
         match self {
             EnumDefinition::TaggedEnum { index_map, .. } => Some(index_map),
             EnumDefinition::StandardEnum { index_map, .. } => Some(index_map),
-            _ => None,
         }
     }
 
@@ -721,7 +720,6 @@ impl EnumDefinition {
                     _ => None,
                 }
             },
-            _ => None,
         }
     }
 

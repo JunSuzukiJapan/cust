@@ -10,9 +10,8 @@ use super::types::*;
 use super::defines::*;
 use super::{CustSelf, Function, FunProto};
 use crate::ast::ForInitExpr;
-use crate::initializer::{Initializer, ConstInitializer, ArrayInitializer};
+use crate::initializer::{Initializer, ArrayInitializer};
 
-use std::f32::consts::E;
 use std::slice::Iter;
 use std::iter::Peekable;
 use std::collections::{HashMap, HashSet};
@@ -388,7 +387,7 @@ impl Parser {
                             break;
                         }
 
-                        let (tok2, pos2) = iter.peek().unwrap();
+                        let (_tok2, _pos2) = iter.peek().unwrap();
 
                         opt_name = Some(name.to_string());
                         if let Some(t) = defs.get_type(name) {
@@ -598,7 +597,7 @@ impl Parser {
                                         ));
                                     },
                                     Token::Less => {  // '<'
-                                        if let Some(mut generic_type) = defs.get_type(name) {  // すでに存在する型の場合は、型変数ではなく、実際の型がくるはず。
+                                        if let Some(generic_type) = defs.get_type(name) {  // すでに存在する型の場合は、型変数ではなく、実際の型がくるはず。
                                             iter.next();  // skip '<'
 
                                             if ! generic_type.has_type_variables() {
@@ -861,7 +860,7 @@ impl Parser {
         Ok(list)
     }
 
-    fn parse_enum_body(&self, name: &String, pos3: &Position, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<EnumDefinition, ParserError> {
+    fn parse_enum_body(&self, name: &String, _pos3: &Position, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<EnumDefinition, ParserError> {
         let (enum_list, is_tagged) = self.parse_enumerator_list(iter, defs)?;
 
         let definition;
@@ -899,9 +898,7 @@ impl Parser {
                     iter.next();  // skip Symbol
                     defs.check_exist(name, pos)?;
 
-                    let g_type = defs.add_generic_type(name, pos)?;
-                    // list.push(g_type);
-
+                    let _g_type = defs.add_generic_type(name, pos)?;
                     list.push(name.to_string());
                 },
                 _ => {
@@ -922,7 +919,7 @@ impl Parser {
         Ok(list)
     }
 
-    fn parse_generic_params(&self, base_type: &Rc<Type>, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &Defines) -> Result<Vec<Rc<Type>>, ParserError> {
+    fn parse_generic_params(&self, _base_type: &Rc<Type>, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &Defines) -> Result<Vec<Rc<Type>>, ParserError> {
         let mut list = Vec::new();
 
         let (tok, pos) = iter.peek().unwrap();
@@ -971,7 +968,7 @@ impl Parser {
                             break;
                         }
 
-                        let (tok2, pos2) = iter.peek().unwrap();
+                        let (_tok2, _pos2) = iter.peek().unwrap();
 
                         opt_name = Some(name.to_string());
                         if let Some(t) = defs.get_type(name) {
@@ -2893,7 +2890,7 @@ impl Parser {
             }
         }
 
-        // // check fields coount
+        // // check fields count
         // if let Some(fields) = typ.get_union_fields() {
         //     if fields.len() != map.len() {
         //         return Err(ParserError::number_of_elements_does_not_match(pos.clone()));
@@ -3532,7 +3529,7 @@ impl Parser {
     }
 
     // only for init-expr in for-statement
-    pub fn parse_simple_declaration_or_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, labels: &mut Option<&mut Vec<String>>) -> Result<Option<ForInitExpr>, ParserError> {
+    pub fn parse_simple_declaration_or_expression(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines, _labels: &mut Option<&mut Vec<String>>) -> Result<Option<ForInitExpr>, ParserError> {
         let (tok, pos) = iter.peek().unwrap();
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
 

@@ -2,7 +2,7 @@ use crate::parser::Type;
 
 use inkwell::builder::Builder;
 use inkwell::context::Context;
-use inkwell::values::{AnyValue, AnyValueEnum, BasicValueEnum, FloatValue};
+use inkwell::values::{AnyValue, AnyValueEnum, BasicValueEnum};
 
 use parser::{NumberType, ExprAST};
 use super::type_util::TypeUtil;
@@ -863,7 +863,7 @@ impl Caster {
                 let result = builder.build_unsigned_int_to_float(value.into_int_value(), f64_type, "cast ulonglong to double")?;
                 Ok(result.as_any_value_enum())
             },
-            (Type::Array { typ, .. }, Type::Pointer(_pointer, boxed_type)) => {
+            (Type::Array { typ: _, .. }, Type::Pointer(_pointer, boxed_type)) => {
                 //
                 // TODO:: type check
                 //
@@ -1442,7 +1442,7 @@ impl Caster {
             (Type::Number(NumberType::UnsignedShort), Type::Number(NumberType::Float)) => {
                 let f32_type = ctx.f32_type();
                 // let result = value.into_int_value().const_signed_to_float(f32_type);
-                let result = builder.build_signed_int_to_float(value.into_int_value(), f32_type, "cast ushortg to float")?;
+                let result = builder.build_signed_int_to_float(value.into_int_value(), f32_type, "cast ushort to float")?;
                 Ok(result.as_any_value_enum())
             },
             (Type::Number(NumberType::UnsignedShort), Type::Number(NumberType::Double)) => {
