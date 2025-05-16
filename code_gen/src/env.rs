@@ -408,7 +408,7 @@ pub struct Env<'ctx> {
 
     current_class: Option<*const Class<'ctx>>,
 
-    pub inner_fun_string_match: Option<FunctionValue<'ctx>>,
+    inner_fun_string_match: Option<FunctionValue<'ctx>>,
 }
 
 impl<'ctx> Env<'ctx> {
@@ -477,6 +477,14 @@ impl<'ctx> Env<'ctx> {
 
     pub fn insert_default(&mut self, block: BasicBlock<'ctx>, code: Option<AnyValueEnum<'ctx>>, insert_block: Option<BasicBlock<'ctx>>, pos: Position) {
         self.local_cases.last_mut().unwrap().last_mut().unwrap().push(CompiledCase::new_default(block, code, insert_block, pos));
+    }
+
+    pub fn get_inner_fun_string_match(&self) -> Option<FunctionValue<'ctx>> {
+        self.inner_fun_string_match
+    }
+
+    pub fn set_inner_fun_string_match(&mut self, function: FunctionValue<'ctx>) {
+        self.inner_fun_string_match = Some(function);
     }
 
     pub fn insert_global_var(&mut self, key: &str, typ: Rc<Type>, sq: SpecifierQualifier, ptr: GlobalValue<'ctx>) {

@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use crate::global::global;
-use crate::parser::{AST, ToplevelAST, Type, Block, Params, NumberType, Function, FunProto, FunOrProt};
+use crate::parser::{AST, ToplevelAST, Type, Block, Params, NumberType, Function, FunProto, FunOrProt, Pattern};
 #[allow(unused_imports)]
 use crate::parser::Pointer;
 use crate::parser::{Declaration, DeclarationSpecifier, CustFunctionType, Initializer, ConstInitializer, ImplElement, SpecifierQualifier};
@@ -1307,8 +1307,8 @@ impl<'ctx> CodeGen<'ctx> {
 
                     }
                 },
-                Some(AST::IfLet { pattern_list: _, pattern_name: _, expr: _, then, else_, pos }) => {
-                    let typ = self.calc_ret_type_in_if(then, else_, pos, env)?;
+                Some(AST::IfLet { pattern_list, pattern_name, expr: _, then, else_, pos }) => {  // if let pattern_list @ pattern_name
+                    let typ = self.calc_ret_type_in_if_let(then, else_, pattern_list, pattern_name, pos, env)?;
                     if typ.is_void() {
                         Err(Box::new(CodeGenError::return_type_mismatch(ret_type.as_ref().clone(), Type::Void, pos.clone())))
                     }else{
@@ -1366,8 +1366,8 @@ impl<'ctx> CodeGen<'ctx> {
             AST::If(_cond, if_then, if_else, pos) => {
                 self.calc_ret_type_in_if(if_then, if_else, pos, env)
             },
-            AST::IfLet { pattern_list: _, pattern_name: _, expr: _, then, else_, pos } => {
-                self.calc_ret_type_in_if(then, else_, pos, env)
+            AST::IfLet { pattern_list, pattern_name, expr: _, then, else_, pos } => {
+                self.calc_ret_type_in_if_let(then, else_, pattern_list, pattern_name, pos, env)
             }
             AST::Block(blk, _pos) => {
                 let mut typ = Rc::new(Type::Void);
@@ -1440,6 +1440,37 @@ impl<'ctx> CodeGen<'ctx> {
     fn calc_ret_type_in_if(&self, if_then: &AST, if_else: &Option<Box<AST>>, pos: &Position, env: &Env) -> Result<Rc<Type>, Box<dyn Error>> {
         let then_type = self.calc_ret_type(if_then, env)?;
 
+        if then_type.is_void() {
+            if let Some(else_expr) = if_else {
+                let else_type = self.calc_ret_type(else_expr, env)?;
+                if else_type.is_void() {
+                    Ok(Rc::new(Type::Void))
+                }else{
+                    Err(Box::new(CodeGenError::mismatch_type_in_if(pos.clone(), then_type.as_ref().clone(), else_type.as_ref().clone())))
+                }
+
+            }else{
+                Ok(Rc::new(Type::Void))
+            }
+
+        }else{
+            if let Some(else_expr) = if_else {
+                let else_type = self.calc_ret_type(else_expr, env)?;
+                if else_type.is_void() {
+                    Err(Box::new(CodeGenError::mismatch_type_in_if(pos.clone(), then_type.as_ref().clone(), else_type.as_ref().clone())))
+                }else{
+                    Ok(else_type)
+                }
+
+            }else{
+                Err(Box::new(CodeGenError::mismatch_type_in_if(pos.clone(), then_type.as_ref().clone(), Type::Void)))
+            }
+        }
+    }
+
+    fn calc_ret_type_in_if_let(&self, if_then: &AST, if_else: &Option<Box<AST>>, pattern_list: &Vec<(Box<Pattern>, Position)>, pattern_name: &Option<String>, pos: &Position, env: &Env) -> Result<Rc<Type>, Box<dyn Error>> {
+        let then_type = self.calc_ret_type(if_then, env)?;
+eprintln!("calc ret type in if let\n");
         if then_type.is_void() {
             if let Some(else_expr) = if_else {
                 let else_type = self.calc_ret_type(else_expr, env)?;

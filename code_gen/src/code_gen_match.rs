@@ -141,7 +141,7 @@ impl<'ctx> CodeGen<'ctx> {
     }
 
     fn get_fun_string_match(&self, _current_function: FunctionValue<'ctx>, env: &mut Env<'ctx>) -> Result<FunctionValue<'ctx>, Box<dyn Error>> {
-        if let Some(function) = env.inner_fun_string_match {
+        if let Some(function) = env.get_inner_fun_string_match() {
             return Ok(function);
         }
 
@@ -165,7 +165,7 @@ impl<'ctx> CodeGen<'ctx> {
 
         self.code_gen_fun_string_match_body(function)?;
 
-        env.inner_fun_string_match = Some(function);
+        env.set_inner_fun_string_match(function);
 
         //
         // end of define string_match
