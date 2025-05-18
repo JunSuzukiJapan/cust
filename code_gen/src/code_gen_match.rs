@@ -605,8 +605,6 @@ impl<'ctx> CodeGen<'ctx> {
                 //
                 // matched
                 //
-
-                // TODO: 
                 self.builder.position_at_end(then_block);
                 let pattern_map = struct_pat.get_map();
                 let key_list = struct_pat.get_keys();
@@ -631,18 +629,19 @@ impl<'ctx> CodeGen<'ctx> {
                     let field_ptr = self.builder.build_struct_gep(struct_type, struct_ptr, raw_field_index as u32, "get_field_ptr")?;
                     let field_type = cust_type.as_ref().get_field_type_at_index(raw_field_index).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), pat_name.to_string(), pos.clone()))?;
 
-                    if let Some((pattern_list, _opt_at_name)) = item {  // if let (type_name::FieldName {pat_name: item})
+                    if let Some((pattern_list, opt_at_name)) = item {  // if let (type_name::FieldName {pat_name: item @ at_name})
                         let raw_field_type = struct_type.get_field_type_at_index(raw_field_index as u32).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), field_name.to_string(), pos.clone()))?;
                         let value = self.builder.build_load(raw_field_type, field_ptr, "get_field_value")?;
                         let compiled_value = CompiledValue::new(Rc::clone(field_type), value.as_any_value_enum());
-                        // self.gen_match_pattern_list(pattern_list, &compiled_value, then_block, else_block, env, func, pos)?;
                         self.gen_pattern_match(pattern_list, &None, pos, &compiled_value, env, func, then_block, else_block)?;
 
-
-
-
-                        // TODO: opt_at_name
-
+                        // opt_at_name
+                        if let Some(at_name) = opt_at_name {
+                            let sq = SpecifierQualifier::default();
+                            let ptr = self.builder.build_alloca(raw_field_type, at_name)?;
+                            self.builder.build_store(ptr, value)?;
+                            env.insert_local(at_name, Rc::clone(field_type), sq, ptr);
+                        }
 
                     }else{ // item is None.                               if let (type_name::FieldName {pat_name})
 
@@ -674,14 +673,6 @@ impl<'ctx> CodeGen<'ctx> {
         let ty = st_value.get_type();
         let ty2 = ty.get_field_type_at_index(0).unwrap();
         let tag_value = self.builder.build_load(ty2, ptr, "get_tag")?;
-
-        // let v = value.get_value();
-        // let st_value = v.into_struct_value();
-        // let ty = st_value.get_type();
-        // let tag_type = ty.get_field_type_at_index(0).unwrap();
-        // let ptr = st_value.get_field_at_index(0).unwrap().into_pointer_value();
-        // let tag_ptr = self.builder.build_struct_gep(tag_type, ptr, 0, "get_tag_ptr")?;
-        // let tag_value = self.builder.build_load(tag_type, tag_ptr, "load_tag_value")?;
 
         Ok(tag_value.into_int_value())
     }

@@ -89,7 +89,7 @@ fn code_gen_struct_type_enum2() {
 }
 
 #[test]
-fn code_gen_struct_type_enum() {
+fn code_gen_struct_type_enum3() {
     let src = "
         enum Foo {
             Bar,
@@ -131,9 +131,9 @@ fn code_gen_struct_type_enum() {
     let f: JitFunction<FuncType_void_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
     assert_eq!(unsafe { f.call() }, 6);
 }
-/*
+
 #[test]
-fn code_gen_enum() {
+fn code_gen_struct_type_enum_with_at() {
     let src = "
         enum SomeEnum {
             Foo,
@@ -151,8 +151,8 @@ fn code_gen_enum() {
                 z: 3;
             };
 
-            if let (SomeEnum::Bar { x: a, y: b, z: c } = x) {
-                return a + b + c;
+            if let (SomeEnum::Bar { x: a @ A, y: b @ B, z: c @ C } = x) {
+                return a + b + c + A + B + C;
             } else {
                 return 0;
             }
@@ -173,9 +173,9 @@ fn code_gen_enum() {
     }
 
     let f: JitFunction<FuncType_void_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
-    assert_eq!(unsafe { f.call() }, 6);
+    assert_eq!(unsafe { f.call() }, 12);
 }
-*/
+
 /*
 #[test]
 fn code_gen_a_few_types_enum() {
