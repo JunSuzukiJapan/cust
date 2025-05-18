@@ -231,7 +231,7 @@ impl<'ctx> CodeGen<'ctx> {
         self.builder.position_at_end(cond_block);
 
         env.add_new_local();
-eprintln!("ADD NEW LOCAL");
+
         // match patterns
         let cond = self.gen_expr(condition, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::condition_is_not_number(condition, (*condition).get_position().clone()))?;
         let _ = self.gen_pattern_match(
@@ -244,6 +244,11 @@ eprintln!("ADD NEW LOCAL");
             then_block,
             else_block
         )?;
+
+        if ! self.last_is_jump_statement(cond_block) {
+            self.builder.position_at_end(cond_block);
+            self.builder.build_unconditional_branch(then_block)?;
+        }
 
         // then block
         self.builder.position_at_end(then_block);
@@ -260,11 +265,10 @@ eprintln!("ADD NEW LOCAL");
         }
 
         env.remove_local();
-eprintln!("REMOVE LOCAL");
+
         // else block
         self.builder.position_at_end(else_block);
         if let Some(expr) = else_ {
-eprintln!("*** else_");
             self.gen_stmt(expr, env, break_catcher, continue_catcher)?;
             if let Some(blk) = self.builder.get_insert_block() {
                 if ! self.last_is_jump_statement(blk) {
@@ -280,7 +284,7 @@ eprintln!("*** else_");
 
         // end block
         self.builder.position_at_end(end_block);
-eprintln!("*** end_block");
+
         Ok(None)
     }
 
@@ -296,10 +300,9 @@ eprintln!("*** end_block");
     ) -> Result<(), Box<dyn Error>> {
 
         for (pat, pos) in pattern_list {
-eprintln!("pattern: {:?}", pat);
             match &**pat {
                 Pattern::Var(name) => {
-                    self.gen_ver_match(value, then_block, env, pos, name)?;
+                    self.gen_ver_match(value, env, pos, name)?;
                     break;  // シンボルは、すべてにマッチするので、この後のパターンにマッチすることはないはず。
                 },
                 Pattern::Char(ch) => {
@@ -362,7 +365,6 @@ eprintln!("pattern: {:?}", pat);
     
     fn gen_ver_match(&self,
         value: &CompiledValue<'ctx>,
-        then_block: BasicBlock<'ctx>,
         env: &mut Env<'ctx>,
         pos: &Position,
         name: &String
@@ -377,8 +379,6 @@ eprintln!("pattern: {:?}", pat);
         let basic_value = self.try_as_basic_value(&any_value, pos)?;
         self.builder.build_store(ptr, basic_value)?;
         env.insert_local(name, Rc::clone(typ), sq, ptr);
-eprintln!("name: {:?}", name);
-        self.builder.build_unconditional_branch(then_block)?;
 
         Ok(())
     }
@@ -609,15 +609,15 @@ eprintln!("name: {:?}", name);
                 // TODO: 
                 self.builder.position_at_end(then_block);
                 let pattern_map = struct_pat.get_map();
-                let pattern_list = struct_pat.get_keys();
+                let key_list = struct_pat.get_keys();
                 let struct_ptr = self.gen_get_struct_ptr(value)?;
 
-                let enum_type = env.get_type(type_name).ok_or(CodeGenError::no_such_a_type(type_name, pos.clone()))?;
+                let enum_type = env.get_llvm_type(type_name).ok_or(CodeGenError::no_such_a_type(type_name, pos.clone()))?;
                 let enum_type = enum_type.clone();  // env.insert_localメソッドを使用可能にするため。
                 let index_map = enum_type.get_index_map().ok_or(CodeGenError::no_index_map(type_name.to_string(), pos.clone()))?;
                 let type_list = enum_type.get_type_list().ok_or(CodeGenError::no_type_list(type_name.to_string(), pos.clone()))?;
 
-                for pat_name in pattern_list.iter() {
+                for pat_name in key_list.iter() {
                     let item = pattern_map.get(pat_name).unwrap();
 
                     let index = index_map.get(field_name).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), field_name.to_string(), pos.clone()))?;
@@ -635,7 +635,6 @@ eprintln!("name: {:?}", name);
                         let raw_field_type = struct_type.get_field_type_at_index(raw_field_index as u32).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), field_name.to_string(), pos.clone()))?;
                         let value = self.builder.build_load(raw_field_type, field_ptr, "get_field_value")?;
                         let compiled_value = CompiledValue::new(Rc::clone(field_type), value.as_any_value_enum());
-eprintln!("pattern_list: {:?}", pattern_list);
                         // self.gen_match_pattern_list(pattern_list, &compiled_value, then_block, else_block, env, func, pos)?;
                         self.gen_pattern_match(pattern_list, &None, pos, &compiled_value, env, func, then_block, else_block)?;
 

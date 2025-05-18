@@ -279,7 +279,6 @@ impl TypeUtil {
                 }
             },
             ExprAST::Symbol(name, pos) => {
-eprintln!("{}:{}:{}\n", file!(), line!(), column!());
                 let typ = env.get_type_by_id(&name).ok_or(CodeGenError::no_such_a_variable(&name, pos.clone()))?;
                 Ok(typ.clone())
             },

@@ -7,13 +7,13 @@ use crate::types::Type;
 #[derive(Debug, PartialEq, Clone)]
 pub enum Pattern {
     Var(String),
-    Tuple(Vec<(Vec<(Box<Pattern>, Position)>, Option<String>)>),
     Str(String),
     Char(char),
     CharRange(char, char),
     Number(i128),
     NumberRange(i128, i128),
     Enum(EnumPattern),
+    Tuple(Vec<(Vec<(Box<Pattern>, Position)>, Option<String>)>),
     Struct(StructPattern),
 }
 

@@ -409,6 +409,9 @@ pub struct Env<'ctx> {
     current_class: Option<*const Class<'ctx>>,
 
     inner_fun_string_match: Option<FunctionValue<'ctx>>,
+
+    // only for calc type
+    local_type_map_list: Vec<HashMap<String, Rc<Type>>>,
 }
 
 impl<'ctx> Env<'ctx> {
@@ -430,7 +433,20 @@ impl<'ctx> Env<'ctx> {
             current_class: None,
 
             inner_fun_string_match: None,
+            local_type_map_list: Vec::new(),
         }
+    }
+
+    pub fn add_new_local_types(&mut self) {
+        self.local_type_map_list.push(HashMap::new());
+    }
+
+    pub fn remove_local_types(&mut self) {
+        self.local_type_map_list.pop();
+    }
+
+    pub fn insert_local_type(&mut self, key: &str, typ: Rc<Type>) {
+        self.local_type_map_list.last_mut().unwrap().insert(key.to_string(), typ);
     }
 
     pub fn add_new_function_local(&mut self) {
@@ -636,12 +652,12 @@ impl<'ctx> Env<'ctx> {
 
         match typ {
             Type::Symbol(name) => {
-                let t = self.get_type(name).ok_or(CodeGenError::no_such_a_type(name, pos.clone()))?.clone();
+                let t = self.get_llvm_type(name).ok_or(CodeGenError::no_such_a_type(name, pos.clone()))?.clone();
                 self.types.insert(key.to_string(), (t.clone(), None));
             },
             Type::Struct { name, fields, type_variables } => {
                 if let Some(struct_name) = name {
-                    if let Some(t) = self.get_type(struct_name) {
+                    if let Some(t) = self.get_llvm_type(struct_name) {
                         if ! t.is_struct_type() {
                             return  Err(Box::new(CodeGenError::already_type_defined_in_typedef(typ, struct_name, pos.clone())));
                         }
@@ -654,7 +670,7 @@ impl<'ctx> Env<'ctx> {
                 let (struct_type, index_map) = CodeGen::struct_from_struct_definition(name, fields, type_variables, ctx, pos)?;
                 if let Some(struct_name) = name {
                     self.insert_struct(struct_name, &struct_type, index_map, pos)?;
-                    let raw_ptr = self.get_type(&struct_name).unwrap() as *const TypeOrUnion;
+                    let raw_ptr = self.get_llvm_type(&struct_name).unwrap() as *const TypeOrUnion;
                     let t = TypeOrUnion::TypeDefStruct(struct_name.to_string(), raw_ptr);
                     self.types.insert(key.to_string(), (t, None));
                 }else{
@@ -663,7 +679,7 @@ impl<'ctx> Env<'ctx> {
             },
             Type::Union { name, fields, type_variables } => {
                 if let Some(id) = name {
-                    if let Some(t) = self.get_type(id) {
+                    if let Some(t) = self.get_llvm_type(id) {
                         if ! t.is_union_type() {
                             return  Err(Box::new(CodeGenError::already_type_defined_in_typedef(typ, id, pos.clone())));
                         }
@@ -677,7 +693,7 @@ impl<'ctx> Env<'ctx> {
                 if let Some(union_name) = name {
                     self.insert_union(&union_name, type_list, index_map, max_size, max_size_type, pos)?;
 
-                    let raw_ptr = self.get_type(&union_name).unwrap() as *const TypeOrUnion;
+                    let raw_ptr = self.get_llvm_type(&union_name).unwrap() as *const TypeOrUnion;
                     let t = TypeOrUnion::TypeDefUnion(union_name.to_string(), raw_ptr);
                     self.types.insert(key.to_string(), (t.clone(), None));
 
@@ -733,7 +749,7 @@ impl<'ctx> Env<'ctx> {
         match typ {
             Type::Struct { name, fields, type_variables } => {
                 if let Some(id) = name {
-                    if let Some(type_or_union) = self.get_type(id) {
+                    if let Some(type_or_union) = self.get_llvm_type(id) {
                         let mut type_or_union = type_or_union;
                         loop {
                             match type_or_union {
@@ -776,7 +792,7 @@ impl<'ctx> Env<'ctx> {
             },
             Type::Union { name, fields, type_variables } => {
                 if let Some(id) = name {
-                    if let Some(type_or_union) = self.get_type(id) {
+                    if let Some(type_or_union) = self.get_llvm_type(id) {
                         let mut type_or_union = type_or_union;
                         loop {
                             match type_or_union {
@@ -824,7 +840,7 @@ impl<'ctx> Env<'ctx> {
                 if enum_def.is_standard() {
                     Ok(BasicTypeEnum::IntType(ctx.i32_type()))
                 }else{
-                    if let Some(type_or_union) = self.get_type(name) {
+                    if let Some(type_or_union) = self.get_llvm_type(name) {
                         let mut type_or_union = type_or_union;
                         loop {
                             match type_or_union {
@@ -896,6 +912,12 @@ impl<'ctx> Env<'ctx> {
                 ConstOrGlobalValue::Const { value: _ } => Some(typ),
             }
         }else{
+            for map in self.local_type_map_list.iter().rev() {
+                if let Some(t) = map.get(key) {
+                    return Some(t);
+                }
+            }
+
             None
         }
     }
@@ -968,7 +990,7 @@ impl<'ctx> Env<'ctx> {
         self.current_function = Some((typ.clone(), func));
     }
 
-    pub fn get_type(&self, key: &str) -> Option<&TypeOrUnion<'ctx>> {
+    pub fn get_llvm_type(&self, key: &str) -> Option<&TypeOrUnion<'ctx>> {
         if let Some((typ, _index_map)) = self.types.get(key) {
             match typ {
                 TypeOrUnion::TypeDefStruct(_name, raw_ptr) => {

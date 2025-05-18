@@ -858,6 +858,10 @@ pub enum Type {
 }
 
 impl Type {
+    pub fn new_number_type(typ: NumberType) -> Type {
+        Type::Number(typ)
+    }
+
     pub fn new_function_type(name: Option<String>, ret_type: Rc<Type>, params_type: Vec<Rc<Type>>, has_variadic: bool) -> Type {
         let fun_type = CustFunctionType {
             name,
@@ -1061,6 +1065,34 @@ impl Type {
                 }
             },
             Type::BoundStructType { struct_type, .. } => struct_type.get_field_type_at_index(index),
+            _ => None,
+        }
+    }
+
+    pub fn get_field_type_by_name(&self, name: &str) -> Option<&Rc<Type>> {
+        match self {
+            Type::Struct { fields, .. } => {
+                if let Some(field) = fields.get_field_by_name(name) {
+                    field.get_type()
+                }else{
+                    None
+                }
+            },
+            Type::BoundStructType { struct_type, .. } => struct_type.get_field_type_by_name(name),
+            _ => None,
+        }
+    }
+
+    pub fn get_enum_sub_type_by_name(&self, sub_type_name: &str) -> Option<&Rc<Type>> {
+        match self {
+            Type::Enum { enum_def, .. } => {
+                if let Some(index) = enum_def.get_index(sub_type_name) {
+                    let field = enum_def.get_fields().get(index)?;
+                    field.get_type()
+                }else{
+                    None
+                }
+            },
             _ => None,
         }
     }

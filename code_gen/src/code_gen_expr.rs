@@ -503,7 +503,6 @@ impl<'ctx> CodeGen<'ctx> {
                     }
     
                 }else{
-eprintln!("{}:{}:{}\n", file!(), line!(), column!());
                     Err(Box::new(CodeGenError::no_such_a_variable(name, pos.clone())))
                 }
             },
@@ -604,7 +603,7 @@ eprintln!("{}:{}:{}\n", file!(), line!(), column!());
                 Ok(Some(CompiledValue::new(to_type.clone(), result)))
             },
             ExprAST::TypeMemberAccess(struct_name, var_name, pos) => {  // struct_name::var_name
-                if let Some(type_or_union) = env.get_type(struct_name) {
+                if let Some(type_or_union) = env.get_llvm_type(struct_name) {
                     match type_or_union {
                         TypeOrUnion::StandardEnum { i32_type: _, enumerator_list, index_map } => {
                             let index = index_map.get(var_name).ok_or(CodeGenError::no_such_a_enum_member(struct_name.to_string(), var_name.to_string(), pos.clone()))?;
@@ -1355,7 +1354,6 @@ eprintln!("{}:{}:{}\n", file!(), line!(), column!());
     ) -> Result<(Rc<Type>, PointerValue<'ctx>, SpecifierQualifier), Box<dyn Error>> {
         match ast {
             ExprAST::Symbol(name, pos) => {
-eprintln!("{}:{}:{}\n", file!(), line!(), column!());
                 let (typ, sq, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(&name, pos.clone())))?;
                 Ok((Rc::clone(typ), ptr, sq.clone()))
             },
