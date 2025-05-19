@@ -197,6 +197,20 @@ fn code_gen_a_few_sub_types_enum1() {
             enum SomeEnum x = SomeEnum::Foo;;
             int result = 0;
 
+            x = SomeEnum::Bar {
+                x: 5;
+                y: 6;
+                z: 7;
+            };
+
+            x = SomeEnum::Zot {
+                a: 'a';
+                b: 'b';
+                c: 'c';
+            };
+
+            x = SomeEnum::Foo;
+
             if let (SomeEnum::Foo = x) {
                 result = 1;
             } else {
