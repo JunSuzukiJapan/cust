@@ -523,7 +523,9 @@ impl<'ctx> CodeGen<'ctx> {
     ) -> Result<(), Box<dyn Error>> {
 
         Ok(match enum_pat {
+            //
             // Name::SubName
+            //
             EnumPattern::Simple(_enum_type, type_name, field_name) => {
                 //
                 // compare tag
@@ -556,7 +558,9 @@ impl<'ctx> CodeGen<'ctx> {
                 //
                 self.builder.position_at_end(else_block);
             },
+            //
             // Name::SubName(pattern1 @ pat_name, pattern2, ...)
+            //
             EnumPattern::Tuple(_enum_type, _name, _sub_name, _pattern_list) => {
 
     
@@ -565,7 +569,9 @@ impl<'ctx> CodeGen<'ctx> {
 
                 unimplemented!()
             },
+            //
             // Name::SubName { field1: struct_pattern1, field2: struct_pattern2, ... }
+            //
             EnumPattern::Struct(_enum_type, type_name, field_name, struct_pat) => {
                 //
                 // compare tag
