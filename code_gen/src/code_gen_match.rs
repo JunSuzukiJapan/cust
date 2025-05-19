@@ -523,68 +523,54 @@ impl<'ctx> CodeGen<'ctx> {
     ) -> Result<(), Box<dyn Error>> {
 
         Ok(match enum_pat {
-            EnumPattern::Simple(_enum_type, _name, _) => {
-                // let then_block = self.context.append_basic_block(func, "match.then");
-                // let else_block  = self.context.append_basic_block(func, "match.else");
-    
-    
-    
-    
-    
-    
-                // let enum_name = name.clone();
-                // let enum_value = value.get_value();
-                // let enum_value = self.try_as_basic_metadata_value(&enum_value, pos)?;
-    
-                // let comparison = self.gen_string_match(enum_name.as_str(), enum_value, func, current_block, env)?;
-                // self.builder.build_conditional_branch(comparison, then_block, else_block)?;
-    
-                // //
-                // // matched
-                // //
-                // self.builder.position_at_end(then_block);
-                // self.builder.build_store(condition_ptr, one)?;  // set return value true
-                // self.builder.build_unconditional_branch(all_end_block)?;
-    
-                // //
-                // // not matched
-                // //
-                // self.builder.position_at_end(else_block);
-    
-                unimplemented!()
-            },
-            EnumPattern::Tuple(_enum_type, _name, _sub_name, _pattern_list) => {
-                // let then_block = self.context.append_basic_block(func, "match.then");
-                // let else_block  = self.context.append_basic_block(func, "match.else");
-    
-                // let enum_name = name.clone();
-                // let enum_value = value.get_value();
-                // let enum_value = self.try_as_basic_metadata_value(&enum_value, pos)?;
-    
-                // let comparison = self.gen_string_match(enum_name.as_str(), enum_value, func, current_block, env)?;
-                // self.builder.build_conditional_branch(comparison, then_block, else_block)?;
-    
-                // //
-                // // matched
-                // //
-                // self.builder.position_at_end(then_block);
-                // self.builder.build_store(condition_ptr, one)?;  // set return value true
-                // self.builder.build_unconditional_branch(all_end_block)?;
-    
-                // //
-                // // not matched
-                // //
-                // self.builder.position_at_end(else_block);
-    
-                unimplemented!()
-            },
-            EnumPattern::Struct(_enum_type, type_name, field_name, struct_pat) => {
-    
+            // Name::SubName
+            EnumPattern::Simple(_enum_type, type_name, field_name) => {
+                //
+                // compare tag
+                //
                 let arg_type = value.get_type();
-                // let pat_type = env.get_type(name).ok_or(CodeGenError::no_such_a_type(name, pos.clone()))?;
-                // if arg_type != pat_type {
-                //     return Err(CodeGenError::type_mismatch(arg_type.clone(), pat_type, pos.clone()).into());
-                // }
+                let arg_enum_def = arg_type.get_enum_definition().ok_or(CodeGenError::not_enum(arg_type.as_ref().clone(), pos.clone()))?;
+                let required_tag = arg_enum_def.get_index(field_name).ok_or(CodeGenError::no_such_a_field(arg_enum_def.get_name().to_string(), type_name.to_string(), pos.clone()))?;
+    
+                let i64_type = self.context.i64_type();
+                let i64_num = i64_type.const_int(required_tag as u64, true);
+                let left = CompiledValue::new(Type::Number(NumberType::LongLong).into(), i64_num.as_any_value_enum());
+    
+                let real_tag = self.gen_get_tag(value, env, pos)?;
+                let ty = Rc::new(Type::Number(NumberType::Int));
+                let right = CompiledValue::new(ty, real_tag.as_any_value_enum());
+    
+                let (left, right) = self.bin_expr_implicit_cast(left, right, pos)?;
+                let left_value = left.get_value();
+                let right_value = right.get_value();
+                let comparison = self.builder.build_int_compare(IntPredicate::EQ, left_value.into_int_value(), right_value.into_int_value(), "match_compare_number")?;
+                self.builder.build_conditional_branch(comparison, then_block, else_block)?;
+    
+                //
+                // matched
+                //
+                // self.builder.position_at_end(then_block);
+
+                //
+                // not matched
+                //
+                self.builder.position_at_end(else_block);
+            },
+            // Name::SubName(pattern1 @ pat_name, pattern2, ...)
+            EnumPattern::Tuple(_enum_type, _name, _sub_name, _pattern_list) => {
+
+    
+
+
+
+                unimplemented!()
+            },
+            // Name::SubName { field1: struct_pattern1, field2: struct_pattern2, ... }
+            EnumPattern::Struct(_enum_type, type_name, field_name, struct_pat) => {
+                //
+                // compare tag
+                //
+                let arg_type = value.get_type();
                 let arg_enum_def = arg_type.get_enum_definition().ok_or(CodeGenError::not_enum(arg_type.as_ref().clone(), pos.clone()))?;
                 let required_tag = arg_enum_def.get_index(&field_name).ok_or(CodeGenError::no_such_a_field(arg_enum_def.get_name().to_string(), type_name.to_string(), pos.clone()))?;
     

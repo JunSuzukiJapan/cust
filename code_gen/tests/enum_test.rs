@@ -176,9 +176,8 @@ fn code_gen_struct_type_enum_with_at() {
     assert_eq!(unsafe { f.call() }, 12);
 }
 
-/*
 #[test]
-fn code_gen_a_few_types_enum() {
+fn code_gen_a_few_sub_types_enum1() {
     let src = "
         enum SomeEnum {
             Foo,
@@ -222,6 +221,5 @@ fn code_gen_a_few_types_enum() {
     }
 
     let f: JitFunction<FuncType_void_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
-    assert_eq!(unsafe { f.call() }, 6);
+    assert_eq!(unsafe { f.call() }, 1);
 }
-*/
