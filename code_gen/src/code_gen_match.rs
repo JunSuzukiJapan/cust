@@ -329,14 +329,8 @@ impl<'ctx> CodeGen<'ctx> {
 
                     unimplemented!()
                 },
-                Pattern::Tuple(_tpl) => {
-
-
-
-
-
-                    unimplemented!()
-
+                Pattern::Tuple(tpl_item_list) => {
+                    self.gen_match_tuple_pattern(tpl_item_list, value, then_block, else_block, env, func, pos)?;
                 },
                 Pattern::Enum(enum_pat) => {
                     self.gen_match_enum_pattern(enum_pat, value, then_block, else_block, env, func, pos)?;
@@ -512,6 +506,29 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(())
     }
 
+    fn gen_match_tuple_pattern(&self,
+        tpl_item_list: &Vec<(Vec<(Box<Pattern>, Position)>, Option<String>)>,
+        value: &CompiledValue<'ctx>,
+        then_block: BasicBlock<'ctx>,
+        else_block: BasicBlock<'ctx>,
+        env: &mut Env<'ctx>,
+        func: FunctionValue<'ctx>,
+        pos: &Position
+    ) -> Result<(), Box<dyn Error>> {
+
+        // check length
+        let arg_type = value.get_type();
+        let tpl_type_list = arg_type.get_tuple_type_list().ok_or(CodeGenError::not_tuple(Rc::clone(arg_type), pos.clone()))?;
+        if tpl_item_list.len() != tpl_type_list.len() {
+            return Err(CodeGenError::tuple_length_mismatch(tpl_item_list.len(), tpl_type_list.len(), pos.clone()).into());
+        }
+
+
+
+
+        unimplemented!()
+    }
+
     fn gen_match_enum_pattern(&self,
         enum_pat: &EnumPattern,
         value: &CompiledValue<'ctx>,
@@ -522,7 +539,7 @@ impl<'ctx> CodeGen<'ctx> {
         pos: &Position
     ) -> Result<(), Box<dyn Error>> {
 
-        Ok(match enum_pat {
+        match enum_pat {
             //
             // Name::SubName
             //
@@ -595,7 +612,7 @@ impl<'ctx> CodeGen<'ctx> {
                 self.builder.build_conditional_branch(comparison, then_block, else_block)?;
     
                 //
-                // matched
+                // tag matched
                 //
                 self.builder.position_at_end(then_block);
                 let pattern_map = struct_pat.get_map();
@@ -603,21 +620,19 @@ impl<'ctx> CodeGen<'ctx> {
                 let struct_ptr = self.gen_get_struct_ptr(value)?;
 
                 let enum_type = env.get_llvm_type(type_name).ok_or(CodeGenError::no_such_a_type(type_name, pos.clone()))?;
-                let enum_type = enum_type.clone();  // env.insert_localメソッドを使用可能にするため。
+                let enum_type = enum_type.clone();  // env.insert_localメソッドを使用可能にするためclone。
                 let index_map = enum_type.get_index_map().ok_or(CodeGenError::no_index_map(type_name.to_string(), pos.clone()))?;
                 let type_list = enum_type.get_type_list().ok_or(CodeGenError::no_type_list(type_name.to_string(), pos.clone()))?;
 
+                let index = index_map.get(field_name).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), field_name.to_string(), pos.clone()))?;
+                let (cust_type, llvm_type) = type_list.get(*index).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), field_name.to_string(), pos.clone()))?;
+                let struct_def = cust_type.get_struct_definition().ok_or(CodeGenError::not_struct_in_enum(type_name.to_string(), field_name.to_string(), pos.clone()))?;
+                let tagged_struct_type = llvm_type.into_struct_type();
+                let struct_type = tagged_struct_type.get_field_type_at_index(1).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), field_name.to_string(), pos.clone()))?.into_struct_type();
+
                 for pat_name in key_list.iter() {
                     let item = pattern_map.get(pat_name).unwrap();
-
-                    let index = index_map.get(field_name).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), field_name.to_string(), pos.clone()))?;
-                    let (cust_type, llvm_type) = type_list.get(*index).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), field_name.to_string(), pos.clone()))?;
-                    let struct_def = cust_type.get_struct_definition().ok_or(CodeGenError::not_struct_in_enum(type_name.to_string(), field_name.to_string(), pos.clone()))?;
-
                     let raw_field_index = struct_def.get_index(pat_name).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), pat_name.to_string(), pos.clone()))?;
-
-                    let tagged_struct_type = llvm_type.into_struct_type();
-                    let struct_type = tagged_struct_type.get_field_type_at_index(1).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), field_name.to_string(), pos.clone()))?.into_struct_type();
                     let field_ptr = self.builder.build_struct_gep(struct_type, struct_ptr, raw_field_index as u32, "get_field_ptr")?;
                     let field_type = cust_type.as_ref().get_field_type_at_index(raw_field_index).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), pat_name.to_string(), pos.clone()))?;
 
@@ -650,7 +665,9 @@ impl<'ctx> CodeGen<'ctx> {
                 //
                 self.builder.position_at_end(else_block);
             },
-        })
+        }
+
+        Ok(())
     }
 
     fn gen_get_tag(&self,

@@ -125,6 +125,8 @@ pub enum CodeGenError {
     NoIndexMap(String, Position),  // (type name, Position)
     NoTypeList(String, Position),  // (type name, Position)
     NotStructInEnum(String, String, Position),  // (enum name, field name, Position)
+    NotTuple(Rc<Type>, Position),  // (enum name, field name, Position)
+    TupleLengthMismatch(usize, usize, Position),  // (expected, real, Position)
 }
 
 impl CodeGenError {
@@ -557,6 +559,14 @@ impl CodeGenError {
     pub fn not_struct_in_enum(enum_name: String, field_name: String, pos: Position) -> Self {
         Self::NotStructInEnum(enum_name, field_name, pos)
     }
+
+    pub fn not_tuple(typ: Rc<Type>, pos: Position) -> Self {
+        Self::NotTuple(typ, pos)
+    }
+
+    pub fn tuple_length_mismatch(expected: usize, real: usize, pos: Position) -> Self {
+        Self::TupleLengthMismatch(expected, real, pos)
+    }
 }
 
 impl From<ParserError> for CodeGenError {
@@ -905,6 +915,12 @@ impl fmt::Display for CodeGenError {
             },
             Self::NotStructInEnum(enum_name, field_name, _pos) => {
                 write!(f, "{field_name} is not struct in enum '{enum_name}'")
+            },
+            Self::NotTuple(typ, _pos) => {
+                write!(f, "{} is not tuple", typ.to_string())
+            },
+            Self::TupleLengthMismatch(expected, real, _pos) => {
+                write!(f, "tuple length mismatch. expected: {expected}, real: {real}")
             },
         }
     }
