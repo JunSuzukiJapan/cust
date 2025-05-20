@@ -242,6 +242,7 @@ impl<'ctx> CodeGen<'ctx> {
             &cond,
             env,
             func,
+            cond_block,
             then_block,
             else_block
         )?;
@@ -296,6 +297,7 @@ impl<'ctx> CodeGen<'ctx> {
         value: &CompiledValue<'ctx>,
         env: &mut Env<'ctx>,
         func: FunctionValue<'ctx>,
+        cond_block: BasicBlock<'ctx>,
         then_block: BasicBlock<'ctx>,
         else_block: BasicBlock<'ctx>,
     ) -> Result<(), Box<dyn Error>> {
@@ -303,7 +305,7 @@ impl<'ctx> CodeGen<'ctx> {
         for (pat, pos) in pattern_list {
             match &**pat {
                 Pattern::Var(name) => {
-                    self.gen_ver_match(value, env, pos, name)?;
+                    self.gen_ver_match(value, then_block, env, pos, name)?;
                     break;  // シンボルは、すべてにマッチするので、この後のパターンにマッチすることはないはず。
                 },
                 Pattern::Char(ch) => {
@@ -313,7 +315,7 @@ impl<'ctx> CodeGen<'ctx> {
                     self.gen_char_range_match(value, then_block, else_block, func, pos, ch1, ch2)?;
                 },
                 Pattern::Number(num) => {
-                    self.gen_number_match(value, then_block, else_block, pos, num)?;
+                    self.gen_number_match(value, cond_block, then_block, else_block, pos, num)?;
                 },
                 Pattern::NumberRange(num1, num2) => {
                     self.gen_number_range_match(value, then_block, else_block, func, pos, num1, num2)?;
@@ -331,10 +333,10 @@ impl<'ctx> CodeGen<'ctx> {
                     unimplemented!()
                 },
                 Pattern::Tuple(tpl_item_list) => {
-                    self.gen_match_tuple_pattern(tpl_item_list, value, then_block, else_block, env, func, pos)?;
+                    self.gen_match_tuple_pattern(tpl_item_list, value, cond_block, then_block, else_block, env, func, pos)?;
                 },
                 Pattern::Enum(enum_pat) => {
-                    self.gen_match_enum_pattern(enum_pat, value, then_block, else_block, env, func, pos)?;
+                    self.gen_match_enum_pattern(enum_pat, value, cond_block, then_block, else_block, env, func, pos)?;
                 },
             }
         }
@@ -360,11 +362,15 @@ impl<'ctx> CodeGen<'ctx> {
     
     fn gen_ver_match(&self,
         value: &CompiledValue<'ctx>,
+        then_block: BasicBlock<'ctx>,
         env: &mut Env<'ctx>,
         pos: &Position,
         name: &String
     ) -> Result<(), Box<dyn Error>> {
 
+        // let current_block = self.builder.get_insert_block().unwrap();
+
+        self.builder.position_at_end(then_block);
         let sq = SpecifierQualifier::default();
         // sq.const_ = true;
         let typ = value.get_type();
@@ -374,6 +380,8 @@ impl<'ctx> CodeGen<'ctx> {
         let basic_value = self.try_as_basic_value(&any_value, pos)?;
         self.builder.build_store(ptr, basic_value)?;
         env.insert_local(name, Rc::clone(typ), sq, ptr);
+
+        // self.builder.position_at_end(current_block);
 
         Ok(())
     }
@@ -427,18 +435,21 @@ impl<'ctx> CodeGen<'ctx> {
         let comparison = self.builder.build_int_compare(IntPredicate::ULE, target_value.into_int_value(), other_value.into_int_value(), "match_compare_char")?;
         self.builder.build_conditional_branch(comparison, then_block, else_block)?;
 
-        self.builder.position_at_end(else_block);
+        // self.builder.position_at_end(else_block);
 
         Ok(())
     }
     
     fn gen_number_match(&self,
         value: &CompiledValue<'ctx>,
+        cond_block: BasicBlock<'ctx>,
         then_block: BasicBlock<'ctx>,
         else_block: BasicBlock<'ctx>,
         pos: &Position,
         num: &i128
     ) -> Result<(), Box<dyn Error>> {
+
+        self.builder.position_at_end(cond_block);
 
         let i64_type = self.context.i64_type();
         let i64_num = i64_type.const_int(*num as u64, true);
@@ -446,7 +457,7 @@ impl<'ctx> CodeGen<'ctx> {
         let (left, right) = self.bin_expr_implicit_cast(n, value.clone(), pos)?;
         let left_value = left.get_value();
         let right_value = right.get_value();
-        let comparison = self.builder.build_int_compare(IntPredicate::EQ, left_value.into_int_value(), right_value.into_int_value(), "match_compare_number")?;
+        let comparison = self.builder.build_int_compare(IntPredicate::EQ, left_value.into_int_value(), right_value.into_int_value(), "match_compare_number1")?;
         self.builder.build_conditional_branch(comparison, then_block, else_block)?;
 
         Ok(())
@@ -510,6 +521,7 @@ impl<'ctx> CodeGen<'ctx> {
     fn gen_match_tuple_pattern(&self,
         tpl_item_list: &Vec<(Vec<(Box<Pattern>, Position)>, Option<String>)>,
         value: &CompiledValue<'ctx>,
+        cond_block: BasicBlock<'ctx>,
         then_block: BasicBlock<'ctx>,
         else_block: BasicBlock<'ctx>,
         env: &mut Env<'ctx>,
@@ -530,16 +542,25 @@ impl<'ctx> CodeGen<'ctx> {
         let struct_value = value.get_value().into_struct_value();
         let ptr = struct_value.get_field_at_index(0 as u32).unwrap().into_pointer_value();
 
+        let current_block = self.builder.get_insert_block().unwrap();
+        self.builder.position_at_end(then_block);
+
         // check items
         for i in 0..tpl_item_list.len() {
             let (pat_list, opt_at_name) = &tpl_item_list[i];
 
             let raw_field_type = struct_type.get_field_type_at_index(i as u32).unwrap();
             let ptr_to_value = self.builder.build_struct_gep(struct_type, ptr, i as u32, "get_tuple_item")?;
+            if self.last_is_jump_statement(cond_block) {
+                self.builder.position_at_end(then_block);
+            } else {
+                self.builder.position_at_end(cond_block);
+            }
             let value = self.builder.build_load(raw_field_type, ptr_to_value, "load_tuple_item")?;
+
             let field_type = &tpl_type_list[i];
             let compiled_value = CompiledValue::new(Rc::clone(field_type), value.as_any_value_enum());
-            self.gen_pattern_match(pat_list, &None, pos, &compiled_value, env, func, then_block, else_block)?;
+            self.gen_pattern_match(pat_list, &None, pos, &compiled_value, env, func, cond_block, then_block, else_block)?;
 
             // opt_at_name
             if let Some(at_name) = opt_at_name {
@@ -550,12 +571,15 @@ impl<'ctx> CodeGen<'ctx> {
             }
         }
 
+        self.builder.position_at_end(current_block);
+
         Ok(())
     }
 
     fn gen_match_enum_pattern(&self,
         enum_pat: &EnumPattern,
         value: &CompiledValue<'ctx>,
+        cond_block: BasicBlock<'ctx>,
         then_block: BasicBlock<'ctx>,
         else_block: BasicBlock<'ctx>,
         env: &mut Env<'ctx>,
@@ -586,7 +610,7 @@ impl<'ctx> CodeGen<'ctx> {
                 let (left, right) = self.bin_expr_implicit_cast(left, right, pos)?;
                 let left_value = left.get_value();
                 let right_value = right.get_value();
-                let comparison = self.builder.build_int_compare(IntPredicate::EQ, left_value.into_int_value(), right_value.into_int_value(), "match_compare_number")?;
+                let comparison = self.builder.build_int_compare(IntPredicate::EQ, left_value.into_int_value(), right_value.into_int_value(), "match_compare_number2")?;
                 self.builder.build_conditional_branch(comparison, then_block, else_block)?;
     
                 //
@@ -632,7 +656,7 @@ impl<'ctx> CodeGen<'ctx> {
                 let (left, right) = self.bin_expr_implicit_cast(left, right, pos)?;
                 let left_value = left.get_value();
                 let right_value = right.get_value();
-                let comparison = self.builder.build_int_compare(IntPredicate::EQ, left_value.into_int_value(), right_value.into_int_value(), "match_compare_number")?;
+                let comparison = self.builder.build_int_compare(IntPredicate::EQ, left_value.into_int_value(), right_value.into_int_value(), "match_compare_number3")?;
                 self.builder.build_conditional_branch(comparison, then_block, else_block)?;
     
                 //
@@ -664,7 +688,7 @@ impl<'ctx> CodeGen<'ctx> {
                         let raw_field_type = struct_type.get_field_type_at_index(raw_field_index as u32).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), field_name.to_string(), pos.clone()))?;
                         let value = self.builder.build_load(raw_field_type, field_ptr, "get_field_value")?;
                         let compiled_value = CompiledValue::new(Rc::clone(field_type), value.as_any_value_enum());
-                        self.gen_pattern_match(pattern_list, &None, pos, &compiled_value, env, func, then_block, else_block)?;
+                        self.gen_pattern_match(pattern_list, &None, pos, &compiled_value, env, func, cond_block, then_block, else_block)?;
 
                         // opt_at_name
                         if let Some(at_name) = opt_at_name {

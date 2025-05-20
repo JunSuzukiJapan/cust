@@ -1568,10 +1568,26 @@ impl<'ctx> CodeGen<'ctx> {
                         Pattern::Var(name) => {
                             env.insert_local_type(name, Rc::clone(e_type));
                         },
-                        _ => {
+                        Pattern::Char(_) | Pattern::CharRange(_, _) => {
+                            // do nothing
+                        },
+                        Pattern::Number(_) | Pattern::NumberRange(_, _) => {
+                            // do nothing
+                        },
+                        Pattern::Str(_) => {
+                            // do nothing
+                        },
+                        Pattern::Enum(_enum_pat) => {
 
+                            unimplemented!()
+                        },
+                        Pattern::Struct(_struct_pat) => {
 
+                            unimplemented!()
+                        },
+                        Pattern::Tuple(_pat_list) => {
 
+                            
                             unimplemented!()
                         },
                     }
@@ -1599,10 +1615,26 @@ impl<'ctx> CodeGen<'ctx> {
                     Pattern::Var(name) => {
                         env.insert_local_type(name, Rc::clone(e_type));
                     },
-                    _ => {
+                    Pattern::Char(_) | Pattern::CharRange(_, _) => {
+                        // do nothing
+                    },
+                    Pattern::Number(_) | Pattern::NumberRange(_, _) => {
+                        // do nothing
+                    },
+                    Pattern::Str(_) => {
+                        // do nothing
+                    },
+                    Pattern::Enum(_enum_pat) => {
 
+                        unimplemented!()
+                    },
+                    Pattern::Struct(_struct_pat) => {
 
+                        unimplemented!()
+                    },
+                    Pattern::Tuple(_pat_list) => {
 
+                        
                         unimplemented!()
                     },
                 }
