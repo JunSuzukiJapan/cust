@@ -1002,6 +1002,19 @@ impl Type {
         }
     }
 
+    pub fn get_tuple_type_at_index(&self, index: usize) -> Option<&Rc<Type>> {
+        match self {
+            Type::Tuple(vec) => {
+                if index < vec.len() {
+                    Some(&vec[index])
+                }else{
+                    None
+                }
+            },
+            _ => None,
+        }
+    }
+
     #[inline]
     pub fn is_number(&self) -> bool {
         match self {

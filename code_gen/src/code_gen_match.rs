@@ -2,6 +2,7 @@
 
 use crate::parser::{AST, ExprAST, Type};
 use crate::parser::{Pattern, EnumPattern};
+use crate::type_util::TypeUtil;
 use super::{CompiledValue, CodeGenError};
 use super::Env;
 use super::env::{BreakCatcher, ContinueCatcher};
@@ -523,10 +524,33 @@ impl<'ctx> CodeGen<'ctx> {
             return Err(CodeGenError::tuple_length_mismatch(tpl_item_list.len(), tpl_type_list.len(), pos.clone()).into());
         }
 
+        let tpl_type = TypeUtil::to_llvm_type(&arg_type, self.context, pos)?;
+        let struct_type = tpl_type.into_struct_type();
 
+        let struct_value = value.get_value().into_struct_value();
+        let ptr = struct_value.get_field_at_index(0 as u32).unwrap().into_pointer_value();
 
+        // check items
+        for i in 0..tpl_item_list.len() {
+            let (pat_list, opt_at_name) = &tpl_item_list[i];
 
-        unimplemented!()
+            let raw_field_type = struct_type.get_field_type_at_index(i as u32).unwrap();
+            let ptr_to_value = self.builder.build_struct_gep(struct_type, ptr, i as u32, "get_tuple_item")?;
+            let value = self.builder.build_load(raw_field_type, ptr_to_value, "load_tuple_item")?;
+            let field_type = &tpl_type_list[i];
+            let compiled_value = CompiledValue::new(Rc::clone(field_type), value.as_any_value_enum());
+            self.gen_pattern_match(pat_list, &None, pos, &compiled_value, env, func, then_block, else_block)?;
+
+            // opt_at_name
+            if let Some(at_name) = opt_at_name {
+                let sq = SpecifierQualifier::default();
+                let ptr = self.builder.build_alloca(raw_field_type, at_name)?;
+                self.builder.build_store(ptr, value)?;
+                env.insert_local(at_name, Rc::clone(field_type), sq, ptr);
+            }
+        }
+
+        Ok(())
     }
 
     fn gen_match_enum_pattern(&self,
@@ -555,7 +579,7 @@ impl<'ctx> CodeGen<'ctx> {
                 let i64_num = i64_type.const_int(required_tag as u64, true);
                 let left = CompiledValue::new(Type::Number(NumberType::LongLong).into(), i64_num.as_any_value_enum());
     
-                let real_tag = self.gen_get_tag(value, env, pos)?;
+                let real_tag = self.gen_get_tag_from_enum(value, env, pos)?;
                 let ty = Rc::new(Type::Number(NumberType::Int));
                 let right = CompiledValue::new(ty, real_tag.as_any_value_enum());
     
@@ -601,7 +625,7 @@ impl<'ctx> CodeGen<'ctx> {
                 let i64_num = i64_type.const_int(required_tag as u64, true);
                 let left = CompiledValue::new(Type::Number(NumberType::LongLong).into(), i64_num.as_any_value_enum());
     
-                let real_tag = self.gen_get_tag(value, env, pos)?;
+                let real_tag = self.gen_get_tag_from_enum(value, env, pos)?;
                 let ty = Rc::new(Type::Number(NumberType::Int));
                 let right = CompiledValue::new(ty, real_tag.as_any_value_enum());
     
@@ -617,7 +641,7 @@ impl<'ctx> CodeGen<'ctx> {
                 self.builder.position_at_end(then_block);
                 let pattern_map = struct_pat.get_map();
                 let key_list = struct_pat.get_keys();
-                let struct_ptr = self.gen_get_struct_ptr(value)?;
+                let struct_ptr = self.gen_get_struct_ptr_from_enum(value)?;
 
                 let enum_type = env.get_llvm_type(type_name).ok_or(CodeGenError::no_such_a_type(type_name, pos.clone()))?;
                 let enum_type = enum_type.clone();  // env.insert_localメソッドを使用可能にするためclone。
@@ -670,7 +694,7 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(())
     }
 
-    fn gen_get_tag(&self,
+    fn gen_get_tag_from_enum(&self,
         value: &CompiledValue<'ctx>,
         _env: &mut Env<'ctx>,
         _pos: &Position
@@ -686,11 +710,10 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(tag_value.into_int_value())
     }
 
-    fn gen_get_struct_ptr(&self, value: &CompiledValue<'ctx>) -> Result<PointerValue<'ctx>, Box<dyn Error>> {
+    fn gen_get_struct_ptr_from_enum(&self, value: &CompiledValue<'ctx>) -> Result<PointerValue<'ctx>, Box<dyn Error>> {
         let v = value.get_value();
         let st_value = v.into_struct_value();
         let ty = st_value.get_type();
-        // let struct_type = ty.get_field_type_at_index(1).unwrap();
 
         let ptr = st_value.get_field_at_index(0).unwrap().into_pointer_value();
         let struct_ptr = self.builder.build_struct_gep(ty, ptr, 1, "get_struct_ptr")?;

@@ -1513,7 +1513,7 @@ impl<'ctx> CodeGen<'ctx> {
     }
 
     fn insert_pat_type(&self, pattern: &Box<Pattern>, pattern_name: &Option<String>, expr_type: &Rc<Type>, env: &mut Env<'ctx>) -> Result<(), Box<dyn Error + 'static>> {
-        Ok(match &**pattern {
+        match &**pattern {
             Pattern::Var(name) => {
                 env.insert_local_type(name, Rc::clone(&expr_type));
     
@@ -1558,13 +1558,30 @@ impl<'ctx> CodeGen<'ctx> {
             Pattern::Struct(struct_pat) => {
                 self.insert_struct_pat_type(expr_type, env, struct_pat)?;
             },
-            Pattern::Tuple(_pat_list) => {
-    
-    
-    
-                unimplemented!()
+            Pattern::Tuple(pattern_list) => {
+                for i in 0..pattern_list.len() {
+                    let (pat_list, opt_name) = &pattern_list[i];
+                    let (pat, _pos) = &pat_list[0];
+                    let e_type = expr_type.get_tuple_type_at_index(i).unwrap();
+
+                    match &**pat {
+                        Pattern::Var(name) => {
+                            env.insert_local_type(name, Rc::clone(e_type));
+                        },
+                        _ => {
+
+
+
+                            unimplemented!()
+                        },
+                    }
+        
+                    self.insert_pat_type(pat, opt_name, e_type, env)?;
+                }
             }
-        })
+        }
+
+        Ok(())
     }
 
     fn insert_struct_pat_type(&self, expr_type: &Rc<Type>, env: &mut Env<'ctx>, struct_pat: &parser::StructPattern) -> Result<(), Box<dyn Error + 'static>> {
@@ -1576,7 +1593,6 @@ impl<'ctx> CodeGen<'ctx> {
     
             if let Some((pat_list, opt_name)) = pat {
                 let (pat, _pos) = &pat_list[0];
-
                 let e_type = expr_type.get_field_type_by_name(&key).unwrap();
 
                 match &**pat {
@@ -1593,7 +1609,6 @@ impl<'ctx> CodeGen<'ctx> {
     
                 self.insert_pat_type(pat, opt_name, e_type, env)?;
             }
-    
         }
 
         Ok(())
