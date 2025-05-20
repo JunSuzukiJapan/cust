@@ -377,10 +377,10 @@ fn code_gen_if_let_char_range4() {
 }
 
 #[test]
-fn code_gen_if_let_number() {
+fn code_gen_if_let_number1() {
     let src = "
         int test(){
-            if let (1 | 2 @ x = 1) {
+            if let (1 | 2 | 3 @ x = 1) {
                 if(x == 1){
                     return 1;
                 }else if(x == 2) {
@@ -409,6 +409,113 @@ fn code_gen_if_let_number() {
 
     let f: JitFunction<FuncType_void_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
     assert_eq!(unsafe { f.call() }, 1);
+}
+
+
+#[test]
+fn code_gen_if_let_number1_2() {
+    let src = "
+        int test(){
+            if let (1 | 2 | 3 @ x = 2) {
+                if(x == 1){
+                    return 1;
+                }else if(x == 2) {
+                    return 2;
+                }
+                return 3;
+            }else{
+                return 4;
+            }
+
+            return 5;
+        }
+    ";
+
+    // parse
+    let asts = parse_from_str(src).unwrap();
+
+    // code gen
+    let context = Context::create();
+    let gen = CodeGen::try_new(&context, "test run").unwrap();
+
+    let mut env = Env::new();
+    for i in 0..asts.len() {
+        let _any_value = gen.gen_toplevel(&asts[i], &mut env, None, None).unwrap();
+    }
+
+    let f: JitFunction<FuncType_void_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
+    assert_eq!(unsafe { f.call() }, 2);
+}
+
+
+#[test]
+fn code_gen_if_let_number1_3() {
+    let src = "
+        int test(){
+            if let (1 | 2 | 3 @ x = 3) {
+                if(x == 1){
+                    return 1;
+                }else if(x == 2) {
+                    return 2;
+                }
+                return 3;
+            }else{
+                return 4;
+            }
+
+            return 5;
+        }
+    ";
+
+    // parse
+    let asts = parse_from_str(src).unwrap();
+
+    // code gen
+    let context = Context::create();
+    let gen = CodeGen::try_new(&context, "test run").unwrap();
+
+    let mut env = Env::new();
+    for i in 0..asts.len() {
+        let _any_value = gen.gen_toplevel(&asts[i], &mut env, None, None).unwrap();
+    }
+
+    let f: JitFunction<FuncType_void_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
+    assert_eq!(unsafe { f.call() }, 3);
+}
+
+#[test]
+fn code_gen_if_let_number1_4() {
+    let src = "
+        int test(){
+            if let (1 | 2 | 3 @ x = 4) {
+                if(x == 1){
+                    return 1;
+                }else if(x == 2) {
+                    return 2;
+                }
+                return 3;
+            }else{
+                return 4;
+            }
+
+            return 5;
+        }
+    ";
+
+    // parse
+    let asts = parse_from_str(src).unwrap();
+
+    // code gen
+    let context = Context::create();
+    let gen = CodeGen::try_new(&context, "test run").unwrap();
+
+    let mut env = Env::new();
+    for i in 0..asts.len() {
+        let _any_value = gen.gen_toplevel(&asts[i], &mut env, None, None).unwrap();
+    }
+
+    let f: JitFunction<FuncType_void_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
+    assert_eq!(unsafe { f.call() }, 4);
 }
 
 #[test]
