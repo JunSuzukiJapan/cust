@@ -13,7 +13,7 @@ use inkwell::basic_block::BasicBlock;
 use inkwell::types::{BasicType, BasicMetadataTypeEnum};
 use inkwell::values::{AnyValue, AnyValueEnum, BasicMetadataValueEnum, FunctionValue, IntValue, PointerValue};
 use inkwell::{IntPredicate, AddressSpace};
-use parser::{NumberType, SpecifierQualifier};
+use parser::{NumberType, SpecifierQualifier, StructPattern};
 use std::error::Error;
 use std::rc::Rc;
 
@@ -309,14 +309,8 @@ impl<'ctx> CodeGen<'ctx> {
                 Pattern::Str(s) => {
                     self.gen_str_match(value, next_block, else_block, env, func, pos, s)?;
                 },
-                Pattern::Struct(_struct) => {
-
-
-
-
-
-
-                    unimplemented!()
+                Pattern::Struct(struct_pat) => {
+                    self.gen_match_struct_pattern(struct_pat, value, next_block, all_match_then_block, else_block, env, func, pos)?;
                 },
                 Pattern::Tuple(tpl_item_list) => {
                     self.gen_match_tuple_pattern(tpl_item_list, value, next_block, all_match_then_block, else_block, env, func, pos)?;
@@ -501,9 +495,53 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(())
     }
 
+    fn gen_match_struct_pattern(&self,
+        struct_pattern: &StructPattern,
+        arg: &CompiledValue<'ctx>,
+        mut next_block: BasicBlock<'ctx>,
+        all_match_then_block: BasicBlock<'ctx>,
+        else_block: BasicBlock<'ctx>,
+        env: &mut Env<'ctx>,
+        func: FunctionValue<'ctx>,
+        pos: &Position
+    ) -> Result<(), Box<dyn Error>> {
+
+        let arg_type = arg.get_type();
+        if arg_type.is_struct() == false {
+            return Err(CodeGenError::not_struct(Rc::clone(arg_type), pos.clone()).into());
+        }
+
+
+
+
+        let keys = struct_pattern.get_keys();
+        let map = struct_pattern.get_map();
+
+        for key in keys {
+            let opt_pat = map.get(key).ok_or(CodeGenError::no_such_a_field(struct_pattern.name.to_string(), key.to_string(), pos.clone()))?;
+
+            if let Some((pat_list, opt_at_name)) = opt_pat {
+
+
+            }
+
+
+
+
+
+
+
+        }
+
+
+
+
+        unimplemented!()
+    }
+
     fn gen_match_tuple_pattern(&self,
         tpl_item_list: &Vec<(Vec<(Box<Pattern>, Position)>, Option<String>)>,
-        value: &CompiledValue<'ctx>,
+        arg: &CompiledValue<'ctx>,
         mut next_block: BasicBlock<'ctx>,
         all_match_then_block: BasicBlock<'ctx>,
         else_block: BasicBlock<'ctx>,
@@ -513,7 +551,7 @@ impl<'ctx> CodeGen<'ctx> {
     ) -> Result<(), Box<dyn Error>> {
 
         // check length
-        let arg_type = value.get_type();
+        let arg_type = arg.get_type();
         let tpl_type_list = arg_type.get_tuple_type_list().ok_or(CodeGenError::not_tuple(Rc::clone(arg_type), pos.clone()))?;
         if tpl_item_list.len() != tpl_type_list.len() {
             return Err(CodeGenError::tuple_length_mismatch(tpl_item_list.len(), tpl_type_list.len(), pos.clone()).into());
@@ -522,7 +560,7 @@ impl<'ctx> CodeGen<'ctx> {
         let tpl_type = TypeUtil::to_llvm_type(&arg_type, self.context, pos)?;
         let struct_type = tpl_type.into_struct_type();
 
-        let struct_value = value.get_value().into_struct_value();
+        let struct_value = arg.get_value().into_struct_value();
         let ptr = struct_value.get_field_at_index(0 as u32).unwrap().into_pointer_value();
 
         // check items
@@ -613,7 +651,7 @@ impl<'ctx> CodeGen<'ctx> {
                 //
                 // not matched
                 //
-                self.builder.position_at_end(else_block);
+                // self.builder.position_at_end(else_block);
             },
             //
             // Name::SubName(pattern1 @ pat_name, pattern2, ...)
@@ -691,7 +729,6 @@ impl<'ctx> CodeGen<'ctx> {
                         }
 
                     }else{ // item is None.                               if let (type_name::FieldName {pat_name})
-
                         let field = struct_def.get_field_by_name(pat_name).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), field_name.to_string(), pos.clone()))?;
                         let mut sq = field.get_specifier_qualifier().clone();
                         sq.const_ = true;
@@ -703,7 +740,7 @@ impl<'ctx> CodeGen<'ctx> {
                 //
                 // not matched
                 //
-                self.builder.position_at_end(else_block);
+                // self.builder.position_at_end(else_block);
             },
         }
 
