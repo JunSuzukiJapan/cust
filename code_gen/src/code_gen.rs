@@ -1606,10 +1606,11 @@ impl<'ctx> CodeGen<'ctx> {
 
         for key in key_list {
             let pat = pattern_map.get(key).unwrap();
+            let e_type = expr_type.get_field_type_by_name(&key).unwrap();
     
             if let Some((pat_list, opt_name)) = pat {
                 let (pat, _pos) = &pat_list[0];
-                let e_type = expr_type.get_field_type_by_name(&key).unwrap();
+                // let e_type = expr_type.get_field_type_by_name(&key).unwrap();
 
                 match &**pat {
                     Pattern::Var(name) => {
@@ -1640,6 +1641,8 @@ impl<'ctx> CodeGen<'ctx> {
                 }
     
                 self.insert_pat_type(pat, opt_name, e_type, env)?;
+            }else{
+                env.insert_local_type(key, Rc::clone(e_type));
             }
         }
 
