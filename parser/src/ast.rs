@@ -576,7 +576,7 @@ impl DirectAbstractDeclarator {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Function {
     pub specifiers: DeclarationSpecifier,
     pub declarator: Declarator,
@@ -592,7 +592,7 @@ pub struct FunProto {
     pub params: Params,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum FunOrProt {
     Fun(Function),
     Proto(FunProto),
@@ -635,7 +635,7 @@ impl FunOrProt {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum ImplElement {
     FunOrProt(FunOrProt),
     DefVar {
@@ -1164,7 +1164,7 @@ impl ForInitExpr {
 }
 
 #[allow(non_camel_case_types)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum ToplevelAST {
     TypeDef(String, Rc<Type>, Position),
     DefineStruct {
@@ -1238,8 +1238,7 @@ pub enum AST {
     Switch(Switch, Position),
     If(Box<ExprAST>, Box<AST>, Option<Box<AST>>, Position),
     IfLet {
-        pattern_list: Vec<(Box<Pattern>, Position)>,
-        pattern_name: Option<String>,
+        pattern_list: Vec<Box<Pattern>>,
         expr: Box<ExprAST>,
         then: Box<AST>,
         else_: Option<Box<AST>>,
@@ -1247,7 +1246,8 @@ pub enum AST {
     },
     Match {
         expr: Box<ExprAST>,
-        pattern_list_list: Vec<((Vec<(Box<Pattern>, Position)>, Option<String>), Box<AST>)>,
+        // pattern_list_list: Vec<((Vec<Box<Pattern>>, Option<String>), Box<AST>)>,
+        pattern_list_list: Vec<(Vec<Box<Pattern>>, Box<AST>)>,
         pos: Position,
     },
     Loop {
@@ -1307,7 +1307,7 @@ impl AST {
             AST::Expr(_, pos) => pos,
             AST::Goto(_, pos) => pos,
             AST::If(_, _, _, pos) => pos,
-            AST::IfLet { pattern_list: _, pattern_name: _, expr: _, then: _, else_:_, pos } => pos,
+            AST::IfLet { pattern_list: _, expr: _, then: _, else_:_, pos } => pos,
             AST::Match { expr: _, pattern_list_list: _, pos } => pos,
             AST::Labeled(_, _, pos) => pos,
             AST::Loop { init_expr: _, pre_condition: _, body: _, update_expr: _, post_condition: _, pos } => pos,

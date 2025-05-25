@@ -43,13 +43,13 @@ pub fn parse_translation_unit_from_str_with_defs(src: &str, defs: &mut Defines) 
     parser.parse_translation_unit(&mut iter, defs)
 }
 
-pub fn parse_pattern_from_str(src: &str) -> Result<(Vec<(Box<Pattern>, Position)>, Option<String>), ParserError> {
+pub fn parse_pattern_from_str(src: &str) -> Result<Vec<Box<Pattern>>, ParserError> {
     let token_list = Tokenizer::tokenize(src).unwrap();
     let mut iter = token_list.iter().peekable();
     let parser = Parser::new();
     let mut defs = Defines::new();
     let mut labels = Vec::new();
-    parser.parse_pattern(&mut iter, &mut defs, &mut Some(&mut labels))
+    parser.parse_pattern_list(&mut iter, &mut defs, &mut Some(&mut labels))
 }
 
 pub fn parse_stmt_from_str(src: &str) -> Result<Option<AST>, ParserError> {

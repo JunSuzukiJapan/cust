@@ -86,22 +86,21 @@ mod tests {
             //     return x;
             // }
             //
-            if let AST::IfLet { pattern_list, pattern_name, expr, then, else_, pos: _ } = &body.body[1] {
+            if let AST::IfLet { pattern_list, expr, then, else_, pos: _ } = &body.body[1] {
                 assert_eq!(pattern_list.len(), 1);
-                assert!(pattern_name.is_none());
                 assert_eq!(expr.deref(), &ExprAST::Symbol("opt".to_string(), Position::new(9, 42)));
                 assert!(else_.is_none());
 
                 //
                 // Some(x)
                 //
-                let (pat, _pos) = &pattern_list[0];
-                if let Pattern::Enum(EnumPattern::Tuple(_typ, name, variant, fields)) = &**pat {
+                let pat = &pattern_list[0];
+                if let Pattern::Enum(EnumPattern::Tuple(_typ, name, variant, fields), _name, _pos) = &**pat {
                     assert_eq!(name, "Option");
                     assert_eq!(variant, "Some");
                     assert_eq!(fields.len(), 1);
-                    assert_eq!(fields[0].0.len(), 1);
-                    assert_eq!(fields[0].0[0].0.deref(), &Pattern::Var("x".to_string()));
+                    assert_eq!(fields[0].len(), 1);
+                    assert_eq!(fields[0][0].deref(), &Pattern::Var("x".to_string(), None, Position::new(10, 27)));
 
                 }else{
                     panic!()

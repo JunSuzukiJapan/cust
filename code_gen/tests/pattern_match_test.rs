@@ -100,7 +100,7 @@ fn code_gen_match_var3() {
 fn code_gen_if_let_char() {
     let src = "
         int test(){
-            if let ('a' | 'c' @ x = 'c') {
+            if let (x @ ('a' | 'c') = 'c') {
                 if(x == 'a'){
                     return 10;
                 }else if(x == 'c') {
@@ -135,7 +135,7 @@ fn code_gen_if_let_char() {
 fn code_gen_if_let_char2() {
     let src = "
         int test(){
-            if let ('a' | 'b' @ x = 'c') {
+            if let (x @ ('a' | 'b') = 'c') {
                 if(x == 'a'){
                     return 10;
                 }else if(x == 'b') {
@@ -170,7 +170,7 @@ fn code_gen_if_let_char2() {
 fn code_gen_if_let_char3() {
     let src = "
         int test(){
-            if let ('a' | 'b' @ x = 'b') {
+            if let (x @ ('a' | 'b') = 'b') {
                 if(x == 'a'){
                     return 10;
                 }else if(x == 'b') {
@@ -205,7 +205,7 @@ fn code_gen_if_let_char3() {
 fn code_gen_if_let_char4() {
     let src = "
         int test(){
-            if let ('a' | 'b' @ x = 'a') {
+            if let (x @ ('a' | 'b') = 'a') {
                 if(x == 'a'){
                     return 10;
                 }else if(x == 'b') {
@@ -240,7 +240,7 @@ fn code_gen_if_let_char4() {
 fn code_gen_if_let_char_range() {
     let src = "
         int test(){
-            if let ('a' ..= 'j' @ x = 'h') {
+            if let (x @ 'a' ..= 'j' = 'h') {
                 if(x == 'a'){
                     return 1;
                 }else if(x == 'h') {
@@ -275,7 +275,7 @@ fn code_gen_if_let_char_range() {
 fn code_gen_if_let_char_range2() {
     let src = "
         int test(){
-            if let ('a' ..= 'j' @ x = 'a') {
+            if let (x @ 'a' ..= 'j' = 'a') {
                 if(x == 'a'){
                     return 1;
                 }else if(x == 'h') {
@@ -310,7 +310,7 @@ fn code_gen_if_let_char_range2() {
 fn code_gen_if_let_char_range3() {
     let src = "
         int test(){
-            if let ('a' ..= 'j' @ x = 'j') {
+            if let (x @ 'a' ..= 'j' = 'j') {
                 if(x == 'a'){
                     return 1;
                 }else if(x == 'h') {
@@ -345,7 +345,7 @@ fn code_gen_if_let_char_range3() {
 fn code_gen_if_let_char_range4() {
     let src = "
         int test(){
-            if let ('a' ..= 'j' @ x = 'k') {
+            if let (x @ 'a' ..= 'j' = 'k') {
                 if(x == 'a'){
                     return 1;
                 }else if(x == 'h') {
@@ -380,7 +380,7 @@ fn code_gen_if_let_char_range4() {
 fn code_gen_if_let_number1() {
     let src = "
         int test(){
-            if let (1 | 2 | 3 @ x = 1) {
+            if let (x @ (1 | 2 | 3) = 1) {
                 if(x == 1){
                     return 1;
                 }else if(x == 2) {
@@ -416,7 +416,7 @@ fn code_gen_if_let_number1() {
 fn code_gen_if_let_number1_2() {
     let src = "
         int test(){
-            if let (1 | 2 | 3 @ x = 2) {
+            if let (x @ (1 | 2 | 3) = 2) {
                 if(x == 1){
                     return 1;
                 }else if(x == 2) {
@@ -452,7 +452,7 @@ fn code_gen_if_let_number1_2() {
 fn code_gen_if_let_number1_3() {
     let src = "
         int test(){
-            if let (1 | 2 | 3 @ x = 3) {
+            if let (x @ (1 | 2 | 3) = 3) {
                 if(x == 1){
                     return 1;
                 }else if(x == 2) {
@@ -487,7 +487,7 @@ fn code_gen_if_let_number1_3() {
 fn code_gen_if_let_number1_4() {
     let src = "
         int test(){
-            if let (1 | 2 | 3 @ x = 4) {
+            if let (x @ (1 | 2 | 3) = 4) {
                 if(x == 1){
                     return 1;
                 }else if(x == 2) {
@@ -522,7 +522,7 @@ fn code_gen_if_let_number1_4() {
 fn code_gen_if_let_number2() {
     let src = "
         int test(){
-            if let (1 | 2 @ x = 2) {
+            if let (x @ (1 | 2) = 2) {
                 if(x == 1){
                     return 1;
                 }else if(x == 2) {
@@ -557,7 +557,7 @@ fn code_gen_if_let_number2() {
 fn code_gen_if_let_number3() {
     let src = "
         int test(){
-            if let (1 | 2 @ x = 3) {
+            if let (x @ (1 | 2) = 3) {
                 if(x == 1){
                     return 1;
                 }else if(x == 2) {
@@ -592,7 +592,7 @@ fn code_gen_if_let_number3() {
 fn code_gen_if_let_number_range() {
     let src = "
         int test(){
-            if let (0 ..= 16 @ x = 10) {
+            if let (x @ 0 ..= 16 = 10) {
                 if(x == 0){
                     return 1;
                 }else if(x == 10) {
@@ -627,7 +627,7 @@ fn code_gen_if_let_number_range() {
 fn code_gen_if_let_number_range2() {
     let src = "
         int test(){
-            if let (0 ..= 16 @ x = 0) {
+            if let (x @ 0 ..= 16 = 0) {
                 if(x == 0){
                     return 1;
                 }else if(x == 16) {
@@ -662,7 +662,7 @@ fn code_gen_if_let_number_range2() {
 fn code_gen_if_let_number_range3() {
     let src = "
         int test(){
-            if let (0 ..= 16 @ x = 16) {
+            if let (x @ 0 ..= 16 = 16) {
                 if(x == 0){
                     return 1;
                 }else if(x == 10) {
@@ -697,7 +697,7 @@ fn code_gen_if_let_number_range3() {
 fn code_gen_if_let_number_range4() {
     let src = "
         int test(){
-            if let (0 ..= 16 @ x = 17) {
+            if let (x @ 0 ..= 16 = 17) {
                 if(x == 0){
                     return 1;
                 }else if(x == 16) {

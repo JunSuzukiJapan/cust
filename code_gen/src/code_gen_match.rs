@@ -196,8 +196,7 @@ impl<'ctx> CodeGen<'ctx> {
 
     pub fn gen_if_let<'b, 'c>(
         &self,
-        pattern_list: &Vec<(Box<Pattern>, Position)>,
-        pattern_name: &Option<String>,
+        pattern_list: &Vec<Box<Pattern>>,
         condition: &ExprAST,
         then: &'ctx AST,
         else_: &'ctx Option<Box<AST>>,
@@ -224,7 +223,6 @@ impl<'ctx> CodeGen<'ctx> {
         let cond = self.gen_expr(condition, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::condition_is_not_number(condition, (*condition).get_position().clone()))?;
         let _ = self.gen_pattern_match(
             pattern_list,
-            pattern_name,
             pos,
             &cond,
             env,
@@ -278,8 +276,7 @@ impl<'ctx> CodeGen<'ctx> {
     }
 
     fn gen_pattern_match<'b, 'c>(&self,
-        pattern_list: &Vec<(Box<Pattern>, Position)>,
-        pattern_name: &Option<String>,
+        pattern_list: &Vec<Box<Pattern>>,
         pattern_pos: &Position,
         value: &CompiledValue<'ctx>,
         env: &mut Env<'ctx>,
@@ -289,40 +286,55 @@ impl<'ctx> CodeGen<'ctx> {
         else_block: BasicBlock<'ctx>,
     ) -> Result<(), Box<dyn Error>> {
 
-        for (pat, pos) in pattern_list {
+        let mut pattern_name = &None;
+
+        for pat in pattern_list {
             match &**pat {
-                Pattern::Var(name) => {
+                Pattern::Var(name, opt_at_name, pos) => {
                     self.gen_var_match(value, all_match_then_block, env, pos, name)?;
+                    pattern_name = opt_at_name;
                     break;  // シンボルは、すべてにマッチするので、この後のパターンにマッチすることはないはず。
                 },
-                Pattern::Char(ch) => {
+                Pattern::Char(ch, opt_at_name, pos) => {
                     self.gen_char_match(value, next_block, else_block, pos, ch)?;
+                    pattern_name = opt_at_name;
                 },
-                Pattern::CharRange(ch1, ch2) => {
+                Pattern::CharRange(ch1, ch2, opt_at_name, pos) => {
                     self.gen_char_range_match(value, next_block, else_block, func, pos, ch1, ch2)?;
+                    pattern_name = opt_at_name;
                 },
-                Pattern::Number(num) => {
+                Pattern::Number(num, opt_at_name, pos) => {
                     self.gen_number_match(value, next_block, all_match_then_block, else_block, env, pos, num)?;
+                    pattern_name = opt_at_name;
                 },
-                Pattern::NumberRange(num1, num2) => {
+                Pattern::NumberRange(num1, num2, opt_at_name, pos) => {
                     self.gen_number_range_match(value, next_block, else_block, func, pos, num1, num2)?;
+                    pattern_name = opt_at_name;
                 },
-                Pattern::Str(s) => {
+                Pattern::Str(s, opt_at_name, pos) => {
                     self.gen_str_match(value, next_block, else_block, env, func, pos, s)?;
+                    pattern_name = opt_at_name;
                 },
-                Pattern::Struct(struct_pat) => {
+                Pattern::Struct(struct_pat, opt_at_name, pos) => {
                     self.gen_match_struct_pattern(struct_pat, value, next_block, all_match_then_block, else_block, env, func, pos)?;
+                    pattern_name = opt_at_name;
                 },
-                Pattern::Tuple(tpl_item_list) => {
+                Pattern::Tuple(tpl_item_list, opt_at_name, pos) => {
                     self.gen_match_tuple_pattern(tpl_item_list, value, next_block, all_match_then_block, else_block, env, func, pos)?;
+                    pattern_name = opt_at_name;
                 },
-                Pattern::Enum(enum_pat) => {
+                Pattern::Enum(enum_pat, opt_at_name, pos) => {
                     self.gen_match_enum_pattern(enum_pat, value, next_block, all_match_then_block, else_block, env, func, pos)?;
+                    pattern_name = opt_at_name;
+                },
+                Pattern::OrList(pattern_list, opt_at_name, _pos) => {
+                    self.gen_pattern_match(pattern_list, pattern_pos, value, env, func, next_block, all_match_then_block, else_block)?;
+                    pattern_name = opt_at_name;
                 },
             }
         }
 
-        // '@' 以降に対応する。
+        // '@' に対応する。
         if let Some(alias_name) = pattern_name {
             self.builder.position_at_end(all_match_then_block);
 
@@ -501,7 +513,7 @@ impl<'ctx> CodeGen<'ctx> {
     fn gen_match_struct_pattern(&self,
         struct_pattern: &StructPattern,
         arg: &CompiledValue<'ctx>,
-        mut next_block: BasicBlock<'ctx>,
+        next_block: BasicBlock<'ctx>,
         all_match_then_block: BasicBlock<'ctx>,
         else_block: BasicBlock<'ctx>,
         env: &mut Env<'ctx>,
@@ -530,20 +542,20 @@ impl<'ctx> CodeGen<'ctx> {
             let ptr_to_struct = struct_value.get_field_at_index(0 as u32).unwrap().into_pointer_value();
             let field_ptr = self.builder.build_struct_gep(arg_llvm_type, ptr_to_struct, raw_field_index as u32, "get_field_ptr")?;
 
-            if let Some((pattern_list, opt_at_name)) = item {  // if let (type_name::FieldName {pat_name: item @ at_name})
+            if let Some(pattern_list) = item {  // if let (type_name::FieldName {pat_name: item @ at_name})
                 let raw_field_type = arg_llvm_type.get_field_type_at_index(raw_field_index as u32).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), field_name.to_string(), pos.clone()))?;
 
                 let value = self.builder.build_load(raw_field_type, field_ptr, "get_field_value")?;
                 let compiled_value = CompiledValue::new(Rc::clone(field_type), value.as_any_value_enum());
-                self.gen_pattern_match(pattern_list, &None, pos, &compiled_value, env, func, next_block, all_match_then_block, else_block)?;
+                self.gen_pattern_match(pattern_list, pos, &compiled_value, env, func, next_block, all_match_then_block, else_block)?;
 
-                // opt_at_name
-                if let Some(at_name) = opt_at_name {
-                    let sq = SpecifierQualifier::default();
-                    let ptr = self.builder.build_alloca(raw_field_type, at_name)?;
-                    self.builder.build_store(ptr, value)?;
-                    env.insert_local(at_name, Rc::clone(field_type), sq, ptr);
-                }
+                // // opt_at_name
+                // if let Some(at_name) = opt_at_name {
+                //     let sq = SpecifierQualifier::default();
+                //     let ptr = self.builder.build_alloca(raw_field_type, at_name)?;
+                //     self.builder.build_store(ptr, value)?;
+                //     env.insert_local(at_name, Rc::clone(field_type), sq, ptr);
+                // }
 
             }else{ // item is None.                               if let (type_name::FieldName {pat_name})
                 let field = struct_def.get_field_by_name(field_name).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), field_name.to_string(), pos.clone()))?;
@@ -558,7 +570,7 @@ impl<'ctx> CodeGen<'ctx> {
     }
 
     fn gen_match_tuple_pattern(&self,
-        tpl_item_list: &Vec<(Vec<(Box<Pattern>, Position)>, Option<String>)>,
+        tpl_item_list: &Vec<Vec<Box<Pattern>>>,
         arg: &CompiledValue<'ctx>,
         mut next_block: BasicBlock<'ctx>,
         all_match_then_block: BasicBlock<'ctx>,
@@ -585,7 +597,7 @@ impl<'ctx> CodeGen<'ctx> {
         let mut current_block = self.builder.get_insert_block().unwrap();
         let len = tpl_item_list.len();
         for i in 0..len {
-            let (pat_list, opt_at_name) = &tpl_item_list[i];
+            let pat_list = &tpl_item_list[i];
             let raw_field_type = struct_type.get_field_type_at_index(i as u32).unwrap();
             let ptr_to_value = self.builder.build_struct_gep(struct_type, ptr, i as u32, "get_tuple_item")?;
             let value = self.builder.build_load(raw_field_type, ptr_to_value, "load_tuple_item")?;
@@ -593,19 +605,19 @@ impl<'ctx> CodeGen<'ctx> {
             let compiled_value = CompiledValue::new(Rc::clone(field_type), value.as_any_value_enum());
 
             next_block = self.context.append_basic_block(func, "match_tuple.next");
-            self.gen_pattern_match(pat_list, &None, pos, &compiled_value, env, func, next_block, all_match_then_block, else_block)?;
+            self.gen_pattern_match(pat_list, pos, &compiled_value, env, func, next_block, all_match_then_block, else_block)?;
 
-            // opt_at_name
-            if let Some(at_name) = opt_at_name {
-                self.builder.position_at_end(all_match_then_block);
+            // // opt_at_name
+            // if let Some(at_name) = opt_at_name {
+            //     self.builder.position_at_end(all_match_then_block);
 
-                let sq = SpecifierQualifier::default();
-                let ptr = self.builder.build_alloca(raw_field_type, at_name)?;
-                self.builder.build_store(ptr, value)?;
-                env.insert_local(at_name, Rc::clone(field_type), sq, ptr);
+            //     let sq = SpecifierQualifier::default();
+            //     let ptr = self.builder.build_alloca(raw_field_type, at_name)?;
+            //     self.builder.build_store(ptr, value)?;
+            //     env.insert_local(at_name, Rc::clone(field_type), sq, ptr);
 
-                self.builder.position_at_end(current_block);
-            }
+            //     self.builder.position_at_end(current_block);
+            // }
 
             if ! self.last_is_jump_statement(current_block) {
                 self.builder.build_unconditional_branch(next_block)?;
@@ -732,19 +744,19 @@ impl<'ctx> CodeGen<'ctx> {
                     let field_ptr = self.builder.build_struct_gep(struct_type, struct_ptr, raw_field_index as u32, "get_field_ptr")?;
                     let field_type = cust_type.as_ref().get_field_type_at_index(raw_field_index).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), pat_name.to_string(), pos.clone()))?;
 
-                    if let Some((pattern_list, opt_at_name)) = item {  // if let (type_name::FieldName {pat_name: item @ at_name})
+                    if let Some(pattern_list) = item {  // if let (type_name::FieldName {pat_name: item @ at_name})
                         let raw_field_type = struct_type.get_field_type_at_index(raw_field_index as u32).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), field_name.to_string(), pos.clone()))?;
                         let value = self.builder.build_load(raw_field_type, field_ptr, "get_field_value")?;
                         let compiled_value = CompiledValue::new(Rc::clone(field_type), value.as_any_value_enum());
-                        self.gen_pattern_match(pattern_list, &None, pos, &compiled_value, env, func, next_block, all_match_then, else_block)?;
+                        self.gen_pattern_match(pattern_list, pos, &compiled_value, env, func, next_block, all_match_then, else_block)?;
 
-                        // opt_at_name
-                        if let Some(at_name) = opt_at_name {
-                            let sq = SpecifierQualifier::default();
-                            let ptr = self.builder.build_alloca(raw_field_type, at_name)?;
-                            self.builder.build_store(ptr, value)?;
-                            env.insert_local(at_name, Rc::clone(field_type), sq, ptr);
-                        }
+                        // // opt_at_name
+                        // if let Some(at_name) = opt_at_name {
+                        //     let sq = SpecifierQualifier::default();
+                        //     let ptr = self.builder.build_alloca(raw_field_type, at_name)?;
+                        //     self.builder.build_store(ptr, value)?;
+                        //     env.insert_local(at_name, Rc::clone(field_type), sq, ptr);
+                        // }
 
                     }else{ // item is None.                               if let (type_name::FieldName {pat_name})
                         let field = struct_def.get_field_by_name(pat_name).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), field_name.to_string(), pos.clone()))?;

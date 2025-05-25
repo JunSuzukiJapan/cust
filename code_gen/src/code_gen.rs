@@ -1307,8 +1307,8 @@ impl<'ctx> CodeGen<'ctx> {
 
                     }
                 },
-                Some(AST::IfLet { pattern_list, pattern_name, expr, then, else_, pos }) => {  // if let pattern_list @ pattern_name
-                    let typ = self.calc_ret_type_in_if_let(then, else_, pattern_list, pattern_name, expr, pos, env)?;
+                Some(AST::IfLet { pattern_list, expr, then, else_, pos }) => {  // if let pattern_list @ pattern_name
+                    let typ = self.calc_ret_type_in_if_let(then, else_, pattern_list, expr, pos, env)?;
                     if typ.is_void() {
                         Err(Box::new(CodeGenError::return_type_mismatch(ret_type.as_ref().clone(), Type::Void, pos.clone())))
                     }else{
@@ -1366,8 +1366,8 @@ impl<'ctx> CodeGen<'ctx> {
             AST::If(_cond, if_then, if_else, pos) => {
                 self.calc_ret_type_in_if(if_then, if_else, pos, env)
             },
-            AST::IfLet { pattern_list, pattern_name, expr, then, else_, pos } => {
-                self.calc_ret_type_in_if_let(then, else_, pattern_list, pattern_name, expr, pos, env)
+            AST::IfLet { pattern_list, expr, then, else_, pos } => {
+                self.calc_ret_type_in_if_let(then, else_, pattern_list, expr, pos, env)
             }
             AST::Block(blk, _pos) => {
                 let mut typ = Rc::new(Type::Void);
@@ -1468,14 +1468,14 @@ impl<'ctx> CodeGen<'ctx> {
         }
     }
 
-    fn calc_ret_type_in_if_let(&self, if_then: &AST, if_else: &Option<Box<AST>>, pattern_list: &Vec<(Box<Pattern>, Position)>, pattern_name: &Option<String>, expr: &ExprAST, pos: &Position, env: &mut Env<'ctx>) -> Result<Rc<Type>, Box<dyn Error>> {
+    fn calc_ret_type_in_if_let(&self, if_then: &AST, if_else: &Option<Box<AST>>, pattern_list: &Vec<Box<Pattern>>, expr: &ExprAST, pos: &Position, env: &mut Env<'ctx>) -> Result<Rc<Type>, Box<dyn Error>> {
         let result;
 
         env.add_new_local_types();
 
-        for (pattern, _pos) in pattern_list {
+        for pattern in pattern_list {
             let expr_type = TypeUtil::get_type(expr, env)?;
-            self.insert_pat_type(pattern, pattern_name, &expr_type, env)?;
+            self.insert_pat_type(pattern, &expr_type, env)?;
         }
 
         let then_type = self.calc_ret_type(if_then, env)?;
@@ -1512,33 +1512,33 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(result?)
     }
 
-    fn insert_pat_type(&self, pattern: &Box<Pattern>, pattern_name: &Option<String>, expr_type: &Rc<Type>, env: &mut Env<'ctx>) -> Result<(), Box<dyn Error + 'static>> {
+    fn insert_pat_type(&self, pattern: &Box<Pattern>, expr_type: &Rc<Type>, env: &mut Env<'ctx>) -> Result<(), Box<dyn Error + 'static>> {
         match &**pattern {
-            Pattern::Var(name) => {
+            Pattern::Var(name, opt_at_name, _pos) => {
                 env.insert_local_type(name, Rc::clone(&expr_type));
     
-                if let Some(pat_name) = pattern_name {
+                if let Some(pat_name) = opt_at_name {
                     env.insert_local_type(&pat_name, Rc::clone(expr_type));
                 }
             },
-            Pattern::Char(_) | Pattern::CharRange(_, _) => {
+            Pattern::Char(_, opt_at_name, _pos) | Pattern::CharRange(_, _, opt_at_name, _pos) => {
                 let typ = Type::new_number_type(NumberType::Char);
-                if let Some(pat_name) = pattern_name {
+                if let Some(pat_name) = opt_at_name {
                     env.insert_local_type(&pat_name, Rc::new(typ));
                 }
             },
-            Pattern::Number(_) | Pattern::NumberRange(_, _) => {
-                if let Some(pat_name) = pattern_name {
+            Pattern::Number(_, opt_at_name, _pos) | Pattern::NumberRange(_, _, opt_at_name, _pos) => {
+                if let Some(pat_name) = opt_at_name {
                     env.insert_local_type(&pat_name, Rc::clone(expr_type));
                 }
             },
-            Pattern::Str(_) => {
+            Pattern::Str(_, opt_at_name, _pos) => {
                 let typ = Type::new_pointer_type(Rc::new(Type::new_number_type(NumberType::Char)), false, false);
-                if let Some(pat_name) = pattern_name {
+                if let Some(pat_name) = opt_at_name {
                     env.insert_local_type(&pat_name, Rc::new(typ));
                 }
             },
-            Pattern::Enum(enum_pat) => {
+            Pattern::Enum(enum_pat, opt_at_name, _pos) => {
                 match enum_pat {
                     // Name::SubName
                     EnumPattern::Simple(_typ, _name, _sub_name) => {
@@ -1555,46 +1555,57 @@ impl<'ctx> CodeGen<'ctx> {
                     },
                 }
             },
-            Pattern::Struct(struct_pat) => {
+            Pattern::Struct(struct_pat, opt_at_name, _pos) => {
                 self.insert_struct_pat_type(expr_type, env, struct_pat)?;
             },
-            Pattern::Tuple(pattern_list) => {
+            Pattern::Tuple(pattern_list, opt_at_name, _pos) => {
                 for i in 0..pattern_list.len() {
-                    let (pat_list, opt_name) = &pattern_list[i];
-                    let (pat, _pos) = &pat_list[0];
+                    let pat_list = &pattern_list[i];
+                    let pat= &pat_list[0];
                     let e_type = expr_type.get_tuple_type_at_index(i).unwrap();
 
                     match &**pat {
-                        Pattern::Var(name) => {
+                        Pattern::Var(name, _name, _pos) => {
                             env.insert_local_type(name, Rc::clone(e_type));
                         },
-                        Pattern::Char(_) | Pattern::CharRange(_, _) => {
+                        Pattern::Char(_, _name, _pos) | Pattern::CharRange(_, _, _name, _pos) => {
                             // do nothing
                         },
-                        Pattern::Number(_) | Pattern::NumberRange(_, _) => {
+                        Pattern::Number(_, _name, _pos) | Pattern::NumberRange(_, _, _name, _pos) => {
                             // do nothing
                         },
-                        Pattern::Str(_) => {
+                        Pattern::Str(_, _name, _pos) => {
                             // do nothing
                         },
-                        Pattern::Enum(_enum_pat) => {
+                        Pattern::Enum(_enum_pat, _name, _pos) => {
 
                             unimplemented!()
                         },
-                        Pattern::Struct(_struct_pat) => {
+                        Pattern::Struct(_struct_pat, _name, _pos) => {
 
                             unimplemented!()
                         },
-                        Pattern::Tuple(_pat_list) => {
+                        Pattern::Tuple(_pat_list, _name, _pos) => {
 
                             
                             unimplemented!()
                         },
+                        Pattern::OrList(_list, _name, _pos) => {
+
+
+                            unimplemented!()
+                        },
                     }
         
-                    self.insert_pat_type(pat, opt_name, e_type, env)?;
+                    self.insert_pat_type(pat, e_type, env)?;
                 }
-            }
+            },
+            Pattern::OrList(list, opt_name, _pos) => {
+
+
+
+                unimplemented!()
+            },
         }
 
         Ok(())
@@ -1608,39 +1619,43 @@ impl<'ctx> CodeGen<'ctx> {
             let pat = pattern_map.get(key).unwrap();
             let e_type = expr_type.get_field_type_by_name(&key).unwrap();
     
-            if let Some((pat_list, opt_name)) = pat {
-                let (pat, _pos) = &pat_list[0];
+            if let Some(pat_list) = pat {
+                let pat = &pat_list[0];
                 // let e_type = expr_type.get_field_type_by_name(&key).unwrap();
 
                 match &**pat {
-                    Pattern::Var(name) => {
+                    Pattern::Var(name, _name, _pos) => {
                         env.insert_local_type(name, Rc::clone(e_type));
                     },
-                    Pattern::Char(_) | Pattern::CharRange(_, _) => {
+                    Pattern::Char(_, _name, _pos) | Pattern::CharRange(_, _, _name, _pos) => {
                         // do nothing
                     },
-                    Pattern::Number(_) | Pattern::NumberRange(_, _) => {
+                    Pattern::Number(_, _name, _pos) | Pattern::NumberRange(_, _, _name, _pos) => {
                         // do nothing
                     },
-                    Pattern::Str(_) => {
+                    Pattern::Str(_, _name, _pos) => {
                         // do nothing
                     },
-                    Pattern::Enum(_enum_pat) => {
+                    Pattern::Enum(_enum_pat, _name, _pos) => {
 
                         unimplemented!()
                     },
-                    Pattern::Struct(_struct_pat) => {
+                    Pattern::Struct(_struct_pat, _name, _pos) => {
 
                         unimplemented!()
                     },
-                    Pattern::Tuple(_pat_list) => {
+                    Pattern::Tuple(_pat_list, _name, _pos) => {
 
                         
                         unimplemented!()
                     },
+                    Pattern::OrList(_list, _name, _pos) => {
+
+                        unimplemented!()
+                    },
                 }
     
-                self.insert_pat_type(pat, opt_name, e_type, env)?;
+                self.insert_pat_type(pat, e_type, env)?;
             }else{
                 env.insert_local_type(key, Rc::clone(e_type));
             }

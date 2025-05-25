@@ -37,7 +37,7 @@ impl Parser {
 
                             self.parse_expected_token(iter, Token::ParenLeft)?;  // skip '('
 
-                            let (pattern_list, pattern_name) = self.parse_pattern(iter, defs, labels)?;
+                            let pattern_list = self.parse_pattern_list(iter, defs, labels)?;
 
                             self.parse_expected_token(iter, Token::Assign)?;  // skip '='
 
@@ -54,7 +54,6 @@ impl Parser {
                                     let else_ = self.parse_statement(iter, defs, labels)?.ok_or(ParserError::syntax_error(file!(), line!(), column!(), pos2.clone()))?;
                                     let ast = AST::IfLet {
                                         pattern_list,
-                                        pattern_name,
                                         expr: Box::new(expr),
                                         then: Box::new(then),
                                         else_: Some(Box::new(else_)),
@@ -64,7 +63,6 @@ impl Parser {
                                 }else{
                                     let ast = AST::IfLet {
                                         pattern_list,
-                                        pattern_name,
                                         expr: Box::new(expr),
                                         then: Box::new(then),
                                         else_: None,
@@ -75,7 +73,6 @@ impl Parser {
                             }else{
                                 let ast = AST::IfLet {
                                     pattern_list,
-                                    pattern_name,
                                     expr: Box::new(expr),
                                     then: Box::new(then),
                                     else_: None,
@@ -180,13 +177,13 @@ impl Parser {
                                     break;
                                 }
 
-                                let (pattern_list, pattern_name) = self.parse_pattern(iter, defs, labels)?;
+                                let pattern_list = self.parse_pattern_list(iter, defs, labels)?;
  
                                 self.parse_expected_token(iter, Token::WhenMatch)?;  // skip '=>'
 
                                 let then = self.parse_statement(iter, defs, labels)?.ok_or(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()))?;
 
-                                list.push(((pattern_list, pattern_name), Box::new(then)));
+                                list.push((pattern_list, Box::new(then)));
 
                                 let (tok3, _pos3) = iter.peek().unwrap();
                                 match tok3 {

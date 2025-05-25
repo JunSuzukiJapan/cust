@@ -24,26 +24,24 @@ mod tests {
         defs.set_enum("Some", enum_def, None, &Position::new(0, 0)).unwrap();
         let ast = parse_stmt_from_str_with_defs(src, &mut defs).unwrap().unwrap();
 
-        if let AST::IfLet { pattern_list, pattern_name, expr, then, else_, pos: _ } = ast {
+        if let AST::IfLet { pattern_list, expr, then, else_, pos: _ } = ast {
             //
             // check pattern_list
             //
             assert_eq!(pattern_list.len(), 1);
-            assert_eq!(pattern_name, None);
-            let (pat, _pos) = &pattern_list[0];
-            if let Pattern::Enum(enum_pat) = &**pat {
+            let pat= &pattern_list[0];
+            if let Pattern::Enum(enum_pat, _opt_at_name, _pos) = &**pat {
                 match enum_pat {
                     EnumPattern::Tuple(_typ, name, sub_name, patterns_list) => {
                         assert_eq!(name, "");
                         assert_eq!(sub_name, "Some");
 
-                        let (patterns1, name1) = &patterns_list[0];
+                        let patterns1 = &patterns_list[0];
 
                         assert_eq!(patterns1.len(), 1);
-                        assert_eq!(*name1, None);
 
-                        let (pat, _pos) = &patterns1[0];
-                        assert_eq!(**pat, Pattern::Var("value".to_string()));
+                        let pat = &patterns1[0];
+                        assert_eq!(**pat, Pattern::Var("value".to_string(), None, Position::new(0, 0)));
                     },
                     _ => {
                         panic!()
@@ -153,24 +151,23 @@ mod tests {
             //
             // check 1st pattern block
             //
-            let ((pattern_list, _pattern_name), ast) = &pattern_list_list[0];
+            let (pattern_list, ast) = &pattern_list_list[0];
 
             // check pattern
             assert_eq!(pattern_list.len(), 1);
-            let (pat, _pos) = &pattern_list[0];
-            if let Pattern::Enum(enum_pat) = &**pat {
+            let pat = &pattern_list[0];
+            if let Pattern::Enum(enum_pat, _opt_at_name, _pos) = &**pat {
                 match enum_pat {
                     EnumPattern::Tuple(_typ, name, sub_name, patterns_list) => {
                         assert_eq!(name, "");
                         assert_eq!(sub_name, "Some");
 
-                        let (patterns1, name1) = &patterns_list[0];
+                        let patterns1 = &patterns_list[0];
 
                         assert_eq!(patterns1.len(), 1);
-                        assert_eq!(*name1, None);
 
-                        let (pat, _pos) = &patterns1[0];
-                        assert_eq!(**pat, Pattern::Var("value".to_string()));
+                        let pat = &patterns1[0];
+                        assert_eq!(**pat, Pattern::Var("value".to_string(), None, Position::new(0, 0)));
                     },
                     _ => {
                         panic!()
@@ -203,12 +200,12 @@ mod tests {
             //
             // check 2nd pattern block
             //
-            let ((pattern_list, _pattern_name), ast) = &pattern_list_list[1];
+            let (pattern_list, ast) = &pattern_list_list[1];
 
             // check pattern
             assert_eq!(pattern_list.len(), 1);
-            let (pat, _pos) = &pattern_list[0];
-            if let Pattern::Var(name) = &**pat {
+            let pat = &pattern_list[0];
+            if let Pattern::Var(name, _opt_at_name, _pos) = &**pat {
                 assert_eq!(name, "None");
             }else{
                 panic!()
@@ -236,12 +233,12 @@ mod tests {
             //
             // check 3rd pattern block
             //
-            let ((pattern_list, _pattern_name), ast) = &pattern_list_list[2];
+            let (pattern_list, ast) = &pattern_list_list[2];
 
             // check pattern
             assert_eq!(pattern_list.len(), 1);
-            let (pat, _pos) = &pattern_list[0];
-            if let Pattern::Var(name) = &**pat {
+            let pat = &pattern_list[0];
+            if let Pattern::Var(name, _opt_at_name, _pos) = &**pat {
                 assert_eq!(name, "_");
             }else{
                 panic!()
