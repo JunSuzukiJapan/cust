@@ -100,7 +100,7 @@ mod tests {
                     assert_eq!(variant, "Some");
                     assert_eq!(fields.len(), 1);
                     assert_eq!(fields[0].len(), 1);
-                    assert_eq!(fields[0][0].deref(), &Pattern::Var("x".to_string(), None, Position::new(10, 27)));
+                    assert_eq!(fields[0][0].deref(), &Pattern::Var("x".to_string(), None, Position::new(9, 37)));
 
                 }else{
                     panic!()

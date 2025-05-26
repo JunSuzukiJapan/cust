@@ -200,7 +200,7 @@ impl Parser {
                         Token::IntLiteral(num2) => {
                             iter.next();
 
-                            let pat2 = Pattern::NumberRange(*num, *num2, None, pos3.clone());
+                            let pat2 = Pattern::NumberRange(*num, *num2, None, pos.clone());
                             // v.push(Box::new(pat2));
                             return Ok(pat2);
                         },
@@ -484,7 +484,7 @@ mod tests {
             assert_eq!(*num, 123);
             assert_eq!(*name, Some("x".into()));
             assert_eq!(pos.line, 1);
-            assert_eq!(pos.column, 1);
+            assert_eq!(pos.column, 5);
         } else {
             panic!("Expected a variable pattern");
         }
@@ -537,7 +537,7 @@ mod tests {
             assert_eq!(*ch, 'a');
             assert_eq!(name, &Some("ch".into()));
             assert_eq!(pos.line, 1);
-            assert_eq!(pos.column, 1);
+            assert_eq!(pos.column, 6);
         } else {
             panic!("Expected a char pattern");
         }
@@ -554,7 +554,7 @@ mod tests {
         if let Pattern::OrList(pat_list, name, pos) = &**pat {
             assert_eq!(name, &Some("ch".into()));
             assert_eq!(pos.line, 1);
-            assert_eq!(pos.column, 1);
+            assert_eq!(pos.column, 6);
             assert_eq!(pat_list.len(), 3);
 
             if let Pattern::Char(ch, _name, _pos) = &*pat_list[0] {
@@ -633,7 +633,7 @@ mod tests {
         if let Pattern::Char(ch, _name, pos) = &**pat2 {
             assert_eq!(*ch, 'b');
             assert_eq!(pos.line, 1);
-            assert_eq!(pos.column, 5);
+            assert_eq!(pos.column, 7);
         } else {
             panic!("Expected a char pattern");
         }
@@ -686,7 +686,7 @@ mod tests {
 
     #[test]
     fn parse_tuple_at_pattern() {
-        let src = "outer @ $(x @ (1 | 2), inner @ $(y @ ('a' | 'b'), z @ ('c' | 'd'))";
+        let src = "outer @ $(x @ (1 | 2), inner @ $(y @ ('a' | 'b'), z @ ('c' | 'd')))";
         let pat_vec = parse_pattern_from_str(src).unwrap();
 
         assert_eq!(pat_vec.len(), 1);
@@ -700,7 +700,7 @@ mod tests {
             let patterns1 = &patterns_list[0];
             let patterns2 = &patterns_list[1];
 
-            assert_eq!(patterns1.len(), 2);
+            assert_eq!(patterns1.len(), 1);
             assert_eq!(patterns2.len(), 1);
 
             // x @ (1 | 2)
@@ -893,7 +893,7 @@ mod tests {
 
             if let Some(vec) = &map["y"] {
                 assert_eq!(vec.len(), 1);
-                assert_eq!(*vec[0], Pattern::Number(0, None, Position::new(1, 6)));
+                assert_eq!(*vec[0], Pattern::Number(0, None, Position::new(1, 12)));
 
             }else{
                 panic!()
@@ -935,7 +935,7 @@ mod tests {
 
                     if let Some(vec) = &map["y"] {
                         assert_eq!(vec.len(), 1);
-                        assert_eq!(*vec[0], Pattern::Number(0, None, Position::new(1, 6)));
+                        assert_eq!(*vec[0], Pattern::Number(0, None, Position::new(1, 18)));
 
                     }else{
                         panic!()
@@ -943,8 +943,8 @@ mod tests {
 
                     if let Some(vec) = &map["z"] {
                         assert_eq!(vec.len(), 2);
-                        assert_eq!(*vec[0], Pattern::Char('a', None, Position::new(1, 16)));
-                        assert_eq!(*vec[1], Pattern::Char('b', None, Position::new(1, 20)));
+                        assert_eq!(*vec[0], Pattern::Char('a', None, Position::new(1, 24)));
+                        assert_eq!(*vec[1], Pattern::Char('b', None, Position::new(1, 30)));
 
                     }else{
                         panic!()

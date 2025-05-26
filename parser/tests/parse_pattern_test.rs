@@ -41,7 +41,7 @@ mod tests {
                         assert_eq!(patterns1.len(), 1);
 
                         let pat = &patterns1[0];
-                        assert_eq!(**pat, Pattern::Var("value".to_string(), None, Position::new(0, 0)));
+                        assert_eq!(**pat, Pattern::Var("value".to_string(), None, Position::new(2, 25)));
                     },
                     _ => {
                         panic!()
@@ -167,7 +167,7 @@ mod tests {
                         assert_eq!(patterns1.len(), 1);
 
                         let pat = &patterns1[0];
-                        assert_eq!(**pat, Pattern::Var("value".to_string(), None, Position::new(0, 0)));
+                        assert_eq!(**pat, Pattern::Var("value".to_string(), None, Position::new(3, 21)));
                     },
                     _ => {
                         panic!()
