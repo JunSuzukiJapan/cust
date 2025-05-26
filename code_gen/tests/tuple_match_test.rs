@@ -36,14 +36,13 @@ fn code_gen_match_global_tuple1() {
     assert_eq!(unsafe { f.call() }, 3);
 }
 
-/*
 #[test]
 fn code_gen_match_global_tuple2() {
     let src = "
         $<int, int> tpl = $(1, 2);
 
         int test(){
-            if let ($(x @ a, y @ b) = tpl) {
+            if let ($(a @ x, b @ y) = tpl) {
                 return x + y + a + b;
             } else {
                 return 0;
@@ -66,7 +65,7 @@ fn code_gen_match_global_tuple2() {
     let f: JitFunction<FuncType_void_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
     assert_eq!(unsafe { f.call() }, 6);
 }
-*/
+
 #[test]
 fn code_gen_match_global_tuple3() {
     let src = "

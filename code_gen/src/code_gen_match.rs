@@ -336,6 +336,7 @@ impl<'ctx> CodeGen<'ctx> {
 
         // '@' に対応する。
         if let Some(alias_name) = pattern_name {
+            let current_block = self.builder.get_insert_block().unwrap();
             self.builder.position_at_end(all_match_then_block);
 
             let sq = SpecifierQualifier::default();
@@ -348,6 +349,8 @@ impl<'ctx> CodeGen<'ctx> {
             self.builder.build_store(ptr, basic_value)?;
 
             env.insert_local(alias_name, Rc::clone(typ), sq, ptr);
+
+            self.builder.position_at_end(current_block);
         }
 
         Ok(())
