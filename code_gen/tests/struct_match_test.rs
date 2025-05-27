@@ -61,7 +61,7 @@ fn code_gen_struct_match1() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
-/*
+
 #[test]
 fn code_gen_struct_match2() -> Result<(), Box<dyn Error>> {
     // parse
@@ -116,4 +116,3 @@ fn code_gen_struct_match2() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
-*/

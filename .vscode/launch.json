@@ -19,7 +19,7 @@
                     "kind": "bin"
                 }
             },
-            "args": ["-c", "../cust_tmp/tuple_at_match.cust"],
+            "args": ["-c", "../cust_tmp/struct_match.cust"],
             "cwd": "${workspaceFolder}"
         },
         {

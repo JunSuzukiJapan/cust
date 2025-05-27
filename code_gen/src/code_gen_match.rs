@@ -516,7 +516,7 @@ impl<'ctx> CodeGen<'ctx> {
     fn gen_match_struct_pattern(&self,
         struct_pattern: &StructPattern,
         arg: &CompiledValue<'ctx>,
-        next_block: BasicBlock<'ctx>,
+        mut next_block: BasicBlock<'ctx>,
         all_match_then_block: BasicBlock<'ctx>,
         else_block: BasicBlock<'ctx>,
         env: &mut Env<'ctx>,
@@ -524,19 +524,17 @@ impl<'ctx> CodeGen<'ctx> {
         pos: &Position
     ) -> Result<(), Box<dyn Error>> {
 
-        self.builder.position_at_end(all_match_then_block);
         let arg_type = arg.get_type();
         let arg_value = arg.get_value();
-        let struct_value = arg_value.into_struct_value();
-
-
         let arg_llvm_type = arg_value.get_type().into_struct_type();
-        // let struct_ptr = arg_value.into_pointer_value();
+
+        let struct_value = arg_value.into_struct_value();
         let struct_def = arg_type.get_struct_definition().ok_or(CodeGenError::not_struct(Rc::clone(arg_type), pos.clone()))?;
         let key_list = struct_pattern.get_keys();
         let pattern_map = struct_pattern.get_map();
         let type_name = &struct_pattern.name;
 
+        let mut current_block = self.builder.get_insert_block().unwrap();
         for field_name in key_list {
             let item = pattern_map.get(field_name).unwrap();
 
@@ -545,20 +543,16 @@ impl<'ctx> CodeGen<'ctx> {
             let ptr_to_struct = struct_value.get_field_at_index(0 as u32).unwrap().into_pointer_value();
             let field_ptr = self.builder.build_struct_gep(arg_llvm_type, ptr_to_struct, raw_field_index as u32, "get_field_ptr")?;
 
-            if let Some(pattern_list) = item {  // if let (type_name::FieldName {pat_name: item @ at_name})
+            next_block = self.context.append_basic_block(func, "match_struct.next");
+            if let Some(pattern_list) = item {  // if let (type_name::FieldName {pat_name: at_name @ item})
                 let raw_field_type = arg_llvm_type.get_field_type_at_index(raw_field_index as u32).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), field_name.to_string(), pos.clone()))?;
-
                 let value = self.builder.build_load(raw_field_type, field_ptr, "get_field_value")?;
                 let compiled_value = CompiledValue::new(Rc::clone(field_type), value.as_any_value_enum());
                 self.gen_pattern_match(pattern_list, pos, &compiled_value, env, func, next_block, all_match_then_block, else_block)?;
 
-                // // opt_at_name
-                // if let Some(at_name) = opt_at_name {
-                //     let sq = SpecifierQualifier::default();
-                //     let ptr = self.builder.build_alloca(raw_field_type, at_name)?;
-                //     self.builder.build_store(ptr, value)?;
-                //     env.insert_local(at_name, Rc::clone(field_type), sq, ptr);
-                // }
+                if ! self.last_is_jump_statement(current_block) {
+                    self.builder.build_unconditional_branch(next_block)?;
+                }
 
             }else{ // item is None.                               if let (type_name::FieldName {pat_name})
                 let field = struct_def.get_field_by_name(field_name).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), field_name.to_string(), pos.clone()))?;
@@ -567,6 +561,17 @@ impl<'ctx> CodeGen<'ctx> {
 
                 env.insert_local(&field_name, Rc::clone(field_type), sq, field_ptr);
             }
+
+            if ! self.last_is_jump_statement(current_block) {
+                self.builder.build_unconditional_branch(next_block)?;
+            }
+
+            self.builder.position_at_end(next_block);
+            current_block = next_block;
+        }
+
+        if ! self.last_is_jump_statement(next_block) {
+            self.builder.build_unconditional_branch(all_match_then_block)?;
         }
 
         Ok(())
@@ -610,29 +615,15 @@ impl<'ctx> CodeGen<'ctx> {
             next_block = self.context.append_basic_block(func, "match_tuple.next");
             self.gen_pattern_match(pat_list, pos, &compiled_value, env, func, next_block, all_match_then_block, else_block)?;
 
-            // // opt_at_name
-            // if let Some(at_name) = opt_at_name {
-            //     self.builder.position_at_end(all_match_then_block);
-
-            //     let sq = SpecifierQualifier::default();
-            //     let ptr = self.builder.build_alloca(raw_field_type, at_name)?;
-            //     self.builder.build_store(ptr, value)?;
-            //     env.insert_local(at_name, Rc::clone(field_type), sq, ptr);
-
-            //     self.builder.position_at_end(current_block);
-            // }
-
             if ! self.last_is_jump_statement(current_block) {
                 self.builder.build_unconditional_branch(next_block)?;
             }
 
-            // self.builder.build_unconditional_branch(next_block)?;
             self.builder.position_at_end(next_block);
             current_block = next_block;
         }
 
         if ! self.last_is_jump_statement(next_block) {
-            // self.builder.position_at_end(next_block);
             self.builder.build_unconditional_branch(all_match_then_block)?;
         }
 
