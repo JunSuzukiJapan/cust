@@ -385,8 +385,8 @@ impl<'ctx> CodeGen<'ctx> {
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
 
-        let init_value_list = if let Initializer::Simple(ExprAST::TupleLiteral(expr_list, _pos), _pos2) = init {
-            expr_list
+        let init_value_list = if let Initializer::Simple(ExprAST::TupleLiteral(tuple_literal, _pos), _pos2) = init {
+            tuple_literal
         }else{
             return Err(Box::new(CodeGenError::initializer_is_not_tuple(init.get_position().clone())));
         };
@@ -1562,7 +1562,7 @@ impl<'ctx> CodeGen<'ctx> {
                 for i in 0..pattern_list.len() {
                     let pat_list = &pattern_list[i];
                     let pat= &pat_list[0];
-                    let e_type = expr_type.get_tuple_type_at_index(i).unwrap();
+                    let e_type = expr_type.get_field_type_from_tuple_at_index(i).unwrap();
 
                     match &**pat {
                         Pattern::Var(name, _name, _pos) => {
@@ -1617,7 +1617,7 @@ impl<'ctx> CodeGen<'ctx> {
 
         for key in key_list {
             let pat = pattern_map.get(key).unwrap();
-            let e_type = expr_type.get_field_type_by_name(&key).unwrap();
+            let e_type = expr_type.get_field_type_from_struct_by_name(&key).unwrap();
     
             if let Some(pat_list) = pat {
                 let pat = &pat_list[0];

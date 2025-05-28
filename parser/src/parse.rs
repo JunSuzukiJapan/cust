@@ -2823,9 +2823,9 @@ impl Parser {
         // make return value
         //
         let tuple_init = if all_const {
-            TupleLiteral::new_const(typ, const_vec, pos.clone())
+            TupleLiteral::from_const_list(typ, const_vec, pos.clone())
         }else{
-            TupleLiteral::new_normal(typ, vec, pos.clone())
+            TupleLiteral::from_expr_list(typ, vec, pos.clone())
         };
 
         Ok(tuple_init)

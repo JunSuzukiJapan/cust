@@ -539,7 +539,7 @@ impl<'ctx> CodeGen<'ctx> {
             let item = pattern_map.get(field_name).unwrap();
 
             let raw_field_index = struct_def.get_index(field_name).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), field_name.to_string(), pos.clone()))?;
-            let field_type = arg_type.as_ref().get_field_type_at_index(raw_field_index).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), field_name.to_string(), pos.clone()))?;
+            let field_type = arg_type.as_ref().get_field_type_from_struct_at_index(raw_field_index).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), field_name.to_string(), pos.clone()))?;
             let ptr_to_struct = struct_value.get_field_at_index(0 as u32).unwrap().into_pointer_value();
             let field_ptr = self.builder.build_struct_gep(arg_llvm_type, ptr_to_struct, raw_field_index as u32, "get_field_ptr")?;
 
@@ -578,7 +578,7 @@ impl<'ctx> CodeGen<'ctx> {
     }
 
     fn gen_match_tuple_pattern(&self,
-        tpl_item_list: &Vec<Vec<Box<Pattern>>>,
+        tpl_pattern_list: &Vec<Vec<Box<Pattern>>>,
         arg: &CompiledValue<'ctx>,
         mut next_block: BasicBlock<'ctx>,
         all_match_then_block: BasicBlock<'ctx>,
@@ -591,8 +591,8 @@ impl<'ctx> CodeGen<'ctx> {
         // check length
         let arg_type = arg.get_type();
         let tpl_type_list = arg_type.get_tuple_type_list().ok_or(CodeGenError::not_tuple(Rc::clone(arg_type), pos.clone()))?;
-        if tpl_item_list.len() != tpl_type_list.len() {
-            return Err(CodeGenError::tuple_length_mismatch(tpl_item_list.len(), tpl_type_list.len(), pos.clone()).into());
+        if tpl_pattern_list.len() != tpl_type_list.len() {
+            return Err(CodeGenError::tuple_length_mismatch(tpl_pattern_list.len(), tpl_type_list.len(), pos.clone()).into());
         }
 
         let tpl_type = TypeUtil::to_llvm_type(&arg_type, self.context, pos)?;
@@ -603,9 +603,9 @@ impl<'ctx> CodeGen<'ctx> {
 
         // check items
         let mut current_block = self.builder.get_insert_block().unwrap();
-        let len = tpl_item_list.len();
+        let len = tpl_pattern_list.len();
         for i in 0..len {
-            let pat_list = &tpl_item_list[i];
+            let pat_list = &tpl_pattern_list[i];
             let raw_field_type = struct_type.get_field_type_at_index(i as u32).unwrap();
             let ptr_to_value = self.builder.build_struct_gep(struct_type, ptr, i as u32, "get_tuple_item")?;
             let value = self.builder.build_load(raw_field_type, ptr_to_value, "load_tuple_item")?;
@@ -634,7 +634,7 @@ impl<'ctx> CodeGen<'ctx> {
         enum_pat: &EnumPattern,
         arg: &CompiledValue<'ctx>,
         next_block: BasicBlock<'ctx>,
-        all_match_then: BasicBlock<'ctx>,
+        all_match_then_block: BasicBlock<'ctx>,
         else_block: BasicBlock<'ctx>,
         env: &mut Env<'ctx>,
         func: FunctionValue<'ctx>,
@@ -645,13 +645,13 @@ impl<'ctx> CodeGen<'ctx> {
             //
             // Name::SubName
             //
-            EnumPattern::Simple(_enum_type, type_name, field_name) => {
+            EnumPattern::Simple(_enum_type, type_name, sub_name) => {
                 //
                 // compare tag
                 //
                 let arg_type = arg.get_type();
                 let arg_enum_def = arg_type.get_enum_definition().ok_or(CodeGenError::not_enum(arg_type.as_ref().clone(), pos.clone()))?;
-                let required_tag = arg_enum_def.get_index(field_name).ok_or(CodeGenError::no_such_a_field(arg_enum_def.get_name().to_string(), type_name.to_string(), pos.clone()))?;
+                let required_tag = arg_enum_def.get_index(sub_name).ok_or(CodeGenError::no_such_a_field(arg_enum_def.get_name().to_string(), type_name.to_string(), pos.clone()))?;
     
                 let i64_type = self.context.i64_type();
                 let i64_num = i64_type.const_int(required_tag as u64, true);
@@ -665,7 +665,7 @@ impl<'ctx> CodeGen<'ctx> {
                 let left_value = left.get_value();
                 let right_value = right.get_value();
                 let comparison = self.builder.build_int_compare(IntPredicate::EQ, left_value.into_int_value(), right_value.into_int_value(), "match_compare_number")?;
-                self.builder.build_conditional_branch(comparison, all_match_then, else_block)?;
+                self.builder.build_conditional_branch(comparison, all_match_then_block, else_block)?;
     
                 //
                 // matched
@@ -680,24 +680,13 @@ impl<'ctx> CodeGen<'ctx> {
             //
             // Name::SubName(pattern1 @ pat_name, pattern2, ...)
             //
-            EnumPattern::Tuple(_enum_type, _name, _sub_name, _pattern_list) => {
-
-    
-
-
-
-                unimplemented!()
-            },
-            //
-            // Name::SubName { field1: struct_pattern1, field2: struct_pattern2, ... }
-            //
-            EnumPattern::Struct(_enum_type, type_name, field_name, struct_pat) => {
+            EnumPattern::Tuple(_enum_type, type_name, sub_name, pattern_list) => {
                 //
                 // compare tag
                 //
                 let arg_type = arg.get_type();
                 let arg_enum_def = arg_type.get_enum_definition().ok_or(CodeGenError::not_enum(arg_type.as_ref().clone(), pos.clone()))?;
-                let required_tag = arg_enum_def.get_index(&field_name).ok_or(CodeGenError::no_such_a_field(arg_enum_def.get_name().to_string(), type_name.to_string(), pos.clone()))?;
+                let required_tag = arg_enum_def.get_index(&sub_name).ok_or(CodeGenError::no_such_a_field(arg_enum_def.get_name().to_string(), type_name.to_string(), pos.clone()))?;
     
                 let i64_type = self.context.i64_type();
                 let i64_num = i64_type.const_int(required_tag as u64, true);
@@ -711,12 +700,89 @@ impl<'ctx> CodeGen<'ctx> {
                 let left_value = left.get_value();
                 let right_value = right.get_value();
                 let comparison = self.builder.build_int_compare(IntPredicate::EQ, left_value.into_int_value(), right_value.into_int_value(), "match_compare_number")?;
-                self.builder.build_conditional_branch(comparison, all_match_then, else_block)?;
+                self.builder.build_conditional_branch(comparison, all_match_then_block, else_block)?;
     
                 //
                 // tag matched
                 //
-                self.builder.position_at_end(all_match_then);
+                self.builder.position_at_end(all_match_then_block);
+                let llvm_struct_ptr = self.gen_get_struct_ptr_from_enum(arg)?;
+
+                let enum_type = env.get_type_or_union(type_name).ok_or(CodeGenError::no_such_a_type(type_name, pos.clone()))?;
+                let enum_type = enum_type.clone();  // env.insert_localメソッドを使用可能にするためclone。
+                let index_map = enum_type.get_index_map().ok_or(CodeGenError::no_index_map(type_name.to_string(), pos.clone()))?;
+                let type_list = enum_type.get_type_list().ok_or(CodeGenError::no_type_list(type_name.to_string(), pos.clone()))?;
+
+                let index = index_map.get(sub_name).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), sub_name.to_string(), pos.clone()))?;
+                let (cust_type, llvm_type) = type_list.get(*index).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), sub_name.to_string(), pos.clone()))?;
+                let tpl_type_list = cust_type.get_tuple_type_list().ok_or(CodeGenError::not_tuple_in_enum(type_name.to_string(), sub_name.to_string(), pos.clone()))?;
+
+                // check length
+                if pattern_list.len() != tpl_type_list.len() {
+                    return Err(CodeGenError::tuple_length_mismatch(pattern_list.len(), tpl_type_list.len(), pos.clone()).into());
+                }
+
+                // let llvm_type = TypeUtil::to_llvm_type(&arg_type, self.context, pos)?;
+                let struct_type = llvm_type.into_struct_type();
+                let struct_value = arg.get_value().into_struct_value();
+                let ptr = struct_value.get_field_at_index(0 as u32).unwrap().into_pointer_value();
+
+                // check items
+                let mut next_block = next_block;
+                let mut current_block = self.builder.get_insert_block().unwrap();
+                let len = pattern_list.len();
+                for i in 0..len {
+                    let pat_list = &pattern_list[i];
+                    let raw_field_type = struct_type.get_field_type_at_index(i as u32).unwrap();
+                    let ptr_to_value = self.builder.build_struct_gep(struct_type, ptr, i as u32, "get_tuple_item")?;
+                    let value = self.builder.build_load(raw_field_type, ptr_to_value, "load_tuple_item")?;
+                    let field_type = &tpl_type_list[i];
+                    let compiled_value = CompiledValue::new(Rc::clone(field_type), value.as_any_value_enum());
+
+                    next_block = self.context.append_basic_block(func, "match_tuple.next");
+                    self.gen_pattern_match(pat_list, pos, &compiled_value, env, func, next_block, all_match_then_block, else_block)?;
+
+                    if ! self.last_is_jump_statement(current_block) {
+                        self.builder.build_unconditional_branch(next_block)?;
+                    }
+
+                    self.builder.position_at_end(next_block);
+                    current_block = next_block;
+                }
+
+                if ! self.last_is_jump_statement(next_block) {
+                    self.builder.build_unconditional_branch(all_match_then_block)?;
+                }
+            },
+            //
+            // Name::SubName { field1: struct_pattern1, field2: struct_pattern2, ... }
+            //
+            EnumPattern::Struct(_enum_type, type_name, sub_name, struct_pat) => {
+                //
+                // compare tag
+                //
+                let arg_type = arg.get_type();
+                let arg_enum_def = arg_type.get_enum_definition().ok_or(CodeGenError::not_enum(arg_type.as_ref().clone(), pos.clone()))?;
+                let required_tag = arg_enum_def.get_index(&sub_name).ok_or(CodeGenError::no_such_a_field(arg_enum_def.get_name().to_string(), type_name.to_string(), pos.clone()))?;
+    
+                let i64_type = self.context.i64_type();
+                let i64_num = i64_type.const_int(required_tag as u64, true);
+                let left = CompiledValue::new(Type::Number(NumberType::LongLong).into(), i64_num.as_any_value_enum());
+    
+                let real_tag = self.gen_get_tag_from_enum(arg, env, pos)?;
+                let ty = Rc::new(Type::Number(NumberType::Int));
+                let right = CompiledValue::new(ty, real_tag.as_any_value_enum());
+    
+                let (left, right) = self.bin_expr_implicit_cast(left, right, pos)?;
+                let left_value = left.get_value();
+                let right_value = right.get_value();
+                let comparison = self.builder.build_int_compare(IntPredicate::EQ, left_value.into_int_value(), right_value.into_int_value(), "match_compare_number")?;
+                self.builder.build_conditional_branch(comparison, all_match_then_block, else_block)?;
+    
+                //
+                // tag matched
+                //
+                self.builder.position_at_end(all_match_then_block);
                 let pattern_map = struct_pat.get_map();
                 let key_list = struct_pat.get_keys();
                 let struct_ptr = self.gen_get_struct_ptr_from_enum(arg)?;
@@ -726,34 +792,26 @@ impl<'ctx> CodeGen<'ctx> {
                 let index_map = enum_type.get_index_map().ok_or(CodeGenError::no_index_map(type_name.to_string(), pos.clone()))?;
                 let type_list = enum_type.get_type_list().ok_or(CodeGenError::no_type_list(type_name.to_string(), pos.clone()))?;
 
-                let index = index_map.get(field_name).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), field_name.to_string(), pos.clone()))?;
-                let (cust_type, llvm_type) = type_list.get(*index).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), field_name.to_string(), pos.clone()))?;
-                let struct_def = cust_type.get_struct_definition().ok_or(CodeGenError::not_struct_in_enum(type_name.to_string(), field_name.to_string(), pos.clone()))?;
+                let index = index_map.get(sub_name).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), sub_name.to_string(), pos.clone()))?;
+                let (cust_type, llvm_type) = type_list.get(*index).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), sub_name.to_string(), pos.clone()))?;
+                let struct_def = cust_type.get_struct_definition().ok_or(CodeGenError::not_struct_in_enum(type_name.to_string(), sub_name.to_string(), pos.clone()))?;
                 let tagged_struct_type = llvm_type.into_struct_type();
-                let struct_type = tagged_struct_type.get_field_type_at_index(1).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), field_name.to_string(), pos.clone()))?.into_struct_type();
+                let struct_type = tagged_struct_type.get_field_type_at_index(1).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), sub_name.to_string(), pos.clone()))?.into_struct_type();
 
                 for pat_name in key_list {
                     let item = pattern_map.get(pat_name).unwrap();
                     let raw_field_index = struct_def.get_index(pat_name).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), pat_name.to_string(), pos.clone()))?;
                     let field_ptr = self.builder.build_struct_gep(struct_type, struct_ptr, raw_field_index as u32, "get_field_ptr")?;
-                    let field_type = cust_type.as_ref().get_field_type_at_index(raw_field_index).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), pat_name.to_string(), pos.clone()))?;
+                    let field_type = cust_type.as_ref().get_field_type_from_struct_at_index(raw_field_index).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), pat_name.to_string(), pos.clone()))?;
 
                     if let Some(pattern_list) = item {  // if let (type_name::FieldName {pat_name: item @ at_name})
-                        let raw_field_type = struct_type.get_field_type_at_index(raw_field_index as u32).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), field_name.to_string(), pos.clone()))?;
+                        let raw_field_type = struct_type.get_field_type_at_index(raw_field_index as u32).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), sub_name.to_string(), pos.clone()))?;
                         let value = self.builder.build_load(raw_field_type, field_ptr, "get_field_value")?;
                         let compiled_value = CompiledValue::new(Rc::clone(field_type), value.as_any_value_enum());
-                        self.gen_pattern_match(pattern_list, pos, &compiled_value, env, func, next_block, all_match_then, else_block)?;
-
-                        // // opt_at_name
-                        // if let Some(at_name) = opt_at_name {
-                        //     let sq = SpecifierQualifier::default();
-                        //     let ptr = self.builder.build_alloca(raw_field_type, at_name)?;
-                        //     self.builder.build_store(ptr, value)?;
-                        //     env.insert_local(at_name, Rc::clone(field_type), sq, ptr);
-                        // }
+                        self.gen_pattern_match(pattern_list, pos, &compiled_value, env, func, next_block, all_match_then_block, else_block)?;
 
                     }else{ // item is None.                               if let (type_name::FieldName {pat_name})
-                        let field = struct_def.get_field_by_name(pat_name).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), field_name.to_string(), pos.clone()))?;
+                        let field = struct_def.get_field_by_name(pat_name).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), sub_name.to_string(), pos.clone()))?;
                         let mut sq = field.get_specifier_qualifier().clone();
                         sq.const_ = true;
 

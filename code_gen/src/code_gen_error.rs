@@ -128,6 +128,7 @@ pub enum CodeGenError {
     NotTuple(Rc<Type>, Position),  // (enum name, field name, Position)
     TupleLengthMismatch(usize, usize, Position),  // (expected, real, Position)
     NotStruct(Rc<Type>, Position),  // (real type, Position)
+    NotTupleInEnum(String, String, Position),  // (enum name, field name, Position)
 }
 
 impl CodeGenError {
@@ -572,6 +573,10 @@ impl CodeGenError {
     pub fn not_struct(typ: Rc<Type>, pos: Position) -> Self {
         Self::NotStruct(typ, pos)
     }
+
+    pub fn not_tuple_in_enum(enum_name: String, field_name: String, pos: Position) -> Self {
+        Self::NotTupleInEnum(enum_name, field_name, pos)
+    }
 }
 
 impl From<ParserError> for CodeGenError {
@@ -929,6 +934,9 @@ impl fmt::Display for CodeGenError {
             },
             Self::NotStruct(typ, _pos) => {
                 write!(f, "{} is not struct", typ.to_string())
+            },
+            Self::NotTupleInEnum(enum_name, field_name, _pos) => {
+                write!(f, "{field_name} is not tuple in enum '{enum_name}'")
             },
         }
     }

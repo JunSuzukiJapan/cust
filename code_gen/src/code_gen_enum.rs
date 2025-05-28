@@ -1,4 +1,4 @@
-use crate::parser::{Type, EnumDefinition, Enumerator, EnumLiteral};
+use crate::parser::{Type, EnumDefinition, Enumerator, EnumLiteral, ast::TupleLiteral};
 use super::{CodeGenError, CompiledValue};
 use super::Env;
 use super::env::{BreakCatcher, ContinueCatcher};
@@ -7,9 +7,10 @@ use crate::Position;
 use crate::CodeGen;
 
 use inkwell::context::Context;
-use inkwell::values::{IntValue, AnyValue};
-use inkwell::types::{AnyTypeEnum, BasicTypeEnum};
+use inkwell::values::{IntValue, AnyValue, PointerValue, BasicValueEnum, BasicValue};
+use inkwell::types::{AnyTypeEnum, BasicTypeEnum, StructType};
 use inkwell::types::AnyType;
+use parser::ConstExpr;
 use std::error::Error;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -107,13 +108,23 @@ impl<'ctx> CodeGen<'ctx> {
 
                     index_map.insert(name.clone(), index);
                 },
-                Enumerator::TypeTuple { name: _, tuple_type: _ } => {
+                Enumerator::TypeTuple { name, tuple_type } => {
+                    let typ = TypeUtil::to_basic_type_enum(&tuple_type, ctx, pos)?;
+                    let t = Self::add_tag_type(tag_basic_type, typ, ctx);
+                    list.push((Rc::clone(tuple_type), t.clone()));
 
+                    let size = Self::size_of(&t)?;
+                    if size > max_size {
+                        max_size = size;
+                        max_size_type = Some(t);
+                    }
 
+                    if max_size_type.is_none() {
+                        max_size = size;
+                        max_size_type = Some(t.clone())
+                    }
 
-
-
-                    unimplemented!()
+                    index_map.insert(name.clone(), index);
                 },
             }
 
@@ -205,25 +216,103 @@ impl<'ctx> CodeGen<'ctx> {
 
                 let initialized_literal = self.gen_struct_literal(struct_literal, struct_ptr, env, break_catcher, continue_catcher)?;
                 let _initialized_literal = initialized_literal.ok_or(CodeGenError::cannot_init_enum(literal.get_type().get_type_name(), pos.clone()))?;
-                // tagged_ptr = initialized_literal.get_value().into_pointer_value();
 
                 let basic_val = self.builder.build_load(tagged_type, tagged_ptr, &format!("load_enum_literal"))?;
                 let any_val = basic_val.as_any_value_enum();
                 Ok(Some(CompiledValue::new(Rc::clone(typ), any_val)))
             },
-            EnumLiteral::Tuple(_literal) => {
+            EnumLiteral::Tuple(tuple_literal) => {
+                let typ = tuple_literal.get_type();
+                let pos = tuple_literal.get_position();
+
+                let tag_type = self.enum_tag_llvm_type;
+                let raw_type = env.basic_type_enum_from_type(&typ, self.context, pos)?;
+                let vec: Vec<BasicTypeEnum> = vec!(tag_type.into(), raw_type);
+                let tagged_type = self.context.struct_type(&vec, false);
+                let tagged_ptr = self.builder.build_alloca(tagged_type, "enum_literal")?;
+                let tag_ptr = self.builder.build_struct_gep(tagged_type, tagged_ptr, 0, "struct_gep_in_tagged_enum")?;
+                let struct_ptr = self.builder.build_struct_gep(tagged_type, tagged_ptr, 1, "struct_gep_in_tagged_enum")?;
+
+                let tag_value = tag_type.const_int(*tag as u64, false);
+                let _ = self.builder.build_store(tag_ptr, tag_value);
+
+                if tuple_literal.is_const() {
+                    let const_list = tuple_literal.get_const_list();
+
+                    let initialized_literal = self.gen_tuple_literal_from_const_expr_list(const_list, typ, env, break_catcher, continue_catcher, pos)?;
+                    let _initialized_literal = initialized_literal.ok_or(CodeGenError::cannot_init_enum(literal.get_type().get_type_name(), pos.clone()))?;
 
 
+                }else{
+                    let expr_list = tuple_literal.get_expr_list();
+                    let initialized_literal = self.gen_tuple_literal(expr_list, env, break_catcher, continue_catcher, pos)?;
+                    let _initialized_literal = initialized_literal.ok_or(CodeGenError::cannot_init_enum(literal.get_type().get_type_name(), pos.clone()))?;
 
 
+                }
 
+                // let initialized_literal = self.gen_tuple_literal(expr_list, struct_ptr, env, break_catcher, continue_catcher)?;
+                // let _initialized_literal = initialized_literal.ok_or(CodeGenError::cannot_init_enum(literal.get_type().get_type_name(), pos.clone()))?;
 
-
-                unimplemented!()
-
-
+                let basic_val = self.builder.build_load(tagged_type, tagged_ptr, &format!("load_enum_literal"))?;
+                let any_val = basic_val.as_any_value_enum();
+                Ok(Some(CompiledValue::new(Rc::clone(typ), any_val)))
             },
         }
     }
 
+    // pub fn gen_tuple_literal<'b, 'c>(&self,
+    //     tuple_literal: &TupleLiteral,
+    //     tuple_ptr: PointerValue<'ctx>,
+    //     env: &Env<'ctx>,
+    //     break_catcher: Option<&'b BreakCatcher>,
+    //     continue_catcher: Option<&'c ContinueCatcher>
+    // ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
+
+    //     match tuple_literal {
+    //         TupleLiteral::ConstLiteral { typ, list, pos } => {
+    //             let mut vec: Vec<BasicValueEnum> = Vec::new();
+    //             let type_list = typ.get_tuple_type_list().unwrap();
+
+    //             if type_list.len() != list.len() {
+    //                 return Err(CodeGenError::tuple_length_mismatch(type_list.len(), list.len(), pos.clone()).into());
+    //             }
+
+    //             for const_expr in list {
+    //                 let basic_value = self.const_expr_to_basic_value_enum(const_expr);
+    //                 vec.push(basic_value);
+    //             }
+
+    //             let values = self.context.const_struct(&vec, false);
+    //             let _result = self.builder.build_store(tuple_ptr, values.as_basic_value_enum());
+
+    //             let tuple_type = Self::tuple_type_from_type_list(type_list, &self.context, pos)?;
+
+    //             let basic_val = self.builder.build_load(tuple_type, tuple_ptr, "load_tuple_const_literal")?;
+    //             let any_val = basic_val.as_any_value_enum();
+
+    //             Ok(Some(CompiledValue::new(typ.clone(), any_val)))
+
+    //         },
+    //         TupleLiteral::NormalLiteral { typ, list, pos } => {
+
+
+
+
+    //             unimplemented!()
+    //         },
+    //     }
+    // }
+
+    fn tuple_type_from_type_list(list: &Vec<Rc<Type>>, ctx: &'ctx Context, pos: &Position) -> Result<StructType<'ctx>, Box<dyn Error>> {
+        let mut vec = Vec::new();
+
+        for typ in list {
+            let basic_type = TypeUtil::to_basic_type_enum(typ, ctx, pos)?;
+            vec.push(basic_type);
+        }
+
+        let struct_type = ctx.struct_type(&vec, false);
+        Ok(struct_type)
+    }
 }

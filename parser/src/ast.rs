@@ -752,7 +752,7 @@ pub enum TupleLiteral {
 }
 
 impl TupleLiteral {
-    pub fn new_normal(typ: Rc<Type>, list: Vec<Box<ExprAST>>, pos: Position) -> TupleLiteral {
+    pub fn from_expr_list(typ: Rc<Type>, list: Vec<Box<ExprAST>>, pos: Position) -> TupleLiteral {
         TupleLiteral::NormalLiteral {
             typ: typ,
             list: list,
@@ -760,11 +760,43 @@ impl TupleLiteral {
         }
     }
 
-    pub fn new_const(typ: Rc<Type>, list: Vec<ConstExpr>, pos: Position) -> TupleLiteral {
+    pub fn from_const_list(typ: Rc<Type>, list: Vec<ConstExpr>, pos: Position) -> TupleLiteral {
         TupleLiteral::ConstLiteral {
             typ: typ,
             list: list,
             pos: pos,
+        }
+    }
+
+    pub fn is_const(&self) -> bool {
+        match self {
+            TupleLiteral::ConstLiteral { .. } => true,
+            TupleLiteral::NormalLiteral { .. } => false,
+        }
+    }
+
+    pub fn is_not_const(&self) -> bool {
+        match self {
+            TupleLiteral::NormalLiteral { .. } => true,
+            TupleLiteral::ConstLiteral { .. } => false,
+        }
+    }
+
+    pub fn get_expr_list(&self) -> &Vec<Box<ExprAST>> {
+        match self {
+            TupleLiteral::NormalLiteral { list, .. } => list,
+            TupleLiteral::ConstLiteral { list, .. } => {
+                panic!("Cannot get expression list from constant tuple literal");
+            },
+        }
+    }
+
+    pub fn get_const_list(&self) -> &Vec<ConstExpr> {
+        match self {
+            TupleLiteral::ConstLiteral { list, .. } => list,
+            TupleLiteral::NormalLiteral { .. } => {
+                panic!("Cannot get constant list from normal tuple literal");
+            },
         }
     }
 

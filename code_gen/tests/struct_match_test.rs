@@ -81,10 +81,6 @@ fn code_gen_struct_match2() -> Result<(), Box<dyn Error>> {
                     radius: 100;
                 };
             }
-
-            int area(&self) {
-                return self.radius * Self::PI100 / 100;
-            }
         }
 
         int test() {

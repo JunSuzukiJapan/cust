@@ -1002,7 +1002,7 @@ impl Type {
         }
     }
 
-    pub fn get_tuple_type_at_index(&self, index: usize) -> Option<&Rc<Type>> {
+    pub fn get_field_type_from_tuple_at_index(&self, index: usize) -> Option<&Rc<Type>> {
         match self {
             Type::Tuple(vec) => {
                 if index < vec.len() {
@@ -1064,7 +1064,7 @@ impl Type {
         }
     }
 
-    pub fn get_field_type_at_index(&self, index: usize) -> Option<&Rc<Type>> {
+    pub fn get_field_type_from_struct_at_index(&self, index: usize) -> Option<&Rc<Type>> {
         match self {
             Type::Struct { fields, .. } => {
                 if let Some(field) = fields.get_fields() {
@@ -1077,12 +1077,12 @@ impl Type {
                     None
                 }
             },
-            Type::BoundStructType { struct_type, .. } => struct_type.get_field_type_at_index(index),
+            Type::BoundStructType { struct_type, .. } => struct_type.get_field_type_from_struct_at_index(index),
             _ => None,
         }
     }
 
-    pub fn get_field_type_by_name(&self, name: &str) -> Option<&Rc<Type>> {
+    pub fn get_field_type_from_struct_by_name(&self, name: &str) -> Option<&Rc<Type>> {
         match self {
             Type::Struct { fields, .. } => {
                 if let Some(field) = fields.get_field_by_name(name) {
@@ -1091,7 +1091,7 @@ impl Type {
                     None
                 }
             },
-            Type::BoundStructType { struct_type, .. } => struct_type.get_field_type_by_name(name),
+            Type::BoundStructType { struct_type, .. } => struct_type.get_field_type_from_struct_by_name(name),
             _ => None,
         }
     }

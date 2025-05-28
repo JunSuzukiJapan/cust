@@ -14,7 +14,7 @@ use inkwell::basic_block::BasicBlock;
 use inkwell::{IntPredicate, FloatPredicate};
 use inkwell::AddressSpace;
 use inkwell::types::{AnyType, IntType};
-use parser::{Position, SpecifierQualifier};
+use parser::{ConstExpr, Position, SpecifierQualifier};
 use std::error::Error;
 use std::rc::Rc;
 
@@ -704,51 +704,8 @@ impl<'ctx> CodeGen<'ctx> {
                 //     },
                 // }
             },
-            ExprAST::TupleLiteral(list, pos) => {
-                //
-                // codegen each element
-                //
-                let mut expr_list = Vec::new();
-                let mut type_list = Vec::new();
-                let mut cust_type_list = Vec::new();
-
-                for expr in list {
-                    let expr = self.gen_expr(expr, env, break_catcher, continue_catcher)?.unwrap();
-                    let typ = expr.get_type();
-                    let t = TypeUtil::to_basic_type_enum(&typ, &self.context, pos)?;
-
-                    expr_list.push(expr.get_value());
-                    type_list.push(t);
-                    cust_type_list.push(typ.clone());
-                }
-
-                let any_type = self.context.struct_type(&type_list, false);
-                let basic_type = BasicTypeEnum::try_from(any_type).unwrap();
-                let tuple_ptr = self.builder.build_alloca(basic_type, "tuple_literal")?;
-
-                //
-                // store each element to tuple structure
-                //
-                let i32_type = self.context.i32_type();
-                let const_zero = i32_type.const_int(0, false);
-                let mut index = 0;
-                for any_value in expr_list {
-                    let basic_value = BasicValueEnum::try_from(any_value).map_err(|_e| CodeGenError::system_error(pos.clone()))?;
-                    let const_index = i32_type.const_int(index, false);
-                    let indexes = vec![const_zero, const_index];
-                    let ptr = unsafe { self.builder.build_in_bounds_gep(basic_type, tuple_ptr, &indexes, "gep_for_tuple_element")? };
-                    let _result = self.builder.build_store(ptr, basic_value);
-
-                    index += 1;
-                }
-
-                //
-                // return result
-                //
-                let basic_val = self.builder.build_load(basic_type, tuple_ptr, &format!("load_tuple_literal"))?;
-                let any_val = basic_val.as_any_value_enum();
-                let tuple_type = Type::Tuple(cust_type_list);
-                Ok(Some(CompiledValue::new(Rc::new(tuple_type), any_val)))
+            ExprAST::TupleLiteral(expr_list, pos) => {
+                self.gen_tuple_literal(expr_list, env, break_catcher, continue_catcher, pos)
             },
             ExprAST::TupleMemberAccess(tpl, index, pos) => {
                 let (elem_type, ptr, _sq) = self.get_indexed_tuple_ptr_and_type(tpl, *index, pos, env, break_catcher, continue_catcher)?;
@@ -765,6 +722,111 @@ impl<'ctx> CodeGen<'ctx> {
                 Ok(Some(CompiledValue::new(Rc::clone(&elem_type), any_val)))
             },
         }
+    }
+
+    pub fn gen_tuple_literal<'b, 'c>(&self,
+        list: &Vec<Box<ExprAST>>,
+        env: &Env<'ctx>,
+        break_catcher: Option<&'b BreakCatcher<'_>>,
+        continue_catcher: Option<&'c ContinueCatcher<'_>>,
+        pos: &Position
+    ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error + 'static>> {
+
+        //
+        // codegen each element
+        //
+        let mut expr_list = Vec::new();
+        let mut type_list = Vec::new();
+        let mut cust_type_list = Vec::new();
+    
+        for expr in list {
+            let expr = self.gen_expr(expr, env, break_catcher, continue_catcher)?.unwrap();
+            let typ = expr.get_type();
+            let t = TypeUtil::to_basic_type_enum(&typ, &self.context, pos)?;
+    
+            expr_list.push(expr.get_value());
+            type_list.push(t);
+            cust_type_list.push(typ.clone());
+        }
+    
+        let any_type = self.context.struct_type(&type_list, false);
+        let basic_type = BasicTypeEnum::try_from(any_type).unwrap();
+        let tuple_ptr = self.builder.build_alloca(basic_type, "tuple_literal")?;
+    
+        //
+        // store each element to tuple structure
+        //
+        let i32_type = self.context.i32_type();
+        let const_zero = i32_type.const_int(0, false);
+        let mut index = 0;
+        for any_value in expr_list {
+            let basic_value = BasicValueEnum::try_from(any_value).map_err(|_e| CodeGenError::system_error(pos.clone()))?;
+            let const_index = i32_type.const_int(index, false);
+            let indexes = vec![const_zero, const_index];
+            let ptr = unsafe { self.builder.build_in_bounds_gep(basic_type, tuple_ptr, &indexes, "gep_for_tuple_element")? };
+            let _result = self.builder.build_store(ptr, basic_value);
+    
+            index += 1;
+        }
+    
+        //
+        // return result
+        //
+        let basic_val = self.builder.build_load(basic_type, tuple_ptr, &format!("load_tuple_literal"))?;
+        let any_val = basic_val.as_any_value_enum();
+        let tuple_type = Type::Tuple(cust_type_list);
+        Ok(Some(CompiledValue::new(Rc::new(tuple_type), any_val)))
+    }
+
+    pub fn gen_tuple_literal_from_const_expr_list<'b, 'c>(&self,
+        const_list: &Vec<ConstExpr>,
+        tuple_type: &Rc<Type>,
+        env: &Env<'ctx>,
+        break_catcher: Option<&'b BreakCatcher<'_>>,
+        continue_catcher: Option<&'c ContinueCatcher<'_>>,
+        pos: &Position
+    ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error + 'static>> {
+        //
+        // each element to basic value
+        //
+        let mut type_list = Vec::new();
+        let mut cust_type_list = Vec::new();
+    
+        for const_expr in const_list {
+            let typ = const_expr.get_type();
+            let t = TypeUtil::to_basic_type_enum(&typ, &self.context, pos)?;
+    
+            type_list.push(t);
+            cust_type_list.push(typ.clone());
+        }
+    
+        let any_type = self.context.struct_type(&type_list, false);
+        let basic_type = BasicTypeEnum::try_from(any_type).unwrap();
+        let tuple_ptr = self.builder.build_alloca(basic_type, "const_tuple_literal")?;
+    
+        //
+        // store each element to tuple structure
+        //
+        let i32_type = self.context.i32_type();
+        let const_zero = i32_type.const_int(0, false);
+        let mut index = 0;
+        for const_expr in const_list {
+            let basic_value = self.const_expr_to_basic_value_enum(const_expr);
+            let const_index = i32_type.const_int(index, false);
+            let indexes = vec![const_zero, const_index];
+            let ptr = unsafe { self.builder.build_in_bounds_gep(basic_type, tuple_ptr, &indexes, "gep_for_tuple_element")? };
+            let _result = self.builder.build_store(ptr, basic_value);
+    
+            index += 1;
+        }
+    
+        //
+        // return result
+        //
+        let basic_val = self.builder.build_load(basic_type, tuple_ptr, &format!("load_tuple_literal"))?;
+        let any_val = basic_val.as_any_value_enum();
+
+        Ok(Some(CompiledValue::new(Rc::clone(tuple_type), any_val)))
     }
 
     fn gen_bin_expr<'b, 'c>(&self,

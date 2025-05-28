@@ -70,7 +70,7 @@ pub enum EnumPattern {
     // Name::SubName
     Simple(Rc<Type>, String, String),
     // Name::SubName(pattern1 @ pat_name, pattern2, ...)
-    Tuple(Rc<Type>, String, String, Vec<Vec<(Box<Pattern>)>>),
+    Tuple(Rc<Type>, String, String, Vec<Vec<Box<Pattern>>>),
     // Name::SubName { field1: struct_pattern1, field2: struct_pattern2, ... }
     Struct(Rc<Type>, String, String, StructPattern),
 }
