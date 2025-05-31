@@ -705,7 +705,7 @@ impl<'ctx> CodeGen<'ctx> {
                 // }
             },
             ExprAST::TupleLiteral(expr_list, pos) => {
-                self.gen_tuple_literal(expr_list, env, break_catcher, continue_catcher, pos)
+                self.gen_tuple_literal(expr_list, None, env, break_catcher, continue_catcher, pos)
             },
             ExprAST::TupleMemberAccess(tpl, index, pos) => {
                 let (elem_type, ptr, _sq) = self.get_indexed_tuple_ptr_and_type(tpl, *index, pos, env, break_catcher, continue_catcher)?;
@@ -726,6 +726,7 @@ impl<'ctx> CodeGen<'ctx> {
 
     pub fn gen_tuple_literal<'b, 'c>(&self,
         list: &Vec<Box<ExprAST>>,
+        opt_tuple_ptr: Option<PointerValue<'ctx>>,
         env: &Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher<'_>>,
         continue_catcher: Option<&'c ContinueCatcher<'_>>,
@@ -751,7 +752,13 @@ impl<'ctx> CodeGen<'ctx> {
     
         let any_type = self.context.struct_type(&type_list, false);
         let basic_type = BasicTypeEnum::try_from(any_type).unwrap();
-        let tuple_ptr = self.builder.build_alloca(basic_type, "tuple_literal")?;
+
+        let tuple_ptr;
+        if let Some(tpl_ptr) = opt_tuple_ptr {
+            tuple_ptr = tpl_ptr;
+        }else{
+            tuple_ptr = self.builder.build_alloca(basic_type, "tuple_literal")?;
+        }
     
         //
         // store each element to tuple structure

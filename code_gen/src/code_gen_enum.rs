@@ -241,7 +241,7 @@ impl<'ctx> CodeGen<'ctx> {
 
                 }else{
                     let expr_list = tuple_literal.get_expr_list();
-                    let initialized_literal = self.gen_tuple_literal(expr_list, env, break_catcher, continue_catcher, pos)?;
+                    let initialized_literal = self.gen_tuple_literal(expr_list, Some(tuple_ptr), env, break_catcher, continue_catcher, pos)?;
                     let _initialized_literal = initialized_literal.ok_or(CodeGenError::cannot_init_enum(literal.get_type().get_type_name(), pos.clone()))?;
                 }
 
