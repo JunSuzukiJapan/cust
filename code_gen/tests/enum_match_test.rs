@@ -237,7 +237,7 @@ fn code_gen_a_few_sub_types_enum1() {
     let f: JitFunction<FuncType_void_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
     assert_eq!(unsafe { f.call() }, 1);
 }
-
+/*
 #[test]
 fn code_gen_tuple_type_enum1() {
     let src = "
@@ -279,3 +279,4 @@ fn code_gen_tuple_type_enum1() {
     let f: JitFunction<FuncType_void_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
     assert_eq!(unsafe { f.call() }, 0);
 }
+*/

@@ -176,7 +176,6 @@ impl<'ctx> CodeGen<'ctx> {
         &self,
         literal: &EnumLiteral,
         tag: &u64,
-        // type_variables: &Option<Vec<String>>,
         env: &Env<'ctx>,
         break_catcher: Option<&BreakCatcher>,
         continue_catcher: Option<&ContinueCatcher>,
@@ -230,29 +229,21 @@ impl<'ctx> CodeGen<'ctx> {
                 let vec: Vec<BasicTypeEnum> = vec!(tag_type.into(), raw_type);
                 let tagged_type = self.context.struct_type(&vec, false);
                 let tagged_ptr = self.builder.build_alloca(tagged_type, "enum_literal")?;
-                let tag_ptr = self.builder.build_struct_gep(tagged_type, tagged_ptr, 0, "struct_gep_in_tagged_enum")?;
-                let struct_ptr = self.builder.build_struct_gep(tagged_type, tagged_ptr, 1, "struct_gep_in_tagged_enum")?;
-
+                let tag_ptr = self.builder.build_struct_gep(tagged_type, tagged_ptr, 0, "struct_gep_for_tag_in_tagged_enum")?;
+                let tuple_ptr = self.builder.build_struct_gep(tagged_type, tagged_ptr, 1, "struct_gep_for_tuple_in_tagged_enum")?;
                 let tag_value = tag_type.const_int(*tag as u64, false);
                 let _ = self.builder.build_store(tag_ptr, tag_value);
 
                 if tuple_literal.is_const() {
                     let const_list = tuple_literal.get_const_list();
-
-                    let initialized_literal = self.gen_tuple_literal_from_const_expr_list(const_list, typ, env, break_catcher, continue_catcher, pos)?;
+                    let initialized_literal = self.gen_tuple_literal_from_const_expr_list(const_list, tuple_ptr, typ, env, break_catcher, continue_catcher, pos)?;
                     let _initialized_literal = initialized_literal.ok_or(CodeGenError::cannot_init_enum(literal.get_type().get_type_name(), pos.clone()))?;
-
 
                 }else{
                     let expr_list = tuple_literal.get_expr_list();
                     let initialized_literal = self.gen_tuple_literal(expr_list, env, break_catcher, continue_catcher, pos)?;
                     let _initialized_literal = initialized_literal.ok_or(CodeGenError::cannot_init_enum(literal.get_type().get_type_name(), pos.clone()))?;
-
-
                 }
-
-                // let initialized_literal = self.gen_tuple_literal(expr_list, struct_ptr, env, break_catcher, continue_catcher)?;
-                // let _initialized_literal = initialized_literal.ok_or(CodeGenError::cannot_init_enum(literal.get_type().get_type_name(), pos.clone()))?;
 
                 let basic_val = self.builder.build_load(tagged_type, tagged_ptr, &format!("load_enum_literal"))?;
                 let any_val = basic_val.as_any_value_enum();

@@ -780,6 +780,7 @@ impl<'ctx> CodeGen<'ctx> {
 
     pub fn gen_tuple_literal_from_const_expr_list<'b, 'c>(&self,
         const_list: &Vec<ConstExpr>,
+        tuple_ptr: PointerValue<'ctx>,
         tuple_type: &Rc<Type>,
         env: &Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher<'_>>,
@@ -802,7 +803,7 @@ impl<'ctx> CodeGen<'ctx> {
     
         let any_type = self.context.struct_type(&type_list, false);
         let basic_type = BasicTypeEnum::try_from(any_type).unwrap();
-        let tuple_ptr = self.builder.build_alloca(basic_type, "const_tuple_literal")?;
+        // let const_tuple_ptr = self.builder.build_alloca(basic_type, "const_tuple_literal")?;
     
         //
         // store each element to tuple structure

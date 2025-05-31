@@ -590,6 +590,7 @@ impl<'ctx> CodeGen<'ctx> {
 
         // check length
         let arg_type = arg.get_type();
+eprintln!("arg: {:?}", arg);
         let tpl_type_list = arg_type.get_tuple_type_list().ok_or(CodeGenError::not_tuple(Rc::clone(arg_type), pos.clone()))?;
         if tpl_pattern_list.len() != tpl_type_list.len() {
             return Err(CodeGenError::tuple_length_mismatch(tpl_pattern_list.len(), tpl_type_list.len(), pos.clone()).into());
@@ -700,12 +701,15 @@ impl<'ctx> CodeGen<'ctx> {
                 let left_value = left.get_value();
                 let right_value = right.get_value();
                 let comparison = self.builder.build_int_compare(IntPredicate::EQ, left_value.into_int_value(), right_value.into_int_value(), "match_compare_number")?;
-                self.builder.build_conditional_branch(comparison, all_match_then_block, else_block)?;
+                let old_next_block = next_block;
+                let mut next_block = self.context.append_basic_block(func, "match_enum.next");
+                // self.builder.build_conditional_branch(comparison, all_match_then_block, else_block)?;
+                self.builder.build_conditional_branch(comparison, next_block, else_block)?;
     
                 //
                 // tag matched
                 //
-                self.builder.position_at_end(all_match_then_block);
+                self.builder.position_at_end(next_block);
                 let llvm_struct_ptr = self.gen_get_struct_ptr_from_enum(arg)?;
 
                 let enum_type = env.get_type_or_union(type_name).ok_or(CodeGenError::no_such_a_type(type_name, pos.clone()))?;
@@ -717,24 +721,22 @@ impl<'ctx> CodeGen<'ctx> {
                 let (cust_type, llvm_type) = type_list.get(*index).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), sub_name.to_string(), pos.clone()))?;
                 let tpl_type_list = cust_type.get_tuple_type_list().ok_or(CodeGenError::not_tuple_in_enum(type_name.to_string(), sub_name.to_string(), pos.clone()))?;
 
+                let tagged_tuple_type = llvm_type.into_struct_type();
+                let tuple_type = tagged_tuple_type.get_field_type_at_index(1).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), sub_name.to_string(), pos.clone()))?.into_struct_type();
+
                 // check length
                 if pattern_list.len() != tpl_type_list.len() {
                     return Err(CodeGenError::tuple_length_mismatch(pattern_list.len(), tpl_type_list.len(), pos.clone()).into());
                 }
 
-                // let llvm_type = TypeUtil::to_llvm_type(&arg_type, self.context, pos)?;
-                let struct_type = llvm_type.into_struct_type();
-                let struct_value = arg.get_value().into_struct_value();
-                let ptr = struct_value.get_field_at_index(0 as u32).unwrap().into_pointer_value();
-
                 // check items
-                let mut next_block = next_block;
+                // let mut next_block = next_block;
                 let mut current_block = self.builder.get_insert_block().unwrap();
                 let len = pattern_list.len();
                 for i in 0..len {
                     let pat_list = &pattern_list[i];
-                    let raw_field_type = struct_type.get_field_type_at_index(i as u32).unwrap();
-                    let ptr_to_value = self.builder.build_struct_gep(struct_type, ptr, i as u32, "get_tuple_item")?;
+                    let raw_field_type = tuple_type.get_field_type_at_index(i as u32).unwrap();
+                    let ptr_to_value = self.builder.build_struct_gep(tuple_type, llvm_struct_ptr, i as u32, "get_tuple_item")?;
                     let value = self.builder.build_load(raw_field_type, ptr_to_value, "load_tuple_item")?;
                     let field_type = &tpl_type_list[i];
                     let compiled_value = CompiledValue::new(Rc::clone(field_type), value.as_any_value_enum());
@@ -751,7 +753,8 @@ impl<'ctx> CodeGen<'ctx> {
                 }
 
                 if ! self.last_is_jump_statement(next_block) {
-                    self.builder.build_unconditional_branch(all_match_then_block)?;
+                    // self.builder.build_unconditional_branch(all_match_then_block)?;
+                    self.builder.build_unconditional_branch(old_next_block)?;
                 }
             },
             //
@@ -849,7 +852,6 @@ impl<'ctx> CodeGen<'ctx> {
         let v = value.get_value();
         let st_value = v.into_struct_value();
         let ty = st_value.get_type();
-
         let ptr = st_value.get_field_at_index(0).unwrap().into_pointer_value();
         let struct_ptr = self.builder.build_struct_gep(ty, ptr, 1, "get_struct_ptr")?;
 
