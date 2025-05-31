@@ -237,7 +237,7 @@ fn code_gen_a_few_sub_types_enum1() {
     let f: JitFunction<FuncType_void_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
     assert_eq!(unsafe { f.call() }, 1);
 }
-/*
+
 #[test]
 fn code_gen_tuple_type_enum1() {
     let src = "
@@ -250,13 +250,13 @@ fn code_gen_tuple_type_enum1() {
         };
 
         int test() {
-            enum Foo x = Foo::Bar(
+            enum Foo foo = Foo::Bar(
                 1,
                 2
             );
 
-            if let (Foo::Bar ( x, y ) = x) {
-                return 1;
+            if let (Foo::Bar ( x, y ) = foo) {
+                return x + y;
             }else{
                 return 0;
             }
@@ -277,6 +277,5 @@ fn code_gen_tuple_type_enum1() {
     }
 
     let f: JitFunction<FuncType_void_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
-    assert_eq!(unsafe { f.call() }, 0);
+    assert_eq!(unsafe { f.call() }, 3);
 }
-*/
