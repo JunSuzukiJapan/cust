@@ -795,7 +795,7 @@ impl<'ctx> CodeGen<'ctx> {
         pos: &Position
     ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error + 'static>> {
         //
-        // each element to basic value
+        // calc type
         //
         let mut type_list = Vec::new();
         let mut cust_type_list = Vec::new();
@@ -807,27 +807,21 @@ impl<'ctx> CodeGen<'ctx> {
             type_list.push(t);
             cust_type_list.push(typ.clone());
         }
-    
+
         let any_type = self.context.struct_type(&type_list, false);
         let basic_type = BasicTypeEnum::try_from(any_type).unwrap();
-        // let const_tuple_ptr = self.builder.build_alloca(basic_type, "const_tuple_literal")?;
-    
+
         //
-        // store each element to tuple structure
+        // make const tuple
         //
-        let i32_type = self.context.i32_type();
-        let const_zero = i32_type.const_int(0, false);
-        let mut index = 0;
+        let mut vec = Vec::new();
         for const_expr in const_list {
             let basic_value = self.const_expr_to_basic_value_enum(const_expr);
-            let const_index = i32_type.const_int(index, false);
-            let indexes = vec![const_zero, const_index];
-            let ptr = unsafe { self.builder.build_in_bounds_gep(basic_type, tuple_ptr, &indexes, "gep_for_tuple_element")? };
-            let _result = self.builder.build_store(ptr, basic_value);
-    
-            index += 1;
+            vec.push(basic_value);
         }
-    
+        let values = self.context.const_struct(&vec, false);
+        let _result = self.builder.build_store(tuple_ptr, values.as_basic_value_enum());
+
         //
         // return result
         //
