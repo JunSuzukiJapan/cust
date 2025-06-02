@@ -61,8 +61,9 @@ impl<'ctx> CodeGen<'ctx> {
     pub fn try_new(context: &'ctx Context, module_name: &str) -> Result<CodeGen<'ctx>, Box<dyn Error>> {
         let module = context.create_module(module_name);
         let execution_engine = module.create_jit_execution_engine(OptimizationLevel::None)?;
-        let enum_tag_type = Rc::new(Type::Number(global().enum_tag_type.clone()));
-        let enum_tag_llvm_type = context.i64_type();
+        let enum_tag_number_type = global().enum_tag_type().clone();
+        let enum_tag_type = Rc::new(Type::Number(enum_tag_number_type));
+        let enum_tag_llvm_type = TypeUtil::to_llvm_type(&enum_tag_type, context, &Position::new(1, 1))?.into_int_type();
         let t = Type::Array {
             name: None,
             typ: Box::new(Rc::new(Type::Number(NumberType::Long))),
@@ -466,8 +467,6 @@ impl<'ctx> CodeGen<'ctx> {
                 }
             },
             Initializer::Array(vec_init, typ, pos) => {
-                // let mut list = Vec::new();
-
                 self.gen_array_initializer(vec_init, typ, pos, env, break_catcher, continue_catcher)
             },
             Initializer::Struct(vec_init, _typ, _pos) => {

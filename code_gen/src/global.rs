@@ -3,16 +3,22 @@ use std::sync::OnceLock;
 use crate::parser::{NumberType};
 
 pub struct Global {
-    pub enum_tag_type: NumberType,
+    enum_tag_type: NumberType,
 }
 
 impl Global {
     fn new() -> Self {
-        let enum_tag_type = NumberType::Long;
+        // let enum_tag_type = NumberType::Long;
+        let enum_tag_type = NumberType::UnsignedInt;
 
         Global {
             enum_tag_type,
         }
+    }
+
+    #[inline]
+    pub fn enum_tag_type(&self) -> &NumberType {
+        &self.enum_tag_type
     }
 }
 
@@ -21,8 +27,3 @@ pub fn global() -> &'static Global {
     INSTANCE.get_or_init(|| Global::new())
 }
 
-// pub fn enum_tag_type() -> Type {
-//     let global = global();
-//     let num_type = global.enum_tag_type.clone();
-//     Type::Number(num_type)
-// }

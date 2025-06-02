@@ -1388,7 +1388,6 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(Some(compiled_value))
     }
 
-
     pub fn get_l_value_with_const_check<'b, 'c>(&self,
         ast: &ExprAST,
         env: &Env<'ctx>,

@@ -590,7 +590,6 @@ impl<'ctx> CodeGen<'ctx> {
 
         // check length
         let arg_type = arg.get_type();
-eprintln!("arg: {:?}", arg);
         let tpl_type_list = arg_type.get_tuple_type_list().ok_or(CodeGenError::not_tuple(Rc::clone(arg_type), pos.clone()))?;
         if tpl_pattern_list.len() != tpl_type_list.len() {
             return Err(CodeGenError::tuple_length_mismatch(tpl_pattern_list.len(), tpl_type_list.len(), pos.clone()).into());
