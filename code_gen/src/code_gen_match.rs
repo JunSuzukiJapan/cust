@@ -18,6 +18,254 @@ use std::error::Error;
 use std::rc::Rc;
 
 impl<'ctx> CodeGen<'ctx> {
+    pub fn gen_do_match<'b, 'c>(
+        &self,
+        pattern_list_list: &'ctx Vec<(Vec<Box<Pattern>>, Box<AST>)>,
+        condition: &ExprAST,
+        pos: &Position,
+        env: &mut Env<'ctx>,
+        break_catcher: Option<&'b BreakCatcher>,
+        continue_catcher: Option<&'c ContinueCatcher>
+    ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
+
+        let (_fun_type, func) = env.get_current_function().ok_or(CodeGenError::no_current_function(pos.clone()))?;
+        let func = func.clone();
+        let cond_block = self.context.append_basic_block(func, "match.cond");
+        let end_block  = self.context.append_basic_block(func, "match.end");
+
+        self.builder.build_unconditional_branch(cond_block)?;
+        self.builder.position_at_end(cond_block);
+
+        // generate condition
+        let cond = self.gen_expr(condition, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::condition_is_not_number(condition, (*condition).get_position().clone()))?;
+
+        // match patterns
+        let mut else_block = end_block;
+
+        for i in 0..pattern_list_list.len() {
+            // set then block
+            let then_block = self.context.append_basic_block(func, "match.then");
+            // set else block
+            if i == pattern_list_list.len() - 1 {
+                // last pattern
+                else_block = end_block;
+            } else {
+                else_block = self.context.append_basic_block(func, "match.else");
+            }
+
+            env.add_new_local();
+
+            // match patterns
+            let (pattern_list, then) = &pattern_list_list[i];
+            let _ = self.gen_pattern_match(
+                pattern_list,
+                pos,
+                &cond,
+                env,
+                func,
+                then_block,
+                then_block,
+                else_block
+            )?;
+
+            let current_block = self.builder.get_insert_block().unwrap();
+
+            if ! self.last_is_jump_statement(cond_block) {
+                self.builder.position_at_end(cond_block);
+                self.builder.build_unconditional_branch(then_block)?;
+            }
+
+            // then block
+            self.builder.position_at_end(then_block);
+            self.gen_stmt(&then, env, break_catcher, continue_catcher)?;
+            if let Some(blk) = self.builder.get_insert_block() {
+                if ! self.last_is_jump_statement(blk) {
+                    self.builder.position_at_end(blk);
+                    self.builder.build_unconditional_branch(end_block)?;
+                }
+            }
+            if ! self.last_is_jump_statement(then_block) {
+                self.builder.position_at_end(then_block);
+                self.builder.build_unconditional_branch(end_block)?;
+            }
+
+            env.remove_local();
+
+            if ! self.last_is_jump_statement(current_block) {
+                self.builder.position_at_end(current_block);
+                self.builder.build_unconditional_branch(then_block)?;
+            }
+
+            self.builder.position_at_end(current_block);
+
+            // next else block
+            self.builder.position_at_end(else_block);
+        }
+
+        Ok(None)
+    }
+
+    pub fn gen_if_let<'b, 'c>(
+        &self,
+        pattern_list: &Vec<Box<Pattern>>,
+        condition: &ExprAST,
+        then: &'ctx AST,
+        else_: &'ctx Option<Box<AST>>,
+        pos: &Position,
+        env: &mut Env<'ctx>,
+        break_catcher: Option<&'b BreakCatcher>,
+        continue_catcher: Option<&'c ContinueCatcher>
+    ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
+
+        let (_fun_type, func) = env.get_current_function().ok_or(CodeGenError::no_current_function(pos.clone()))?;
+        let func = func.clone();
+        let cond_block = self.context.append_basic_block(func, "if_let.cond");
+        let then_block = self.context.append_basic_block(func, "if_let.then");
+        let else_block = self.context.append_basic_block(func, "if_let.else");
+        let end_block  = self.context.append_basic_block(func, "if_let.end");
+
+        self.builder.build_unconditional_branch(cond_block)?;
+        self.builder.position_at_end(cond_block);
+
+        env.add_new_local();
+
+        // match patterns
+        let cond = self.gen_expr(condition, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::condition_is_not_number(condition, (*condition).get_position().clone()))?;
+        let _ = self.gen_pattern_match(
+            pattern_list,
+            pos,
+            &cond,
+            env,
+            func,
+            then_block,
+            then_block,
+            else_block
+        )?;
+
+        if ! self.last_is_jump_statement(cond_block) {
+            self.builder.position_at_end(cond_block);
+            self.builder.build_unconditional_branch(then_block)?;
+        }
+
+        // then block
+        self.builder.position_at_end(then_block);
+        self.gen_stmt(then, env, break_catcher, continue_catcher)?;
+        if let Some(blk) = self.builder.get_insert_block() {
+            if ! self.last_is_jump_statement(blk) {
+                self.builder.position_at_end(blk);
+                self.builder.build_unconditional_branch(end_block)?;
+            }
+        }
+        if ! self.last_is_jump_statement(then_block) {
+            self.builder.position_at_end(then_block);
+            self.builder.build_unconditional_branch(end_block)?;
+        }
+
+        env.remove_local();
+
+        // else block
+        self.builder.position_at_end(else_block);
+        if let Some(expr) = else_ {
+            self.gen_stmt(expr, env, break_catcher, continue_catcher)?;
+            if let Some(blk) = self.builder.get_insert_block() {
+                if ! self.last_is_jump_statement(blk) {
+                    self.builder.position_at_end(blk);
+                    self.builder.build_unconditional_branch(end_block)?;
+                }
+            }
+        }
+        if ! self.last_is_jump_statement(else_block) {
+            self.builder.position_at_end(else_block);
+            self.builder.build_unconditional_branch(end_block)?;
+        }
+
+        // end block
+        self.builder.position_at_end(end_block);
+
+        Ok(None)
+    }
+
+    fn gen_pattern_match<'b, 'c>(&self,
+        pattern_list: &Vec<Box<Pattern>>,
+        pattern_pos: &Position,
+        value: &CompiledValue<'ctx>,
+        env: &mut Env<'ctx>,
+        func: FunctionValue<'ctx>,
+        next_block: BasicBlock<'ctx>,
+        all_match_then_block: BasicBlock<'ctx>,
+        else_block: BasicBlock<'ctx>,
+    ) -> Result<(), Box<dyn Error>> {
+
+        let mut pattern_name = &None;
+
+        for pat in pattern_list {
+            match &**pat {
+                Pattern::Var(name, opt_at_name, pos) => {
+                    self.gen_var_match(value, all_match_then_block, env, pos, name)?;
+                    pattern_name = opt_at_name;
+                    break;  // シンボルは、すべてにマッチするので、この後のパターンにマッチすることはないはず。
+                },
+                Pattern::Char(ch, opt_at_name, pos) => {
+                    self.gen_char_match(value, next_block, else_block, pos, ch)?;
+                    pattern_name = opt_at_name;
+                },
+                Pattern::CharRange(ch1, ch2, opt_at_name, pos) => {
+                    self.gen_char_range_match(value, next_block, else_block, func, pos, ch1, ch2)?;
+                    pattern_name = opt_at_name;
+                },
+                Pattern::Number(num, opt_at_name, pos) => {
+                    self.gen_number_match(value, next_block, all_match_then_block, else_block, env, pos, num)?;
+                    pattern_name = opt_at_name;
+                },
+                Pattern::NumberRange(num1, num2, opt_at_name, pos) => {
+                    self.gen_number_range_match(value, next_block, else_block, func, pos, num1, num2)?;
+                    pattern_name = opt_at_name;
+                },
+                Pattern::Str(s, opt_at_name, pos) => {
+                    self.gen_str_match(value, next_block, else_block, env, func, pos, s)?;
+                    pattern_name = opt_at_name;
+                },
+                Pattern::Struct(struct_pat, opt_at_name, pos) => {
+                    self.gen_match_struct_pattern(struct_pat, value, next_block, all_match_then_block, else_block, env, func, pos)?;
+                    pattern_name = opt_at_name;
+                },
+                Pattern::Tuple(tpl_item_list, opt_at_name, pos) => {
+                    self.gen_match_tuple_pattern(tpl_item_list, value, next_block, all_match_then_block, else_block, env, func, pos)?;
+                    pattern_name = opt_at_name;
+                },
+                Pattern::Enum(enum_pat, opt_at_name, pos) => {
+                    self.gen_match_enum_pattern(enum_pat, value, next_block, all_match_then_block, else_block, env, func, pos)?;
+                    pattern_name = opt_at_name;
+                },
+                Pattern::OrList(pattern_list, opt_at_name, _pos) => {
+                    self.gen_pattern_match(pattern_list, pattern_pos, value, env, func, next_block, all_match_then_block, else_block)?;
+                    pattern_name = opt_at_name;
+                },
+            }
+        }
+
+        // '@' に対応する。
+        if let Some(alias_name) = pattern_name {
+            let current_block = self.builder.get_insert_block().unwrap();
+            self.builder.position_at_end(all_match_then_block);
+
+            let sq = SpecifierQualifier::default();
+            let typ = value.get_type();
+            let basic_type = env.basic_type_enum_from_type(&typ, self.context, pattern_pos)?;
+            let ptr = self.builder.build_alloca(basic_type, alias_name)?;
+
+            let any_value = value.get_value();
+            let basic_value = self.try_as_basic_value(&any_value, pattern_pos)?;
+            self.builder.build_store(ptr, basic_value)?;
+
+            env.insert_local(alias_name, Rc::clone(typ), sq, ptr);
+
+            self.builder.position_at_end(current_block);
+        }
+
+        Ok(())
+    }
+
     fn code_gen_fun_string_match_body(&self, current_function: FunctionValue<'ctx>) -> Result<(), Box<dyn Error>> {
         let loop_pre_condition = self.context.append_basic_block(current_function, "loop.pre_condition");
         let loop_start = self.context.append_basic_block(current_function, "loop.start");
@@ -193,168 +441,6 @@ impl<'ctx> CodeGen<'ctx> {
 
         Ok(int_val)
     }
-
-    pub fn gen_if_let<'b, 'c>(
-        &self,
-        pattern_list: &Vec<Box<Pattern>>,
-        condition: &ExprAST,
-        then: &'ctx AST,
-        else_: &'ctx Option<Box<AST>>,
-        pos: &Position,
-        env: &mut Env<'ctx>,
-        break_catcher: Option<&'b BreakCatcher>,
-        continue_catcher: Option<&'c ContinueCatcher>
-    ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
-
-        let (_fun_type, func) = env.get_current_function().ok_or(CodeGenError::no_current_function(pos.clone()))?;
-        let func = func.clone();
-        let cond_block = self.context.append_basic_block(func, "if_let.cond");
-        let then_block = self.context.append_basic_block(func, "if_let.then");
-        let else_block = self.context.append_basic_block(func, "if_let.else");
-        let end_block  = self.context.append_basic_block(func, "if_let.end");
-
-        self.builder.build_unconditional_branch(cond_block)?;
-        self.builder.position_at_end(cond_block);
-
-        env.add_new_local();
-// eprintln!("ADD NEW LOCAL");
-
-        // match patterns
-        let cond = self.gen_expr(condition, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::condition_is_not_number(condition, (*condition).get_position().clone()))?;
-        let _ = self.gen_pattern_match(
-            pattern_list,
-            pos,
-            &cond,
-            env,
-            func,
-            then_block,
-            then_block,
-            else_block
-        )?;
-
-        if ! self.last_is_jump_statement(cond_block) {
-            self.builder.position_at_end(cond_block);
-            self.builder.build_unconditional_branch(then_block)?;
-        }
-
-        // then block
-        self.builder.position_at_end(then_block);
-        self.gen_stmt(then, env, break_catcher, continue_catcher)?;
-        if let Some(blk) = self.builder.get_insert_block() {
-            if ! self.last_is_jump_statement(blk) {
-                self.builder.position_at_end(blk);
-                self.builder.build_unconditional_branch(end_block)?;
-            }
-        }
-        if ! self.last_is_jump_statement(then_block) {
-            self.builder.position_at_end(then_block);
-            self.builder.build_unconditional_branch(end_block)?;
-        }
-
-        env.remove_local();
-// eprintln!("REMOVE LOCAL");
-        // else block
-        self.builder.position_at_end(else_block);
-        if let Some(expr) = else_ {
-            self.gen_stmt(expr, env, break_catcher, continue_catcher)?;
-            if let Some(blk) = self.builder.get_insert_block() {
-                if ! self.last_is_jump_statement(blk) {
-                    self.builder.position_at_end(blk);
-                    self.builder.build_unconditional_branch(end_block)?;
-                }
-            }
-        }
-        if ! self.last_is_jump_statement(else_block) {
-            self.builder.position_at_end(else_block);
-            self.builder.build_unconditional_branch(end_block)?;
-        }
-
-        // end block
-        self.builder.position_at_end(end_block);
-
-        Ok(None)
-    }
-
-    fn gen_pattern_match<'b, 'c>(&self,
-        pattern_list: &Vec<Box<Pattern>>,
-        pattern_pos: &Position,
-        value: &CompiledValue<'ctx>,
-        env: &mut Env<'ctx>,
-        func: FunctionValue<'ctx>,
-        next_block: BasicBlock<'ctx>,
-        all_match_then_block: BasicBlock<'ctx>,
-        else_block: BasicBlock<'ctx>,
-    ) -> Result<(), Box<dyn Error>> {
-
-        let mut pattern_name = &None;
-
-        for pat in pattern_list {
-            match &**pat {
-                Pattern::Var(name, opt_at_name, pos) => {
-                    self.gen_var_match(value, all_match_then_block, env, pos, name)?;
-                    pattern_name = opt_at_name;
-                    break;  // シンボルは、すべてにマッチするので、この後のパターンにマッチすることはないはず。
-                },
-                Pattern::Char(ch, opt_at_name, pos) => {
-                    self.gen_char_match(value, next_block, else_block, pos, ch)?;
-                    pattern_name = opt_at_name;
-                },
-                Pattern::CharRange(ch1, ch2, opt_at_name, pos) => {
-                    self.gen_char_range_match(value, next_block, else_block, func, pos, ch1, ch2)?;
-                    pattern_name = opt_at_name;
-                },
-                Pattern::Number(num, opt_at_name, pos) => {
-                    self.gen_number_match(value, next_block, all_match_then_block, else_block, env, pos, num)?;
-                    pattern_name = opt_at_name;
-                },
-                Pattern::NumberRange(num1, num2, opt_at_name, pos) => {
-                    self.gen_number_range_match(value, next_block, else_block, func, pos, num1, num2)?;
-                    pattern_name = opt_at_name;
-                },
-                Pattern::Str(s, opt_at_name, pos) => {
-                    self.gen_str_match(value, next_block, else_block, env, func, pos, s)?;
-                    pattern_name = opt_at_name;
-                },
-                Pattern::Struct(struct_pat, opt_at_name, pos) => {
-                    self.gen_match_struct_pattern(struct_pat, value, next_block, all_match_then_block, else_block, env, func, pos)?;
-                    pattern_name = opt_at_name;
-                },
-                Pattern::Tuple(tpl_item_list, opt_at_name, pos) => {
-                    self.gen_match_tuple_pattern(tpl_item_list, value, next_block, all_match_then_block, else_block, env, func, pos)?;
-                    pattern_name = opt_at_name;
-                },
-                Pattern::Enum(enum_pat, opt_at_name, pos) => {
-                    self.gen_match_enum_pattern(enum_pat, value, next_block, all_match_then_block, else_block, env, func, pos)?;
-                    pattern_name = opt_at_name;
-                },
-                Pattern::OrList(pattern_list, opt_at_name, _pos) => {
-                    self.gen_pattern_match(pattern_list, pattern_pos, value, env, func, next_block, all_match_then_block, else_block)?;
-                    pattern_name = opt_at_name;
-                },
-            }
-        }
-
-        // '@' に対応する。
-        if let Some(alias_name) = pattern_name {
-            let current_block = self.builder.get_insert_block().unwrap();
-            self.builder.position_at_end(all_match_then_block);
-
-            let sq = SpecifierQualifier::default();
-            let typ = value.get_type();
-            let basic_type = env.basic_type_enum_from_type(&typ, self.context, pattern_pos)?;
-            let ptr = self.builder.build_alloca(basic_type, alias_name)?;
-
-            let any_value = value.get_value();
-            let basic_value = self.try_as_basic_value(&any_value, pattern_pos)?;
-            self.builder.build_store(ptr, basic_value)?;
-
-            env.insert_local(alias_name, Rc::clone(typ), sq, ptr);
-
-            self.builder.position_at_end(current_block);
-        }
-
-        Ok(())
-    }
     
     fn gen_var_match(&self,
         value: &CompiledValue<'ctx>,
@@ -381,7 +467,7 @@ impl<'ctx> CodeGen<'ctx> {
 
         Ok(())
     }
-    
+
     fn gen_char_match(&self,
         value: &CompiledValue<'ctx>,
         next_block: BasicBlock<'ctx>,

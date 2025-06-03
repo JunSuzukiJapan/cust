@@ -1277,9 +1277,8 @@ pub enum AST {
         pos: Position,
     },
     Match {
-        expr: Box<ExprAST>,
-        // pattern_list_list: Vec<((Vec<Box<Pattern>>, Option<String>), Box<AST>)>,
         pattern_list_list: Vec<(Vec<Box<Pattern>>, Box<AST>)>,
+        expr: Box<ExprAST>,
         pos: Position,
     },
     Loop {
