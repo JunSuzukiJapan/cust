@@ -211,7 +211,7 @@ impl<'ctx> CodeGen<'ctx> {
 
         let mut pattern_name = &None;
 
-        let mut or_next_block = None;
+        let mut or_next_block;
         for i in 0..pattern_list.len() {
             let pat = &pattern_list[i];
             if i == pattern_list.len() - 1 {
