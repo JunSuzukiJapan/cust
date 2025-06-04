@@ -41,14 +41,14 @@ impl<'ctx> CodeGen<'ctx> {
 
         // match patterns
         let mut else_block = None;
-        let mut old_else_block: Option<BasicBlock<'_>> = None;
+        let mut prev_else_block: Option<BasicBlock<'_>> = None;
         let mut then_block = None;
 
         for i in 0..pattern_list_list.len() {
             // set then block
             then_block = Some(self.context.append_basic_block(func, "match.then"));
 
-            if let Some(blk) = old_else_block {
+            if let Some(blk) = prev_else_block {
                 if ! self.last_is_jump_statement(blk) {
                     let current_block = self.builder.get_insert_block().unwrap();
 
@@ -60,7 +60,7 @@ impl<'ctx> CodeGen<'ctx> {
             }
 
             // set else block
-            old_else_block = else_block;
+            prev_else_block = else_block;
             if i == pattern_list_list.len() - 1 {
                 // last pattern
                 else_block = Some(end_block);
@@ -104,7 +104,7 @@ impl<'ctx> CodeGen<'ctx> {
             self.builder.position_at_end(else_block.unwrap());
         }
 
-        if let Some(blk) = old_else_block {
+        if let Some(blk) = prev_else_block {
             if ! self.last_is_jump_statement(blk) && then_block.is_some() {
                 let current_block = self.builder.get_insert_block().unwrap();
 
@@ -265,11 +265,6 @@ impl<'ctx> CodeGen<'ctx> {
                 },
             }
 
-            let current_block = self.builder.get_insert_block().unwrap();
-            if ! self.last_is_jump_statement(current_block) {
-                self.builder.position_at_end(current_block);
-                self.builder.build_unconditional_branch(or_next_block.unwrap())?;
-            }
             self.builder.position_at_end(or_next_block.unwrap());
         }
 
