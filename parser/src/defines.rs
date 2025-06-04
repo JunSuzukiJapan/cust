@@ -1,6 +1,6 @@
-use crate::{ExprAST, Initializer};
+use crate::{Initializer};
 
-use super::{ParserError, Type, ConstExpr, DeclarationSpecifier, Declarator, Params, NumberType, Pointer, BinOp};
+use super::{ParserError, Type, ConstExpr, DeclarationSpecifier, Declarator, Params};
 use super::{StructDefinition, EnumDefinition, Position};
 
 use std::collections::HashMap;

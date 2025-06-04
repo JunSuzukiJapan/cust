@@ -1579,7 +1579,7 @@ impl<'ctx> CodeGen<'ctx> {
                     env.insert_local_type(&pat_name, Rc::clone(expr_type));
                 }
             },
-            Pattern::OrList(list, opt_name, _pos) => {
+            Pattern::OrList(_list, _opt_name, _pos) => {
 
 
 

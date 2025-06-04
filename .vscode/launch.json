@@ -19,7 +19,7 @@
                     "kind": "bin"
                 }
             },
-            "args": ["-c", "../cust_tmp/enum_tuple.cust"],
+            "args": ["-c", "../cust_tmp/t1.cust"],
             "cwd": "${workspaceFolder}"
         },
         {

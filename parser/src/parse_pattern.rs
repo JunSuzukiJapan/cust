@@ -5,7 +5,6 @@ use super::ParserError;
 use super::parse::Parser;
 use super::defines::Defines;
 
-use std::clone;
 use std::collections::HashMap;
 use std::slice::Iter;
 use std::iter::Peekable;
@@ -412,8 +411,6 @@ impl Parser {
 
 #[cfg(test)]
 mod tests {
-    use std::char;
-
     use crate::{pattern, EnumDefinition};
 
     use super::*;

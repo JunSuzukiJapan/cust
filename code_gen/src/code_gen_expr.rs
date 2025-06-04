@@ -789,9 +789,6 @@ impl<'ctx> CodeGen<'ctx> {
         const_list: &Vec<ConstExpr>,
         tuple_ptr: PointerValue<'ctx>,
         tuple_type: &Rc<Type>,
-        env: &Env<'ctx>,
-        break_catcher: Option<&'b BreakCatcher<'_>>,
-        continue_catcher: Option<&'c ContinueCatcher<'_>>,
         pos: &Position
     ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error + 'static>> {
         //

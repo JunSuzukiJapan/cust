@@ -785,7 +785,7 @@ impl TupleLiteral {
     pub fn get_expr_list(&self) -> &Vec<Box<ExprAST>> {
         match self {
             TupleLiteral::NormalLiteral { list, .. } => list,
-            TupleLiteral::ConstLiteral { list, .. } => {
+            TupleLiteral::ConstLiteral { list: _, .. } => {
                 panic!("Cannot get expression list from constant tuple literal");
             },
         }

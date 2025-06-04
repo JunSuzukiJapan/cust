@@ -1,4 +1,4 @@
-use crate::parser::{Type, EnumDefinition, Enumerator, EnumLiteral, ast::TupleLiteral};
+use crate::parser::{Type, EnumDefinition, Enumerator, EnumLiteral};
 use super::{CodeGenError, CompiledValue};
 use super::Env;
 use super::env::{BreakCatcher, ContinueCatcher};
@@ -7,10 +7,9 @@ use crate::Position;
 use crate::CodeGen;
 
 use inkwell::context::Context;
-use inkwell::values::{IntValue, AnyValue, PointerValue, BasicValueEnum, BasicValue};
+use inkwell::values::{IntValue, AnyValue};
 use inkwell::types::{AnyTypeEnum, BasicTypeEnum, StructType};
 use inkwell::types::AnyType;
-use parser::ConstExpr;
 use std::error::Error;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -236,7 +235,7 @@ impl<'ctx> CodeGen<'ctx> {
 
                 if tuple_literal.is_const() {
                     let const_list = tuple_literal.get_const_list();
-                    let initialized_literal = self.gen_tuple_literal_from_const_expr_list(const_list, tuple_ptr, typ, env, break_catcher, continue_catcher, pos)?;
+                    let initialized_literal = self.gen_tuple_literal_from_const_expr_list(const_list, tuple_ptr, typ, pos)?;
                     let _initialized_literal = initialized_literal.ok_or(CodeGenError::cannot_init_enum(literal.get_type().get_type_name(), pos.clone()))?;
 
                 }else{
@@ -295,6 +294,7 @@ impl<'ctx> CodeGen<'ctx> {
     //     }
     // }
 
+    #[allow(dead_code)]
     fn tuple_type_from_type_list(list: &Vec<Rc<Type>>, ctx: &'ctx Context, pos: &Position) -> Result<StructType<'ctx>, Box<dyn Error>> {
         let mut vec = Vec::new();
 
