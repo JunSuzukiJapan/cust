@@ -129,6 +129,7 @@ pub enum CodeGenError {
     TupleLengthMismatch(usize, usize, Position),  // (expected, real, Position)
     NotStruct(Rc<Type>, Position),  // (real type, Position)
     NotTupleInEnum(String, String, Position),  // (enum name, field name, Position)
+    DifferentAtNameInPatternList(Vec<String>, Vec<String>, Option<Position>, Option<Position>),  // (expected, real, Position)
 }
 
 impl CodeGenError {
@@ -577,6 +578,15 @@ impl CodeGenError {
     pub fn not_tuple_in_enum(enum_name: String, field_name: String, pos: Position) -> Self {
         Self::NotTupleInEnum(enum_name, field_name, pos)
     }
+
+    pub fn different_at_name_in_pattern_list(
+        expected: Vec<String>,
+        real: Vec<String>,
+        expected_pos: Option<Position>,
+        real_pos: Option<Position>,
+    ) -> Self {
+        Self::DifferentAtNameInPatternList(expected, real, expected_pos, real_pos)
+    }
 }
 
 impl From<ParserError> for CodeGenError {
@@ -937,6 +947,13 @@ impl fmt::Display for CodeGenError {
             },
             Self::NotTupleInEnum(enum_name, field_name, _pos) => {
                 write!(f, "{field_name} is not tuple in enum '{enum_name}'")
+            },
+            Self::DifferentAtNameInPatternList(expected, _real, expected_pos, _real_pos) => {
+                if let Some(expected_pos) = expected_pos {
+                    write!(f, "different at name in pattern list. expected: {:?} at {:?}, ", expected, expected_pos)
+                } else {
+                    write!(f, "different at name in pattern list. expected: {:?}, unknown position", expected)
+                }
             },
         }
     }

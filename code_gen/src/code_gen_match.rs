@@ -16,6 +16,7 @@ use inkwell::{IntPredicate, AddressSpace};
 use parser::{NumberType, SpecifierQualifier, StructPattern};
 use std::error::Error;
 use std::rc::Rc;
+use std::collections::HashSet;
 
 impl<'ctx> CodeGen<'ctx> {
     pub fn gen_do_match<'b, 'c>(
@@ -209,6 +210,8 @@ impl<'ctx> CodeGen<'ctx> {
         else_block: BasicBlock<'ctx>,
     ) -> Result<(), Box<dyn Error>> {
 
+        self.check_at_name_in_pattern_or_list(pattern_list)?;
+
         let mut pattern_name = &None;
 
         let mut or_next_block;
@@ -285,6 +288,42 @@ impl<'ctx> CodeGen<'ctx> {
             env.insert_local(alias_name, Rc::clone(typ), sq, ptr);
 
             self.builder.position_at_end(current_block);
+        }
+
+        Ok(())
+    }
+
+    fn check_at_name_in_pattern_or_list<'b, 'c>(&self, pattern_list: &Vec<Box<Pattern>>) -> Result<(), Box<dyn Error>> {
+
+        let mut at_name_set_list: Vec<HashSet<String>> = Vec::new();
+
+        for pat in pattern_list {
+            let at_name_list = pat.get_at_name_list();
+
+            let mut at_name_set: std::collections::HashSet<String> = std::collections::HashSet::new();
+            for at_name in at_name_list {
+                // if at_name_set.contains(&at_name) {
+                //     return Err(CodeGenError::duplicate_at_name(at_name, pat.get_position().clone()).into());
+                // }
+                at_name_set.insert(at_name);
+            }
+
+            at_name_set_list.push(at_name_set);
+        }
+
+        for i in 0..at_name_set_list.len() {
+            for j in (i + 1)..at_name_set_list.len() {
+                let set1 = &at_name_set_list[i];
+                let set2 = &at_name_set_list[j];
+                if set1 != set2 {
+                    return Err(CodeGenError::different_at_name_in_pattern_list(
+                        set1.iter().cloned().collect(),
+                        set2.iter().cloned().collect(),
+                        pattern_list[i].get_position().map(|p| p.clone()),
+                        pattern_list[j].get_position().map(|p| p.clone())
+                    ).into());  
+                }
+            }
         }
 
         Ok(())

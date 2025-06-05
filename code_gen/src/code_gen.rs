@@ -782,7 +782,7 @@ impl<'ctx> CodeGen<'ctx> {
 
 
 
-        unimplemented!()
+        unimplemented!("impl-for is not implemented yet");
     }
 
     fn gen_impl_function<'b, 'c>(

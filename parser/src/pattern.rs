@@ -63,6 +63,90 @@ impl Pattern {
             Pattern::OrList(_, at_name, _) => *at_name = name,
         }
     }
+
+    pub fn get_at_name_list(&self) -> Vec<String> {
+        let mut name_list = Vec::new();
+        match self {
+            Pattern::Var(_, name, _) => {
+                name_list.push(name.clone().unwrap_or_else(|| "<var>".to_string()));
+            },
+            Pattern::Str(_, name, _) => {
+                name_list.push(name.clone().unwrap_or_else(|| "<str>".to_string()));
+            },
+            Pattern::Char(_, name, _) => {
+                name_list.push(name.clone().unwrap_or_else(|| "<char>".to_string()));
+            },
+            Pattern::CharRange(_, _, name, _) => {
+                name_list.push(name.clone().unwrap_or_else(|| "<char_range>".to_string()));
+            },
+            Pattern::Number(_, name, _) => {
+                name_list.push(name.clone().unwrap_or_else(|| "<number>".to_string()));
+            },
+            Pattern::NumberRange(_, _, name, _) => {
+                name_list.push(name.clone().unwrap_or_else(|| "<number_range>".to_string()));
+            },
+            Pattern::Enum(enum_pat, name, _) => {
+                name_list.push(name.clone().unwrap_or_else(|| "<enum>".to_string()));
+
+                match enum_pat {
+                    EnumPattern::Simple(_typ, _enum_name, _sub_name) => {
+                        // do nothing
+                    },
+                    EnumPattern::Tuple(_typ, _enum_name, _sub_name, pat_list_list) => {
+                        for pat_list in pat_list_list {
+                            for pat in pat_list {
+                                name_list.extend(pat.get_at_name_list());
+                            }
+                        }
+                    },
+                    EnumPattern::Struct(_typ, _enum_name, _sub_name, struct_pat) => {
+                        name_list.push(struct_pat.get_name().clone());
+
+                        let map = struct_pat.get_map();
+                        for key in struct_pat.get_keys() {
+                            let opt_pat_list = map.get(key);
+                            if let Some(Some(pat_list)) = opt_pat_list {
+                                for pat in pat_list {
+                                    name_list.extend(pat.get_at_name_list());
+                                }
+                            }
+                        }
+                    },
+                }
+            },
+            Pattern::Tuple(pat_list_list, name, _) => {
+                name_list.push(name.clone().unwrap_or_else(|| "<tuple>".to_string()));
+
+                for pat_list in pat_list_list {
+                    for pat in pat_list {
+                        name_list.extend(pat.get_at_name_list());
+                    }
+                }
+            },
+            Pattern::Struct(struct_pat, name, _) => {
+                name_list.push(name.clone().unwrap_or_else(|| "<struct>".to_string()));
+
+                let map = struct_pat.get_map();
+                for key in struct_pat.get_keys() {
+                    let opt_pat_list = map.get(key);
+                    if let Some(Some(pat_list)) = opt_pat_list {
+                        for pat in pat_list {
+                            name_list.extend(pat.get_at_name_list());
+                        }
+                    }
+                }
+            },
+            Pattern::OrList(pat_list, name, _) => {
+                name_list.push(name.clone().unwrap_or_else(|| "<or_list>".to_string()));
+
+                for pat in pat_list {
+                    name_list.extend(pat.get_at_name_list());
+                }
+            },
+        }
+
+        name_list
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
