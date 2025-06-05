@@ -446,13 +446,21 @@ impl TypeUtil {
                     Err(CodeGenError::not_tuple_in_tuple_access_by_index(*expr_ast.clone(), pos.clone()))
                 }
             },
-            ExprAST::TuplePointerAccess(_expr_ast, _index, _pos) => {
+            ExprAST::TuplePointerAccess(boxed_ast, index, pos) => {  // tpl->0, etc
+                let ast = &*boxed_ast;
+                let typ = TypeUtil::get_type(ast, env)?;
+                let pointed_type = typ.get_pointed_type(pos)?;
 
+                if let Type::Tuple(vec) = pointed_type {
+                    let len = vec.len();
+                    if *index >= len {
+                        return Err(CodeGenError::tuple_index_too_big(len, *index, pos.clone()));
+                    }
 
-
-
-
-                unimplemented!()
+                    Ok(Rc::clone(&vec[*index]))
+                }else{
+                    Err(CodeGenError::not_tuple_in_tuple_access_by_index(*ast.clone(), pos.clone()))
+                }
             },
          }
     }

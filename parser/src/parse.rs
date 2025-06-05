@@ -2280,7 +2280,7 @@ impl Parser {
                                 Token::Symbol(id) => {
                                     ast = ExprAST::PointerAccess(Box::new(ast), id.clone(), pos.clone());
                                 },
-                                Token::IntLiteral(num) => {
+                                Token::IntLiteral(num) => {  // tpl->0, etc
                                     ast = ExprAST::TuplePointerAccess(Box::new(ast), *num as usize, pos.clone());
                                 },
                                 _ => return Err(ParserError::no_id_after_arrow(pos2.clone())),

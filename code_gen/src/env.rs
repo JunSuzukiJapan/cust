@@ -374,7 +374,7 @@ impl<'ctx> Class<'ctx> {
         }
 
         if sq.is_volatile() {
-            unimplemented!()
+            unimplemented!("volatile class variable is not supported yet");
         }
         if sq.is_const() {
             ptr.set_constant(true);
@@ -505,7 +505,7 @@ impl<'ctx> Env<'ctx> {
 
     pub fn insert_global_var(&mut self, key: &str, typ: Rc<Type>, sq: SpecifierQualifier, ptr: GlobalValue<'ctx>) {
         if sq.is_volatile() {
-            unimplemented!()
+            unimplemented!("volatile global variable is not supported yet");
         }
         if sq.is_const() {
             ptr.set_constant(true);
@@ -562,7 +562,7 @@ impl<'ctx> Env<'ctx> {
 
     pub fn insert_local(&mut self, key: &str, typ: Rc<Type>, sq: SpecifierQualifier, ptr: PointerValue<'ctx>) {
         if sq.is_volatile() {
-            unimplemented!()
+            unimplemented!("volatile local variable is not supported yet");
         }
         self.locals.last_mut().unwrap().last_mut().unwrap().insert(key.to_string(), (typ, sq, ptr));
     }
