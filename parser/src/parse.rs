@@ -2526,7 +2526,7 @@ impl Parser {
             Token::BraceLeft => {  // '{'
                 if ! typ.is_enum() {
                     // return Ok(EnumInitializer::Symbol(elem_name.to_string(), None));
-                    unimplemented!()
+                    return Err(ParserError::not_struct_or_enum_type(type_name.into(), pos.clone()));
                 }
 
                 let enum_def = typ.get_enum_definition().unwrap();

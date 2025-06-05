@@ -1511,8 +1511,8 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(result?)
     }
 
-    fn insert_pat_type(&self, pattern: &Box<Pattern>, expr_type: &Rc<Type>, env: &mut Env<'ctx>) -> Result<(), Box<dyn Error + 'static>> {
-        match &**pattern {
+    fn insert_pat_type(&self, pattern: &Pattern, expr_type: &Rc<Type>, env: &mut Env<'ctx>) -> Result<(), Box<dyn Error + 'static>> {
+        match pattern {
             Pattern::Var(name, opt_at_name, _pos) => {
                 env.insert_local_type(name, Rc::clone(&expr_type));
     
@@ -1545,10 +1545,10 @@ impl<'ctx> CodeGen<'ctx> {
                             env.insert_local_type(&pat_name, Rc::clone(typ));
                         }
                     },
-                    // Name::SubName(pattern1 @ pat_name, pattern2, ...)
+                    // Name::SubName(pat_name @ pattern1, pattern2, ...)
                     EnumPattern::Tuple(_typ, _name, sub_name, pat_list) => {
                         let e_type = expr_type.get_enum_sub_type_by_name(sub_name).unwrap();
-                        self.insert_enum_pat_type(e_type, env, pat_list)?;
+                        self.insert_enum_pat_list_type(e_type, env, pat_list)?;
 
                         if let Some(pat_name) = opt_at_name {
                             env.insert_local_type(&pat_name, Rc::clone(e_type));
@@ -1573,64 +1573,36 @@ impl<'ctx> CodeGen<'ctx> {
                 }
             },
             Pattern::Tuple(pattern_list, opt_at_name, _pos) => {
-                self.insert_enum_pat_type(expr_type, env, pattern_list)?;
+                self.insert_enum_pat_list_type(expr_type, env, pattern_list)?;
 
                 if let Some(pat_name) = opt_at_name {
                     env.insert_local_type(&pat_name, Rc::clone(expr_type));
                 }
             },
-            Pattern::OrList(_list, _opt_name, _pos) => {
+            Pattern::OrList(pat_list, opt_at_name, _pos) => {
+                for pat in pat_list {
+                    self.insert_pat_type(pat, expr_type, env)?;
+                }
 
-
-
-                unimplemented!()
+                if let Some(pat_name) = opt_at_name {
+                    env.insert_local_type(&pat_name, Rc::clone(expr_type));
+                }
             },
         }
 
         Ok(())
     }
 
-    fn insert_enum_pat_type(&self, expr_type: &Rc<Type>, env: &mut Env<'ctx>, pattern_list: &Vec<Vec<Box<Pattern>>>) -> Result<(), Box<dyn Error + 'static>> {
-        Ok(for i in 0..pattern_list.len() {
+    fn insert_enum_pat_list_type(&self, expr_type: &Rc<Type>, env: &mut Env<'ctx>, pattern_list: &Vec<Vec<Box<Pattern>>>) -> Result<(), Box<dyn Error + 'static>> {
+        for i in 0..pattern_list.len() {
             let pat_list = &pattern_list[i];
             let pat= &pat_list[0];
             let e_type = expr_type.get_field_type_from_tuple_at_index(i).unwrap();
-    
-            match &**pat {
-                Pattern::Var(name, _name, _pos) => {
-                    env.insert_local_type(name, Rc::clone(e_type));
-                },
-                Pattern::Char(_, _name, _pos) | Pattern::CharRange(_, _, _name, _pos) => {
-                    // do nothing
-                },
-                Pattern::Number(_, _name, _pos) | Pattern::NumberRange(_, _, _name, _pos) => {
-                    // do nothing
-                },
-                Pattern::Str(_, _name, _pos) => {
-                    // do nothing
-                },
-                Pattern::Enum(_enum_pat, _name, _pos) => {
-    
-                    unimplemented!()
-                },
-                Pattern::Struct(_struct_pat, _name, _pos) => {
-    
-                    unimplemented!()
-                },
-                Pattern::Tuple(_pat_list, _name, _pos) => {
-    
-            
-                    unimplemented!()
-                },
-                Pattern::OrList(_list, _name, _pos) => {
-    
-    
-                    unimplemented!()
-                },
-            }
-        
+
             self.insert_pat_type(pat, e_type, env)?;
-        })
+        }
+
+        Ok(())
     }
 
     fn insert_struct_pat_type(&self, expr_type: &Rc<Type>, env: &mut Env<'ctx>, struct_pat: &parser::StructPattern) -> Result<(), Box<dyn Error + 'static>> {
@@ -1643,41 +1615,8 @@ impl<'ctx> CodeGen<'ctx> {
     
             if let Some(pat_list) = pat {
                 let pat = &pat_list[0];
-                // let e_type = expr_type.get_field_type_by_name(&key).unwrap();
-
-                match &**pat {
-                    Pattern::Var(name, _name, _pos) => {
-                        env.insert_local_type(name, Rc::clone(e_type));
-                    },
-                    Pattern::Char(_, _name, _pos) | Pattern::CharRange(_, _, _name, _pos) => {
-                        // do nothing
-                    },
-                    Pattern::Number(_, _name, _pos) | Pattern::NumberRange(_, _, _name, _pos) => {
-                        // do nothing
-                    },
-                    Pattern::Str(_, _name, _pos) => {
-                        // do nothing
-                    },
-                    Pattern::Enum(_enum_pat, _name, _pos) => {
-
-                        unimplemented!()
-                    },
-                    Pattern::Struct(_struct_pat, _name, _pos) => {
-
-                        unimplemented!()
-                    },
-                    Pattern::Tuple(_pat_list, _name, _pos) => {
-
-                        
-                        unimplemented!()
-                    },
-                    Pattern::OrList(_list, _name, _pos) => {
-
-                        unimplemented!()
-                    },
-                }
-    
                 self.insert_pat_type(pat, e_type, env)?;
+
             }else{
                 env.insert_local_type(key, Rc::clone(e_type));
             }
