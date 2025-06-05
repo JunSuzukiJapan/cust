@@ -53,7 +53,7 @@ impl<'ctx> CodeGen<'ctx> {
                 // let result = i128_type.const_int(*num as u128, true);
                 // let result = i128_type.const_int_arbitrary_precision(words);
                 // Ok(Some(CompiledValue::new(Type::Number(NumberType::LongLong), result.as_any_value_enum())))
-                unimplemented!()  // long long
+                unimplemented!("long long is not supported")  // long long
             },
             ExprAST::UChar(num, _pos) => {
                 let i8_type = self.context.i8_type();
@@ -80,7 +80,7 @@ impl<'ctx> CodeGen<'ctx> {
                 // let result = i128_type.const_int(*num as u128, false);
                 // let result = i128_type.const_int_arbitrary_precision(words);
                 // Ok(Some(CompiledValue::new(Type::Number(NumberType::LongLong), result.as_any_value_enum())))
-                unimplemented!()  // long long
+                unimplemented!("long long is not supported")  // long long
             },
             ExprAST::Float(num, _pos) => {
                 let f32_type = self.context.f32_type();
@@ -667,42 +667,6 @@ impl<'ctx> CodeGen<'ctx> {
             },
             ExprAST::EnumLiteral(_typ, tag, literal, pos) => {
                 self.gen_enum_literal(literal, tag, env, break_catcher, continue_catcher, pos)
-                // match literal {
-                //     EnumLiteral::Struct(struct_literal) => {
-                //         let typ = struct_literal.get_type();
-                //         let pos = struct_literal.get_position();
-
-                //         let tag_type = self.enum_tag_llvm_type;
-                //         let raw_type = env.basic_type_enum_from_type(&typ, self.context, pos)?;
-                //         let vec: Vec<BasicTypeEnum> = vec!(tag_type.into(), raw_type);
-                //         let tagged_type = self.context.struct_type(&vec, false);
-
-                //         let tagged_ptr = self.builder.build_alloca(tagged_type, "enum_literal")?;
-                //         let tag_ptr = self.builder.build_struct_gep(tagged_type, tagged_ptr, 0, "struct_gep_in_tagged_enum")?;
-                //         let struct_ptr = self.builder.build_struct_gep(tagged_type, tagged_ptr, 1, "struct_gep_in_tagged_enum")?;
-
-                //         let tag_value = tag_type.const_int(*tag as u64, false);
-                //         let _ = self.builder.build_store(tag_ptr, tag_value);
-
-                //         // let _ = self.gen_struct_literal(struct_literal, struct_ptr, env, break_catcher, continue_catcher)?;
-
-                //         let basic_val = self.builder.build_load(tagged_type, tagged_ptr, &format!("load_enum_literal"))?;
-                //         let any_val = basic_val.as_any_value_enum();
-                //         Ok(Some(CompiledValue::new(Rc::clone(typ), any_val)))
-                //     },
-                //     EnumLiteral::Tuple(literal) => {
-
-
-
-
-
-
-
-                //         unimplemented!()
-
-
-                //     },
-                // }
             },
             ExprAST::TupleLiteral(expr_list, pos) => {
                 self.gen_tuple_literal(expr_list, None, env, break_catcher, continue_catcher, pos)
@@ -1545,32 +1509,6 @@ impl<'ctx> CodeGen<'ctx> {
                             },
                         }
                     },
-//                     Type::Enum { name: type_name, type_variables, enum_def } => {
-//                         if enum_def.is_standard() {
-//                             return Err(Box::new(CodeGenError::not_tagged_enum(type_name.to_string(), pos.clone())));
-//                         }
-//                         let index = enum_def.get_struct_type_index(sub_type_name, member_name).ok_or(CodeGenError::no_such_a_member(&Some(type_name.into()), member_name, pos.clone()))?;
-//                         let elem_type = enum_def.get_type(member_name).unwrap();
-
-//                         match &**elem_type {
-//                             Type::Struct { name, fields, type_variables } => {
-//                                 let elem_ptr = self.builder.build_struct_gep(TypeUtil::to_basic_type_enum(&typ, &self.context, pos)?, ptr, index as u32, format!("enum_{}.{}", type_name, member_name).as_str());
-//                                 if let Ok(p) = elem_ptr {
-//                                     let sq = fields.get_specifier_qualifier(member_name).unwrap();
-//                                     Ok((elem_type.clone(), p, sq.clone()))
-//                                 }else{
-//                                     return Err(Box::new(CodeGenError::cannot_access_struct_member(&member_name, pos.clone())));
-//                                 }
-//                             },
-//                             Type::Tuple(tuple) => {
-
-//                                 unimplemented!()
-//                             },
-//                             _ => {
-//                                 return Err(Box::new(CodeGenError::not_struct_or_tuple_in_tagged_enum(type_name.to_string(), member_name.to_string(), pos.clone())));
-//                             }
-//                         }
-//                     },
                     _ => {
                         Err(Box::new(CodeGenError::has_not_member(typ.to_string(), member_name.to_string(), pos.clone())))
                     }

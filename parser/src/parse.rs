@@ -233,35 +233,8 @@ impl Parser {
                     },
                     Token::Assign => {
                         panic!("unreachable")
-                        // iter.next();  // skip '='
-
-                        // let mut labels = Vec::new();
-                        // let init_expr = self.parse_initializer(iter, defs, &mut Some(&mut labels))?;
-                        // self.parse_expected_token(iter, Token::SemiColon)?;
-                        // let declaration = Declaration::new(decl.clone(), Some(Box::new(init_expr)));
-
-                        // let size_list = if let Some(vec) = const_expr_list {
-                        //     vec
-                        // } else {
-                        //     match &init_expr {
-                        //         Initializer::Array(list, _pos) => {
-                        //             let mut v = Vec::new();
-
-                        //             for item in list {
-
-                        //             }
-
-
-                        //             unimplemented!()
-                        //         },
-                        //         _ => Err(ParserError::array_need_array_initializer(pos.clone())),
-                        //     }
-                        // };
-
-                        // Ok(Some(self.make_global_def_array(ds.clone(), vec![declaration], size_list, defs, pos)?))
                     },
                     _ => {
-                        // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                         Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()))
                     },
                 }
@@ -1018,92 +991,6 @@ impl Parser {
                             return Err(ParserError::syntax_error(file!(), line!(), column!(), pos2.clone()));
                         }
                     },
-                    // Token::Enum => {
-                    //     iter.next();  // skip 'enum'
-
-                    //     let (tok2, pos2) = iter.peek().unwrap();
-                    //     if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
-                    //     match tok2 {
-                    //         Token::Symbol(name) => {
-                    //             iter.next();  // skip Symbol
-
-                    //             let (tok3, pos3) = iter.peek().unwrap();
-                    //             if tok3.is_eof() { return Err(ParserError::illegal_end_of_input(pos3.clone())); }
-                    //             match tok3 {
-                    //                 Token::BraceLeft => {
-                    //                     iter.next();  // skip '{'
-
-                    //                     let type_struct = self.parse_enum_body(name, pos3, iter, defs, labels)?;
-                    //                     opt_type = Some((
-                    //                         Rc::new(type_struct),
-                    //                         pos.clone()
-                    //                     ));
-                    //                 },
-                    //                 Token::Less => {  // '<'
-                    //                     if let Some(typ) = defs.get_type(name) {
-                    //                         let bound_type = self.parse_generic_params(typ, iter, defs)?;
-
-
-
-                    //                         unimplemented!()
-
-
-
-                    //                     }else{
-                    //                         defs.add_new_generics();
-
-                    //                         let _g_list = self.parse_generic_types(iter, defs)?;
-
-                    //                         self.parse_expected_token(iter, Token::BraceLeft)?;  // skip '{'
-
-                    //                         let type_struct = self.parse_enum_body(name, pos3, iter, defs, labels)?;
-                    //                         opt_type = Some((
-                    //                             Rc::new(type_struct),
-                    //                             pos.clone()
-                    //                         ));
-
-                    //                         defs.remove_generics();
-                    //                     }
-                    //                 },
-                    //                 _ => {
-                    //                     let type_struct = if let Some(t) = defs.get_type(&name) {
-                    //                         Rc::clone(t)
-                    //                     }else{
-                    //                         let definition = EnumDefinition::new_standard(name.clone(), Vec::new());
-                    //                         let typ = Type::enum_from_enum_definition(name.clone(), definition);
-                    //                         Rc::new(typ)
-                    //                     };
-                
-                    //                     opt_type = Some((
-                    //                         type_struct,
-                    //                         pos.clone()
-                    //                     ));
-                    //                 },
-                    //             }
-                    //         },
-                    //         // Token::BraceLeft => {
-                    //         //     iter.next();  // skip '{'
-                    //         //     let (enum_list, is_tagged) = self.parse_enumerator_list(iter, defs, labels)?;
-                    //         //     let definition;
-                    //         //     if is_tagged {
-                    //         //         definition = EnumDefinition::new_tagged(None, enum_list);
-                    //         //     }else{
-                    //         //         definition = EnumDefinition::new_standard(None, enum_list);
-                    //         //     }
-                    //         //     let type_struct = Type::enum_from_enum_definition(None, definition);
-                    //         //     opt_type = Some((
-                    //         //         Rc::new(type_struct),
-                    //         //         pos.clone()
-                    //         //     ));
-                
-                    //         //     self.parse_expected_token(iter, Token::BraceRight)?;
-                    //         // },
-                    //         _ => {
-                    //             // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
-                    //             return Err(ParserError::syntax_error(file!(), line!(), column!(), pos2.clone()));
-                    //         }
-                    //     }
-                    // },
                     Token::Signed => {
                         iter.next();
                         if let Some((true, pre_pos)) = opt_unsigned {

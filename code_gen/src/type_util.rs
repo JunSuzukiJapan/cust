@@ -454,10 +454,6 @@ impl TypeUtil {
 
                 unimplemented!()
             },
-            // ExprAST::DefVar { specifiers: _, declarations: _, pos: _ } => {
-            //     // maybe unreached???
-            //     unimplemented!()
-            // },
          }
     }
 

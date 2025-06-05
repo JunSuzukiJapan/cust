@@ -251,49 +251,6 @@ impl<'ctx> CodeGen<'ctx> {
         }
     }
 
-    // pub fn gen_tuple_literal<'b, 'c>(&self,
-    //     tuple_literal: &TupleLiteral,
-    //     tuple_ptr: PointerValue<'ctx>,
-    //     env: &Env<'ctx>,
-    //     break_catcher: Option<&'b BreakCatcher>,
-    //     continue_catcher: Option<&'c ContinueCatcher>
-    // ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
-
-    //     match tuple_literal {
-    //         TupleLiteral::ConstLiteral { typ, list, pos } => {
-    //             let mut vec: Vec<BasicValueEnum> = Vec::new();
-    //             let type_list = typ.get_tuple_type_list().unwrap();
-
-    //             if type_list.len() != list.len() {
-    //                 return Err(CodeGenError::tuple_length_mismatch(type_list.len(), list.len(), pos.clone()).into());
-    //             }
-
-    //             for const_expr in list {
-    //                 let basic_value = self.const_expr_to_basic_value_enum(const_expr);
-    //                 vec.push(basic_value);
-    //             }
-
-    //             let values = self.context.const_struct(&vec, false);
-    //             let _result = self.builder.build_store(tuple_ptr, values.as_basic_value_enum());
-
-    //             let tuple_type = Self::tuple_type_from_type_list(type_list, &self.context, pos)?;
-
-    //             let basic_val = self.builder.build_load(tuple_type, tuple_ptr, "load_tuple_const_literal")?;
-    //             let any_val = basic_val.as_any_value_enum();
-
-    //             Ok(Some(CompiledValue::new(typ.clone(), any_val)))
-
-    //         },
-    //         TupleLiteral::NormalLiteral { typ, list, pos } => {
-
-
-
-
-    //             unimplemented!()
-    //         },
-    //     }
-    // }
-
     #[allow(dead_code)]
     fn tuple_type_from_type_list(list: &Vec<Rc<Type>>, ctx: &'ctx Context, pos: &Position) -> Result<StructType<'ctx>, Box<dyn Error>> {
         let mut vec = Vec::new();
