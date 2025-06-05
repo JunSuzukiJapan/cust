@@ -589,6 +589,42 @@ fn code_gen_if_let_number3() {
 }
 
 #[test]
+fn code_gen_if_let_number4() {
+    let src = "
+        int test(int input){
+            if let (x @ 1 | x @ 2 | x @ 3 = input) {
+                return 10 + x;
+            }else{
+                return 100 + input;
+            }
+
+            return 500 + input;
+        }
+    ";
+
+    // parse
+    let asts = parse_from_str(src).unwrap();
+
+    // code gen
+    let context = Context::create();
+    let gen = CodeGen::try_new(&context, "test run").unwrap();
+
+    let mut env = Env::new();
+    for i in 0..asts.len() {
+        let _any_value = gen.gen_toplevel(&asts[i], &mut env, None, None).unwrap();
+    }
+
+    let f: JitFunction<FuncType_i32_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
+    assert_eq!(unsafe { f.call(0) }, 100);
+    assert_eq!(unsafe { f.call(1) }, 11);
+    assert_eq!(unsafe { f.call(2) }, 12);
+    assert_eq!(unsafe { f.call(3) }, 13);
+    assert_eq!(unsafe { f.call(4) }, 104);
+    assert_eq!(unsafe { f.call(5) }, 105);
+    assert_eq!(unsafe { f.call(6) }, 106);
+}
+
+#[test]
 fn code_gen_if_let_number_range() {
     let src = "
         int test(){
