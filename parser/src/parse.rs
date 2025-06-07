@@ -208,7 +208,6 @@ impl Parser {
                         Ok(Some(self.make_global_def_var(ds.clone(), vec![declaration], defs, pos)?))
                     },
                     _ => {
-                        // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                         Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()))
                     },
                 }
@@ -2387,17 +2386,17 @@ impl Parser {
                                     EnumInitializer::Symbol(elem_name) => {
                                         Ok(Some(ExprAST::TypeMemberAccess(name.into(), elem_name, pos.clone())))
                                     },
-                                    EnumInitializer::SymbolWithIndex(elem_name, index) => {
-                                        let literal = EnumLiteral::Symbol(elem_name.clone(), index);
-                                        Ok(Some(ExprAST::EnumLiteral(typ, index, literal, pos.clone())))
+                                    EnumInitializer::SymbolWithIndex(elem_name, tag) => {
+                                        let literal = EnumLiteral::Symbol(elem_name.clone(), tag);
+                                        Ok(Some(ExprAST::EnumLiteral(typ, tag, literal, pos.clone())))
                                     },
-                                    EnumInitializer::Tuple(_id, index, literal) => {
-                                        let literal = EnumLiteral::Tuple(literal);
-                                        Ok(Some(ExprAST::EnumLiteral(typ, index, literal, pos.clone())))
+                                    EnumInitializer::Tuple(_id, tag, literal) => {
+                                        let literal = EnumLiteral::Tuple(literal, tag);
+                                        Ok(Some(ExprAST::EnumLiteral(typ, tag, literal, pos.clone())))
                                     },
-                                    EnumInitializer::Struct(_id, index, struct_literal) => {
-                                        let literal = EnumLiteral::Struct(struct_literal);
-                                        Ok(Some(ExprAST::EnumLiteral(typ, index, literal, pos.clone())))
+                                    EnumInitializer::Struct(_id, tag, struct_literal) => {
+                                        let literal = EnumLiteral::Struct(struct_literal, tag);
+                                        Ok(Some(ExprAST::EnumLiteral(typ, tag, literal, pos.clone())))
                                     },
                                 }
 
@@ -2687,6 +2686,7 @@ impl Parser {
             if tok4.is_eof() { return Err(ParserError::illegal_end_of_input(pos4.clone())); }
             match tok4 {
                 Token::ParenRight => {
+                    iter.next();  // skip ')'
                     break 'outer;
                 },
                 Token::Comma => {
@@ -3088,10 +3088,7 @@ impl Parser {
                     }
                 },
                 Token::ParenRight => {
-
                     // do nothing
-
-
                 },
                 _ => {
                     // do nothing
@@ -3355,6 +3352,48 @@ impl Parser {
         }
 
         Ok(Initializer::Struct(list, Rc::clone(target_type), start_pos.clone()))
+    }
+
+    fn parse_tuple_initializer_list(&self, target_type: &Rc<Type>, start_pos: &Position, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Initializer, ParserError> {
+        let mut list: Vec<Box<Initializer>> = Vec::new();
+
+        // if ! (target_type.is_tuple() || target_type.is_bound_tuple()) { return Err(ParserError::not_tuple_type_when_parsing_tuple_initializer(start_pos.clone())) }
+        if ! target_type.is_tuple() { return Err(ParserError::not_tuple_type_when_parsing_tuple_initializer(start_pos.clone())) }
+        // let fields = target_type.get_struct_fields().unwrap();
+        let types = target_type.get_tuple_type_list().unwrap();
+        let mut index = 0;
+
+        loop {
+            let typ = &types[index];
+
+            let initializer = self.parse_initializer(typ, iter, defs)?;
+            list.push(Box::new(initializer));
+
+            let (tok2, pos2) = iter.next().unwrap();
+            if tok2.is_eof() { return Err(ParserError::illegal_end_of_input(pos2.clone())); }
+
+            match tok2 {
+                Token::ParenRight => {
+                    break;
+                },
+                Token::Comma => {
+                    let (tok3, pos3) = iter.peek().unwrap();
+                    if tok3.is_eof() { return Err(ParserError::illegal_end_of_input(pos3.clone())); }
+
+                    if *tok3 == Token::ParenRight {
+                        iter.next();  // skip ')'
+                        break;
+                    }
+                },
+                _ => {
+                    return Err(ParserError::need_brace_right_or_comma_when_parsing_initializer_list(pos2.clone()));
+                }
+            }
+
+            index += 1;
+        }
+
+        Ok(Initializer::Tuple(list, Rc::clone(target_type), start_pos.clone()))
     }
 
     fn parse_array_initializer(&self, item_type: &Rc<Type>, dimension: &mut Vec<Option<u32>>, index: usize, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Initializer, ParserError> {

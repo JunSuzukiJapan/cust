@@ -23,7 +23,7 @@ use inkwell::module::Module;
 use inkwell::values::{AnyValue, AnyValueEnum, ArrayValue, AsValueRef, BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, GlobalValue, PointerValue, StructValue};
 use inkwell::types::{AnyTypeEnum, BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FunctionType, IntType};
 use inkwell::AddressSpace;
-use parser::{EnumPattern, ExprAST};
+use parser::{EnumLiteral, EnumPattern, ExprAST};
 use std::error::Error;
 use std::rc::Rc;
 
@@ -481,7 +481,38 @@ impl<'ctx> CodeGen<'ctx> {
                 let values = self.context.const_struct(&list, false);
                 let any_val = values.as_any_value_enum();
                 Ok(any_val)
-            }
+            },
+            Initializer::Tuple(vec_init, _typ, _pos) => {
+                let mut list = Vec::new();
+                for init_value in vec_init {
+                    let compiled_val = self.gen_initializer(init_value, env, break_catcher, continue_catcher)?;
+                    let value = self.try_as_basic_value(&compiled_val, init_value.get_position())?;
+
+                    list.push(value);
+                }
+
+                let values = self.context.const_struct(&list, false);
+                let any_val = values.as_any_value_enum();
+                Ok(any_val)
+            },
+            // Initializer::TaggedEnum(enum_literal, _typ, _pos) => {
+            //     let t = enum_literal.get_type();
+
+            //     match enum_literal {
+            //         EnumLiteral::Symbol(_name, _tag) => {
+
+            //         },
+            //         EnumLiteral::Struct(_struct_literal, _tag) => {
+
+            //         },
+            //         EnumLiteral::Tuple(_tuple_literal, _tag) => {
+
+            //         },
+            //     }
+
+
+            //     unimplemented!()
+            // },
         }
     }
 
@@ -512,7 +543,20 @@ impl<'ctx> CodeGen<'ctx> {
                 let values = self.context.const_struct(&list, false);
                 let any_val = values.as_any_value_enum();
                 Ok(any_val)
-            }
+            },
+            ConstInitializer::Tuple(vec_init, _typ, _pos) => {
+                let mut list = Vec::new();
+                for init_value in vec_init {
+                    let compiled_val = self.gen_const_initializer(init_value, env, break_catcher, continue_catcher)?;
+                    let value = self.try_as_basic_value(&compiled_val, init_value.get_position())?;
+
+                    list.push(value);
+                }
+
+                let values = self.context.const_struct(&list, false);
+                let any_val = values.as_any_value_enum();
+                Ok(any_val)
+            },
         }
     }
 

@@ -1,20 +1,22 @@
 use std::{rc::Rc};
 
-use crate::{ConstExpr, Defines, ExprAST, Position, Type};
+use crate::{ConstExpr, Defines, EnumLiteral, ExprAST, Position, Type};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Initializer {
     Simple(ExprAST, Position),
     Array(Vec<Box<ArrayInitializer>>, Rc<Type>, Position),
     Struct(Vec<Box<Initializer>>, Rc<Type>, Position),
+    Tuple(Vec<Box<Initializer>>, Rc<Type>, Position),
 }
 
 impl Initializer {
     pub fn get_position(&self) -> &Position {
         match self {
+            Self::Simple(_, pos) => pos,
             Self::Array(_, _type, pos) => pos,
             Self::Struct(_, _type,  pos) => pos,
-            Self::Simple(_, pos) => pos,
+            Self::Tuple(_, _type, pos) => pos,
         }
     }
 
@@ -38,6 +40,14 @@ impl Initializer {
                     list.push(Box::new(e));
                 }
                 Some(ConstInitializer::Struct(list, Rc::clone(typ), pos.clone()))
+            },
+            Self::Tuple(exprs, typ, pos) => {
+                let mut list: Vec<Box<ConstInitializer>> = Vec::new();
+                for expr in exprs {
+                    let e = expr.try_to_const_initializer(defs)?;
+                    list.push(Box::new(e));
+                }
+                Some(ConstInitializer::Tuple(list, Rc::clone(typ), pos.clone()))
             },
         }
     }
@@ -64,6 +74,15 @@ impl Initializer {
                 let init = ConstInitializer::Struct(list, Rc::clone(typ), pos.clone());
                 Some(ArrayInitializer::Const(init, pos.clone()))
             },
+            Self::Tuple(exprs, typ, pos) => {
+                let mut list: Vec<Box<ConstInitializer>> = Vec::new();
+                for expr in exprs {
+                    let e = expr.try_to_const_initializer(defs)?;
+                    list.push(Box::new(e));
+                }
+                let init = ConstInitializer::Tuple(list, Rc::clone(typ), pos.clone());
+                Some(ArrayInitializer::Const(init, pos.clone()))
+            },
         }
     }
 }
@@ -73,6 +92,7 @@ pub enum ConstInitializer {
     Simple(ConstExpr, Position),
     Array(Vec<Box<ArrayInitializer>>, Rc<Type>, Position),
     Struct(Vec<Box<ConstInitializer>>, Rc<Type>, Position),
+    Tuple(Vec<Box<ConstInitializer>>, Rc<Type>, Position),
 }
 
 impl ConstInitializer {
@@ -101,22 +121,37 @@ impl ConstInitializer {
 
                 Some(ConstInitializer::Struct(list, Rc::clone(typ), pos.clone()))
             },
+            Initializer::Tuple(vec, typ, pos) => {
+                let mut list = Vec::new();
+
+                for init in vec {
+                    if let Some(e) = Self::try_from_initializer(init, defs) {
+                        list.push(Box::new(e));
+                    }else{
+                        return None;
+                    }
+                }
+
+                Some(ConstInitializer::Tuple(list, Rc::clone(typ), pos.clone()))
+            },
         }
     }
 
     pub fn get_position(&self) -> &Position {
         match self {
+            Self::Simple(_, pos) => pos,
             Self::Array(_, _type, pos) => pos,
             Self::Struct(_, _type,  pos) => pos,
-            Self::Simple(_, pos) => pos,
+            Self::Tuple(_, _type, pos) => pos,
         }
     }
 
     pub fn get_type(&self) -> Rc<Type> {
         match self {
-            Self::Array(_, typ, _pos) => Rc::clone(typ),
             Self::Simple(expr, _pos) => Rc::new(expr.get_type()),
+            Self::Array(_, typ, _pos) => Rc::clone(typ),
             Self::Struct(_, typ, _pos) => Rc::clone(typ),
+            Self::Tuple(_, typ, _pos) => Rc::clone(typ),
         }
     }
 }
@@ -153,6 +188,20 @@ impl ArrayInitializer {
                 }
 
                 let init = ConstInitializer::Struct(list, Rc::clone(typ), pos.clone());
+                Some(ArrayInitializer::Const(init, pos.clone()))
+            },
+            Initializer::Tuple(vec, typ, pos) => {
+                let mut list: Vec<Box<ConstInitializer>> = Vec::new();
+
+                for init in vec {
+                    if let Some(e) = ConstInitializer::try_from_initializer(init, defs) {
+                        list.push(Box::new(e));
+                    }else{
+                        return None;
+                    }
+                }
+
+                let init = ConstInitializer::Tuple(list, Rc::clone(typ), pos.clone());
                 Some(ArrayInitializer::Const(init, pos.clone()))
             },
         }

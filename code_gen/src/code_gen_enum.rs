@@ -197,7 +197,7 @@ impl<'ctx> CodeGen<'ctx> {
                 let typ = &self.enum_only_tag_type;
                 Ok(Some(CompiledValue::new(Rc::clone(typ), any_val)))
             },
-            EnumLiteral::Struct(struct_literal) => {
+            EnumLiteral::Struct(struct_literal, _tag) => {
                 let typ = struct_literal.get_type();
                 let pos = struct_literal.get_position();
 
@@ -219,7 +219,7 @@ impl<'ctx> CodeGen<'ctx> {
                 let any_val = basic_val.as_any_value_enum();
                 Ok(Some(CompiledValue::new(Rc::clone(typ), any_val)))
             },
-            EnumLiteral::Tuple(tuple_literal) => {
+            EnumLiteral::Tuple(tuple_literal, _tag) => {
                 let typ = tuple_literal.get_type();
                 let pos = tuple_literal.get_position();
 

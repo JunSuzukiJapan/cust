@@ -470,6 +470,7 @@ impl TypeUtil {
             Initializer::Simple(expr, _pos) => TypeUtil::get_type(expr, env),
             Initializer::Array(_init, typ, _pos) => Ok(Rc::clone(typ)),
             Initializer::Struct(_init, typ, _pos) => Ok(Rc::clone(typ)),
+            Initializer::Tuple(_init, typ, _pos) => Ok(Rc::clone(typ)),
         }
     }
 

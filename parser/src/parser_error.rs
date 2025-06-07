@@ -92,6 +92,8 @@ pub enum ParserError {
     NotMatchTypeVariablesCount(usize, usize, Position),
     NoSuchATypeVariable(String, Position),
     NotStructOrEnumType(String, Position),
+    NotTupleTypeWhenParsingTupleInitializer(Position),
+    NotEnumLiteral(Position),
 }
 
 impl ParserError {
@@ -405,6 +407,14 @@ impl ParserError {
     pub fn not_struct_or_enum_type(name: String, pos: Position) -> Self {
         ParserError::NotStructOrEnumType(name, pos)
     }
+
+    pub fn not_tuple_type_when_parsing_tuple_initializer(pos: Position) -> Self {
+        ParserError::NotTupleTypeWhenParsingTupleInitializer(pos)
+    }
+
+    pub fn not_enum_literal(pos: Position) -> Self {
+        ParserError::NotEnumLiteral(pos)
+    }
 }
 
 impl From<TokenizerError> for ParserError {
@@ -502,6 +512,8 @@ impl fmt::Display for ParserError {
             Self::NotMatchTypeVariablesCount(type_var_len, map_len, _pos) => write!(f, "type variables count mismatch. required {type_var_len}, but {map_len}"),
             Self::NoSuchATypeVariable(name, _pos) => write!(f, "no such a type variable '{name}'"),
             Self::NotStructOrEnumType(name, _pos) => write!(f, "{name} is not struct or enum type"),
+            Self::NotTupleTypeWhenParsingTupleInitializer(_pos) => write!(f, "not tuple type when parsing tuple initializer"),
+            Self::NotEnumLiteral(_pos) => write!(f, "not enum literal"),
         }
     }
 }

@@ -818,29 +818,29 @@ impl TupleLiteral {
 #[derive(Debug, Clone, PartialEq)]
 pub enum EnumLiteral {
     Symbol(String, u64),  // (elem name, index)
-    Struct(StructLiteral),
-    Tuple(TupleLiteral),
+    Struct(StructLiteral, u64),
+    Tuple(TupleLiteral, u64),
 }
 
 impl EnumLiteral {
     pub fn get_type(&self) -> Rc<Type> {
         match self {
             Self::Symbol(_, _) => Rc::new(Type::Number(crate::NumberType::Int)),
-            Self::Struct(literal) => Rc::clone(literal.get_type()),
-            Self::Tuple(literal) => Rc::clone(literal.get_type()),
+            Self::Struct(literal, _tag) => Rc::clone(literal.get_type()),
+            Self::Tuple(literal, _tag) => Rc::clone(literal.get_type()),
         }
     }
 
     pub fn get_struct_literal(&self) -> Option<&StructLiteral> {
         match self {
-            EnumLiteral::Struct(literal) => Some(literal),
+            EnumLiteral::Struct(literal, _tag) => Some(literal),
             _ => None,
         }
     }
 
     pub fn get_tuple_literal(&self) -> Option<&TupleLiteral> {
         match self {
-            EnumLiteral::Tuple(literal) => Some(literal),
+            EnumLiteral::Tuple(literal, _tag) => Some(literal),
             _ => None,
         }
     }
