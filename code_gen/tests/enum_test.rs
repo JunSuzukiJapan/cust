@@ -113,11 +113,11 @@ fn code_gen_enum2() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
-/*
+
 #[test]
 fn code_gen_global_enum_init() -> Result<(), CodeGenError> {
     let src = "
-        enum foo {
+        enum Foo {
             Bar (int, int),
             Zot {
                 int x;
@@ -125,7 +125,6 @@ fn code_gen_global_enum_init() -> Result<(), CodeGenError> {
             },
         };
 
-        typedef enum foo Foo;
         Foo foo = Foo::Bar(100, 200);
 
         int test() {
@@ -151,8 +150,7 @@ fn code_gen_global_enum_init() -> Result<(), CodeGenError> {
     }
 
     let f: JitFunction<FuncType_void_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
-    assert_eq!(unsafe { f.call() }, 2029);
+    assert_eq!(unsafe { f.call() }, 300);
 
     Ok(())
 }
-*/

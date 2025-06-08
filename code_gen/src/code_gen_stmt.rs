@@ -41,9 +41,9 @@ impl<'ctx> CodeGen<'ctx> {
                         let casted = self.gen_implicit_cast(&real_ret.get_value(), &real_ret_type, &required_ret_type, expr.get_position())?;
                         real_ret = CompiledValue::new(real_ret.get_type().clone(), casted);
                     }
-
                     let ret = self.try_as_basic_value(&real_ret.get_value(), expr.get_position())?;
                     result = self.builder.build_return(Some(&ret))?;
+
                 }else{
                     if ! required_ret_type.is_void() {
                         return Err(Box::new(CodeGenError::return_type_mismatch(Type::Void, required_ret_type.as_ref().clone(), pos.clone())));

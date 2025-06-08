@@ -831,6 +831,14 @@ impl EnumLiteral {
         }
     }
 
+    pub fn get_index(&self) -> &u64 {
+        match self {
+            Self::Symbol(_, index) => index,
+            Self::Struct(_, index) => index,
+            Self::Tuple(_, index) => index,
+        }
+    }
+
     pub fn get_struct_literal(&self) -> Option<&StructLiteral> {
         match self {
             EnumLiteral::Struct(literal, _tag) => Some(literal),

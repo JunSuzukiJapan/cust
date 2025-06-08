@@ -23,7 +23,7 @@ use inkwell::module::Module;
 use inkwell::values::{AnyValue, AnyValueEnum, ArrayValue, AsValueRef, BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, GlobalValue, PointerValue, StructValue};
 use inkwell::types::{AnyTypeEnum, BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FunctionType, IntType};
 use inkwell::AddressSpace;
-use parser::{EnumLiteral, EnumPattern, ExprAST};
+use parser::{EnumPattern, ExprAST};
 use std::error::Error;
 use std::rc::Rc;
 
@@ -956,7 +956,8 @@ impl<'ctx> CodeGen<'ctx> {
                             self.gen_global_init_type_variables(&variables, ptr, &*initializer, env, break_catcher, continue_catcher)?;
                         }
 
-                        unimplemented!()
+                        // self.gen_global_enum_init(enum_def, ptr, &*initializer, env, break_catcher, continue_catcher)?;
+                        self.gen_global_enum_init(ptr, &*initializer, env, break_catcher, continue_catcher)?;
                     },
                     Type::Tuple(type_list) => {
                         self.gen_global_tuple_init(&type_list, ptr, &*initializer, env, break_catcher, continue_catcher)?;
@@ -1352,6 +1353,7 @@ impl<'ctx> CodeGen<'ctx> {
                 },
                 Some(AST::IfLet { pattern_list, expr, then, else_, pos }) => {  // if let pattern_list @ pattern_name
                     let typ = self.calc_ret_type_in_if_let(then, else_, pattern_list, expr, pos, env)?;
+
                     if typ.is_void() {
                         Err(Box::new(CodeGenError::return_type_mismatch(ret_type.as_ref().clone(), Type::Void, pos.clone())))
                     }else{
@@ -1399,6 +1401,22 @@ impl<'ctx> CodeGen<'ctx> {
 
     fn calc_ret_type(&self, stmt: &AST, env: &mut Env<'ctx>) -> Result<Rc<Type>, Box<dyn Error>> {
         match stmt {
+            AST::DefVar { specifiers, declarations, pos: _ } => {
+                let base_type = specifiers.get_type();
+                for decl in declarations {
+                    let declarator = decl.get_declarator();
+                    let typ = declarator.make_type(base_type);
+                    let name = declarator.get_name();
+                    // let basic_type = env.basic_type_enum_from_type(&typ, self.context, declarator.get_position())?;
+                    // let ptr = self.builder.build_alloca(basic_type, name)?;
+                    // let sq = specifiers.get_specifier_qualifier();
+                    // env.insert_local(name, typ.clone(), sq.clone(), ptr);
+
+                    env.insert_local_type(name, typ);
+                }
+
+                Ok(Rc::new(Type::Void))
+            },
             AST::Return(None, _pos) => {
                 Ok(Rc::new(Type::Void))
             },
@@ -1473,6 +1491,12 @@ impl<'ctx> CodeGen<'ctx> {
                 }
 
                 Ok(Rc::new(Type::Void))
+            },
+            AST::Match { pattern_list_list, expr, pos } => {
+
+
+
+                unimplemented!()
             },
             _ => {
                 Ok(Rc::new(Type::Void))

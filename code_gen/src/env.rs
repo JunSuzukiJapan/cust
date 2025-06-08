@@ -712,7 +712,7 @@ impl<'ctx> Env<'ctx> {
         Ok(())
     }
 
-    pub fn insert_enum_const(&mut self, key: &str, enum_type: &IntType<'ctx>, enumerator_list: Vec<(String, IntValue<'ctx>)>, index_map: HashMap<String, usize>, pos: &Position) -> Result<(), CodeGenError> {
+    pub fn insert_const_enum(&mut self, key: &str, enum_type: &IntType<'ctx>, enumerator_list: Vec<(String, IntValue<'ctx>)>, index_map: HashMap<String, usize>, pos: &Position) -> Result<(), CodeGenError> {
         if let Some(_any_type_enum) = self.types.get(key) {
             return Err(CodeGenError::already_type_defined_in_struct(key, pos.clone()));
         }

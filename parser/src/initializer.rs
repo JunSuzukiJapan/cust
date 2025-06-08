@@ -1,6 +1,6 @@
 use std::{rc::Rc};
 
-use crate::{ConstExpr, Defines, EnumLiteral, ExprAST, Position, Type};
+use crate::{ConstExpr, Defines, ExprAST, Position, Type};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Initializer {

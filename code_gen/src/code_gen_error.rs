@@ -130,6 +130,8 @@ pub enum CodeGenError {
     NotStruct(Rc<Type>, Position),  // (real type, Position)
     NotTupleInEnum(String, String, Position),  // (enum name, field name, Position)
     DifferentAtNameInPatternList(Vec<String>, Vec<String>, Option<Position>, Option<Position>),  // (expected, real, Position)
+    InitializerIsNotEnum(Position),
+    NotConstInitializer(Position),
 }
 
 impl CodeGenError {
@@ -587,6 +589,14 @@ impl CodeGenError {
     ) -> Self {
         Self::DifferentAtNameInPatternList(expected, real, expected_pos, real_pos)
     }
+
+    pub fn initializer_is_not_enum(pos: Position) -> Self {
+        Self::InitializerIsNotEnum(pos)
+    }
+
+    pub fn not_const_initializer(pos: Position) -> Self {
+        Self::NotConstInitializer(pos)
+    }
 }
 
 impl From<ParserError> for CodeGenError {
@@ -954,6 +964,12 @@ impl fmt::Display for CodeGenError {
                 } else {
                     write!(f, "different at name in pattern list. expected: {:?}, unknown position", expected)
                 }
+            },
+            Self::InitializerIsNotEnum(_pos) => {
+                write!(f, "initializer is not enum")
+            },
+            Self::NotConstInitializer(_pos) => {
+                write!(f, "initializer should be constants")
             },
         }
     }

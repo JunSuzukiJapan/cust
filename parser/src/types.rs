@@ -675,7 +675,7 @@ impl EnumDefinition {
         }
     }
 
-    pub fn get_index(&self, name: &str) -> Option<usize> {
+    pub fn get_index_by_name(&self, name: &str) -> Option<usize> {
         match self {
             EnumDefinition::StandardEnum { index_map, .. } => {
                 if let Some(index) = index_map.get(name) {
@@ -1099,7 +1099,7 @@ impl Type {
     pub fn get_enum_sub_type_by_name(&self, sub_type_name: &str) -> Option<&Rc<Type>> {
         match self {
             Type::Enum { enum_def, .. } => {
-                if let Some(index) = enum_def.get_index(sub_type_name) {
+                if let Some(index) = enum_def.get_index_by_name(sub_type_name) {
                     let field = enum_def.get_fields().get(index)?;
                     field.get_type()
                 }else{

@@ -798,7 +798,7 @@ impl<'ctx> CodeGen<'ctx> {
                 //
                 let arg_type = arg.get_type();
                 let arg_enum_def = arg_type.get_enum_definition().ok_or(CodeGenError::not_enum(arg_type.as_ref().clone(), pos.clone()))?;
-                let required_tag = arg_enum_def.get_index(sub_name).ok_or(CodeGenError::no_such_a_field(arg_enum_def.get_name().to_string(), type_name.to_string(), pos.clone()))?;
+                let required_tag = arg_enum_def.get_index_by_name(sub_name).ok_or(CodeGenError::no_such_a_field(arg_enum_def.get_name().to_string(), type_name.to_string(), pos.clone()))?;
     
                 let i64_type = self.context.i64_type();
                 let i64_num = i64_type.const_int(required_tag as u64, true);
@@ -833,7 +833,7 @@ impl<'ctx> CodeGen<'ctx> {
                 //
                 let arg_type = arg.get_type();
                 let arg_enum_def = arg_type.get_enum_definition().ok_or(CodeGenError::not_enum(arg_type.as_ref().clone(), pos.clone()))?;
-                let required_tag = arg_enum_def.get_index(&sub_name).ok_or(CodeGenError::no_such_a_field(arg_enum_def.get_name().to_string(), type_name.to_string(), pos.clone()))?;
+                let required_tag = arg_enum_def.get_index_by_name(&sub_name).ok_or(CodeGenError::no_such_a_field(arg_enum_def.get_name().to_string(), type_name.to_string(), pos.clone()))?;
     
                 let i64_type = self.context.i64_type();
                 let i64_num = i64_type.const_int(required_tag as u64, true);
@@ -912,7 +912,7 @@ impl<'ctx> CodeGen<'ctx> {
                 //
                 let arg_type = arg.get_type();
                 let arg_enum_def = arg_type.get_enum_definition().ok_or(CodeGenError::not_enum(arg_type.as_ref().clone(), pos.clone()))?;
-                let required_tag = arg_enum_def.get_index(&sub_name).ok_or(CodeGenError::no_such_a_field(arg_enum_def.get_name().to_string(), type_name.to_string(), pos.clone()))?;
+                let required_tag = arg_enum_def.get_index_by_name(&sub_name).ok_or(CodeGenError::no_such_a_field(arg_enum_def.get_name().to_string(), type_name.to_string(), pos.clone()))?;
     
                 let i64_type = self.context.i64_type();
                 let i64_num = i64_type.const_int(required_tag as u64, true);

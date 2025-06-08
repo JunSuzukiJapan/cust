@@ -158,6 +158,20 @@ impl TypeUtil {
                 let ptr_type = Self::make_llvm_ptr_type(typ, ctx, pos)?;
                 Ok(AnyTypeEnum::PointerType(ptr_type))
             },
+            Type::Enum { name, enum_def, type_variables } => {
+                if enum_def.is_standard() {
+                    Ok(AnyTypeEnum::IntType(ctx.i32_type()))
+                }else{
+                    let enum_tag_type = Rc::new(Type::Number(global().enum_tag_type().clone()));
+                    let (_type_list, _index_map, _max_size, max_size_type) = CodeGen::tagged_enum_from_enum_definition(name, enum_def.get_fields(), &enum_tag_type, type_variables, ctx, pos)?;
+
+                    if let Some(typ) = max_size_type {
+                        Ok(typ.as_any_type_enum())
+                    }else{
+                        Err(Box::new(CodeGenError::enum_has_no_field(name.to_string(), pos.clone())))
+                    }
+                }
+            },
             Type::Symbol(_name) => {
                 // maybe unreached
                 unimplemented!("'{}' to AnyTypeEnum", typ.to_string())
