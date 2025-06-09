@@ -23,6 +23,7 @@ use inkwell::module::Module;
 use inkwell::values::{AnyValue, AnyValueEnum, ArrayValue, AsValueRef, BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, GlobalValue, PointerValue, StructValue};
 use inkwell::types::{AnyTypeEnum, BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FunctionType, IntType};
 use inkwell::AddressSpace;
+use parser::ast::ForInitExpr;
 use parser::{EnumPattern, ExprAST};
 use std::error::Error;
 use std::rc::Rc;
@@ -1407,10 +1408,6 @@ impl<'ctx> CodeGen<'ctx> {
                     let declarator = decl.get_declarator();
                     let typ = declarator.make_type(base_type);
                     let name = declarator.get_name();
-                    // let basic_type = env.basic_type_enum_from_type(&typ, self.context, declarator.get_position())?;
-                    // let ptr = self.builder.build_alloca(basic_type, name)?;
-                    // let sq = specifiers.get_specifier_qualifier();
-                    // env.insert_local(name, typ.clone(), sq.clone(), ptr);
 
                     env.insert_local_type(name, typ);
                 }
@@ -1492,6 +1489,17 @@ impl<'ctx> CodeGen<'ctx> {
 
                 Ok(Rc::new(Type::Void))
             },
+            AST::Loop { init_expr, pre_condition: _, body, update_expr: _, post_condition: _, pos } => {
+                if let Some(expr) = init_expr {
+                    self.intern_type_in_for_init_expr(expr, env)?
+                }
+
+                if let Some(stmt) = body {
+                    self.calc_ret_type(stmt, env)
+                }else{
+                    Ok(Rc::new(Type::Void))
+                }
+            },
             AST::Match { pattern_list_list, expr, pos } => {
 
 
@@ -1502,6 +1510,31 @@ impl<'ctx> CodeGen<'ctx> {
                 Ok(Rc::new(Type::Void))
             },
         }
+    }
+
+    fn intern_type_in_for_init_expr(&self, expr: &ForInitExpr, env: &mut Env<'ctx>) -> Result<(), Box<dyn Error>> {
+        match expr {
+            ForInitExpr::DefVar { specifiers, declarations, pos } => {
+                let base_type = specifiers.get_type();
+                for decl in declarations {
+                    let declarator = decl.get_declarator();
+                    let typ = declarator.make_type(base_type);
+                    let name = declarator.get_name();
+
+                    env.insert_local_type(name, typ);
+                }
+            },
+            ForInitExpr::ExprList(list) => {
+                for expr in list {
+                    self.intern_type_in_for_init_expr(expr, env)?
+                }
+            },
+            ForInitExpr::Expr(_) => {
+                // do nothing
+            }
+        }
+
+        Ok(())
     }
 
     fn calc_ret_type_in_if(&self, if_then: &AST, if_else: &Option<Box<AST>>, pos: &Position, env: &mut Env<'ctx>) -> Result<Rc<Type>, Box<dyn Error>> {
