@@ -123,27 +123,19 @@ impl<'ctx> CodeGen<'ctx> {
 
                 Ok(result)
             },
-            AST::Match { pattern_list_list, expr: _, pos: _ } => {
+            AST::Match { pattern_list_list, expr, pos: _ } => {
                 let mut result = Rc::new(Type::Void);
+
+                let expr_type = TypeUtil::get_type(expr, env)?;
 
                 for (pat_list, then) in pattern_list_list {
                     for pat in pat_list {
-                        match pat {
-
-
-
-                            _ => {
-
-                            },
-                        }
+                        self.insert_pat_type(pat, &expr_type, env)?;
                     }
 
-
-
-
-                    unimplemented!()
+                    result = self.calc_ret_type(then, env)?;
                 }
-
+eprintln!("result: {:?}", result);
                 Ok(result)
             },
             _ => {

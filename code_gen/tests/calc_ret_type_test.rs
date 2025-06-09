@@ -16,8 +16,6 @@ fn code_gen_for_ret_type() -> Result<(), CodeGenError> {
             for(int i = 0; i < 3; i++){
                 return 2;
             }
-
-            return 0;
         }
     ";
 
