@@ -453,6 +453,16 @@ impl<'ctx> CodeGen<'ctx> {
         // loop end
         self.builder.position_at_end(end_block);
 
+        if let Some(stmt) = body {
+            // bodyの型が、voidでない場合、
+            // bodyの途中でreturnしているはずなので、end_blockには到達しない。
+            // そのため、end_blockにunreachableを追加しておかないといけない。
+            let typ = self.calc_ret_type(stmt, env)?;
+            if *typ.as_ref() != Type::Void {
+                self.builder.build_unreachable()?;
+            }
+        }
+
         Ok(None)
     }
 
