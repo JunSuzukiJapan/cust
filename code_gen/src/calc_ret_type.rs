@@ -125,8 +125,9 @@ impl<'ctx> CodeGen<'ctx> {
             },
             AST::Match { pattern_list_list, expr, pos: _ } => {
                 let mut result = Rc::new(Type::Void);
-
                 let expr_type = TypeUtil::get_type(expr, env)?;
+
+                env.add_new_local_types();
 
                 for (pat_list, then) in pattern_list_list {
                     for pat in pat_list {
@@ -135,7 +136,9 @@ impl<'ctx> CodeGen<'ctx> {
 
                     result = self.calc_ret_type(then, env)?;
                 }
-eprintln!("result: {:?}", result);
+
+                env.remove_local_types();
+
                 Ok(result)
             },
             _ => {

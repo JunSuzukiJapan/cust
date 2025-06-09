@@ -101,6 +101,11 @@ impl<'ctx> CodeGen<'ctx> {
 
             env.remove_local();
 
+            if ! self.last_is_jump_statement(end_block) {
+                self.builder.position_at_end(end_block);
+                self.builder.build_unreachable();
+            }
+
             // next else block
             self.builder.position_at_end(else_block.unwrap());
         }
