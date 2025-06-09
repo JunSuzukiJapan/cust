@@ -1284,17 +1284,17 @@ pub enum AST {
         else_: Option<Box<AST>>,
         pos: Position,
     },
-    Match {
-        pattern_list_list: Vec<(Vec<Box<Pattern>>, Box<AST>)>,
-        expr: Box<ExprAST>,
-        pos: Position,
-    },
     Loop {
         init_expr: Option<Box<ForInitExpr>>,
         pre_condition: Option<Box<ExprAST>>,
         body: Option<Box<AST>>,
         update_expr: Option<Box<ExprAST>>,
         post_condition: Option<Box<ExprAST>>,
+        pos: Position,
+    },
+    Match {
+        pattern_list_list: Vec<(Vec<Box<Pattern>>, Box<AST>)>,
+        expr: Box<ExprAST>,
         pos: Position,
     },
     Break(Position),

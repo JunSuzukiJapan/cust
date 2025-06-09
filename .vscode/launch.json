@@ -19,7 +19,7 @@
                     "kind": "bin"
                 }
             },
-            "args": ["-c", "../cust_tmp/global_enum_def.cust"],
+            "args": ["-c", "../cust_tmp/for_type.cust"],
             "cwd": "${workspaceFolder}"
         },
         {
