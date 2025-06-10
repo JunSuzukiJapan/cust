@@ -729,6 +729,13 @@ impl StructLiteral {
         }
     }
 
+    pub fn get_const_map(&self) -> Option<&HashMap<String, ConstExpr>> {
+        match self {
+            StructLiteral::ConstLiteral(_typ, map, _pos) => Some(map),
+            StructLiteral::NormalLiteral(_, _, _) => None,
+        }
+    }
+
     pub fn is_const(&self) -> bool {
         match self {
             StructLiteral::ConstLiteral(..) => true,

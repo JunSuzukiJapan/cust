@@ -280,29 +280,36 @@ impl<'ctx> CodeGen<'ctx> {
 
                 unimplemented!()
             },
-            EnumLiteral::Struct(struct_literal, _tag) => {
-                // let typ = struct_literal.get_type();
-                // let pos = struct_literal.get_position();
+            EnumLiteral::Struct(struct_literal, tag) => {
+                if ! struct_literal.is_const() {
+                    return Err(CodeGenError::not_const_initializer(pos.clone()).into());
+                }
 
-                // let tag_type = self.enum_tag_llvm_type;
-                // let raw_type = env.basic_type_enum_from_type(&typ, self.context, pos)?;
-                // let vec: Vec<BasicTypeEnum> = vec!(tag_type.into(), raw_type);
-                // let tagged_type = self.context.struct_type(&vec, false);
-                // let tagged_ptr = self.builder.build_alloca(tagged_type, "enum_literal")?;
-                // let tag_ptr = self.builder.build_struct_gep(tagged_type, tagged_ptr, 0, "struct_gep_in_tagged_enum")?;
-                // let struct_ptr = self.builder.build_struct_gep(tagged_type, tagged_ptr, 1, "struct_gep_in_tagged_enum")?;
+                let typ = struct_literal.get_type();
+                let const_map = struct_literal.get_const_map().unwrap();
+                let const_exprs = struct_literal.get_const_map().unwrap();
+                let mut vec = Vec::new();
 
-                // let tag_value = tag_type.const_int(*tag as u64, false);
-                // let _ = self.builder.build_store(tag_ptr, tag_value);
+                let fields = typ.get_struct_fields().unwrap();
+                for field in fields {
+                    let name = field.get_name().as_ref().unwrap();
+                    let const_expr = const_map.get(name).unwrap();
+                    let basic_value = self.const_expr_to_basic_value_enum(const_expr);
+                    vec.push(basic_value);
+                }
 
-                // let initialized_literal = self.gen_struct_literal(struct_literal, struct_ptr, env, break_catcher, continue_catcher)?;
-                // let _initialized_literal = initialized_literal.ok_or(CodeGenError::cannot_init_enum(literal.get_type().get_type_name(), pos.clone()))?;
+                let struct_values = self.context.const_struct(&vec, false);
 
-                // let basic_val = self.builder.build_load(tagged_type, tagged_ptr, &format!("load_enum_literal"))?;
-                // let any_val = basic_val.as_any_value_enum();
-                // Ok(Some(CompiledValue::new(Rc::clone(typ), any_val)))
+                let tag_type = self.enum_tag_llvm_type;
+                let tag_value = tag_type.const_int(*tag as u64, false);
 
-                unimplemented!()
+                let mut tagged_values = Vec::new();
+                tagged_values.push(tag_value.as_basic_value_enum());
+                tagged_values.push(struct_values.as_basic_value_enum());
+                let tagged_struct = self.context.const_struct(tagged_values.as_slice(), false);
+                let any_val = tagged_struct.as_any_value_enum();
+
+                Ok(Some(CompiledValue::new(Rc::clone(typ), any_val)))
             },
             EnumLiteral::Tuple(tuple_literal, tag) => {
                 if ! tuple_literal.is_const() {

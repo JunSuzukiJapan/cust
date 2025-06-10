@@ -19,7 +19,7 @@
                     "kind": "bin"
                 }
             },
-            "args": ["-c", "../cust_tmp/match_type.cust"],
+            "args": ["-c", "../cust_tmp/do_match_int.cust"],
             "cwd": "${workspaceFolder}"
         },
         {

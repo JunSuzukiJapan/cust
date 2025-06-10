@@ -1253,6 +1253,12 @@ impl<'ctx> CodeGen<'ctx> {
         let result = self.gen_code_function_sub(&cust_fn_type, &function, params, body, labels, env, break_catcher, continue_catcher);
         env.remove_function_local();
 
+        if let Some(blk) = self.builder.get_insert_block() {
+            if ! self.last_is_jump_statement(blk) {
+                self.builder.build_unreachable();
+            }
+        }
+
         if let Err(err) = result {
             Err(err)
         }else{
