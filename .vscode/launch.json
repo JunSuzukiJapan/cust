@@ -19,7 +19,7 @@
                     "kind": "bin"
                 }
             },
-            "args": ["-c", "../cust_tmp/do_match_int.cust"],
+            "args": ["-c", "../cust_tmp/global_struct_enum.cust"],
             "cwd": "${workspaceFolder}"
         },
         {

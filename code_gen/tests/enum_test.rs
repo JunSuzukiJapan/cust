@@ -115,7 +115,7 @@ fn code_gen_enum2() -> Result<(), Box<dyn Error>> {
 }
 
 #[test]
-fn code_gen_global_enum_init() -> Result<(), CodeGenError> {
+fn code_gen_global_tuple_type_enum_init() -> Result<(), CodeGenError> {
     let src = "
         enum Foo {
             Bar (int, int),
@@ -151,6 +151,50 @@ fn code_gen_global_enum_init() -> Result<(), CodeGenError> {
 
     let f: JitFunction<FuncType_void_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
     assert_eq!(unsafe { f.call() }, 300);
+
+    Ok(())
+}
+
+#[test]
+fn code_gen_global_struct_type_enum_init() -> Result<(), CodeGenError> {
+    let src = "
+        enum Foo {
+            Bar (int, int),
+            Zot {
+                int x;
+                int y;
+            },
+        };
+
+        Foo foo = Foo::Zot {
+            x: 10;
+            y: 20;
+        };
+
+        int test() {
+            if let (Foo::Zot { x, y } = foo) {
+                return x + y;
+            }else{
+                return 0;
+            }
+        }
+    ";
+
+    // parse
+    let asts = parse_from_str(src).unwrap();
+
+    // code gen
+    let context = Context::create();
+    let gen = CodeGen::try_new(&context, "test run").unwrap();
+
+    let mut env = Env::new();
+
+    for i in 0..asts.len() {
+        let _any_value = gen.gen_toplevel(&asts[i], &mut env, None, None).unwrap();
+    }
+
+    let f: JitFunction<FuncType_void_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
+    assert_eq!(unsafe { f.call() }, 30);
 
     Ok(())
 }
