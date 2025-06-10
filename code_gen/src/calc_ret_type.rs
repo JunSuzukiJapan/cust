@@ -32,8 +32,14 @@ impl<'ctx> CodeGen<'ctx> {
                     typ = self.calc_ret_type(e, env)?;
 
                     match e {
-                        AST::Return(_, _) => {
+                        AST::Return(expr, _pos) => {
+                            if let Some(e) = expr {
+                                typ = TypeUtil::get_type(e, env)?;
+                            }
                             break;
+                        },
+                        AST::Break(_pos) => {
+                            typ = Rc::new(Type::Void);
                         },
                         _ => (),  // do nothing
                     }

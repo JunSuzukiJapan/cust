@@ -287,7 +287,6 @@ impl<'ctx> CodeGen<'ctx> {
 
                 let typ = struct_literal.get_type();
                 let const_map = struct_literal.get_const_map().unwrap();
-                let const_exprs = struct_literal.get_const_map().unwrap();
                 let mut vec = Vec::new();
 
                 let fields = typ.get_struct_fields().unwrap();
