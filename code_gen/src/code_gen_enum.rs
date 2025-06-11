@@ -255,30 +255,20 @@ impl<'ctx> CodeGen<'ctx> {
     pub fn gen_enum_const_literal(
         &self,
         literal: &EnumLiteral,
-        // tag: &u64,
-        // env: &Env<'ctx>,
-        // break_catcher: Option<&BreakCatcher>,
-        // continue_catcher: Option<&ContinueCatcher>,
         pos: &Position
     ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
 
         match literal {
-            EnumLiteral::Symbol(_elem_name, _tag) => {
-                // let tag_type = self.enum_tag_llvm_type;
-                // let vec: Vec<BasicTypeEnum> = vec!(tag_type.into());
-                // let tagged_type = self.context.struct_type(&vec, false);
-                // let tagged_ptr = self.builder.build_alloca(tagged_type, "enum_literal")?;
-                // let tag_ptr = self.builder.build_struct_gep(tagged_type, tagged_ptr, 0, "struct_gep_in_tagged_enum")?;
+            EnumLiteral::Symbol(_elem_name, tag) => {
+                let tag_type = self.enum_tag_llvm_type;
+                let tag_value = tag_type.const_int(*tag as u64, false);
 
-                // let tag_value = tag_type.const_int(*tag as u64, false);
-                // let _ = self.builder.build_store(tag_ptr, tag_value);
+                let mut tagged_values = Vec::new();
+                tagged_values.push(tag_value.as_basic_value_enum());
+                let tagged_struct = self.context.const_struct(tagged_values.as_slice(), false);
+                let any_val = tagged_struct.as_any_value_enum();
 
-                // let basic_val = self.builder.build_load(tagged_type, tagged_ptr, &format!("load_enum_literal"))?;
-                // let any_val = basic_val.as_any_value_enum();
-                // let typ = &self.enum_only_tag_type;
-                // Ok(Some(CompiledValue::new(Rc::clone(typ), any_val)))
-
-                unimplemented!()
+                Ok(Some(CompiledValue::new(Rc::new(Type::Void), any_val)))
             },
             EnumLiteral::Struct(struct_literal, tag) => {
                 if ! struct_literal.is_const() {
@@ -353,9 +343,6 @@ impl<'ctx> CodeGen<'ctx> {
         // enum_def: &EnumDefinition,
         target_enum_ptr: GlobalValue<'ctx>,
         init: &Initializer,
-        env: &mut Env<'ctx>,
-        break_catcher: Option<&'b BreakCatcher>,
-        continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
 
         let (init_value, pos) = if let Initializer::Simple(ExprAST::EnumLiteral(_typ, _tag, enum_literal, _pos), pos2) = init {
@@ -364,9 +351,15 @@ impl<'ctx> CodeGen<'ctx> {
             return Err(Box::new(CodeGenError::initializer_is_not_enum(init.get_position().clone())));
         };
 
-        // let tag = init_value.get_index();
         let literal = self.gen_enum_const_literal(init_value, pos)?.unwrap();
-        let basic_value = self.try_as_basic_value(&literal.get_value(), pos)?;
+        let mut basic_value = self.try_as_basic_value(&literal.get_value(), pos)?;
+
+        let t1 = target_enum_ptr.get_value_type();
+        let t2 = basic_value.get_type().as_any_type_enum();
+        if t1 != t2 {
+            let target_type = BasicTypeEnum::try_from(t1).or_else(|_| Err(CodeGenError::cannot_convert_anytypeenum_to_basictypeenum(pos.clone())))?;
+            basic_value = self.builder.build_bit_cast(basic_value, target_type, "cast initializer")?;
+        }
         target_enum_ptr.set_initializer(&basic_value);
 
         Ok(None)

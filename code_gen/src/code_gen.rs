@@ -956,8 +956,7 @@ impl<'ctx> CodeGen<'ctx> {
                             self.gen_global_init_type_variables(&variables, ptr, &*initializer, env, break_catcher, continue_catcher)?;
                         }
 
-                        // self.gen_global_enum_init(enum_def, ptr, &*initializer, env, break_catcher, continue_catcher)?;
-                        self.gen_global_enum_init(ptr, &*initializer, env, break_catcher, continue_catcher)?;
+                        self.gen_global_enum_init(ptr, &*initializer)?;
                     },
                     Type::Tuple(type_list) => {
                         self.gen_global_tuple_init(&type_list, ptr, &*initializer, env, break_catcher, continue_catcher)?;
