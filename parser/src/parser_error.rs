@@ -5,6 +5,7 @@ use crate::Position;
 use super::TokenizerError;
 use std::fmt;
 use std::error::Error;
+use std::rc::Rc;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ParserError {
@@ -94,6 +95,9 @@ pub enum ParserError {
     NotStructOrEnumType(String, Position),
     NotTupleTypeWhenParsingTupleInitializer(Position),
     NotEnumLiteral(Position),
+    NotStructOrUnionWhileParseingInitializer(Rc<Type>, Position),
+    NotUnionTypeWhenParsingUnionInitializer(Position),
+    NoValueInUnionInitializer(Position),
 }
 
 impl ParserError {
@@ -415,6 +419,18 @@ impl ParserError {
     pub fn not_enum_literal(pos: Position) -> Self {
         ParserError::NotEnumLiteral(pos)
     }
+
+    pub fn not_struct_or_union_while_parsing_initializer(typ: Rc<Type>, pos: Position) -> Self {
+        ParserError::NotStructOrUnionWhileParseingInitializer(typ, pos)
+    }
+
+    pub fn not_union_type_when_parsing_union_initializer(pos: Position) -> Self {
+        ParserError::NotUnionTypeWhenParsingUnionInitializer(pos)
+    }
+
+    pub fn no_value_in_union_initializer(pos: Position) -> Self {
+        ParserError::NoValueInUnionInitializer(pos)
+    }
 }
 
 impl From<TokenizerError> for ParserError {
@@ -514,6 +530,9 @@ impl fmt::Display for ParserError {
             Self::NotStructOrEnumType(name, _pos) => write!(f, "{name} is not struct or enum type"),
             Self::NotTupleTypeWhenParsingTupleInitializer(_pos) => write!(f, "not tuple type when parsing tuple initializer"),
             Self::NotEnumLiteral(_pos) => write!(f, "not enum literal"),
+            Self::NotStructOrUnionWhileParseingInitializer(_typ, _pos) => write!(f, "not struct or union while parseing initializer"),
+            Self::NotUnionTypeWhenParsingUnionInitializer(_pos) => write!(f, "not union type when parsing union initializer"),
+            Self::NoValueInUnionInitializer(_pos) => write!(f, "no value in union initializer"),
         }
     }
 }

@@ -16,6 +16,7 @@ use std::slice::Iter;
 use std::iter::Peekable;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
+use std::string::ParseError;
 
 #[derive(Debug)]
 pub struct Parser;
@@ -3300,11 +3301,17 @@ impl Parser {
     pub fn parse_initializer(&self, target_type: &Rc<Type>, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Initializer, ParserError> {
         let (tok, pos) = iter.peek().unwrap();
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
-
+eprintln!("typ: {:?}", target_type);
         let init_expr;
         if *tok == Token::BraceLeft {
             iter.next();  // skip '{'
-            init_expr = self.parse_struct_initializer_list(target_type, pos, iter, defs)?;
+            if target_type.is_struct() {
+                init_expr = self.parse_struct_initializer_list(target_type, pos, iter, defs)?;
+            }else if (target_type.is_union()) {
+                init_expr = self.parse_union_initializer_list(target_type, pos, iter, defs)?;
+            }else{
+                return Err(ParserError::not_struct_or_union_while_parsing_initializer(Rc::clone(target_type), pos.clone()));
+            }
         }else{
             let expr = self.parse_assignment_expression(iter, defs)?.ok_or(ParserError::need_expr(pos.clone()))?;
             init_expr = Initializer::Simple(expr, pos.clone());
@@ -3352,6 +3359,42 @@ impl Parser {
         }
 
         Ok(Initializer::Struct(list, Rc::clone(target_type), start_pos.clone()))
+    }
+
+    fn parse_union_initializer_list(&self, target_type: &Rc<Type>, start_pos: &Position, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Initializer, ParserError> {
+        if ! target_type.is_union() { return Err(ParserError::not_union_type_when_parsing_union_initializer(start_pos.clone())) }
+
+        let (tok, pos) = iter.peek().unwrap();
+
+        let opt_name;
+        let expr;
+        match tok {
+            Token::Dot => {
+                iter.next();  // skip '.'
+
+                let (tok2, pos2) = iter.next().unwrap();
+
+                if let Token::Symbol(name) = tok2 {
+                    opt_name = Some(name.to_string());
+                    self.parse_expected_token(iter, Token::Assign)?;
+                }else{
+                    return Err(ParserError::not_symbol(pos2.clone()));
+                }
+
+                expr = self.parse_expression(iter, defs)?;
+            },
+            _ => {
+                opt_name = None;
+                expr = self.parse_expression(iter, defs)?
+            }
+        }
+        self.parse_expected_token(iter, Token::BraceRight)?;
+
+        if expr.is_none() {
+            Err(ParserError::no_value_in_union_initializer(pos.clone()))
+        }else{
+            Ok(Initializer::Union(opt_name, expr.unwrap(), Rc::clone(target_type), pos.clone()))
+        }
     }
 
     fn parse_tuple_initializer_list(&self, target_type: &Rc<Type>, start_pos: &Position, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Initializer, ParserError> {

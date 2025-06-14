@@ -8,8 +8,9 @@ use crate::CodeGen;
 
 use inkwell::context::Context;
 use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, GlobalValue, IntValue, StructValue};
-use inkwell::types::{AnyTypeEnum, BasicTypeEnum, StructType};
+use inkwell::types::{AnyTypeEnum, BasicType, BasicTypeEnum, StructType};
 use inkwell::types::AnyType;
+use inkwell::AddressSpace;
 use std::error::Error;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -356,15 +357,37 @@ impl<'ctx> CodeGen<'ctx> {
 
         let t1 = target_enum_ptr.get_value_type();
         let t2 = basic_value.get_type().as_any_type_enum();
-        if t1 != t2 {
-            let target_type = BasicTypeEnum::try_from(t1).or_else(|_| Err(CodeGenError::cannot_convert_anytypeenum_to_basictypeenum(pos.clone())))?;
-            basic_value = self.builder.build_bit_cast(basic_value, target_type, "cast initializer")?;
+        if t1 == t2 {
+            target_enum_ptr.set_initializer(&basic_value);
+
+        }else{
+eprintln!("global type: {:?}", target_enum_ptr.get_value_type());
+eprintln!("  {:?}", target_enum_ptr.as_pointer_value());
+            let literal_type = BasicTypeEnum::try_from(t2).or_else(|_| Err(CodeGenError::cannot_convert_anytypeenum_to_basictypeenum(pos.clone())))?;
+eprintln!("literal_type: {:?}", literal);
+            // let target_ptr = self.builder.build_bit_cast(target_enum_ptr, literal_type, "cast ptr type");
+            let target_ptr = target_enum_ptr.as_pointer_value();
+eprintln!("target_ptr: {:?}", target_ptr);
+//             let target_ptr = self.builder.build_pointer_cast(target_ptr, literal_type.ptr_type(AddressSpace::default()), "pointer_cast");
+// eprintln!("tmp: {:?}", target_ptr);
+            // let target_ptr = target_ptr?;
+eprintln!("target_ptr: {:?}", target_ptr);
+            // let _ = self.builder.build_store(target_ptr, basic_value)?;
+            let tmp = self.builder.build_store(target_ptr, basic_value);
+eprintln!("  tmp: {:?}", tmp);
+eprintln!("366");
+
+
+
+
+
+
         }
-        target_enum_ptr.set_initializer(&basic_value);
 
         Ok(None)
     }
 
+/*
     pub fn make_tuple_type_enum_init_value<'b, 'c>(&self,
         type_list: &Vec<Rc<Type>>,
         init_pos: &Position,
@@ -417,4 +440,5 @@ impl<'ctx> CodeGen<'ctx> {
         let struct_type = ctx.struct_type(&vec, false);
         Ok(struct_type)
     }
+*/
 }

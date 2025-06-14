@@ -485,6 +485,7 @@ impl TypeUtil {
             Initializer::Array(_init, typ, _pos) => Ok(Rc::clone(typ)),
             Initializer::Struct(_init, typ, _pos) => Ok(Rc::clone(typ)),
             Initializer::Tuple(_init, typ, _pos) => Ok(Rc::clone(typ)),
+            Initializer::Union(_opt_name, _expr, typ, _pos) => Ok(Rc::clone(typ)),
         }
     }
 

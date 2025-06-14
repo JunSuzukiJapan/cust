@@ -513,6 +513,28 @@ impl<'ctx> CodeGen<'ctx> {
 
             //     unimplemented!()
             // },
+            Initializer::Union(opt_name, expr, typ, pos) => {
+                let fields = typ.get_union_fields().unwrap();
+
+                if let Some(name) = opt_name {
+                    for field in fields {
+                        if let Some(field_name) = field.get_name() {
+                            if name == field_name {
+
+
+
+
+
+
+                            }
+                        }
+                    }
+                }
+
+
+
+                unimplemented!()
+            }
         }
     }
 
@@ -556,6 +578,13 @@ impl<'ctx> CodeGen<'ctx> {
                 let values = self.context.const_struct(&list, false);
                 let any_val = values.as_any_value_enum();
                 Ok(any_val)
+            },
+            ConstInitializer::Union(opt_name, const_expr, typ, pos) => {
+
+
+
+
+                unimplemented!()
             },
         }
     }

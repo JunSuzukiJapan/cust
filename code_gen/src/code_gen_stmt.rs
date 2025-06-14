@@ -471,7 +471,7 @@ impl<'ctx> CodeGen<'ctx> {
         if let Some(inst) = block.get_last_instruction() {
             let op_code = inst.get_opcode();
             match op_code {
-                InstructionOpcode::Br | InstructionOpcode::Return => true,
+                InstructionOpcode::Br | InstructionOpcode::Return | InstructionOpcode::Unreachable => true,
                 _ => false,
             }
         }else{

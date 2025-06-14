@@ -8,6 +8,7 @@ pub enum Initializer {
     Array(Vec<Box<ArrayInitializer>>, Rc<Type>, Position),
     Struct(Vec<Box<Initializer>>, Rc<Type>, Position),
     Tuple(Vec<Box<Initializer>>, Rc<Type>, Position),
+    Union(Option<String>, ExprAST, Rc<Type>, Position),
 }
 
 impl Initializer {
@@ -17,6 +18,7 @@ impl Initializer {
             Self::Array(_, _type, pos) => pos,
             Self::Struct(_, _type,  pos) => pos,
             Self::Tuple(_, _type, pos) => pos,
+            Self::Union(_, _, _type, pos) => pos,
         }
     }
 
@@ -26,7 +28,6 @@ impl Initializer {
                 Some(ConstInitializer::Array(vec.clone(), Rc::clone(typ), pos.clone()))
             },
             Self::Simple(expr, pos) => {
-                // let const_expr = ConstExpr::try_from_expr(expr)?;
                 if let Ok(const_expr) = expr.to_const(defs, pos) {
                     Some(ConstInitializer::Simple(const_expr, pos.clone()))
                 }else{
@@ -48,6 +49,13 @@ impl Initializer {
                     list.push(Box::new(e));
                 }
                 Some(ConstInitializer::Tuple(list, Rc::clone(typ), pos.clone()))
+            },
+            Self::Union(opt_name, expr, typ, pos) => {
+                if let Ok(const_expr) = expr.to_const(defs, pos) {
+                    Some(ConstInitializer::Union(opt_name.clone(), const_expr.clone(), Rc::clone(typ), pos.clone()))
+                }else{
+                    None
+                }
             },
         }
     }
@@ -83,6 +91,14 @@ impl Initializer {
                 let init = ConstInitializer::Tuple(list, Rc::clone(typ), pos.clone());
                 Some(ArrayInitializer::Const(init, pos.clone()))
             },
+            Self::Union(opt_name, expr, typ, pos) => {
+                if let Ok(const_expr) = expr.to_const(defs, pos) {
+                    let init = ConstInitializer::Union(opt_name.clone(), const_expr.clone(), Rc::clone(typ), pos.clone());
+                    Some(ArrayInitializer::Const(init, pos.clone()))
+                }else{
+                    None
+                }
+            },
         }
     }
 }
@@ -93,6 +109,7 @@ pub enum ConstInitializer {
     Array(Vec<Box<ArrayInitializer>>, Rc<Type>, Position),
     Struct(Vec<Box<ConstInitializer>>, Rc<Type>, Position),
     Tuple(Vec<Box<ConstInitializer>>, Rc<Type>, Position),
+    Union(Option<String>, ConstExpr, Rc<Type>, Position),
 }
 
 impl ConstInitializer {
@@ -134,6 +151,13 @@ impl ConstInitializer {
 
                 Some(ConstInitializer::Tuple(list, Rc::clone(typ), pos.clone()))
             },
+            Initializer::Union(opt_name, expr, typ, pos) => {
+                if let Ok(const_expr) = expr.to_const(defs, pos) {
+                    Some(ConstInitializer::Union(opt_name.clone(), const_expr.clone(), Rc::clone(typ), pos.clone()))
+                }else{
+                    None
+                }
+            },
         }
     }
 
@@ -143,6 +167,7 @@ impl ConstInitializer {
             Self::Array(_, _type, pos) => pos,
             Self::Struct(_, _type,  pos) => pos,
             Self::Tuple(_, _type, pos) => pos,
+            Self::Union(_, _, _type, pos) => pos,
         }
     }
 
@@ -152,6 +177,7 @@ impl ConstInitializer {
             Self::Array(_, typ, _pos) => Rc::clone(typ),
             Self::Struct(_, typ, _pos) => Rc::clone(typ),
             Self::Tuple(_, typ, _pos) => Rc::clone(typ),
+            Self::Union(_, const_expr, typ, _pos) => Rc::clone(typ),
         }
     }
 }
@@ -203,6 +229,16 @@ impl ArrayInitializer {
 
                 let init = ConstInitializer::Tuple(list, Rc::clone(typ), pos.clone());
                 Some(ArrayInitializer::Const(init, pos.clone()))
+            },
+            Initializer::Union(opt_name, expr, typ, pos) => {
+                if let Ok(const_expr) = expr.to_const(defs, pos) {
+                    let init = ConstInitializer::Union(opt_name.clone(), const_expr.clone(), Rc::clone(typ), pos.clone());
+                    Some(ArrayInitializer::Const(init, pos.clone()))
+                }else{
+                    None
+                }
+
+
             },
         }
     }
