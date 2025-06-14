@@ -3301,13 +3301,13 @@ impl Parser {
     pub fn parse_initializer(&self, target_type: &Rc<Type>, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Initializer, ParserError> {
         let (tok, pos) = iter.peek().unwrap();
         if tok.is_eof() { return Err(ParserError::illegal_end_of_input(pos.clone())); }
-eprintln!("typ: {:?}", target_type);
+
         let init_expr;
         if *tok == Token::BraceLeft {
             iter.next();  // skip '{'
             if target_type.is_struct() {
                 init_expr = self.parse_struct_initializer_list(target_type, pos, iter, defs)?;
-            }else if (target_type.is_union()) {
+            }else if target_type.is_union() {
                 init_expr = self.parse_union_initializer_list(target_type, pos, iter, defs)?;
             }else{
                 return Err(ParserError::not_struct_or_union_while_parsing_initializer(Rc::clone(target_type), pos.clone()));
@@ -3389,7 +3389,7 @@ eprintln!("typ: {:?}", target_type);
             }
         }
         self.parse_expected_token(iter, Token::BraceRight)?;
-eprintln!("expr: {:?}", expr);
+
         if expr.is_none() {
             Err(ParserError::no_value_in_union_initializer(pos.clone()))
         }else{
