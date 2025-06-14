@@ -3389,7 +3389,7 @@ eprintln!("typ: {:?}", target_type);
             }
         }
         self.parse_expected_token(iter, Token::BraceRight)?;
-
+eprintln!("expr: {:?}", expr);
         if expr.is_none() {
             Err(ParserError::no_value_in_union_initializer(pos.clone()))
         }else{

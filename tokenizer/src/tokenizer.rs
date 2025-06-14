@@ -628,6 +628,10 @@ impl Tokenizer {
                         self.next_char(ctx);  // skip 'x'
                         return self.tokenize_digit_sub(ctx, 16, start_pos);
                     },
+                    '.' => {
+                        self.next_char(ctx);  // skip '.'
+                        return self.tokenize_float(ctx, 0, start_pos);
+                    },
                     _ => {    // Octal
                         if ch2.is_digit(8) {
                             return self.tokenize_digit_sub(ctx, 8, start_pos);
@@ -734,6 +738,7 @@ impl Tokenizer {
         loop {
             let opt_c = ctx.chars.peek();
             if let Some(c) = opt_c {
+
                 if c.is_digit(10) {
                     f = f + (c.to_digit(10).unwrap() as f64) * ratio;
                 }else if *c == 'e' || *c == 'E' {

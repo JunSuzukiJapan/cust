@@ -513,27 +513,29 @@ impl<'ctx> CodeGen<'ctx> {
 
             //     unimplemented!()
             // },
-            Initializer::Union(opt_name, expr, typ, pos) => {
-                let fields = typ.get_union_fields().unwrap();
+            Initializer::Union(_opt_name, expr, _typ, pos) => {
+                // let fields = typ.get_union_fields().unwrap();
 
-                if let Some(name) = opt_name {
-                    for field in fields {
-                        if let Some(field_name) = field.get_name() {
-                            if name == field_name {
-
-
+                // if let Some(name) = opt_name {
+                //     for field in fields {
+                //         if let Some(field_name) = field.get_name() {
+                //             if name == field_name {
 
 
 
 
-                            }
-                        }
-                    }
+
+
+                //             }
+                //         }
+                //     }
+                // }
+
+                if let Some(v) = self.gen_expr(expr, env, break_catcher, continue_catcher)? {
+                    Ok(v.get_value())
+                }else{
+                    Err(Box::new(CodeGenError::initializer_is_none(pos.clone())))
                 }
-
-
-
-                unimplemented!()
             }
         }
     }
@@ -579,12 +581,10 @@ impl<'ctx> CodeGen<'ctx> {
                 let any_val = values.as_any_value_enum();
                 Ok(any_val)
             },
-            ConstInitializer::Union(opt_name, const_expr, typ, pos) => {
-
-
-
-
-                unimplemented!()
+            ConstInitializer::Union(_opt_name, const_expr, _typ, _pos) => {
+                let basic_value = self.const_expr_to_basic_value_enum(const_expr);
+                let any_value = basic_value.as_any_value_enum();
+                Ok(any_value)
             },
         }
     }
