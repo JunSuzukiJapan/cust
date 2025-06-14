@@ -998,7 +998,37 @@ impl<'ctx> CodeGen<'ctx> {
                     }
                 }
             },
-            None => (),  // do nothing
+            None => {
+                match typ.as_ref() {
+                    Type::Union { name, fields, type_variables } => {
+                        if let Some(fields) = fields.get_fields() {
+                            let mut max_size = 0;
+                            let mut max_size_type = None;
+
+                            for field in fields {
+                                let t = field.get_type().unwrap();
+                                let llvm_type = TypeUtil::to_basic_type_enum(&t, self.context, pos)?;
+                                let sz = Self::size_of(&llvm_type)?;
+                                if sz > max_size {
+                                    max_size = sz;
+                                    max_size_type = Some(llvm_type);
+                                }
+                            }
+
+                            let zero_initializer = max_size_type.unwrap().const_zero();
+                            ptr.set_initializer(&zero_initializer);
+                        }
+                    },
+                    _ => {
+                        // do nothing
+                    }
+                }
+
+
+
+
+                ()
+            },
         };
 
         env.insert_global_var(&name, typ.clone(), sq.clone(), ptr);
