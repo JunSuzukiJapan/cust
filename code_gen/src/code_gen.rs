@@ -1000,7 +1000,10 @@ impl<'ctx> CodeGen<'ctx> {
             },
             None => {
                 match typ.as_ref() {
-                    Type::Union { name, fields, type_variables } => {
+                    //
+                    // 初期値がない場合、ゼロで初期化しておかないと外部変数としてコンパイルされてしまう、のを防ぐためゼロで初期化。
+                    //
+                    Type::Union { name: _, fields, type_variables: _ } => {
                         if let Some(fields) = fields.get_fields() {
                             let mut max_size = 0;
                             let mut max_size_type = None;
@@ -1313,7 +1316,7 @@ impl<'ctx> CodeGen<'ctx> {
 
         if let Some(blk) = self.builder.get_insert_block() {
             if ! self.last_is_jump_statement(blk) {
-                self.builder.build_unreachable();
+                self.builder.build_unreachable()?;
             }
         }
 
@@ -1405,8 +1408,11 @@ impl<'ctx> CodeGen<'ctx> {
                     }else{
                         if *ret_type == typ {
                             // 最後の文が、ifのとき、ラベルif.endの後にコードが生成されないのでセグフォが起きることへのケア
-                            // self.builder.build_return(None)?;
-                            self.builder.build_unreachable()?;
+                            if let Some(blk) = self.builder.get_insert_block() {
+                                if ! self.last_is_jump_statement(blk) {
+                                    self.builder.build_unreachable()?;
+                                }
+                            }
 
                             Ok(())
                         }else{
@@ -1423,8 +1429,11 @@ impl<'ctx> CodeGen<'ctx> {
                     }else{
                         if *ret_type == typ {
                             // 最後の文が、ifのとき、ラベルif.endの後にコードが生成されないのでセグフォが起きることへのケア
-                            // self.builder.build_return(None)?;
-                            self.builder.build_unreachable()?;
+                            if let Some(blk) = self.builder.get_insert_block() {
+                                if ! self.last_is_jump_statement(blk) {
+                                    self.builder.build_unreachable()?;
+                                }
+                            }
 
                             Ok(())
                         }else{

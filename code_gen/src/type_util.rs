@@ -80,6 +80,14 @@ impl TypeUtil {
                 let (struct_type, _index_map) = CodeGen::struct_from_struct_definition(name, fields, type_variables, ctx, pos)?;
                 Ok(BasicTypeEnum::StructType(struct_type))
             },
+            Type::BoundStructType { struct_type, map: _ } => {
+                if let Type::Struct { name, fields, type_variables } = struct_type.as_ref() {
+                    let (struct_type, _index_map) = CodeGen::struct_from_struct_definition(name, fields, type_variables, ctx, pos)?;
+                    Ok(BasicTypeEnum::StructType(struct_type))
+                }else{
+                    panic!()
+                }
+            },
             Type::Union { name, fields, type_variables } => {
                 let (_union_type, _index_map, _max_size, max_size_type) = CodeGen::union_from_struct_definition(name, fields, type_variables, ctx, pos)?;
                 if let Some(typ) = max_size_type {
@@ -122,6 +130,9 @@ impl TypeUtil {
                 let basic_type = BasicTypeEnum::try_from(any_type).unwrap();
                 Ok(basic_type)
             },
+            // Type::TypeVariable(name) => {
+            //     unimplemented!()
+            // },
             _ => {
                 Err(Box::new(CodeGenError::cannot_convert_to_basic_type(typ.to_string(), pos.clone())))
             },

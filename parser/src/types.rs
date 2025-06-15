@@ -939,6 +939,7 @@ impl Type {
     pub fn is_struct(&self) -> bool {
         match self {
             Type::Struct {..} => true,
+            Type::BoundStructType {..} => true,
             _ => false,
         }
     }

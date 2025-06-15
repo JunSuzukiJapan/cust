@@ -177,7 +177,7 @@ impl ConstInitializer {
             Self::Array(_, typ, _pos) => Rc::clone(typ),
             Self::Struct(_, typ, _pos) => Rc::clone(typ),
             Self::Tuple(_, typ, _pos) => Rc::clone(typ),
-            Self::Union(_, const_expr, typ, _pos) => Rc::clone(typ),
+            Self::Union(_, _const_expr, typ, _pos) => Rc::clone(typ),
         }
     }
 }

@@ -459,7 +459,11 @@ impl<'ctx> CodeGen<'ctx> {
             // そのため、end_blockにunreachableを追加しておかないといけない。
             let typ = self.calc_ret_type(stmt, env)?;
             if *typ.as_ref() != Type::Void {
-                self.builder.build_unreachable()?;
+                if let Some(blk) = self.builder.get_insert_block() {
+                    if ! self.last_is_jump_statement(blk) {
+                        self.builder.build_unreachable()?;
+                    }
+                }
             }
         }
 

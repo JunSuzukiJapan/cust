@@ -7,10 +7,9 @@ use crate::Position;
 use crate::CodeGen;
 
 use inkwell::context::Context;
-use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, GlobalValue, IntValue, StructValue};
-use inkwell::types::{AnyTypeEnum, BasicType, BasicTypeEnum, StructType};
+use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, GlobalValue, IntValue};
+use inkwell::types::{AnyTypeEnum, BasicTypeEnum};
 use inkwell::types::AnyType;
-use inkwell::AddressSpace;
 use std::error::Error;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -228,7 +227,6 @@ impl<'ctx> CodeGen<'ctx> {
                 let raw_type = env.basic_type_enum_from_type(&typ, self.context, pos)?;
                 let vec: Vec<BasicTypeEnum> = vec!(tag_type.into(), raw_type);
                 let tagged_type = self.context.struct_type(&vec, false);
-                let tagged_ptr = self.builder.build_alloca(tagged_type, "enum_literal");
                 let tagged_ptr = self.builder.build_alloca(tagged_type, "enum_literal")?;
                 let tag_ptr = self.builder.build_struct_gep(tagged_type, tagged_ptr, 0, "struct_gep_for_tag_in_tagged_enum")?;
                 let tuple_ptr = self.builder.build_struct_gep(tagged_type, tagged_ptr, 1, "struct_gep_for_tuple_in_tagged_enum")?;
@@ -353,7 +351,7 @@ impl<'ctx> CodeGen<'ctx> {
         };
 
         let literal = self.gen_enum_const_literal(init_value, pos)?.unwrap();
-        let mut basic_value = self.try_as_basic_value(&literal.get_value(), pos)?;
+        let basic_value = self.try_as_basic_value(&literal.get_value(), pos)?;
 
         let t1 = target_enum_ptr.get_value_type();
         let t2 = basic_value.get_type().as_any_type_enum();

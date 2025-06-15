@@ -21,6 +21,7 @@ pub type FuncType_i32i32_i32 = unsafe extern "C" fn(i32, i32) -> i32;
 pub type FuncType_i32i32i32_i32 = unsafe extern "C" fn(i32, i32, i32) -> i32;
 pub type FuncType_void_void = unsafe extern "C" fn() -> ();
 pub type FuncType_void_char = unsafe extern "C" fn() -> u8;
+pub type FuncType_void_f64 = unsafe extern "C" fn() -> f64;
 
 pub fn parse_from_str(input: &str) -> Result<Vec<ToplevelAST>, ParserError> {
     let token_list = Tokenizer::tokenize(input)?;

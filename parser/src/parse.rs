@@ -16,7 +16,6 @@ use std::slice::Iter;
 use std::iter::Peekable;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
-use std::string::ParseError;
 
 #[derive(Debug)]
 pub struct Parser;
@@ -3305,6 +3304,7 @@ impl Parser {
         let init_expr;
         if *tok == Token::BraceLeft {
             iter.next();  // skip '{'
+
             if target_type.is_struct() {
                 init_expr = self.parse_struct_initializer_list(target_type, pos, iter, defs)?;
             }else if target_type.is_union() {
