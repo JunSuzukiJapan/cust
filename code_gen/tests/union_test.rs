@@ -21,12 +21,9 @@ fn code_gen_union() -> Result<(), CodeGenError> {
             Bar bar;
 
             bar.i_value = 100;
-            int i = bar.i_value;
-
             bar.d_value = 3.14;
-            double d = bar.d_value;
 
-            return i;
+            return bar.d_value;
         }
     ";
 
@@ -43,8 +40,8 @@ fn code_gen_union() -> Result<(), CodeGenError> {
         let _any_value = gen.gen_toplevel(&asts[i], &mut env, None, None).unwrap();
     }
 
-    let f: JitFunction<FuncType_void_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
-    assert_eq!(unsafe { f.call() }, 100);
+    let f: JitFunction<FuncType_void_f64> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
+    assert_eq!(unsafe { f.call() }, 3.14);
 
     Ok(())
 }
@@ -61,13 +58,10 @@ fn code_gen_union2() -> Result<(), CodeGenError> {
         int test() {
             Bar bar;
 
-            bar.i_value = 100;
-            int i = bar.i_value;
-
             bar.d_value = 3.14;
-            double d = bar.d_value;
+            bar.i_value = 100;
 
-            return i;
+            return bar.i_value;
         }
     ";
 
