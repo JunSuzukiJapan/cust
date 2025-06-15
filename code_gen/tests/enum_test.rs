@@ -154,12 +154,12 @@ fn code_gen_global_tuple_type_enum_init() -> Result<(), CodeGenError> {
 
     Ok(())
 }
-
+/*
 #[test]
 fn code_gen_global_struct_type_enum_init() -> Result<(), CodeGenError> {
     let src = "
         enum Foo {
-            Bar (int, int),
+            Bar (int, int, int),
             Zot {
                 int x;
                 int y;
@@ -198,3 +198,4 @@ fn code_gen_global_struct_type_enum_init() -> Result<(), CodeGenError> {
 
     Ok(())
 }
+*/

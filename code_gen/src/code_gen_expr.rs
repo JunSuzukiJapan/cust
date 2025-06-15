@@ -671,6 +671,9 @@ impl<'ctx> CodeGen<'ctx> {
             ExprAST::TupleLiteral(expr_list, pos) => {
                 self.gen_tuple_literal(expr_list, None, env, break_catcher, continue_catcher, pos)
             },
+            ExprAST::ConstTupleLiteral(const_list, pos) => {
+                self.gen_tuple_literal_from_const_expr_list(const_list, pos)
+            },
             ExprAST::TupleMemberAccess(tpl, index, pos) => {
                 let (elem_type, ptr, _sq) = self.get_indexed_tuple_ptr_and_type(tpl, *index, pos, env, break_catcher, continue_catcher)?;
                 let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&elem_type, &self.context, pos)?, ptr, "load_tuple_element")?;
@@ -751,26 +754,27 @@ impl<'ctx> CodeGen<'ctx> {
 
     pub fn gen_tuple_literal_from_const_expr_list<'b, 'c>(&self,
         const_list: &Vec<ConstExpr>,
-        tuple_ptr: PointerValue<'ctx>,
-        tuple_type: &Rc<Type>,
+        // tuple_ptr: PointerValue<'ctx>,
+        // tuple_type: &Rc<Type>,
         pos: &Position
     ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error + 'static>> {
         //
         // calc type
         //
-        let mut type_list = Vec::new();
+        let mut llvm_type_list = Vec::new();
         let mut cust_type_list = Vec::new();
     
         for const_expr in const_list {
             let typ = const_expr.get_type();
             let t = TypeUtil::to_basic_type_enum(&typ, &self.context, pos)?;
     
-            type_list.push(t);
-            cust_type_list.push(typ.clone());
+            llvm_type_list.push(t);
+            cust_type_list.push(Rc::new(typ));
         }
 
-        let any_type = self.context.struct_type(&type_list, false);
-        let basic_type = BasicTypeEnum::try_from(any_type).unwrap();
+        // let any_type = self.context.struct_type(&llvm_type_list, false);
+        // let basic_type = BasicTypeEnum::try_from(any_type).unwrap();
+        let cust_type = Type::Tuple(cust_type_list);
 
         //
         // make const tuple
@@ -781,15 +785,16 @@ impl<'ctx> CodeGen<'ctx> {
             vec.push(basic_value);
         }
         let values = self.context.const_struct(&vec, false);
-        let _result = self.builder.build_store(tuple_ptr, values.as_basic_value_enum());
+        let any_val = values.as_any_value_enum();
+        // let _result = self.builder.build_store(tuple_ptr, values.as_basic_value_enum());
 
-        //
-        // return result
-        //
-        let basic_val = self.builder.build_load(basic_type, tuple_ptr, &format!("load_tuple_literal"))?;
-        let any_val = basic_val.as_any_value_enum();
+        // //
+        // // return result
+        // //
+        // let basic_val = self.builder.build_load(basic_type, tuple_ptr, &format!("load_tuple_literal"))?;
+        // let any_val = basic_val.as_any_value_enum();
 
-        Ok(Some(CompiledValue::new(Rc::clone(tuple_type), any_val)))
+        Ok(Some(CompiledValue::new(Rc::new(cust_type), any_val)))
     }
 
     fn gen_bin_expr<'b, 'c>(&self,

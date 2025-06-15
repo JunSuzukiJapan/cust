@@ -19,7 +19,7 @@
                     "kind": "bin"
                 }
             },
-            "args": ["-c", "../cust_tmp/parse_struct_generics.cust"],
+            "args": ["-c", "../cust_tmp/complex_union.cust"],
             "cwd": "${workspaceFolder}"
         },
         {

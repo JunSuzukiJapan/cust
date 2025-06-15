@@ -457,6 +457,17 @@ impl TypeUtil {
                 let t = Type::Tuple(type_list);
                 Ok(Rc::new(t))
             },
+            ExprAST::ConstTupleLiteral(const_list, _pos) => {
+                let mut type_list = Vec::new();
+
+                for e in const_list {
+                    let typ = Rc::new(e.get_type());
+                    type_list.push(typ);
+                }
+
+                let t = Type::Tuple(type_list);
+                Ok(Rc::new(t))
+            },
             ExprAST::TupleMemberAccess(expr_ast, index, pos) => {
                 let typ = TypeUtil::get_type(expr_ast, env)?;
                 let ptr = Rc::as_ptr(&typ);

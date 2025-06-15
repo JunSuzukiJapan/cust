@@ -386,10 +386,10 @@ impl<'ctx> CodeGen<'ctx> {
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
 
-        let init_value_list = if let Initializer::Simple(ExprAST::TupleLiteral(tuple_literal, _pos), _pos2) = init {
-            tuple_literal
+        let init_value_list = if let Initializer::Simple(ExprAST::ConstTupleLiteral(const_list, _pos), _pos2) = init {
+            const_list
         }else{
-            return Err(Box::new(CodeGenError::initializer_is_not_tuple(init.get_position().clone())));
+            return Err(Box::new(CodeGenError::initializer_is_not_const_tuple(init.get_position().clone())));
         };
 
         let target_len = type_list.len();
@@ -406,19 +406,19 @@ impl<'ctx> CodeGen<'ctx> {
         // target_len > 0
         //
 
-        let values = self.make_tuple_init_value(type_list, init.get_position(), init_value_list, env, break_catcher, continue_catcher)?;
+        let values = self.make_global_tuple_init_value(type_list, init.get_position(), init_value_list)?;
         target_tuple_ptr.set_initializer(&values.as_basic_value_enum());
 
         Ok(None)
     }
 
-    pub fn make_tuple_init_value<'b, 'c>(&self,
+    pub fn make_global_tuple_init_value<'b, 'c>(&self,
         type_list: &Vec<Rc<Type>>,
         init_pos: &Position,
-        init_value_list: &Vec<Box<ExprAST>>,
-        env: &mut Env<'ctx>,
-        break_catcher: Option<&'b BreakCatcher>,
-        continue_catcher: Option<&'c ContinueCatcher>
+        init_value_list: &Vec<ConstExpr>
+        // env: &mut Env<'ctx>,
+        // break_catcher: Option<&'b BreakCatcher>,
+        // continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<StructValue<'ctx>, Box<dyn Error>> {
 
         let target_len = type_list.len();
@@ -433,13 +433,14 @@ impl<'ctx> CodeGen<'ctx> {
 
             if i < init_len {
                 let init_value = &init_value_list[i];
-                let init_type = TypeUtil::get_type(&init_value, env)?;
-                if **field_type != *init_type {
+                let init_type = init_value.get_type();
+                if **field_type != init_type {
                     return Err(Box::new(CodeGenError::mismatch_initializer_type(&field_type, &init_type, init_value.get_position().clone())));
                 }
 
-                let compiled_val = self.gen_expr(&**init_value, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::mismatch_initializer_type(&field_type, &init_type, init_value.get_position().clone()))?;
-                let value = self.try_as_basic_value(&compiled_val.get_value(), init_value.get_position())?;
+                // let compiled_val = self.gen_expr(&init_value, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::mismatch_initializer_type(&field_type, &init_type, init_value.get_position().clone()))?;
+                // let value = self.try_as_basic_value(&compiled_val.get_value(), init_value.get_position())?;
+                let value = self.const_expr_to_basic_value_enum(init_value);
                 vec.push(value);
 
             }else{  // zero clear

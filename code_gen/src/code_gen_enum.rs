@@ -235,8 +235,11 @@ impl<'ctx> CodeGen<'ctx> {
 
                 if tuple_literal.is_const() {
                     let const_list = tuple_literal.get_const_list();
-                    let initialized_literal = self.gen_tuple_literal_from_const_expr_list(const_list, tuple_ptr, typ, pos)?;
-                    let _initialized_literal = initialized_literal.ok_or(CodeGenError::cannot_init_enum(literal.get_type().get_type_name(), pos.clone()))?;
+                    // let initialized_literal = self.gen_tuple_literal_from_const_expr_list(const_list, tuple_ptr, typ, pos)?;
+                    let initialized_literal = self.gen_tuple_literal_from_const_expr_list(const_list, pos)?;
+                    let literal = initialized_literal.ok_or(CodeGenError::cannot_init_enum(literal.get_type().get_type_name(), pos.clone()))?;
+                    let any_val = literal.get_value();
+                    let _result = self.builder.build_store(tuple_ptr, self.try_as_basic_value(&any_val, pos)?);
 
                 }else{
                     let expr_list = tuple_literal.get_expr_list();

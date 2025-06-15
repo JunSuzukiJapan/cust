@@ -49,7 +49,7 @@ pub enum CodeGenError {
     InitializerIsNone(Position),
     InitializerIsNotArray(Position),
     InitializerIsNotStruct(Position),
-    InitializerIsNotTuple(Position),
+    InitializerIsNotConstTuple(Position),
     InitialListIsTooLong(Position),
     CannotInitStructMember(Position),
     CannotGetZeroValue(Position),
@@ -285,8 +285,8 @@ impl CodeGenError {
         Self::InitializerIsNotStruct(pos)
     }
 
-    pub fn initializer_is_not_tuple(pos: Position) -> Self {
-        Self::InitializerIsNotTuple(pos)
+    pub fn initializer_is_not_const_tuple(pos: Position) -> Self {
+        Self::InitializerIsNotConstTuple(pos)
     }
 
     pub fn initial_list_is_too_long(pos: Position) -> Self {
@@ -730,8 +730,8 @@ impl fmt::Display for CodeGenError {
             Self::InitializerIsNotStruct(_pos) => {
                 write!(f, "initializer is not struct")
             },
-            Self::InitializerIsNotTuple(_pos) => {
-                write!(f, "initializer is not tuple")
+            Self::InitializerIsNotConstTuple(_pos) => {
+                write!(f, "initializer is not const tuple")
             },
             Self::InitialListIsTooLong(_pos) => {
                 write!(f, "initial list is too long")

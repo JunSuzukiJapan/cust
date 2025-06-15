@@ -9,25 +9,25 @@ mod tests {
         let src = "$(1, 2, 3)";
         let ast = parse_expression_from_str(src).unwrap().unwrap();
 
-        if let ExprAST::TupleLiteral(list, _pos1) = ast {
+        if let ExprAST::ConstTupleLiteral(list, _pos1) = ast {
             assert_eq!(list.len(), 3);
 
-            let ast = &*list[0];
+            let ast = &list[0];
             assert_eq!(
                 *ast,
-                ExprAST::Int(1, Position::new(1, 3))
+                ConstExpr::Int(1, Position::new(1, 3))
             );
 
-            let ast = &*list[1];
+            let ast = &list[1];
             assert_eq!(
                 *ast,
-                ExprAST::Int(2, Position::new(1, 6))
+                ConstExpr::Int(2, Position::new(1, 6))
             );
 
-            let ast = &*list[2];
+            let ast = &list[2];
             assert_eq!(
                 *ast,
-                ExprAST::Int(3, Position::new(1, 9))
+                ConstExpr::Int(3, Position::new(1, 9))
             );
 
         }else{
@@ -40,30 +40,25 @@ mod tests {
         let src = "$(1, 2, 3 + 4)";
         let ast = parse_expression_from_str(src).unwrap().unwrap();
 
-        if let ExprAST::TupleLiteral(list, _pos1) = ast {
+        if let ExprAST::ConstTupleLiteral(list, _pos1) = ast {
             assert_eq!(list.len(), 3);
 
-            let ast = &*list[0];
+            let ast = &list[0];
             assert_eq!(
                 *ast,
-                ExprAST::Int(1, Position::new(1, 3))
+                ConstExpr::Int(1, Position::new(1, 3))
             );
 
-            let ast = &*list[1];
+            let ast = &list[1];
             assert_eq!(
                 *ast,
-                ExprAST::Int(2, Position::new(1, 6))
+                ConstExpr::Int(2, Position::new(1, 6))
             );
 
-            let ast = &*list[2];
+            let ast = &list[2];
             assert_eq!(
                 *ast,
-                ExprAST::BinExpr(
-                    BinOp::Add,
-                    Box::new(ExprAST::Int(3, Position::new(1, 9))),
-                    Box::new(ExprAST::Int(4, Position::new(1, 13))),
-                    Position::new(1, 11)
-                )
+                ConstExpr::Int(7, Position::new(1, 11))
             );
 
         }else{
@@ -181,25 +176,25 @@ mod tests {
                         ExprAST::Double(3.0, Position::new(1, 6))
                     );
 
-                    if let ExprAST::TupleLiteral(list, _pos1) = &*list[2] {
+                    if let ExprAST::ConstTupleLiteral(list, _pos1) = &*list[2] {
                         assert_eq!(list.len(), 3);
 
-                        let ast = &*list[0];
+                        let ast = &list[0];
                         assert_eq!(
                             *ast,
-                            ExprAST::Int(2, Position::new(1, 13))
+                            ConstExpr::Int(2, Position::new(1, 13))
                         );
 
-                        let ast = &*list[1];
+                        let ast = &list[1];
                         assert_eq!(
                             *ast,
-                            ExprAST::Int(3, Position::new(1, 16))
+                            ConstExpr::Int(3, Position::new(1, 16))
                         );
 
-                        let ast = &*list[2];
+                        let ast = &list[2];
                         assert_eq!(
                             *ast,
-                            ExprAST::Int(4, Position::new(1, 19))
+                            ConstExpr::Int(4, Position::new(1, 19))
                         );
 
                     }else{

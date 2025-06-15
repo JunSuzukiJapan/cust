@@ -2461,14 +2461,24 @@ impl Parser {
                     iter.next();  // skip '$('
 
                     let mut list = Vec::new();
+                    let mut const_list = Vec::new();
+                    let mut all_const = true;
+
                     loop {
                         let (tok2, _pos2) = iter.peek().unwrap();
                         if *tok2 == Token::ParenRight {
                             break;
                         }
 
-                        let result = self.parse_assignment_expression(iter, defs)?.unwrap();  // カンマ演算子避け
-                        list.push(Box::new(result));
+                        let expr = self.parse_assignment_expression(iter, defs)?.unwrap();  // カンマ演算子避け
+
+                        let maybe_const = expr.to_const(defs, pos);
+                        if maybe_const.is_err() {
+                            all_const = false;
+                        }else{
+                            const_list.push(maybe_const.unwrap());
+                        }
+                        list.push(Box::new(expr));
 
                         let (tok3, _pos3) = iter.peek().unwrap();
                         if *tok3 == Token::Comma {
@@ -2478,8 +2488,13 @@ impl Parser {
 
                     self.parse_expected_token(iter, Token::ParenRight)?;  // skip ')'
 
-                    let result = ExprAST::TupleLiteral(list, pos.clone());
-                    Ok(Some(result))
+                    if all_const {
+                        let result = ExprAST::ConstTupleLiteral(const_list, pos.clone());
+                        Ok(Some(result))
+                    }else{
+                        let result = ExprAST::TupleLiteral(list, pos.clone());
+                        Ok(Some(result))
+                    }
                 },
                 _ => {
                     self.parse_constant(iter, defs)
