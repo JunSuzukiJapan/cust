@@ -380,10 +380,7 @@ impl<'ctx> CodeGen<'ctx> {
     pub fn gen_global_tuple_init<'b, 'c>(&self,
         type_list: &Vec<Rc<Type>>,
         target_tuple_ptr: GlobalValue<'ctx>,
-        init: &Initializer,
-        env: &mut Env<'ctx>,
-        break_catcher: Option<&'b BreakCatcher>,
-        continue_catcher: Option<&'c ContinueCatcher>
+        init: &Initializer
     ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
 
         let init_value_list = if let Initializer::Simple(ExprAST::ConstTupleLiteral(const_list, _pos), _pos2) = init {
@@ -416,9 +413,6 @@ impl<'ctx> CodeGen<'ctx> {
         type_list: &Vec<Rc<Type>>,
         init_pos: &Position,
         init_value_list: &Vec<ConstExpr>
-        // env: &mut Env<'ctx>,
-        // break_catcher: Option<&'b BreakCatcher>,
-        // continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<StructValue<'ctx>, Box<dyn Error>> {
 
         let target_len = type_list.len();
@@ -989,7 +983,7 @@ impl<'ctx> CodeGen<'ctx> {
                         self.gen_global_enum_init(ptr, &*initializer)?;
                     },
                     Type::Tuple(type_list) => {
-                        self.gen_global_tuple_init(&type_list, ptr, &*initializer, env, break_catcher, continue_catcher)?;
+                        self.gen_global_tuple_init(&type_list, ptr, &*initializer)?;
                     },
                     _ => {
                         let init = self.gen_initializer(initializer, env, break_catcher, continue_catcher)?;
