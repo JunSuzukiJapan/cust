@@ -1,5 +1,6 @@
 #![allow(deprecated)]
 
+use crate::global::global;
 use crate::parser::{AST, ExprAST, Type};
 use crate::parser::{Pattern, EnumPattern};
 use crate::type_util::TypeUtil;
@@ -804,10 +805,12 @@ impl<'ctx> CodeGen<'ctx> {
                 let arg_type = arg.get_type();
                 let arg_enum_def = arg_type.get_enum_definition().ok_or(CodeGenError::not_enum(arg_type.as_ref().clone(), pos.clone()))?;
                 let required_tag = arg_enum_def.get_index_by_name(sub_name).ok_or(CodeGenError::no_such_a_field(arg_enum_def.get_name().to_string(), type_name.to_string(), pos.clone()))?;
-    
-                let i64_type = self.context.i64_type();
-                let i64_num = i64_type.const_int(required_tag as u64, true);
-                let left = CompiledValue::new(Type::Number(NumberType::LongLong).into(), i64_num.as_any_value_enum());
+
+                let enum_tag_number_type = global().enum_tag_type().clone();
+                let enum_tag_type = Rc::new(Type::Number(enum_tag_number_type.clone()));
+                let enum_tag_llvm_type = TypeUtil::to_llvm_type(&enum_tag_type, self.context, &Position::new(1, 1))?.into_int_type();
+                let tag_num = enum_tag_llvm_type.const_int(required_tag as u64, true);
+                let left = CompiledValue::new(Type::Number(enum_tag_number_type).into(), tag_num.as_any_value_enum());
     
                 let real_tag = self.gen_get_tag_from_enum(arg, env, pos)?;
                 let ty = Rc::new(Type::Number(NumberType::Int));
@@ -840,10 +843,12 @@ impl<'ctx> CodeGen<'ctx> {
                 let arg_enum_def = arg_type.get_enum_definition().ok_or(CodeGenError::not_enum(arg_type.as_ref().clone(), pos.clone()))?;
                 let required_tag = arg_enum_def.get_index_by_name(&sub_name).ok_or(CodeGenError::no_such_a_field(arg_enum_def.get_name().to_string(), type_name.to_string(), pos.clone()))?;
     
-                let i64_type = self.context.i64_type();
-                let i64_num = i64_type.const_int(required_tag as u64, true);
-                let left = CompiledValue::new(Type::Number(NumberType::LongLong).into(), i64_num.as_any_value_enum());
-    
+                let enum_tag_number_type = global().enum_tag_type().clone();
+                let enum_tag_type = Rc::new(Type::Number(enum_tag_number_type.clone()));
+                let enum_tag_llvm_type = TypeUtil::to_llvm_type(&enum_tag_type, self.context, &Position::new(1, 1))?.into_int_type();
+                let tag_num = enum_tag_llvm_type.const_int(required_tag as u64, true);
+                let left = CompiledValue::new(Type::Number(enum_tag_number_type).into(), tag_num.as_any_value_enum());    
+
                 let real_tag = self.gen_get_tag_from_enum(arg, env, pos)?;
                 let ty = Rc::new(Type::Number(NumberType::Int));
                 let right = CompiledValue::new(ty, real_tag.as_any_value_enum());
@@ -919,10 +924,12 @@ impl<'ctx> CodeGen<'ctx> {
                 let arg_enum_def = arg_type.get_enum_definition().ok_or(CodeGenError::not_enum(arg_type.as_ref().clone(), pos.clone()))?;
                 let required_tag = arg_enum_def.get_index_by_name(&sub_name).ok_or(CodeGenError::no_such_a_field(arg_enum_def.get_name().to_string(), type_name.to_string(), pos.clone()))?;
     
-                let i64_type = self.context.i64_type();
-                let i64_num = i64_type.const_int(required_tag as u64, true);
-                let left = CompiledValue::new(Type::Number(NumberType::LongLong).into(), i64_num.as_any_value_enum());
-    
+                let enum_tag_number_type = global().enum_tag_type().clone();
+                let enum_tag_type = Rc::new(Type::Number(enum_tag_number_type.clone()));
+                let enum_tag_llvm_type = TypeUtil::to_llvm_type(&enum_tag_type, self.context, &Position::new(1, 1))?.into_int_type();
+                let tag_num = enum_tag_llvm_type.const_int(required_tag as u64, true);
+                let left = CompiledValue::new(Type::Number(enum_tag_number_type).into(), tag_num.as_any_value_enum());    
+
                 let real_tag = self.gen_get_tag_from_enum(arg, env, pos)?;
                 let ty = Rc::new(Type::Number(NumberType::Int));
                 let right = CompiledValue::new(ty, real_tag.as_any_value_enum());
