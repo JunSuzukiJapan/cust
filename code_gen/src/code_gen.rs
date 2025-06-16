@@ -970,7 +970,7 @@ impl<'ctx> CodeGen<'ctx> {
                         ptr = self.module.add_global(basic_type, Some(AddressSpace::default()), &name);
 
                         if let Some(variables) = type_variables {
-                            self.gen_global_init_type_variables(&variables, ptr, &*initializer, env, break_catcher, continue_catcher)?;
+                            self.gen_global_init_type_variables(&variables, &*initializer, env)?;
                         }
                         self.gen_global_struct_init(&fields, ptr, &*initializer, env, break_catcher, continue_catcher)?;
                     },
@@ -979,67 +979,19 @@ impl<'ctx> CodeGen<'ctx> {
                         self.gen_global_array_init(&size_list, ptr, &*typ, &*initializer, env, break_catcher, continue_catcher)?;
                     },
                     Type::Enum { name: _, enum_def: _, type_variables } => {
-                        ptr = self.module.add_global(basic_type, Some(AddressSpace::default()), &name);
-                        if let Some(variables) = type_variables {
-                            self.gen_global_init_type_variables(&variables, ptr, &*initializer, env, break_catcher, continue_catcher)?;
-                        }
+                        // ptr = self.module.add_global(basic_type, Some(AddressSpace::default()), &name);
+                        // if let Some(variables) = type_variables {
+                        //     self.gen_global_init_type_variables(&variables, ptr, &*initializer, env, break_catcher, continue_catcher)?;
+                        // }
 
-                        self.gen_global_enum_init(ptr, &*initializer)?;
+                        ptr = self.gen_global_enum_init(name, &*initializer, basic_type, type_variables, env)?;
                     },
                     Type::Tuple(type_list) => {
                         ptr = self.module.add_global(basic_type, Some(AddressSpace::default()), &name);
                         self.gen_global_tuple_init(&type_list, ptr, &*initializer)?;
                     },
                     Type::Union { name: opt_name, fields, type_variables } => {
-                        let init_value = self.gen_initializer(initializer, env, break_catcher, continue_catcher)?;
-                        let init_value_type = init_value.get_type();
-                        let init_value_type = self.try_as_basic_type(&init_value_type, pos)?;
-                        let init_value_size = Self::size_of(&init_value_type)?;
-
-                        let (_type_list, _index_map, max_size, _max_size_type) = CodeGen::union_from_struct_definition(opt_name, fields, type_variables, self.context, pos)?;
-
-                        if init_value_size == max_size {
-                            ptr = self.module.add_global(basic_type, Some(AddressSpace::default()), &name);
-
-                            if let Some(variables) = type_variables {
-                                self.gen_global_init_type_variables(&variables, ptr, &*initializer, env, break_catcher, continue_catcher)?;
-                            }
-
-                            let basic_value = self.try_as_basic_value(&init_value, initializer.get_position())?;
-                            ptr.set_initializer(&basic_value);
-
-                        }else{
-                            let diff = max_size - init_value_size;
-                            let bytes = diff / 2;
-                            let init_value = self.try_as_basic_value(&init_value, pos)?;
-
-                            let mut value_list = Vec::new();
-                            let mut type_list = Vec::new();
-                            type_list.push(init_value_type);
-                            value_list.push(init_value);
-
-                            let byte_type = self.context.i8_type();
-                            let i8_ary_type = byte_type.array_type(bytes as u32);
-                            let i8_ary_undef = i8_ary_type.get_undef();
-                            type_list.push(i8_ary_type.as_basic_type_enum());
-                            value_list.push(i8_ary_undef.as_basic_value_enum());
-
-                            let rem = diff % 8;
-                            if rem != 0 {
-                                let bit_type = self.context.bool_type();
-                                let rem_type = bit_type.array_type(rem as u32);
-                                let rem_undef = rem_type.get_undef();
-                                type_list.push(rem_type.as_basic_type_enum());
-                                value_list.push(rem_undef.as_basic_value_enum());
-                            }
-
-                            let value = self.context.const_struct(&value_list, false);
-
-                            let basic_value = self.try_as_basic_value(&value.as_any_value_enum(), initializer.get_position())?;
-                            let ty = self.context.struct_type(&type_list, false);
-                            ptr = self.module.add_global(ty, Some(AddressSpace::default()), &name);
-                            ptr.set_initializer(&basic_value);
-                        }
+                        ptr = self.gen_def_global_union(name, env, pos, basic_type, initializer, opt_name, fields, type_variables)?;
                     },
                     _ => {
                         ptr = self.module.add_global(basic_type, Some(AddressSpace::default()), &name);
@@ -1089,14 +1041,79 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(())
     }
 
-    fn gen_global_init_type_variables<'b, 'c>(
+    fn gen_def_global_union<'b, 'c>(&self,
+        name: &str,
+        env: &mut Env<'ctx>,
+        pos: &Position,
+        basic_type: BasicTypeEnum<'ctx>,
+        initializer: &Initializer,
+        opt_name: &Option<String>,
+        fields: &parser::StructDefinition,
+        type_variables: &Option<Vec<String>>
+    ) -> Result<GlobalValue<'ctx>, Box<dyn Error + 'static>> {
+
+        if let Some(variables) = type_variables {
+            self.gen_global_init_type_variables(&variables, &*initializer, env)?;
+        }
+
+        let init_value = self.gen_initializer(initializer, env, None, None)?;
+        let init_value_type = init_value.get_type();
+        let init_value_type = self.try_as_basic_type(&init_value_type, pos)?;
+        let init_value_size = Self::size_of(&init_value_type)?;
+        let (_type_list, _index_map, max_size, _max_size_type) = CodeGen::union_from_struct_definition(opt_name, fields, type_variables, self.context, pos)?;
+
+        let ptr;
+        if init_value_size == max_size {
+            ptr = self.module.add_global(basic_type, Some(AddressSpace::default()), &name);
+    
+            if let Some(variables) = type_variables {
+                self.gen_global_init_type_variables(&variables, &*initializer, env)?;
+            }
+    
+            let basic_value = self.try_as_basic_value(&init_value, initializer.get_position())?;
+            ptr.set_initializer(&basic_value);
+    
+        }else{
+            let diff = max_size - init_value_size;
+            let bytes = diff / 2;
+            let init_value = self.try_as_basic_value(&init_value, pos)?;
+    
+            let mut value_list = Vec::new();
+            let mut type_list = Vec::new();
+            type_list.push(init_value_type);
+            value_list.push(init_value);
+    
+            let byte_type = self.context.i8_type();
+            let i8_ary_type = byte_type.array_type(bytes as u32);
+            let i8_ary_undef = i8_ary_type.get_undef();
+            type_list.push(i8_ary_type.as_basic_type_enum());
+            value_list.push(i8_ary_undef.as_basic_value_enum());
+    
+            let rem = diff % 8;
+            if rem != 0 {
+                let bit_type = self.context.bool_type();
+                let rem_type = bit_type.array_type(rem as u32);
+                let rem_undef = rem_type.get_undef();
+                type_list.push(rem_type.as_basic_type_enum());
+                value_list.push(rem_undef.as_basic_value_enum());
+            }
+    
+            let value = self.context.const_struct(&value_list, false);
+    
+            let basic_value = self.try_as_basic_value(&value.as_any_value_enum(), initializer.get_position())?;
+            let ty = self.context.struct_type(&type_list, false);
+            ptr = self.module.add_global(ty, Some(AddressSpace::default()), &name);
+            ptr.set_initializer(&basic_value);
+        }
+
+        Ok(ptr)
+    }
+    
+    pub fn gen_global_init_type_variables<'b, 'c>(
         &self,
         _variables: &Vec<String>,
-        _target_ptr: GlobalValue<'ctx>,
         _init: &Initializer,
-        _env: &mut Env<'ctx>,
-        _break_catcher: Option<&'b BreakCatcher>,
-        _continue_catcher: Option<&'c ContinueCatcher>
+        _env: &mut Env<'ctx>
     ) -> Result<(), Box<dyn Error>> {
 
         // let init_value_list = if let Initializer::Simple(ExprAST::TupleLiteral(expr_list, _pos), _pos2) = init {
@@ -1309,7 +1326,7 @@ impl<'ctx> CodeGen<'ctx> {
         }
     }
 
-    fn try_as_basic_type(&self, any_type: &AnyTypeEnum<'ctx>, pos: &Position) -> Result<BasicTypeEnum<'ctx>, CodeGenError> {
+    pub fn try_as_basic_type(&self, any_type: &AnyTypeEnum<'ctx>, pos: &Position) -> Result<BasicTypeEnum<'ctx>, CodeGenError> {
         match any_type {
             AnyTypeEnum::ArrayType(val) => Ok(BasicTypeEnum::ArrayType(*val)),
             AnyTypeEnum::IntType(val) => Ok(BasicTypeEnum::IntType(*val)),

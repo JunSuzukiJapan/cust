@@ -7,9 +7,10 @@ use crate::Position;
 use crate::CodeGen;
 
 use inkwell::context::Context;
-use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, GlobalValue, IntValue};
-use inkwell::types::{AnyTypeEnum, BasicTypeEnum};
+use inkwell::values::{AnyValue, BasicValue, GlobalValue, IntValue};
+use inkwell::types::{AnyTypeEnum, BasicTypeEnum, BasicType};
 use inkwell::types::AnyType;
+use inkwell::AddressSpace;
 use std::error::Error;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -342,32 +343,73 @@ impl<'ctx> CodeGen<'ctx> {
     }
 
     pub fn gen_global_enum_init<'b, 'c>(&self,
-        // enum_def: &EnumDefinition,
-        target_enum_ptr: GlobalValue<'ctx>,
-        init: &Initializer,
-    ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
+        enum_name: &str,
+        initializer: &Initializer,
+        target_type: BasicTypeEnum<'ctx>,
+        type_variables: &Option<Vec<String>>,
+        env: &mut Env<'ctx>
+    ) -> Result<GlobalValue<'ctx>, Box<dyn Error>> {
 
-        let (init_value, pos) = if let Initializer::Simple(ExprAST::EnumLiteral(_typ, _tag, enum_literal, _pos), pos2) = init {
+        if let Some(variables) = type_variables {
+            self.gen_global_init_type_variables(&variables, &*initializer, env)?;
+        }
+
+        let (init_value, pos) = if let Initializer::Simple(ExprAST::EnumLiteral(_typ, _tag, enum_literal, _pos), pos2) = initializer {
             (enum_literal, pos2)
         }else{
-            return Err(Box::new(CodeGenError::initializer_is_not_enum(init.get_position().clone())));
+            return Err(Box::new(CodeGenError::initializer_is_not_enum(initializer.get_position().clone())));
         };
 
         let literal = self.gen_enum_const_literal(init_value, pos)?.unwrap();
-        let basic_value = self.try_as_basic_value(&literal.get_value(), pos)?;
+        let init_value = self.try_as_basic_value(&literal.get_value(), pos)?;
+        let init_value_type = init_value.get_type();
+        let init_value_size = Self::size_of(&init_value_type)?;
 
-        let t1 = target_enum_ptr.get_value_type();
-        let t2 = basic_value.get_type().as_any_type_enum();
-        if t1 == t2 {
-            target_enum_ptr.set_initializer(&basic_value);
+        let target_type_size = Self::size_of(&target_type)?;
 
+        let ptr;
+        if init_value_size == target_type_size {
+            ptr = self.module.add_global(target_type, Some(AddressSpace::default()), enum_name);
+    
+            if let Some(variables) = type_variables {
+                self.gen_global_init_type_variables(&variables, &*initializer, env)?;
+            }
+    
+            ptr.set_initializer(&init_value);
+    
         }else{
-            // let literal_type = BasicTypeEnum::try_from(t2).or_else(|_| Err(CodeGenError::cannot_convert_anytypeenum_to_basictypeenum(pos.clone())))?;
-            let target_ptr = target_enum_ptr.as_pointer_value();
-            let _ = self.builder.build_store(target_ptr, basic_value)?;
+            let diff = target_type_size - init_value_size;
+            let bytes = diff / 2;
+    
+            let mut value_list = Vec::new();
+            let mut type_list = Vec::new();
+            type_list.push(init_value_type);
+            value_list.push(init_value);
+    
+            let byte_type = self.context.i8_type();
+            let i8_ary_type = byte_type.array_type(bytes as u32);
+            let i8_ary_undef = i8_ary_type.get_undef();
+            type_list.push(i8_ary_type.as_basic_type_enum());
+            value_list.push(i8_ary_undef.as_basic_value_enum());
+    
+            let rem = diff % 8;
+            if rem != 0 {
+                let bit_type = self.context.bool_type();
+                let rem_type = bit_type.array_type(rem as u32);
+                let rem_undef = rem_type.get_undef();
+                type_list.push(rem_type.as_basic_type_enum());
+                value_list.push(rem_undef.as_basic_value_enum());
+            }
+    
+            let value = self.context.const_struct(&value_list, false);
+    
+            let basic_value = self.try_as_basic_value(&value.as_any_value_enum(), initializer.get_position())?;
+            let ty = self.context.struct_type(&type_list, false);
+            ptr = self.module.add_global(ty, Some(AddressSpace::default()), enum_name);
+            ptr.set_initializer(&basic_value);
         }
 
-        Ok(None)
+        Ok(ptr)
     }
 
 /*
