@@ -184,6 +184,14 @@ impl TypeUtil {
                     }
                 }
             },
+            Type::Union { name, fields, type_variables } => {
+                let (_type_list, _index_map, _max_size, max_size_type) = CodeGen::union_from_struct_definition(name, fields, type_variables, ctx, pos)?;
+                if let Some(t) = max_size_type {
+                    Ok(t.as_any_type_enum())
+                }else{
+                    Err(CodeGenError::no_size_union(pos.clone()).into())
+                }
+            },
             Type::Symbol(_name) => {
                 // maybe unreached
                 unimplemented!("'{}' to AnyTypeEnum", typ.to_string())

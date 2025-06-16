@@ -132,6 +132,7 @@ pub enum CodeGenError {
     DifferentAtNameInPatternList(Vec<String>, Vec<String>, Option<Position>, Option<Position>),  // (expected, real, Position)
     InitializerIsNotEnum(Position),
     NotConstInitializer(Position),
+    NoSizeUnion(Position),
 }
 
 impl CodeGenError {
@@ -597,6 +598,10 @@ impl CodeGenError {
     pub fn not_const_initializer(pos: Position) -> Self {
         Self::NotConstInitializer(pos)
     }
+
+    pub fn no_size_union(pos: Position) -> Self {
+        Self::NoSizeUnion(pos)
+    }
 }
 
 impl From<ParserError> for CodeGenError {
@@ -970,6 +975,9 @@ impl fmt::Display for CodeGenError {
             },
             Self::NotConstInitializer(_pos) => {
                 write!(f, "initializer should be constants")
+            },
+            Self::NoSizeUnion(_pos) => {
+                write!(f, "no size union")
             },
         }
     }

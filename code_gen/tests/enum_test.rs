@@ -122,6 +122,7 @@ fn code_gen_global_tuple_type_enum_init() -> Result<(), CodeGenError> {
             Zot {
                 int x;
                 int y;
+                int z;
             },
         };
 
@@ -154,7 +155,7 @@ fn code_gen_global_tuple_type_enum_init() -> Result<(), CodeGenError> {
 
     Ok(())
 }
-/*
+
 #[test]
 fn code_gen_global_struct_type_enum_init() -> Result<(), CodeGenError> {
     let src = "
@@ -198,4 +199,3 @@ fn code_gen_global_struct_type_enum_init() -> Result<(), CodeGenError> {
 
     Ok(())
 }
-*/
