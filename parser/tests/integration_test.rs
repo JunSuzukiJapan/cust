@@ -1173,7 +1173,18 @@ mod tests {
             /**/
             int* ptr = (int*)malloc(1);
         ";
-        let ast = parse_external_declaration_from_str(src).unwrap().unwrap();
+        let _ast = parse_external_declaration_from_str(src).unwrap().unwrap();
+
+        Ok(())
+    }
+
+    #[test]
+    fn parse_skip_after_sharp() -> Result<(), ParserError> {
+        let src = "
+            #line 0
+            int* ptr = (int*)malloc(1);
+        ";
+        let _ast = parse_external_declaration_from_str(src).unwrap().unwrap();
 
         Ok(())
     }

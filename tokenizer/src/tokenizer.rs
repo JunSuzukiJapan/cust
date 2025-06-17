@@ -542,6 +542,25 @@ impl Tokenizer {
                         Ok(Some((Token::Dollar, start_pos)))
                     }
                 },
+                '#' => {
+                    self.next_char(ctx);  // skip '#'
+
+                    let mut str_builder = String::new();
+                    loop {
+                        if let Some(c2) = self.next_char(ctx) {
+                            if c2 == '\n' {
+                                break;
+                            }
+                            str_builder.push(c2);
+
+                        }else{
+                            return Err(TokenizerError::IllegalEndOfInput(start_pos));
+                        }
+                    }
+                    println!("warn: #{} is not implemented", str_builder.to_string());
+
+                    self.next_token(ctx)
+                },
                 _ => {
                     let mut s = String::new();
                     while let Some(c) = self.peek_char(ctx) {
