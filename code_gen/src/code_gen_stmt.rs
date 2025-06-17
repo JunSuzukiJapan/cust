@@ -38,7 +38,7 @@ impl<'ctx> CodeGen<'ctx> {
                     let real_ret_type = real_ret.get_type();
 
                     if required_ret_type.as_ref() != real_ret_type.as_ref() {
-                        let casted = self.gen_implicit_cast(&real_ret.get_value(), &real_ret_type, &required_ret_type, expr.get_position())?;
+                        let casted = self.gen_implicit_cast(&real_ret.get_value(), &real_ret_type, &required_ret_type, env, expr.get_position())?;
                         real_ret = CompiledValue::new(real_ret.get_type().clone(), casted);
                     }
                     let ret = self.try_as_basic_value(&real_ret.get_value(), expr.get_position())?;
@@ -154,14 +154,16 @@ impl<'ctx> CodeGen<'ctx> {
                 self.gen_default(stmt, env, break_catcher, continue_catcher, pos)
             },
             AST::_self(pos) => {
-                if let Some((typ, _sq, ptr)) = env.get_self_ptr() {
-                    let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(typ, &self.context, pos)?, ptr, "get_self")?;
-                    let any_val = basic_val.as_any_value_enum();
-
-                    Ok(Some(any_val))
+                let (typ, _sq, ptr) = if let Some((typ, sq, ptr)) = env.get_self_ptr() {
+                    (typ.clone(), sq.clone(), ptr.clone())
                 }else{
-                    Err(Box::new(CodeGenError::no_such_a_variable("self", pos.clone())))
-                }
+                    return Err(Box::new(CodeGenError::no_such_a_variable("self", pos.clone())));
+                };
+
+                let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&typ, &self.context, env, pos)?, ptr, "get_self")?;
+                let any_val = basic_val.as_any_value_enum();
+
+                Ok(Some(any_val))
             },
             AST::Expr(expr_ast, _pos) => {
                 if let Some(value) = self.gen_expr(expr_ast, env, break_catcher, continue_catcher)? {

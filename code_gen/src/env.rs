@@ -667,7 +667,7 @@ impl<'ctx> Env<'ctx> {
                     }
                 }
 
-                let (struct_type, index_map) = CodeGen::struct_from_struct_definition(name, fields, type_variables, ctx, pos)?;
+                let (struct_type, index_map) = CodeGen::struct_from_struct_definition(name, fields, type_variables, ctx, self, pos)?;
                 if let Some(struct_name) = name {
                     self.insert_struct(struct_name, &struct_type, index_map, pos)?;
                     let raw_ptr = self.get_type_or_union(&struct_name).unwrap() as *const TypeOrUnion;
@@ -689,7 +689,7 @@ impl<'ctx> Env<'ctx> {
                     }
                 }
 
-                let (type_list, index_map, max_size, max_size_type) = CodeGen::union_from_struct_definition(name, fields, type_variables, ctx, pos)?;
+                let (type_list, index_map, max_size, max_size_type) = CodeGen::union_from_struct_definition(name, fields, type_variables, ctx, self, pos)?;
                 if let Some(union_name) = name {
                     self.insert_union(&union_name, type_list, index_map, max_size, max_size_type, pos)?;
 
@@ -703,7 +703,7 @@ impl<'ctx> Env<'ctx> {
 
             },
             _ => {
-                let type_or_union = TypeOrUnion::Type(TypeUtil::to_llvm_any_type(typ, ctx, pos)?);
+                let type_or_union = TypeOrUnion::Type(TypeUtil::to_llvm_any_type(typ, ctx, self, pos)?);
                 self.types.insert(key.to_string(), (type_or_union, None));
             },
         };
@@ -745,7 +745,7 @@ impl<'ctx> Env<'ctx> {
         Ok(())
     }
 
-    pub fn basic_type_enum_from_type(&self, typ: &Type, ctx: &'ctx Context, pos: &Position) -> Result<BasicTypeEnum<'ctx>, Box<dyn Error>> {
+    pub fn basic_type_enum_from_type(&mut self, typ: &Type, ctx: &'ctx Context, pos: &Position) -> Result<BasicTypeEnum<'ctx>, Box<dyn Error>> {
         match typ {
             Type::Struct { name, fields, type_variables } => {
                 if let Some(id) = name {
@@ -780,12 +780,12 @@ impl<'ctx> Env<'ctx> {
                             }
                         }
                     }else{
-                        let (any_type, _index_map) = CodeGen::struct_from_struct_definition(&None, fields, type_variables, ctx, pos)?;
+                        let (any_type, _index_map) = CodeGen::struct_from_struct_definition(&None, fields, type_variables, ctx, self, pos)?;
                         let basic_type = BasicTypeEnum::try_from(any_type).unwrap();
                         Ok(basic_type)
                     }
                 }else{
-                    let (any_type, _index_map) = CodeGen::struct_from_struct_definition(&None, fields, type_variables, ctx, pos)?;
+                    let (any_type, _index_map) = CodeGen::struct_from_struct_definition(&None, fields, type_variables, ctx, self, pos)?;
                     let basic_type = BasicTypeEnum::try_from(any_type).unwrap();
                     Ok(basic_type)
                 }
@@ -826,12 +826,12 @@ impl<'ctx> Env<'ctx> {
                                 },                            }
                         }
                     }else{
-                        let (_type_list, _index_map, _max_size, max_size_type_opt) = CodeGen::union_from_struct_definition(&None, fields, type_variables, ctx, pos)?;
+                        let (_type_list, _index_map, _max_size, max_size_type_opt) = CodeGen::union_from_struct_definition(&None, fields, type_variables, ctx, self, pos)?;
                         let max_size_type = max_size_type_opt.ok_or(CodeGenError::union_has_no_field(None, pos.clone()))?;
                         Ok(max_size_type)
                     }
                 }else{
-                    let (_type_list, _index_map, _max_size, max_size_type_opt) = CodeGen::union_from_struct_definition(&None, fields, type_variables, ctx, pos)?;
+                    let (_type_list, _index_map, _max_size, max_size_type_opt) = CodeGen::union_from_struct_definition(&None, fields, type_variables, ctx, self, pos)?;
                     let max_size_type = max_size_type_opt.ok_or(CodeGenError::union_has_no_field(None, pos.clone()))?;
                     Ok(max_size_type)
                 }
@@ -880,10 +880,10 @@ impl<'ctx> Env<'ctx> {
                 }
             },
             Type::Tuple(_type_list) => {
-                TypeUtil::to_basic_type_enum(typ, ctx, pos)
+                TypeUtil::to_basic_type_enum(typ, ctx, self, pos)
             },
             _ => {
-                Ok(TypeUtil::to_basic_type_enum(typ, ctx, pos)?)
+                Ok(TypeUtil::to_basic_type_enum(typ, ctx, self, pos)?)
             },
         }
     }

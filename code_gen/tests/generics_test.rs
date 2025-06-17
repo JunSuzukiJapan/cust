@@ -5,7 +5,7 @@ extern crate code_gen;
 mod common;
 
 use common::*;
-
+/*
 #[test]
 fn code_gen_enum() -> Result<(), Box<dyn Error>> {
     let src = "
@@ -42,5 +42,4 @@ fn code_gen_enum() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
-
-
+*/

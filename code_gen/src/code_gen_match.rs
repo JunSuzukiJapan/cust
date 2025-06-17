@@ -748,7 +748,7 @@ impl<'ctx> CodeGen<'ctx> {
             return Err(CodeGenError::tuple_length_mismatch(tpl_pattern_list.len(), tpl_type_list.len(), pos.clone()).into());
         }
 
-        let tpl_type = TypeUtil::to_llvm_type(&arg_type, self.context, pos)?;
+        let tpl_type = TypeUtil::to_llvm_type(&arg_type, self.context, env, pos)?;
         let struct_type = tpl_type.into_struct_type();
 
         let struct_value = arg.get_value().into_struct_value();
@@ -808,7 +808,7 @@ impl<'ctx> CodeGen<'ctx> {
 
                 let enum_tag_number_type = global().enum_tag_type().clone();
                 let enum_tag_type = Rc::new(Type::Number(enum_tag_number_type.clone()));
-                let enum_tag_llvm_type = TypeUtil::to_llvm_type(&enum_tag_type, self.context, &Position::new(1, 1))?.into_int_type();
+                let enum_tag_llvm_type = TypeUtil::to_llvm_type(&enum_tag_type, self.context, env, &Position::new(1, 1))?.into_int_type();
                 let tag_num = enum_tag_llvm_type.const_int(required_tag as u64, true);
                 let left = CompiledValue::new(Type::Number(enum_tag_number_type).into(), tag_num.as_any_value_enum());
     
@@ -845,7 +845,7 @@ impl<'ctx> CodeGen<'ctx> {
     
                 let enum_tag_number_type = global().enum_tag_type().clone();
                 let enum_tag_type = Rc::new(Type::Number(enum_tag_number_type.clone()));
-                let enum_tag_llvm_type = TypeUtil::to_llvm_type(&enum_tag_type, self.context, &Position::new(1, 1))?.into_int_type();
+                let enum_tag_llvm_type = TypeUtil::to_llvm_type(&enum_tag_type, self.context, env, &Position::new(1, 1))?.into_int_type();
                 let tag_num = enum_tag_llvm_type.const_int(required_tag as u64, true);
                 let left = CompiledValue::new(Type::Number(enum_tag_number_type).into(), tag_num.as_any_value_enum());    
 
@@ -926,7 +926,7 @@ impl<'ctx> CodeGen<'ctx> {
     
                 let enum_tag_number_type = global().enum_tag_type().clone();
                 let enum_tag_type = Rc::new(Type::Number(enum_tag_number_type.clone()));
-                let enum_tag_llvm_type = TypeUtil::to_llvm_type(&enum_tag_type, self.context, &Position::new(1, 1))?.into_int_type();
+                let enum_tag_llvm_type = TypeUtil::to_llvm_type(&enum_tag_type, self.context, env, &Position::new(1, 1))?.into_int_type();
                 let tag_num = enum_tag_llvm_type.const_int(required_tag as u64, true);
                 let left = CompiledValue::new(Type::Number(enum_tag_number_type).into(), tag_num.as_any_value_enum());    
 

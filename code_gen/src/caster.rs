@@ -1,4 +1,5 @@
 use crate::parser::Type;
+use crate::Env;
 
 use inkwell::builder::Builder;
 use inkwell::context::Context;
@@ -13,7 +14,7 @@ use std::error::Error;
 pub struct Caster;
 
 impl Caster {
-    pub fn gen_implicit_cast<'ctx>(builder: &Builder<'ctx>, ctx: &'ctx Context, value: &AnyValueEnum<'ctx>, from_type: &Type, to_type: &Type, pos: &Position) -> Result<AnyValueEnum<'ctx>, Box<dyn Error>> {
+    pub fn gen_implicit_cast<'ctx>(builder: &Builder<'ctx>, ctx: &'ctx Context, value: &AnyValueEnum<'ctx>, from_type: &Type, to_type: &Type, env:&mut Env<'ctx>, pos: &Position) -> Result<AnyValueEnum<'ctx>, Box<dyn Error>> {
         match (from_type, to_type) {
             //
             // same types
@@ -867,7 +868,7 @@ impl Caster {
                 //
                 // TODO:: type check
                 //
-                let ptr_type = TypeUtil::make_llvm_ptr_type(&*boxed_type, ctx, pos)?;
+                let ptr_type = TypeUtil::make_llvm_ptr_type(&*boxed_type, ctx, env, pos)?;
                 let ptr_value = value.into_pointer_value();
                 let result = builder.build_pointer_cast(ptr_value, ptr_type, "cast_from_array_to_pointer")?;
                 Ok(result.as_any_value_enum())
@@ -876,7 +877,7 @@ impl Caster {
         }
     }
 
-    pub fn gen_cast<'ctx>(builder: &Builder<'ctx>, ctx: &'ctx Context, value: &AnyValueEnum<'ctx>, from_type: &Type, to_type: &Type, expr: &ExprAST) -> Result<AnyValueEnum<'ctx>, Box<dyn Error>> {
+    pub fn gen_cast<'ctx>(builder: &Builder<'ctx>, ctx: &'ctx Context, value: &AnyValueEnum<'ctx>, from_type: &Type, to_type: &Type, expr: &ExprAST, env:&mut Env<'ctx>) -> Result<AnyValueEnum<'ctx>, Box<dyn Error>> {
         match (from_type, to_type) {
             //
             // same types
@@ -1635,7 +1636,7 @@ impl Caster {
             // Pointer to Pointer
             //
             (Type::Pointer(_, _), Type::Pointer(_, _)) => {
-                let to = TypeUtil::to_basic_type_enum(to_type, ctx, expr.get_position())?;
+                let to = TypeUtil::to_basic_type_enum(to_type, ctx, env, expr.get_position())?;
                 let value = if let Ok(val) = BasicValueEnum::try_from(*value) {
                     val
                 }else{

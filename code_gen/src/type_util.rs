@@ -6,6 +6,7 @@ use crate::Env;
 use inkwell::context::Context;
 use std::error::Error;
 use std::rc::Rc;
+use std::thread::panicking;
 use inkwell::types::{BasicTypeEnum, AnyTypeEnum, BasicType, BasicMetadataTypeEnum, IntType, PointerType};
 use inkwell::AddressSpace;
 use inkwell::types::AnyType;
@@ -30,7 +31,7 @@ impl TypeUtil {
         }
     }
 
-    pub fn to_basic_type_enum<'a>(typ: &Type, ctx: &'a Context, pos: &Position) -> Result<BasicTypeEnum<'a>, Box<dyn Error>> {
+    pub fn to_basic_type_enum<'a>(typ: &Type, ctx: &'a Context, env: &mut Env<'a>, pos: &Position) -> Result<BasicTypeEnum<'a>, Box<dyn Error>> {
         match typ {
             Type::Number(NumberType::_Bool)  => Ok(BasicTypeEnum::IntType(ctx.bool_type())),
             Type::Number(NumberType::Char)   => Ok(BasicTypeEnum::IntType(ctx.i8_type())),
@@ -46,7 +47,7 @@ impl TypeUtil {
             Type::Number(NumberType::UnsignedShort)  => Ok(BasicTypeEnum::IntType(ctx.i16_type())),
             // Type::Void   => Ok(BasicTypeEnum::VoidType(ctx.void_type())),
             Type::Pointer(_p, to_type) => {
-                let typ = Self::to_llvm_any_type(typ, ctx, pos)?;
+                let typ = Self::to_llvm_any_type(typ, ctx, env, pos)?;
 
                 if typ.is_int_type() {
                     // Ok(typ.into_int_type().ptr_type(AddressSpace::default()).into())
@@ -68,7 +69,7 @@ impl TypeUtil {
                 }
             },
             Type::Array { name: _, typ: type2, size_list } => {
-                let mut to_type = Self::to_basic_type_enum(type2, ctx, pos)?;
+                let mut to_type = Self::to_basic_type_enum(type2, ctx, env, pos)?;
 
                 for size in size_list.iter().rev() {
                     to_type = to_type.array_type(*size as u32).as_basic_type_enum();
@@ -77,19 +78,19 @@ impl TypeUtil {
                 Ok(to_type)
             },
             Type::Struct { name, fields, type_variables } => {
-                let (struct_type, _index_map) = CodeGen::struct_from_struct_definition(name, fields, type_variables, ctx, pos)?;
+                let (struct_type, _index_map) = CodeGen::struct_from_struct_definition(name, fields, type_variables, ctx, env, pos)?;
                 Ok(BasicTypeEnum::StructType(struct_type))
             },
             Type::BoundStructType { struct_type, map: _ } => {
                 if let Type::Struct { name, fields, type_variables } = struct_type.as_ref() {
-                    let (struct_type, _index_map) = CodeGen::struct_from_struct_definition(name, fields, type_variables, ctx, pos)?;
+                    let (struct_type, _index_map) = CodeGen::struct_from_struct_definition(name, fields, type_variables, ctx, env, pos)?;
                     Ok(BasicTypeEnum::StructType(struct_type))
                 }else{
                     panic!()
                 }
             },
             Type::Union { name, fields, type_variables } => {
-                let (_union_type, _index_map, _max_size, max_size_type) = CodeGen::union_from_struct_definition(name, fields, type_variables, ctx, pos)?;
+                let (_union_type, _index_map, _max_size, max_size_type) = CodeGen::union_from_struct_definition(name, fields, type_variables, ctx, env, pos)?;
                 if let Some(typ) = max_size_type {
                     Ok(typ)
                 }else{
@@ -105,7 +106,7 @@ impl TypeUtil {
                     Ok(BasicTypeEnum::IntType(ctx.i32_type()))
                 }else{
                     let enum_tag_type = Rc::new(Type::Number(global().enum_tag_type().clone()));
-                    let (_type_list, _index_map, _max_size, max_size_type) = CodeGen::tagged_enum_from_enum_definition(name, enum_def.get_fields(), &enum_tag_type, type_variables, ctx, pos)?;
+                    let (_type_list, _index_map, _max_size, max_size_type) = CodeGen::tagged_enum_from_enum_definition(name, enum_def.get_fields(), &enum_tag_type, type_variables, ctx, env, pos)?;
 
                     if let Some(typ) = max_size_type {
                         Ok(typ)
@@ -122,7 +123,7 @@ impl TypeUtil {
                 let mut vec = Vec::new();
 
                 for t in type_list {
-                    let t2 = TypeUtil::to_basic_type_enum(t, ctx, pos)?;
+                    let t2 = TypeUtil::to_basic_type_enum(t, ctx, env, pos)?;
                     vec.push(t2);
                 }
 
@@ -131,13 +132,12 @@ impl TypeUtil {
                 Ok(basic_type)
             },
             Type::TypeVariable(name) => {
-
-
-
-
-
-
-                unimplemented!()
+                if let Some(ty) = env.get_type_by_id(name) {
+                    let t = TypeUtil::to_basic_type_enum(&ty.clone(), ctx, env, pos)?;
+                    Ok(t)
+                }else{
+                    return Err(Box::new(CodeGenError::no_such_a_type(name, pos.clone())));
+                }
             },
             _ => {
                 Err(Box::new(CodeGenError::cannot_convert_to_basic_type(typ.to_string(), pos.clone())))
@@ -146,11 +146,11 @@ impl TypeUtil {
     }
 
     #[inline]
-    pub fn to_llvm_type<'a>(typ: &Type, ctx: &'a Context, pos: &Position) -> Result<BasicMetadataTypeEnum<'a>, Box<dyn Error>> {
-        Ok(Self::to_basic_type_enum(typ, ctx, pos)?.into())
+    pub fn to_llvm_type<'a>(typ: &Type, ctx: &'a Context, env: &mut Env<'a>, pos: &Position) -> Result<BasicMetadataTypeEnum<'a>, Box<dyn Error>> {
+        Ok(Self::to_basic_type_enum(typ, ctx, env, pos)?.into())
     }
 
-    pub fn to_llvm_any_type<'a>(typ: &Type, ctx: &'a Context, pos: &Position) -> Result<AnyTypeEnum<'a>, Box<dyn Error>> {
+    pub fn to_llvm_any_type<'a>(typ: &Type, ctx: &'a Context, env: &mut Env<'a>, pos: &Position) -> Result<AnyTypeEnum<'a>, Box<dyn Error>> {
         match typ {
             Type::Number(NumberType::Char)   => Ok(AnyTypeEnum::IntType(ctx.i8_type())),
             Type::Number(NumberType::Short)  => Ok(AnyTypeEnum::IntType(ctx.i16_type())),
@@ -169,11 +169,11 @@ impl TypeUtil {
                 }else{
                     None
                 };
-                let (struct_type, _tbl) = CodeGen::struct_from_struct_definition(&name, &fields, type_variables, ctx, pos)?;
+                let (struct_type, _tbl) = CodeGen::struct_from_struct_definition(&name, &fields, type_variables, ctx, env, pos)?;
                 Ok(struct_type.as_any_type_enum())
             },
             Type::Pointer(_ptr, typ) => {
-                let ptr_type = Self::make_llvm_ptr_type(typ, ctx, pos)?;
+                let ptr_type = Self::make_llvm_ptr_type(typ, ctx, env, pos)?;
                 Ok(AnyTypeEnum::PointerType(ptr_type))
             },
             Type::Enum { name, enum_def, type_variables } => {
@@ -181,7 +181,7 @@ impl TypeUtil {
                     Ok(AnyTypeEnum::IntType(ctx.i32_type()))
                 }else{
                     let enum_tag_type = Rc::new(Type::Number(global().enum_tag_type().clone()));
-                    let (_type_list, _index_map, _max_size, max_size_type) = CodeGen::tagged_enum_from_enum_definition(name, enum_def.get_fields(), &enum_tag_type, type_variables, ctx, pos)?;
+                    let (_type_list, _index_map, _max_size, max_size_type) = CodeGen::tagged_enum_from_enum_definition(name, enum_def.get_fields(), &enum_tag_type, type_variables, ctx, env, pos)?;
 
                     if let Some(typ) = max_size_type {
                         Ok(typ.as_any_type_enum())
@@ -191,7 +191,7 @@ impl TypeUtil {
                 }
             },
             Type::Union { name, fields, type_variables } => {
-                let (_type_list, _index_map, _max_size, max_size_type) = CodeGen::union_from_struct_definition(name, fields, type_variables, ctx, pos)?;
+                let (_type_list, _index_map, _max_size, max_size_type) = CodeGen::union_from_struct_definition(name, fields, type_variables, ctx, env, pos)?;
                 if let Some(t) = max_size_type {
                     Ok(t.as_any_type_enum())
                 }else{
@@ -209,7 +209,7 @@ impl TypeUtil {
         }
     }
 
-    pub fn make_llvm_ptr_type<'a>(typ: &Type, ctx: &'a Context, pos: &Position) -> Result<PointerType<'a>, Box<dyn Error>> {
+    pub fn make_llvm_ptr_type<'a>(typ: &Type, ctx: &'a Context, env: &mut Env<'a>, pos: &Position) -> Result<PointerType<'a>, Box<dyn Error>> {
         match typ {
             Type::Number(NumberType::Char)   => Ok(ctx.i8_type().ptr_type(AddressSpace::default())),
             Type::Number(NumberType::Short)  => Ok(ctx.i16_type().ptr_type(AddressSpace::default())),
@@ -228,18 +228,18 @@ impl TypeUtil {
                 }else{
                     None
                 };
-                let (struct_type, _tbl) = CodeGen::struct_from_struct_definition(&name, &fields, type_variables, ctx, pos)?;
+                let (struct_type, _tbl) = CodeGen::struct_from_struct_definition(&name, &fields, type_variables, ctx, env, pos)?;
                 Ok(struct_type.ptr_type(AddressSpace::default()))
             },
             Type::Pointer(_ptr, typ) => {
-                let ptr_type = Self::make_llvm_ptr_type(typ, ctx, pos)?;
+                let ptr_type = Self::make_llvm_ptr_type(typ, ctx, env, pos)?;
                 Ok(ptr_type.ptr_type(AddressSpace::default()))
             },
             Type::Tuple(type_list) => {
                 let mut vec: Vec<BasicTypeEnum<'a>> = Vec::new();
 
                 for t in type_list {
-                    let t2 = Self::to_basic_type_enum(&t, ctx, pos)?;
+                    let t2 = Self::to_basic_type_enum(&t, ctx, env, pos)?;
                     vec.push(t2);
                 }
 

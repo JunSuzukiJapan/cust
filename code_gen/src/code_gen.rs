@@ -5,7 +5,7 @@ use crate::parser::{AST, ToplevelAST, Type, Block, Params, NumberType, Function,
 #[allow(unused_imports)]
 use crate::parser::Pointer;
 use crate::parser::{Declaration, DeclarationSpecifier, CustFunctionType, Initializer, ConstInitializer, ImplElement, SpecifierQualifier};
-use crate::env::Class;
+use crate::env::{self, Class};
 use super::{CompiledValue, CodeGenError};
 use super::Env;
 use super::env::{BreakCatcher, ContinueCatcher};
@@ -63,7 +63,8 @@ impl<'ctx> CodeGen<'ctx> {
         let execution_engine = module.create_jit_execution_engine(OptimizationLevel::None)?;
         let enum_tag_number_type = global().enum_tag_type().clone();
         let enum_tag_type = Rc::new(Type::Number(enum_tag_number_type));
-        let enum_tag_llvm_type = TypeUtil::to_llvm_type(&enum_tag_type, context, &Position::new(1, 1))?.into_int_type();
+        let mut env = Env::new();
+        let enum_tag_llvm_type = TypeUtil::to_llvm_type(&enum_tag_type, context, &mut env, &Position::new(1, 1))?.into_int_type();
         let t = Type::Array {
             name: None,
             typ: Box::new(Rc::new(Type::Number(NumberType::Long))),
@@ -190,7 +191,7 @@ impl<'ctx> CodeGen<'ctx> {
                             let init_type = TypeUtil::get_initializer_type(const_expr, env)?;
 
                             if *typ != *init_type {
-                                init_value = self.gen_implicit_cast(&init_value, &init_type, &typ, (*const_expr).get_position())?;
+                                init_value = self.gen_implicit_cast(&init_value, &init_type, &typ, env, (*const_expr).get_position())?;
                             }
 
                             let basic_value = self.try_as_basic_value(&init_value, (*const_expr).get_position())?;
@@ -233,8 +234,8 @@ impl<'ctx> CodeGen<'ctx> {
         }
     }
 
-    fn make_array_type(&self, size_list: &[u32], elem_type: &Type, pos: &Position) -> Result<BasicTypeEnum<'ctx>, Box<dyn Error>> {
-        let mut typ = TypeUtil::to_basic_type_enum(elem_type, &self.context, pos)?;
+    fn make_array_type(&self, size_list: &[u32], elem_type: &Type, env: &mut Env<'ctx>, pos: &Position) -> Result<BasicTypeEnum<'ctx>, Box<dyn Error>> {
+        let mut typ = TypeUtil::to_basic_type_enum(elem_type, &self.context, env, pos)?;
         let len = size_list.len();
 
         for i in 0..len {
@@ -251,7 +252,7 @@ impl<'ctx> CodeGen<'ctx> {
         size_list: &[u32],
         elem_type: &Type,
         init_value_list: &Vec<Box<ArrayInitializer>>,
-        env: &Env<'ctx>,
+        env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>,
         pos: &Position
@@ -260,7 +261,7 @@ impl<'ctx> CodeGen<'ctx> {
         let init_len = init_value_list.len();
 
         if init_len == 0 {
-            let array_type = self.make_array_type(size_list, elem_type, pos)?;
+            let array_type = self.make_array_type(size_list, elem_type, env, pos)?;
             let null_array: Vec<ArrayValue> = Vec::new();
             let value = unsafe { ArrayValue::new_const_array(&array_type, &null_array) };
             return Ok((value, array_type));
@@ -289,9 +290,9 @@ impl<'ctx> CodeGen<'ctx> {
             //
             // make array
             //
-            let basic_type = TypeUtil::to_basic_type_enum(elem_type, &self.context, pos)?;
+            let basic_type = TypeUtil::to_basic_type_enum(elem_type, &self.context, env, pos)?;
             let values = unsafe { ArrayValue::new_const_array(&basic_type, &vec) };
-            let array_type = self.make_array_type(size_list, elem_type, pos)?.into_array_type();
+            let array_type = self.make_array_type(size_list, elem_type, env, pos)?.into_array_type();
 
             Ok((values, array_type.as_basic_type_enum()))
 
@@ -308,7 +309,7 @@ impl<'ctx> CodeGen<'ctx> {
             }
 
             if vec.len() != 0 {
-                let array_type = self.make_array_type(size_list_sub, elem_type, pos)?.into_array_type();
+                let array_type = self.make_array_type(size_list_sub, elem_type, env, pos)?.into_array_type();
                 let values = array_type.const_array(&vec);
 
                 Ok((values, array_type.as_basic_type_enum()))
@@ -380,7 +381,8 @@ impl<'ctx> CodeGen<'ctx> {
     pub fn gen_global_tuple_init<'b, 'c>(&self,
         type_list: &Vec<Rc<Type>>,
         target_tuple_ptr: GlobalValue<'ctx>,
-        init: &Initializer
+        init: &Initializer,
+        env: &mut Env<'ctx>
     ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
 
         let init_value_list = if let Initializer::Simple(ExprAST::ConstTupleLiteral(const_list, _pos), _pos2) = init {
@@ -403,7 +405,7 @@ impl<'ctx> CodeGen<'ctx> {
         // target_len > 0
         //
 
-        let values = self.make_global_tuple_init_value(type_list, init.get_position(), init_value_list)?;
+        let values = self.make_global_tuple_init_value(type_list, init.get_position(), init_value_list, env)?;
         target_tuple_ptr.set_initializer(&values.as_basic_value_enum());
 
         Ok(None)
@@ -412,7 +414,8 @@ impl<'ctx> CodeGen<'ctx> {
     pub fn make_global_tuple_init_value<'b, 'c>(&self,
         type_list: &Vec<Rc<Type>>,
         init_pos: &Position,
-        init_value_list: &Vec<ConstExpr>
+        init_value_list: &Vec<ConstExpr>,
+        env: &mut Env<'ctx>
     ) -> Result<StructValue<'ctx>, Box<dyn Error>> {
 
         let target_len = type_list.len();
@@ -438,7 +441,7 @@ impl<'ctx> CodeGen<'ctx> {
                 vec.push(value);
 
             }else{  // zero clear
-                let zero_value = self.const_zero(&field_type, init_pos)?;
+                let zero_value = self.const_zero(&field_type, env, init_pos)?;
                 vec.push(zero_value);
             }
         }
@@ -502,7 +505,7 @@ impl<'ctx> CodeGen<'ctx> {
 
     pub fn gen_const_initializer<'b, 'c>(&self,
         init: &ConstInitializer,
-        env: &Env<'ctx>,
+        env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<AnyValueEnum<'ctx>, Box<dyn Error>> {
@@ -553,12 +556,12 @@ impl<'ctx> CodeGen<'ctx> {
         vec_init: &Vec<Box<ArrayInitializer>>,
         typ: &Rc<Type>,
         pos: &Position,
-        env: &Env<'ctx>,
+        env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<AnyValueEnum<'ctx>, Box<dyn Error>> {
 
-        let llvm_type = TypeUtil::to_basic_type_enum(typ, &self.context, pos)?;
+        let llvm_type = TypeUtil::to_basic_type_enum(typ, &self.context, env, pos)?;
         let array_type = llvm_type.array_type(vec_init.len() as u32);
 
         let mut list = Vec::new();
@@ -575,8 +578,8 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(any_val.as_any_value_enum())
     }
 
-    pub fn const_zero(&self, typ: &Type, pos: &Position) -> Result<BasicValueEnum, Box<dyn Error>> {
-        let t = TypeUtil::to_llvm_type(typ, self.context, pos)?;
+    pub fn const_zero(&self, typ: &Type, env: &mut Env<'ctx>, pos: &Position) -> Result<BasicValueEnum, Box<dyn Error>> {
+        let t = TypeUtil::to_llvm_type(typ, self.context, env, pos)?;
         match t {
             BasicMetadataTypeEnum::FloatType(t) => {
                 Ok(t.const_zero().as_basic_value_enum())
@@ -689,8 +692,8 @@ impl<'ctx> CodeGen<'ctx> {
     }
 
     #[inline]
-    pub fn gen_implicit_cast(&self, value: &AnyValueEnum<'ctx>, from_type: &Type, to_type: &Type, pos: &Position) -> Result<AnyValueEnum<'ctx>, Box<dyn Error>> {
-        Caster::gen_implicit_cast(&self.builder, &self.context, value, from_type, to_type, pos)
+    pub fn gen_implicit_cast(&self, value: &AnyValueEnum<'ctx>, from_type: &Type, to_type: &Type, env: &mut Env<'ctx>, pos: &Position) -> Result<AnyValueEnum<'ctx>, Box<dyn Error>> {
+        Caster::gen_implicit_cast(&self.builder, &self.context, value, from_type, to_type, env, pos)
     }
 
     #[cfg(test)]
@@ -882,7 +885,7 @@ impl<'ctx> CodeGen<'ctx> {
             let global_name = Self::make_var_name_in_impl(class_name, var_name);
 
             let typ = declarator.make_type(base_type);
-            let basic_type = TypeUtil::to_basic_type_enum(&typ, self.context, pos)?;
+            let basic_type = TypeUtil::to_basic_type_enum(&typ, self.context, env, pos)?;
             let ptr = self.module.add_global(basic_type, Some(AddressSpace::default()), &global_name);
 
             match decl.get_init_expr() {
@@ -925,7 +928,7 @@ impl<'ctx> CodeGen<'ctx> {
     ) -> Result<(), Box<dyn Error>> {
 
         let typ = declarator.make_type(base_type);
-        let basic_type = TypeUtil::to_basic_type_enum(&typ, self.context, pos)?;
+        let basic_type = TypeUtil::to_basic_type_enum(&typ, self.context, env, pos)?;
         let ptr;
 
         match decl.get_init_expr() {
@@ -953,7 +956,7 @@ impl<'ctx> CodeGen<'ctx> {
                     },
                     Type::Tuple(type_list) => {
                         ptr = self.module.add_global(basic_type, Some(AddressSpace::default()), &name);
-                        self.gen_global_tuple_init(&type_list, ptr, &*initializer)?;
+                        self.gen_global_tuple_init(&type_list, ptr, &*initializer, env)?;
                     },
                     Type::Union { name: opt_name, fields, type_variables } => {
                         ptr = self.gen_def_global_union(name, env, pos, basic_type, initializer, opt_name, fields, type_variables)?;
@@ -980,7 +983,7 @@ impl<'ctx> CodeGen<'ctx> {
 
                             for field in fields {
                                 let t = field.get_type().unwrap();
-                                let llvm_type = TypeUtil::to_basic_type_enum(&t, self.context, pos)?;
+                                let llvm_type = TypeUtil::to_basic_type_enum(&t, self.context, env, pos)?;
                                 let sz = Self::size_of(&llvm_type)?;
                                 if sz > max_size {
                                     max_size = sz;
@@ -1025,7 +1028,7 @@ impl<'ctx> CodeGen<'ctx> {
         let init_value_type = init_value.get_type();
         let init_value_type = self.try_as_basic_type(&init_value_type, pos)?;
         let init_value_size = Self::size_of(&init_value_type)?;
-        let (_type_list, _index_map, max_size, _max_size_type) = CodeGen::union_from_struct_definition(opt_name, fields, type_variables, self.context, pos)?;
+        let (_type_list, _index_map, max_size, _max_size_type) = CodeGen::union_from_struct_definition(opt_name, fields, type_variables, self.context, env, pos)?;
 
         let ptr;
         if init_value_size == max_size {
@@ -1384,7 +1387,7 @@ impl<'ctx> CodeGen<'ctx> {
             let typ = param.get_type();
             let name = param.get_name();
             let sq = param.get_declaration_specifier().get_specifier_qualifier();
-            let ptr = self.builder.build_alloca(TypeUtil::to_basic_type_enum(&typ, self.context, param.get_position())?, name)?;
+            let ptr = self.builder.build_alloca(TypeUtil::to_basic_type_enum(&typ, self.context, env, param.get_position())?, name)?;
             let value = function.get_nth_param(i as u32).unwrap();
             self.builder.build_store(ptr, value)?;
             env.insert_local(name, typ, sq.clone(), ptr);
@@ -1504,8 +1507,8 @@ impl<'ctx> CodeGen<'ctx> {
         }
     }
     
-    fn make_function_type(&self, ret_type: &Type, params: &Params, _env: &Env<'ctx>, pos: &Position) -> Result<FunctionType<'ctx>, Box<dyn Error>> {
-        let ret_t = TypeUtil::to_llvm_any_type(ret_type, self.context, pos)?;
+    fn make_function_type(&self, ret_type: &Type, params: &Params, env: &mut Env<'ctx>, pos: &Position) -> Result<FunctionType<'ctx>, Box<dyn Error>> {
+        let ret_t = TypeUtil::to_llvm_any_type(ret_type, self.context, env, pos)?;
         let has_variadic = params.has_variadic();
 
         let mut arg_type_vec = Vec::new();
@@ -1513,7 +1516,7 @@ impl<'ctx> CodeGen<'ctx> {
         if let Some(cust_self) = params.get_self() {
             let typ = cust_self.get_type();
             let typ = Type::new_pointer_type(typ.clone(), false, false);
-            let t = TypeUtil::to_llvm_type(&typ, self.context, pos)?;
+            let t = TypeUtil::to_llvm_type(&typ, self.context, env, pos)?;
 
             arg_type_vec.push(t);
         }
@@ -1521,7 +1524,7 @@ impl<'ctx> CodeGen<'ctx> {
         for ds in params.get_params() {
             let typ = ds.get_type();
 
-            let t = TypeUtil::to_llvm_type(&typ, self.context, pos)?;
+            let t = TypeUtil::to_llvm_type(&typ, self.context, env, pos)?;
             arg_type_vec.push(t);
         }
         let params_type = &arg_type_vec;  // get slice

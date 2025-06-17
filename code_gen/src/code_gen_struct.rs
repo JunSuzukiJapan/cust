@@ -20,7 +20,7 @@ impl<'ctx> CodeGen<'ctx> {
     pub fn gen_struct_literal<'b, 'c>(&self,
         struct_literal: &StructLiteral,
         struct_ptr: PointerValue<'ctx>,
-        env: &Env<'ctx>,
+        env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
@@ -42,7 +42,7 @@ impl<'ctx> CodeGen<'ctx> {
                     let i32_type = self.context.i32_type();
                     let const_zero = i32_type.const_int(0, false);
 
-                    let (struct_type, _index_map) = Self::struct_from_fields(&None, fields, type_variables, &self.context, pos)?;
+                    let (struct_type, _index_map) = Self::struct_from_fields(&None, fields, type_variables, &self.context, env, pos)?;
                     struct_ty = struct_type;
                     let mut index = 0;
                     let mut values = Vec::new();
@@ -65,7 +65,7 @@ impl<'ctx> CodeGen<'ctx> {
                     literal = struct_ty.const_named_struct(values.as_slice());
 
                 }else{
-                    let (struct_type, _index_map) =  Self::struct_from_fields(&None, &Vec::new(), type_variables, &self.context, pos)?;
+                    let (struct_type, _index_map) =  Self::struct_from_fields(&None, &Vec::new(), type_variables, &self.context, env, pos)?;
                     struct_ty = struct_type;
 
                     literal = struct_ty.const_named_struct(&Vec::new());
@@ -99,10 +99,10 @@ impl<'ctx> CodeGen<'ctx> {
                     let values = self.context.const_struct(&vec, false);
                     let _result = self.builder.build_store(struct_ptr, values.as_basic_value_enum());
 
-                    let (struct_type, _index_map) = Self::struct_from_fields(&None, fields, type_variables, &self.context, pos)?;
+                    let (struct_type, _index_map) = Self::struct_from_fields(&None, fields, type_variables, &self.context, env, pos)?;
                     struct_ty = struct_type;
                 }else{
-                    let (struct_type, _index_map) =  Self::struct_from_fields(&None, &Vec::new(), type_variables, &self.context, pos)?;
+                    let (struct_type, _index_map) =  Self::struct_from_fields(&None, &Vec::new(), type_variables, &self.context, env, pos)?;
                     struct_ty = struct_type;
                 }
 
@@ -147,7 +147,7 @@ impl<'ctx> CodeGen<'ctx> {
                 vec.push(value);
 
             }else{  // zero clear
-                let zero_value = self.const_zero(field_type, init_pos)?;
+                let zero_value = self.const_zero(field_type, env, init_pos)?;
                 vec.push(zero_value);
             }
         }
@@ -304,7 +304,7 @@ impl<'ctx> CodeGen<'ctx> {
                                         let const_index = i32_type.const_int(index, false);
                                         let indexes = vec![const_zero, const_index];
 
-                                        let (struct_type, _index_map) = Self::struct_from_fields(&None, fields, type_variables, &self.context, pos2)?;
+                                        let (struct_type, _index_map) = Self::struct_from_fields(&None, fields, type_variables, &self.context, env, pos2)?;
                                         let ptr = unsafe { self.builder.build_in_bounds_gep(struct_type, target_struct_ptr, &indexes, "gep_for_struct_field")? };
                                         let _result = self.builder.build_store(ptr, basic_value);
         
@@ -356,7 +356,7 @@ impl<'ctx> CodeGen<'ctx> {
         pos: &Position
     ) -> Result<Option<AnyTypeEnum<'ctx>>, Box<dyn Error>> {
 
-        let (struct_type, index_map) = Self::struct_from_struct_definition(name, fields, type_variables, self.context, pos)?;
+        let (struct_type, index_map) = Self::struct_from_struct_definition(name, fields, type_variables, self.context, env, pos)?;
         if let Some(id) = name {
             env.insert_struct(id, &struct_type, index_map, pos)?;
         }
@@ -364,9 +364,17 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(Some(struct_type.as_any_type_enum()))
     }
 
-    pub fn struct_from_struct_definition(name: &Option<String>, struct_def: &StructDefinition, type_variables: &Option<Vec<String>>, ctx: &'ctx Context, pos: &Position) -> Result<(StructType<'ctx>, HashMap<String, usize>), Box<dyn Error>> {
+    pub fn struct_from_struct_definition(
+        name: &Option<String>,
+        struct_def: &StructDefinition,
+        type_variables: &Option<Vec<String>>,
+        ctx: &'ctx Context,
+        env: &mut Env<'ctx>,
+        pos: &Position
+    ) -> Result<(StructType<'ctx>, HashMap<String, usize>), Box<dyn Error>> {
+
         if let Some(fields) = struct_def.get_fields() {
-            return Self::struct_from_fields(name, fields, type_variables, ctx, pos);
+            return Self::struct_from_fields(name, fields, type_variables, ctx, env, pos);
         }
 
         let list: Vec<BasicTypeEnum<'ctx>> = Vec::new();
@@ -376,7 +384,21 @@ impl<'ctx> CodeGen<'ctx> {
         Ok((ctx.struct_type(&list, packed), index_map))
     }
 
-    fn struct_from_fields(name: &Option<String>, fields: &Vec<StructField>, _type_variables: &Option<Vec<String>>, ctx: &'ctx Context, pos: &Position) -> Result<(StructType<'ctx>, HashMap<String, usize>), Box<dyn Error>> {
+    fn struct_from_fields(
+        name: &Option<String>,
+        fields: &Vec<StructField>,
+        type_variables: &Option<Vec<String>>,
+        ctx: &'ctx Context,
+        env: &mut Env<'ctx>,
+        pos: &Position
+    ) -> Result<(StructType<'ctx>, HashMap<String, usize>), Box<dyn Error>> {
+
+        if let Some(type_vars) = type_variables {
+
+
+            unimplemented!()
+        }
+
         let mut list: Vec<BasicTypeEnum<'ctx>> = Vec::new();
         let mut packed = false;
         let mut index_map: HashMap<String, usize> = HashMap::new();
@@ -385,7 +407,7 @@ impl<'ctx> CodeGen<'ctx> {
         for field in fields {
             match field {
                 StructField::NormalField { name: _, sq: _, typ } => {
-                    let t = TypeUtil::to_basic_type_enum(typ, ctx, pos)?;
+                    let t = TypeUtil::to_basic_type_enum(typ, ctx, env, pos)?;
                     list.push(t);
 
                     if let Some(id) = name {
@@ -422,7 +444,7 @@ impl<'ctx> CodeGen<'ctx> {
         pos: &Position
     ) -> Result<Option<AnyTypeEnum<'ctx>>, Box<dyn Error>> {
 
-        let (type_list, index_map, max_size, max_size_type) = Self::union_from_struct_definition(name, fields, type_variables, self.context, pos)?;
+        let (type_list, index_map, max_size, max_size_type) = Self::union_from_struct_definition(name, fields, type_variables, self.context, env, pos)?;
         if let Some(id) = name {
             env.insert_union(id, type_list, index_map, max_size, max_size_type, pos)?;
         }
@@ -434,8 +456,14 @@ impl<'ctx> CodeGen<'ctx> {
         }
     }
 
-    pub fn union_from_struct_definition(_name: &Option<String>, struct_def: &StructDefinition, _type_variables: &Option<Vec<String>>, ctx: &'ctx Context, pos: &Position)
-      -> Result<(Vec<(Rc<Type>, BasicTypeEnum<'ctx>)>, HashMap<String, usize>, u64, Option<BasicTypeEnum<'ctx>>), Box<dyn Error>>
+    pub fn union_from_struct_definition(
+        _name: &Option<String>,
+        struct_def: &StructDefinition,
+        _type_variables: &Option<Vec<String>>,
+        ctx: &'ctx Context,
+        env: &mut Env<'ctx>,
+        pos: &Position
+    ) -> Result<(Vec<(Rc<Type>, BasicTypeEnum<'ctx>)>, HashMap<String, usize>, u64, Option<BasicTypeEnum<'ctx>>), Box<dyn Error>>
     {
         let mut list: Vec<(Rc<Type>, BasicTypeEnum<'ctx>)> = Vec::new();
         let mut index_map: HashMap<String, usize> = HashMap::new();
@@ -447,7 +475,7 @@ impl<'ctx> CodeGen<'ctx> {
             for field in fields {
                 match field {
                     StructField::NormalField { name: field_name, sq: _, typ } => {
-                        let t = TypeUtil::to_basic_type_enum(typ, ctx, pos)?;
+                        let t = TypeUtil::to_basic_type_enum(typ, ctx, env, pos)?;
                         list.push((Rc::clone(typ), t.clone()));
 
                         let size = Self::size_of(&t)?;

@@ -37,7 +37,7 @@ impl<'ctx> CodeGen<'ctx> {
                 Ok(None)
             },
             EnumDefinition::TaggedEnum { fields, .. } => {
-                let (type_list, index_map, max_size, max_size_type) = Self::tagged_enum_from_enum_definition(enum_name, fields, &self.enum_tag_type, type_variables, self.context, pos)?;
+                let (type_list, index_map, max_size, max_size_type) = Self::tagged_enum_from_enum_definition(enum_name, fields, &self.enum_tag_type, type_variables, self.context, env, pos)?;
                 env.insert_tagged_enum(enum_name.into(), type_list, index_map, max_size, max_size_type, pos)?;
         
                 if let Some(t) = max_size_type {
@@ -53,8 +53,9 @@ impl<'ctx> CodeGen<'ctx> {
         _enum_name: &str,
         fields: &Vec<Enumerator>,
         tag_type: &Rc<Type>,
-        _type_variables: &Option<Vec<String>>,
+        type_variables: &Option<Vec<String>>,
         ctx: &'ctx Context,
+        env: &mut Env<'ctx>,
         pos: &Position
     ) -> Result<(Vec<(Rc<Type>, BasicTypeEnum<'ctx>)>, HashMap<String, usize>, u64, Option<BasicTypeEnum<'ctx>>), Box<dyn Error>> {
 
@@ -64,7 +65,7 @@ impl<'ctx> CodeGen<'ctx> {
         let mut max_size = 0;
         let mut max_size_type: Option<BasicTypeEnum> = None;
  
-        let tag_basic_type = TypeUtil::to_basic_type_enum(&tag_type, ctx, pos)?;
+        let tag_basic_type = TypeUtil::to_basic_type_enum(&tag_type, ctx, env, pos)?;
         let rc_tag_type = Rc::clone(tag_type);
         let tag_size = Self::size_of(&tag_basic_type)?;
 
@@ -91,7 +92,7 @@ impl<'ctx> CodeGen<'ctx> {
                     let type_variables = struct_type.get_type_variables();
 
                     let typ = Type::struct_from_struct_definition(Some(name.to_string()), def.clone(), type_variables.clone());
-                    let t = TypeUtil::to_basic_type_enum(&typ, ctx, pos)?;
+                    let t = TypeUtil::to_basic_type_enum(&typ, ctx, env, pos)?;
                     let t = Self::add_tag_type(tag_basic_type, t, ctx);
                     list.push((Rc::new(typ), t.clone()));
 
@@ -109,7 +110,7 @@ impl<'ctx> CodeGen<'ctx> {
                     index_map.insert(name.clone(), index);
                 },
                 Enumerator::TypeTuple { name, tuple_type } => {
-                    let typ = TypeUtil::to_basic_type_enum(&tuple_type, ctx, pos)?;
+                    let typ = TypeUtil::to_basic_type_enum(&tuple_type, ctx, env, pos)?;
                     let t = Self::add_tag_type(tag_basic_type, typ, ctx);
                     list.push((Rc::clone(tuple_type), t.clone()));
 
@@ -176,7 +177,7 @@ impl<'ctx> CodeGen<'ctx> {
         &self,
         literal: &EnumLiteral,
         tag: &u64,
-        env: &Env<'ctx>,
+        env: &mut Env<'ctx>,
         break_catcher: Option<&BreakCatcher>,
         continue_catcher: Option<&ContinueCatcher>,
         _pos: &Position
@@ -237,7 +238,7 @@ impl<'ctx> CodeGen<'ctx> {
                 if tuple_literal.is_const() {
                     let const_list = tuple_literal.get_const_list();
                     // let initialized_literal = self.gen_tuple_literal_from_const_expr_list(const_list, tuple_ptr, typ, pos)?;
-                    let initialized_literal = self.gen_tuple_literal_from_const_expr_list(const_list, pos)?;
+                    let initialized_literal = self.gen_tuple_literal_from_const_expr_list(const_list, env, pos)?;
                     let literal = initialized_literal.ok_or(CodeGenError::cannot_init_enum(literal.get_type().get_type_name(), pos.clone()))?;
                     let any_val = literal.get_value();
                     let _result = self.builder.build_store(tuple_ptr, self.try_as_basic_value(&any_val, pos)?);
@@ -349,7 +350,7 @@ impl<'ctx> CodeGen<'ctx> {
         type_variables: &Option<Vec<String>>,
         env: &mut Env<'ctx>
     ) -> Result<GlobalValue<'ctx>, Box<dyn Error>> {
-
+eprintln!("gen_global_enum_init");
         if let Some(variables) = type_variables {
             self.gen_global_init_type_variables(&variables, &*initializer, env)?;
         }
