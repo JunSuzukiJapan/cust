@@ -490,42 +490,7 @@ impl<'ctx> CodeGen<'ctx> {
                 let any_val = values.as_any_value_enum();
                 Ok(any_val)
             },
-            // Initializer::TaggedEnum(enum_literal, _typ, _pos) => {
-            //     let t = enum_literal.get_type();
-
-            //     match enum_literal {
-            //         EnumLiteral::Symbol(_name, _tag) => {
-
-            //         },
-            //         EnumLiteral::Struct(_struct_literal, _tag) => {
-
-            //         },
-            //         EnumLiteral::Tuple(_tuple_literal, _tag) => {
-
-            //         },
-            //     }
-
-
-            //     unimplemented!()
-            // },
             Initializer::Union(_opt_name, expr, _typ, pos) => {
-                // let fields = typ.get_union_fields().unwrap();
-
-                // if let Some(name) = opt_name {
-                //     for field in fields {
-                //         if let Some(field_name) = field.get_name() {
-                //             if name == field_name {
-
-
-
-
-
-
-                //             }
-                //         }
-                //     }
-                // }
-
                 if let Some(v) = self.gen_expr(expr, env, break_catcher, continue_catcher)? {
                     Ok(v.get_value())
                 }else{

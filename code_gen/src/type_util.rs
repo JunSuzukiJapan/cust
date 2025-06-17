@@ -130,9 +130,15 @@ impl TypeUtil {
                 let basic_type = BasicTypeEnum::try_from(any_type).unwrap();
                 Ok(basic_type)
             },
-            // Type::TypeVariable(name) => {
-            //     unimplemented!()
-            // },
+            Type::TypeVariable(name) => {
+
+
+
+
+
+
+                unimplemented!()
+            },
             _ => {
                 Err(Box::new(CodeGenError::cannot_convert_to_basic_type(typ.to_string(), pos.clone())))
             },
