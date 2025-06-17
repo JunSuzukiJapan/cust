@@ -240,14 +240,30 @@ impl Tokenizer {
                                         if c2 == '\n' {
                                             break;
                                         }
+                                    }else{
+                                        return Err(TokenizerError::IllegalEndOfInput(start_pos));
                                     }
                                 }
 
                                 self.next_token(ctx)
                             },
                             '*' => {  // skip comment
-                                unimplemented!();
-
+                                self.next_char(ctx);  // skip '*'
+                                loop {
+                                    if let Some(c2) = self.next_char(ctx) {
+                                        if c2 == '*' {
+                                            if let Some(c3) = self.next_char(ctx) {
+                                                if c3 == '/' {
+                                                    break;
+                                                }
+                                            }else{
+                                                return Err(TokenizerError::IllegalEndOfInput(start_pos));
+                                            }
+                                        }
+                                    }else{
+                                        return Err(TokenizerError::IllegalEndOfInput(start_pos));
+                                    }
+                                }
 
                                 self.next_token(ctx)
                             },

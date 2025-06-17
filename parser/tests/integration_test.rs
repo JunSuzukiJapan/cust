@@ -1166,4 +1166,15 @@ mod tests {
             _ => panic!("ast: {:?}", ast),
         }
     }
+
+    #[test]
+    fn parse_skip_multi_line_comment() -> Result<(), ParserError> {
+        let src = "
+            /**/
+            int* ptr = (int*)malloc(1);
+        ";
+        let ast = parse_external_declaration_from_str(src).unwrap().unwrap();
+
+        Ok(())
+    }
 }
