@@ -228,11 +228,32 @@ impl Tokenizer {
                 '/' => {
                     self.next_char(ctx);
                     if let Some(c) = self.peek_char(ctx) {
-                        if c == '=' {
-                            self.next_char(ctx);
-                            Ok(Some((Token::DivAssign, start_pos)))
-                        }else{
-                            Ok(Some((Token::Div, start_pos)))
+                        match c {
+                            '=' => {
+                                self.next_char(ctx);
+                                Ok(Some((Token::DivAssign, start_pos)))
+                            },
+                            '/' => {  // skip comment
+                                self.next_char(ctx);  // skip '/'
+                                loop {
+                                    if let Some(c2) = self.next_char(ctx) {
+                                        if c2 == '\n' {
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                self.next_token(ctx)
+                            },
+                            '*' => {  // skip comment
+                                unimplemented!();
+
+
+                                self.next_token(ctx)
+                            },
+                            _ => {
+                                Ok(Some((Token::Div, start_pos)))
+                            }
                         }
                     }else{
                         Ok(Some((Token::Div, start_pos)))

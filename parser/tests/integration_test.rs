@@ -1118,4 +1118,52 @@ mod tests {
             _ => panic!("ast: {:?}", ast),
         }
     }
+
+    #[test]
+    fn parse_skip_a_line_comment() -> Result<(), ParserError> {
+        let src = "
+            // int* ptr = (int*)malloc(1);
+            int* ptr = (int*)malloc(1);
+        ";
+        let ast = parse_external_declaration_from_str(src).unwrap().unwrap();
+        match ast {
+            ToplevelAST::GlobalDefVar { specifiers: DeclarationSpecifier {typ, specifier_qualifier}, declaration, pos: _ } => {
+                let int_pointer_type = Type::Pointer(
+                    Pointer {
+                        is_const: false,
+                        is_volatile: false,
+                        next_pointer: None,
+                    },
+                    Box::new(Type::Number(NumberType::Int).into()));
+
+                assert_eq!(typ, Type::Number(NumberType::Int).into());
+                assert_eq!(specifier_qualifier, SpecifierQualifier::new());
+
+                assert_eq!(declaration.len(), 1);
+                let decl = &declaration[0];
+                let declarator = decl.get_declarator();
+                let ptr = declarator.get_pointer();
+                let name = declarator.get_name();
+                assert_eq!(*ptr, Some(Pointer {is_const: false, is_volatile: false, next_pointer: None}));
+                assert_eq!(name, "ptr");
+                let direct_decl = declarator.get_direct_declarator();
+                assert_eq!(direct_decl.get_name(), "ptr");
+
+                let init_expr = decl.get_init_expr();
+                assert_eq!(*init_expr,
+                    Some(Initializer::Simple(ExprAST::Cast(
+                        int_pointer_type.into(),
+                        Box::new(ExprAST::CallFunction(
+                            Box::new(ExprAST::Symbol("malloc".to_string(), Position::new(3, 29))),
+                            vec![ExprAST::Int(1, Position::new(3, 36))], Position::new(3, 35))
+                        ),
+                        Position::new(3, 23)
+                    ), Position::new(3, 23)))
+                );
+
+                Ok(())
+            }, 
+            _ => panic!("ast: {:?}", ast),
+        }
+    }
 }
