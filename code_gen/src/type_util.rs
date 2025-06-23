@@ -106,18 +106,21 @@ impl TypeUtil {
                     Ok(BasicTypeEnum::IntType(ctx.i32_type()))
                 }else{
                     let enum_tag_type = Rc::new(Type::Number(global().enum_tag_type().clone()));
-                    let (_type_list, _index_map, _max_size, max_size_type) = CodeGen::tagged_enum_from_enum_definition(name, enum_def.get_fields(), &enum_tag_type, type_variables, ctx, env, pos)?;
+                    let tagged_enum = CodeGen::tagged_enum_from_enum_definition(name, enum_def.get_fields(), &enum_tag_type, type_variables, ctx, env, pos)?;
 
-                    if let Some(typ) = max_size_type {
+                    if let Some(typ) = tagged_enum.get_max_size_type() {
                         Ok(typ)
                     }else{
                         Err(Box::new(CodeGenError::enum_has_no_field(name.to_string(), pos.clone())))
                     }
                 }
             },
+            Type::BoundEnumType { enum_type, map } => {
+                let t = env.basic_type_enum_from_type(typ, ctx, pos)?;
+                Ok(t)
+            },
             Type::Symbol(_name) => {
                 Err(Box::new(CodeGenError::cannot_convert_to_basic_type(typ.to_string(), pos.clone())))
-
             },
             Type::Tuple(type_list) => {
                 let mut vec = Vec::new();
@@ -181,9 +184,9 @@ impl TypeUtil {
                     Ok(AnyTypeEnum::IntType(ctx.i32_type()))
                 }else{
                     let enum_tag_type = Rc::new(Type::Number(global().enum_tag_type().clone()));
-                    let (_type_list, _index_map, _max_size, max_size_type) = CodeGen::tagged_enum_from_enum_definition(name, enum_def.get_fields(), &enum_tag_type, type_variables, ctx, env, pos)?;
+                    let tagged_enum = CodeGen::tagged_enum_from_enum_definition(name, enum_def.get_fields(), &enum_tag_type, type_variables, ctx, env, pos)?;
 
-                    if let Some(typ) = max_size_type {
+                    if let Some(typ) = tagged_enum.get_max_size_type() {
                         Ok(typ.as_any_type_enum())
                     }else{
                         Err(Box::new(CodeGenError::enum_has_no_field(name.to_string(), pos.clone())))

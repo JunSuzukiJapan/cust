@@ -3,7 +3,7 @@
 use crate::parser::{ExprAST, BinOp, Type, Pointer, NumberType};
 use super::{CompiledValue, CodeGenError};
 use super::Env;
-use super::env::{BreakCatcher, ContinueCatcher, TypeOrUnion};
+use super::env::{BreakCatcher, ContinueCatcher, GenType, TaggedEnum};
 use super::caster::Caster;
 use super::type_util::TypeUtil;
 use crate::CodeGen;
@@ -609,9 +609,9 @@ impl<'ctx> CodeGen<'ctx> {
                 Ok(Some(CompiledValue::new(to_type.clone(), result)))
             },
             ExprAST::TypeMemberAccess(struct_name, var_name, pos) => {  // struct_name::var_name
-                if let Some(type_or_union) = env.get_type_or_union(struct_name) {
-                    match type_or_union {
-                        TypeOrUnion::StandardEnum { i32_type: _, enumerator_list, index_map } => {
+                if let Some(gen_type) = env.get_gen_type(struct_name, self.context, pos)? {
+                    match gen_type {
+                        GenType::StandardEnum { i32_type: _, enumerator_list, index_map } => {
                             let index = index_map.get(var_name).ok_or(CodeGenError::no_such_a_enum_member(struct_name.to_string(), var_name.to_string(), pos.clone()))?;
                             let (_name, value) = &enumerator_list[*index];
                             return Ok(Some(CompiledValue::new(Type::Number(NumberType::Int).into(), value.as_any_value_enum())))
@@ -671,8 +671,8 @@ impl<'ctx> CodeGen<'ctx> {
                 let any_val = basic_val.as_any_value_enum();
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
-            ExprAST::EnumLiteral(_typ, tag, literal, pos) => {
-                self.gen_enum_literal(literal, tag, env, break_catcher, continue_catcher, pos)
+            ExprAST::EnumLiteral(typ, tag, literal, pos) => {
+                self.gen_enum_literal(typ, literal, tag, env, break_catcher, continue_catcher, pos)
             },
             ExprAST::TupleLiteral(expr_list, pos) => {
                 self.gen_tuple_literal(expr_list, None, env, break_catcher, continue_catcher, pos)

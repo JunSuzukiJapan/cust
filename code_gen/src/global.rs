@@ -8,7 +8,6 @@ pub struct Global {
 
 impl Global {
     fn new() -> Self {
-        // let enum_tag_type = NumberType::Long;
         let enum_tag_type = NumberType::UnsignedInt;
 
         Global {

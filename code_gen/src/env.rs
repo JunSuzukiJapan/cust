@@ -3,12 +3,14 @@
 use std::collections::HashMap;
 use std::error::Error;
 use std::rc::Rc;
+use std::thread::panicking;
 use inkwell::values::{PointerValue, FunctionValue, GlobalValue, AnyValueEnum, IntValue, BasicValueEnum, BasicValue};
 use inkwell::types::{StructType, AnyTypeEnum, AnyType, BasicTypeEnum, IntType, BasicType};
 use inkwell::basic_block::BasicBlock;
 use inkwell::context::Context;
 use parser::FunProto;
 use tokenizer::Position;
+use crate::global::global;
 use crate::parser::{Type, ConstExpr, NumberType, ExprAST, CustFunctionType, SpecifierQualifier};
 use crate::{CodeGenError};
 use super::type_util::TypeUtil;
@@ -153,7 +155,250 @@ impl<'a> CompiledCase<'a> {
 }
 
 #[derive(Debug, Clone)]
-pub enum TypeOrUnion<'ctx> {
+pub struct  NormalTaggedEnum<'ctx> {
+    name: String,
+    type_list: Vec<(Rc<Type>, BasicTypeEnum<'ctx>)>,
+    index_map: HashMap<String, usize>,
+    max_size: u64,
+    max_size_type: Option<BasicTypeEnum<'ctx>>,
+}
+
+impl <'ctx> NormalTaggedEnum<'ctx> {
+    pub fn new(name: String, type_list: Vec<(Rc<Type>, BasicTypeEnum<'ctx>)>, index_map: HashMap<String, usize>, max_size: u64, max_size_type: Option<BasicTypeEnum<'ctx>>) -> Self {
+        NormalTaggedEnum { name, type_list, index_map, max_size, max_size_type }
+    }
+
+    pub fn get_name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn get_type_list(&self) -> &Vec<(Rc<Type>, BasicTypeEnum<'ctx>)> {
+        &self.type_list
+    }
+
+    pub fn get_index_map(&self) -> &HashMap<String, usize> {
+        &self.index_map
+    }
+
+    pub fn get_max_size(&self) -> u64 {
+        self.max_size
+    }
+
+    pub fn get_max_size_type(&self) -> Option<BasicTypeEnum<'ctx>> {
+        self.max_size_type.clone()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct TypeVarTaggedEnum {
+    name: String,
+    type_list: Vec<Rc<Type>>,
+    index_map: HashMap<String, usize>,
+    type_variables: Vec<String>,
+}
+
+impl TypeVarTaggedEnum {
+    pub fn new(name: String, type_list: Vec<Rc<Type>>, index_map: HashMap<String, usize>, type_variables: Vec<String>) -> Self {
+        TypeVarTaggedEnum { name, type_list, index_map, type_variables }
+    }
+
+    pub fn get_name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn get_type_list(&self) -> &Vec<Rc<Type>> {
+        &self.type_list
+    }
+
+    pub fn get_index_map(&self) -> &HashMap<String, usize> {
+        &self.index_map
+    }
+
+    pub fn get_type_variables(&self) -> &Vec<String> {
+        &self.type_variables
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct BoundTaggedEnum<'ctx> {
+    type_var_enum: Rc<TypeVarTaggedEnum>,
+    type_list: Vec<(Rc<Type>, BasicTypeEnum<'ctx>)>,
+    index_map: HashMap<String, usize>,
+    max_size: u64,
+    max_size_type: Option<BasicTypeEnum<'ctx>>,
+    bound_map: HashMap<String, (Rc<Type>, BasicTypeEnum<'ctx>)>,
+}
+
+impl<'ctx> BoundTaggedEnum<'ctx> {
+    pub fn try_new(
+        type_var_enum: Rc<TypeVarTaggedEnum>,
+        type_list: Vec<(Rc<Type>, BasicTypeEnum<'ctx>)>,
+        index_map: HashMap<String, usize>,
+        bound_map: HashMap<String, (Rc<Type>, BasicTypeEnum<'ctx>)>,
+        env: &mut Env<'ctx>,
+        pos: &Position
+    ) -> Result<Self, Box<dyn Error>> {
+
+        env.add_new_local_types();
+
+        let mut map = HashMap::new();
+        for (name, typ) in bound_map.iter() {
+            map.insert(name.clone(), Rc::clone(&typ.0));
+        }
+        env.set_type_variables(type_var_enum.get_type_variables(), &map, pos)?;
+
+        let mut max_size = 0;
+        let mut max_size_type = None;
+        for (_ty, basic_ty) in &type_list {
+            let size = CodeGen::size_of(basic_ty)?;
+            if size > max_size {
+                max_size = size;
+                max_size_type = Some(basic_ty.clone());
+            }
+        }
+
+        env.remove_local_types();
+
+        let tagged = BoundTaggedEnum { type_var_enum, type_list, index_map, max_size, max_size_type, bound_map };
+        Ok(tagged)
+    }
+
+    pub fn get_type_var_enum(&self) -> &TypeVarTaggedEnum {
+        &self.type_var_enum
+    }
+
+    pub fn get_type_list(&self) -> &Vec<(Rc<Type>, BasicTypeEnum<'ctx>)> {
+        &self.type_list
+    }
+
+    pub fn get_index_map(&self) -> &HashMap<String, usize> {
+        &self.index_map
+    }
+
+    pub fn get_max_size(&self) -> u64 {
+        self.max_size
+    }
+
+    pub fn get_max_size_type(&self) -> Option<BasicTypeEnum<'ctx>> {
+        self.max_size_type.clone()
+    }
+
+    pub fn get_bound_map(&self) -> &HashMap<String, (Rc<Type>, BasicTypeEnum<'ctx>)> {
+        &self.bound_map
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum TaggedEnum<'ctx> {
+    Normal(NormalTaggedEnum<'ctx>),
+    TypeVar(TypeVarTaggedEnum),
+    Bound(BoundTaggedEnum<'ctx>),
+}
+
+impl<'ctx> TaggedEnum<'ctx> {
+    pub fn new_normal_tagged_enum(
+        name: String,
+        type_list: Vec<(Rc<Type>, BasicTypeEnum<'ctx>)>,
+        index_map: HashMap<String, usize>,
+        max_size: u64,
+        max_size_type: Option<BasicTypeEnum<'ctx>>,
+    ) -> Self {
+        let tagged = NormalTaggedEnum::new(name, type_list, index_map, max_size, max_size_type);
+        TaggedEnum::Normal(tagged)
+    }
+
+    pub fn new_type_var_tagged_enum(
+        name: String,
+        type_list: Vec<Rc<Type>>,
+        index_map: HashMap<String, usize>,
+        type_variables: Vec<String>,
+    ) -> Self {
+        let type_var_enum = TypeVarTaggedEnum::new(name, type_list, index_map, type_variables);
+        TaggedEnum::TypeVar(type_var_enum)
+    }
+
+    pub fn new_bound_tagged_enum(
+        type_var_enum: Rc<TypeVarTaggedEnum>,
+        type_list: Vec<(Rc<Type>, BasicTypeEnum<'ctx>)>,
+        index_map: HashMap<String, usize>,
+        bound_map: HashMap<String, (Rc<Type>, BasicTypeEnum<'ctx>)>,
+        env: &mut Env<'ctx>,
+        pos: &Position
+    ) ->Result<Self, Box<dyn Error>> {
+        let bound_enum = BoundTaggedEnum::try_new(type_var_enum, type_list, index_map, bound_map, env, pos)?;
+        Ok(TaggedEnum::Bound(bound_enum))
+    }
+
+    pub fn get_index_map(&self) -> &HashMap<String, usize> {
+        match self {
+            TaggedEnum::Normal(tagged_enum) => &tagged_enum.index_map,
+            TaggedEnum::TypeVar(type_var_enum) => &type_var_enum.index_map,
+            TaggedEnum::Bound(bound_enum) => &bound_enum.index_map,
+        }
+    }
+
+    pub fn get_pair_type_list(&self) -> &Vec<(Rc<Type>, BasicTypeEnum<'ctx>)> {
+        match self {
+            TaggedEnum::Normal(tagged_enum) => &tagged_enum.type_list,
+            TaggedEnum::Bound(bound_enum) => &bound_enum.type_list,
+            TaggedEnum::TypeVar(_type_var_enum) => {
+                panic!("TypeVar does not have type list, use get_pair_type instead");
+            },
+        }
+    }
+
+    pub fn get_type_list(&self) -> &Vec<Rc<Type>> {
+        match self {
+            TaggedEnum::TypeVar(type_var_enum) => &type_var_enum.type_list,
+            _ => {
+                panic!("Normal or Bound TaggedEnum does not have type list, use get_pair_type_list instead");
+            }
+        }
+    }
+
+    pub fn get_max_size(&self) -> Option<u64> {
+        match self {
+            TaggedEnum::Normal(tagged_enum) => Some(tagged_enum.max_size),
+            TaggedEnum::TypeVar(_) => None, // TypeVar does not have max size
+            TaggedEnum::Bound(bound_enum) => Some(bound_enum.max_size),
+        }
+    }
+
+    pub fn get_max_size_type(&self) -> Option<BasicTypeEnum<'ctx>> {
+        match self {
+            TaggedEnum::Normal(tagged_enum) => tagged_enum.max_size_type.clone(),
+            TaggedEnum::TypeVar(_tagged) => None, // TypeVar does not have max size type
+            TaggedEnum::Bound(bound_enum) => bound_enum.get_max_size_type(),
+        }
+    }
+
+    pub fn get_name(&self) -> &str {
+        match self {
+            TaggedEnum::Normal(tagged_enum) => tagged_enum.get_name(),
+            TaggedEnum::TypeVar(type_var_enum) => type_var_enum.get_name(),
+            TaggedEnum::Bound(bound_enum) => bound_enum.get_type_var_enum().get_name(),
+        }
+    }
+
+    pub fn get_type_varialbes(&self) -> Option<&Vec<String>> {
+        match self {
+            TaggedEnum::TypeVar(type_var_enum) => Some(type_var_enum.get_type_variables()),
+            TaggedEnum::Bound(bound_enum) => Some(bound_enum.get_type_var_enum().get_type_variables()),
+            TaggedEnum::Normal(_) => None, // Normal does not have type variables
+        }
+    }
+
+    pub fn as_any_type_enum(&self) -> Option<AnyTypeEnum<'ctx>> {
+        if let Some(t) = self.get_max_size_type() {
+            Some(t.as_any_type_enum())
+        }else{
+            panic!("no type in enum");
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum GenType<'ctx> {
     Type(AnyTypeEnum<'ctx>),
     Union{
         type_list: Vec<(Rc<Type>, BasicTypeEnum<'ctx>)>,
@@ -166,30 +411,24 @@ pub enum TypeOrUnion<'ctx> {
         enumerator_list: Vec<(String, IntValue<'ctx>)>,
         index_map: HashMap<String,usize>,
     },
-    TaggedEnum {
-        name: String,
-        type_list: Vec<(Rc<Type>, BasicTypeEnum<'ctx>)>,
-        index_map: HashMap<String, usize>,
-        max_size: u64,
-        max_size_type: Option<BasicTypeEnum<'ctx>>,
-    },
-    TypeDefStruct(String, *const TypeOrUnion<'ctx>),
-    TypeDefUnion(String, *const TypeOrUnion<'ctx>),
+    TaggedEnum(TaggedEnum<'ctx>),
+    TypeDefStruct(String, *const GenType<'ctx>),
+    TypeDefUnion(String, *const GenType<'ctx>),
 }
 
-impl<'ctx> TypeOrUnion<'ctx> {
+impl<'ctx> GenType<'ctx> {
     pub fn is_struct_type(&self) -> bool {
         match self {
-            TypeOrUnion::Type(t) => t.is_struct_type(),
-            TypeOrUnion::TypeDefStruct(_, _) => true,
+            GenType::Type(t) => t.is_struct_type(),
+            GenType::TypeDefStruct(_, _) => true,
             _ => false,
         }
     }
 
     pub fn is_union_type(&self) -> bool{
         match self {
-            TypeOrUnion::Union {..} => true,
-            TypeOrUnion::TypeDefUnion(_, _) => true,
+            GenType::Union {..} => true,
+            GenType::TypeDefUnion(_, _) => true,
             _ => false,
         }
     }
@@ -197,8 +436,8 @@ impl<'ctx> TypeOrUnion<'ctx> {
     #[allow(unused)]
     pub fn is_enum_type(&self) -> bool {
         match self {
-            TypeOrUnion::StandardEnum {..} => true,
-            TypeOrUnion::TaggedEnum {..} => true,
+            GenType::StandardEnum {..} => true,
+            GenType::TaggedEnum(_) => true,
             _ => false,
         }
     }
@@ -206,36 +445,25 @@ impl<'ctx> TypeOrUnion<'ctx> {
     #[allow(unused)]
     pub fn is_tagged_enum_type(&self) -> bool {
         match self {
-            TypeOrUnion::TaggedEnum {..} => true,
+            GenType::TaggedEnum(gen_enum) => true,
             _ => false,
         }
     }
 
-    // pub fn get_tagged_enum_type(&self) -> Option<Type> {
-    //     match self {
-    //         TypeOrUnion::TaggedEnum { type_list, .. } => {
-    //             if type_list.len() == 1 {
-    //                 Some(type_list[0].0.clone())
-    //             }else{
-    //                 None
-    //             }
-    //         },
-    //         _ => None,
-    //     }
-    // }
-
     pub fn get_index_map(&self) -> Option<&HashMap<String, usize>> {
         match self {
-            TypeOrUnion::Union { index_map, .. } => Some(index_map),
-            TypeOrUnion::StandardEnum { index_map, .. } => Some(index_map),
-            TypeOrUnion::TaggedEnum { index_map, .. } => Some(index_map),
-            TypeOrUnion::TypeDefStruct(_, raw_ptr) => {
+            GenType::Union { index_map, .. } => Some(index_map),
+            GenType::StandardEnum { index_map, .. } => Some(index_map),
+            GenType::TaggedEnum(gen_enum) => {
+                Some(gen_enum.get_index_map())
+            },
+            GenType::TypeDefStruct(_, raw_ptr) => {
                 let t = unsafe {
                     raw_ptr.as_ref().unwrap()
                 };
                 t.get_index_map()
             },
-            TypeOrUnion::TypeDefUnion(_, raw_ptr) => {
+            GenType::TypeDefUnion(_, raw_ptr) => {
                 let t = unsafe {
                     raw_ptr.as_ref().unwrap()
                 };
@@ -247,15 +475,17 @@ impl<'ctx> TypeOrUnion<'ctx> {
 
     pub fn get_type_list(&self) -> Option<&Vec<(Rc<Type>, BasicTypeEnum<'ctx>)>> {
         match self {
-            TypeOrUnion::Union { type_list, .. } => Some(type_list),
-            TypeOrUnion::TaggedEnum { type_list, .. } => Some(type_list),
-            TypeOrUnion::TypeDefStruct(_, raw_ptr) => {
+            GenType::Union { type_list, .. } => Some(type_list),
+            GenType::TaggedEnum(gen_enum) => {
+                Some(gen_enum.get_pair_type_list())
+            },
+            GenType::TypeDefStruct(_, raw_ptr) => {
                 let t = unsafe {
                     raw_ptr.as_ref().unwrap()
                 };
                 t.get_type_list()
             },
-            TypeOrUnion::TypeDefUnion(_, raw_ptr) => {
+            GenType::TypeDefUnion(_, raw_ptr) => {
                 let t = unsafe {
                     raw_ptr.as_ref().unwrap()
                 };
@@ -267,29 +497,29 @@ impl<'ctx> TypeOrUnion<'ctx> {
 
     pub fn as_any_type_enum(&self) -> AnyTypeEnum<'ctx> {
         match self {
-            TypeOrUnion::Type(t) => t.as_any_type_enum(),
-            TypeOrUnion::Union {max_size_type, ..} => {
+            GenType::Type(t) => t.as_any_type_enum(),
+            GenType::Union {max_size_type, ..} => {
                 if let Some(t) = max_size_type {
                     t.as_any_type_enum()
                 }else{
                     panic!("no type in union");
                 }
             },
-            TypeOrUnion::StandardEnum {i32_type, ..} => AnyTypeEnum::IntType(*i32_type),
-            TypeOrUnion::TaggedEnum { max_size_type, .. } => {
-                if let Some(t) = max_size_type {
+            GenType::StandardEnum { i32_type, .. } => i32_type.as_any_type_enum(),
+            GenType::TaggedEnum(gen_enum) => {
+                if let Some(t) = gen_enum.get_max_size_type() {
                     t.as_any_type_enum()
                 }else{
-                    panic!("no type in enum");
+                    panic!("no type in tagged enum");
                 }
             },
-            TypeOrUnion::TypeDefStruct(_struct_name, raw_ptr) => {
+            GenType::TypeDefStruct(_struct_name, raw_ptr) => {
                 let t = unsafe {
                     raw_ptr.as_ref().unwrap()
                 };
                 t.as_any_type_enum()
             },
-            TypeOrUnion::TypeDefUnion(_name, raw_ptr) => {
+            GenType::TypeDefUnion(_name, raw_ptr) => {
                 let t = unsafe {
                     raw_ptr.as_ref().unwrap()
                 };
@@ -299,19 +529,19 @@ impl<'ctx> TypeOrUnion<'ctx> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum ConstOrGlobalValue<'ctx> {
     Const{value: BasicValueEnum<'ctx>},
     GlobalValue{global: GlobalValue<'ctx>},
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Interface {
     name: String,
     function_prototypes: HashMap<String, FunProto>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Class<'ctx> {
     name: String,
     vars:HashMap<String, (Rc<Type>, SpecifierQualifier, GlobalValue<'ctx>)>,
@@ -391,7 +621,7 @@ impl<'ctx> Class<'ctx> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Env<'ctx> {
     global_def: HashMap<String, (Rc<Type>, SpecifierQualifier, ConstOrGlobalValue<'ctx>)>,
     global_functions: HashMap<String, (CustFunctionType, FunctionValue<'ctx>)>,
@@ -404,7 +634,7 @@ pub struct Env<'ctx> {
     local_cases: Vec<Vec<Vec<CompiledCase<'ctx>>>>,
 
     current_function: Option<(CustFunctionType, FunctionValue<'ctx>)>,
-    types: HashMap<String, (TypeOrUnion<'ctx>, Option<HashMap<String, usize>>)>,
+    types: HashMap<String, (GenType<'ctx>, Option<HashMap<String, usize>>)>,
 
     current_class: Option<*const Class<'ctx>>,
 
@@ -516,12 +746,12 @@ impl<'ctx> Env<'ctx> {
     }
 
     fn get_real_class_name(&self, class_name: &str) -> String {
-        if let Some((type_or_union, _)) = self.types.get(class_name) {
-            match type_or_union {
-                TypeOrUnion::TypeDefStruct(struct_name, _raw_ptr) => {
+        if let Some((gen_type, _)) = self.types.get(class_name) {
+            match gen_type {
+                GenType::TypeDefStruct(struct_name, _raw_ptr) => {
                     struct_name.to_string()
                 },
-                TypeOrUnion::TypeDefUnion(name, _raw_ptr) => {
+                GenType::TypeDefUnion(name, _raw_ptr) => {
                     name.to_string()
                 },
                 _ => {
@@ -621,7 +851,7 @@ impl<'ctx> Env<'ctx> {
             return Err(CodeGenError::already_type_defined_in_struct(key, pos.clone()));
         }
 
-        self.types.insert(key.to_string(), (TypeOrUnion::Type(struct_type.as_any_type_enum()), Some(index_map)));
+        self.types.insert(key.to_string(), (GenType::Type(struct_type.as_any_type_enum()), Some(index_map)));
 
         Ok(())
     }
@@ -639,8 +869,8 @@ impl<'ctx> Env<'ctx> {
             return Err(CodeGenError::already_type_defined_in_union(key, pos.clone()));
         }
 
-        let type_or_union = TypeOrUnion::Union { type_list, index_map: index_map.clone(), max_size, max_size_type };
-        self.types.insert(key.to_string(), (type_or_union, Some(index_map)));
+        let gen_type = GenType::Union { type_list, index_map: index_map.clone(), max_size, max_size_type };
+        self.types.insert(key.to_string(), (gen_type, Some(index_map)));
 
         Ok(())
     }
@@ -652,12 +882,12 @@ impl<'ctx> Env<'ctx> {
 
         match typ {
             Type::Symbol(name) => {
-                let t = self.get_type_or_union(name).ok_or(CodeGenError::no_such_a_type(name, pos.clone()))?.clone();
+                let t = self.get_gen_type(name, ctx, pos)?.ok_or(CodeGenError::no_such_a_type(name, pos.clone()))?.clone();
                 self.types.insert(key.to_string(), (t.clone(), None));
             },
             Type::Struct { name, fields, type_variables } => {
                 if let Some(struct_name) = name {
-                    if let Some(t) = self.get_type_or_union(struct_name) {
+                    if let Some(t) = &self.get_gen_type(struct_name, ctx, pos)? {
                         if ! t.is_struct_type() {
                             return  Err(Box::new(CodeGenError::already_type_defined_in_typedef(typ, struct_name, pos.clone())));
                         }
@@ -670,8 +900,8 @@ impl<'ctx> Env<'ctx> {
                 let (struct_type, index_map) = CodeGen::struct_from_struct_definition(name, fields, type_variables, ctx, self, pos)?;
                 if let Some(struct_name) = name {
                     self.insert_struct(struct_name, &struct_type, index_map, pos)?;
-                    let raw_ptr = self.get_type_or_union(&struct_name).unwrap() as *const TypeOrUnion;
-                    let t = TypeOrUnion::TypeDefStruct(struct_name.to_string(), raw_ptr);
+                    let raw_ptr = &self.get_gen_type(&struct_name, ctx, pos)?.unwrap() as *const GenType;
+                    let t = GenType::TypeDefStruct(struct_name.to_string(), raw_ptr);
                     self.types.insert(key.to_string(), (t, None));
                 }else{
                     self.insert_struct(key, &struct_type, index_map, pos)?;
@@ -679,7 +909,7 @@ impl<'ctx> Env<'ctx> {
             },
             Type::Union { name, fields, type_variables } => {
                 if let Some(id) = name {
-                    if let Some(t) = self.get_type_or_union(id) {
+                    if let Some(t) = self.get_gen_type(id, ctx, pos)? {
                         if ! t.is_union_type() {
                             return  Err(Box::new(CodeGenError::already_type_defined_in_typedef(typ, id, pos.clone())));
                         }
@@ -693,8 +923,8 @@ impl<'ctx> Env<'ctx> {
                 if let Some(union_name) = name {
                     self.insert_union(&union_name, type_list, index_map, max_size, max_size_type, pos)?;
 
-                    let raw_ptr = self.get_type_or_union(&union_name).unwrap() as *const TypeOrUnion;
-                    let t = TypeOrUnion::TypeDefUnion(union_name.to_string(), raw_ptr);
+                    let raw_ptr = &self.get_gen_type(&union_name, ctx, pos)?.unwrap() as *const GenType;
+                    let t = GenType::TypeDefUnion(union_name.to_string(), raw_ptr);
                     self.types.insert(key.to_string(), (t.clone(), None));
 
                 }else{
@@ -703,11 +933,11 @@ impl<'ctx> Env<'ctx> {
 
             },
             _ => {
-                let type_or_union = TypeOrUnion::Type(TypeUtil::to_llvm_any_type(typ, ctx, self, pos)?);
-                self.types.insert(key.to_string(), (type_or_union, None));
+                let gen_type = GenType::Type(TypeUtil::to_llvm_any_type(typ, ctx, self, pos)?);
+                self.types.insert(key.to_string(), (gen_type, None));
             },
         };
-        // self.types.insert(key.to_string(), (type_or_union, None));
+        // self.types.insert(key.to_string(), (gen_type, None));
 
         Ok(())
     }
@@ -721,8 +951,12 @@ impl<'ctx> Env<'ctx> {
             self.insert_global_enumerator(id, Rc::new(Type::Number(NumberType::Int)), *val);
         }
 
-        let type_or_union = TypeOrUnion::StandardEnum { i32_type: *enum_type, enumerator_list: enumerator_list, index_map: index_map };
-        self.types.insert(key.to_string(), (type_or_union, None));
+        let gen_type = GenType::StandardEnum {
+            i32_type: enum_type.clone(),
+            enumerator_list,
+            index_map,
+        };
+        self.types.insert(key.to_string(), (gen_type, None));
 
         Ok(())
     }
@@ -730,18 +964,16 @@ impl<'ctx> Env<'ctx> {
     pub fn insert_tagged_enum(
         &mut self,
         key: &str,
-        type_list: Vec<(Rc<Type>, BasicTypeEnum<'ctx>)>,
-        index_map: HashMap<String, usize>,
-        max_size: u64,
-        max_size_type: Option<BasicTypeEnum<'ctx>>,
+        tagged_enum: TaggedEnum<'ctx>,
         pos: &Position
     ) -> Result<(), CodeGenError> {
         if let Some(_any_type_enum) = self.types.get(key) {
             return Err(CodeGenError::already_type_defined_in_enum(key, pos.clone()));
         }
 
-        let type_or_union = TypeOrUnion::TaggedEnum { name: key.to_string(), type_list, index_map: index_map.clone(), max_size, max_size_type };
-        self.types.insert(key.to_string(), (type_or_union, Some(index_map)));
+        let index_map = tagged_enum.get_index_map().clone();
+        let gen_type = GenType::TaggedEnum(tagged_enum);
+        self.types.insert(key.to_string(), (gen_type, Some(index_map)));
         Ok(())
     }
 
@@ -749,33 +981,36 @@ impl<'ctx> Env<'ctx> {
         match typ {
             Type::Struct { name, fields, type_variables } => {
                 if let Some(id) = name {
-                    if let Some(type_or_union) = self.get_type_or_union(id) {
-                        let mut type_or_union = type_or_union;
+                    if let Some(gen_type) = self.get_gen_type(id, ctx, pos)? {
+                        let mut gen_type = &gen_type;
                         loop {
-                            match type_or_union {
-                                TypeOrUnion::Type(t) => {
+                            match gen_type {
+                                GenType::Type(t) => {
                                     if let Ok(basic_type) = BasicTypeEnum::try_from(*t) {
                                         return Ok(basic_type);
                                     }else{
                                         return Err(Box::new(CodeGenError::mismatch_type_struct_fields(Some(id), pos.clone())));
                                     }
                                 },
-                                TypeOrUnion::Union { max_size_type, .. } => {
+                                GenType::Union { max_size_type, .. } => {
                                     let t = max_size_type.ok_or(CodeGenError::union_has_no_field(None, pos.clone()))?;
                                     return Ok(t);
                                 },
-                                TypeOrUnion::StandardEnum { i32_type, .. } => {
+                                GenType::StandardEnum { i32_type, .. } => {
                                     return Ok(i32_type.as_basic_type_enum());
                                 },
-                                TypeOrUnion::TaggedEnum { name, max_size_type, .. } => {
-                                    let t = max_size_type.ok_or(CodeGenError::enum_has_no_field(name.to_string(), pos.clone()))?;
-                                    return Ok(t);
+                                GenType::TaggedEnum(gen_enum) => {
+                                    if let Some(t) = gen_enum.get_max_size_type() {
+                                        return Ok(t);
+                                    }else{
+                                        return Err(Box::new(CodeGenError::enum_has_no_field(gen_enum.get_name().to_string(), pos.clone())));
+                                    }
                                 },
-                                TypeOrUnion::TypeDefStruct(_name, raw_ptr) => {
-                                    type_or_union = unsafe { raw_ptr.as_ref().unwrap() };
+                                GenType::TypeDefStruct(_name, raw_ptr) => {
+                                    gen_type = unsafe { raw_ptr.as_ref().unwrap() };
                                 },
-                                TypeOrUnion::TypeDefUnion(_name, raw_ptr) => {
-                                    type_or_union = unsafe { raw_ptr.as_ref().unwrap() };
+                                GenType::TypeDefUnion(_name, raw_ptr) => {
+                                    gen_type = unsafe { raw_ptr.as_ref().unwrap() };
                                 },
                             }
                         }
@@ -792,37 +1027,40 @@ impl<'ctx> Env<'ctx> {
             },
             Type::Union { name, fields, type_variables } => {
                 if let Some(id) = name {
-                    if let Some(type_or_union) = self.get_type_or_union(id) {
-                        let mut type_or_union = type_or_union;
+                    if let Some(gen_type) = self.get_gen_type(id, ctx, pos)? {
+                        let mut gen_type = &gen_type;
                         loop {
-                            match type_or_union {
-                                TypeOrUnion::Type(t) => {
+                            match gen_type {
+                                GenType::Type(t) => {
                                     if let Ok(basic_type) = BasicTypeEnum::try_from(*t) {
                                         return Ok(basic_type);
                                     }else{
                                         return Err(Box::new(CodeGenError::mismatch_type_struct_fields(Some(id), pos.clone())));
                                     }
                                 },
-                                TypeOrUnion::Union { max_size_type, .. } => {
+                                GenType::Union { max_size_type, .. } => {
                                     let t = max_size_type.ok_or(CodeGenError::union_has_no_field(None, pos.clone()))?;
                                     return Ok(t);
                                 },
-                                TypeOrUnion::StandardEnum { i32_type, .. } => {
+                                GenType::StandardEnum { i32_type, .. } => {
                                     return Ok(i32_type.as_basic_type_enum());
                                 },
-                                TypeOrUnion::TaggedEnum { name, max_size_type, .. } => {
-                                    let t = max_size_type.ok_or(CodeGenError::enum_has_no_field(name.to_string(), pos.clone()))?;
-                                    return Ok(t);
+                                GenType::TaggedEnum(gen_enum) => {
+                                    if let Some(t) = gen_enum.get_max_size_type() {
+                                        return Ok(t);
+                                    }else{
+                                        return Err(Box::new(CodeGenError::enum_has_no_field(gen_enum.get_name().to_string(), pos.clone())));
+                                    }
                                 },
-                                TypeOrUnion::TypeDefStruct(_name, raw_ptr) => {
+                                GenType::TypeDefStruct(_name, raw_ptr) => {
                                     // let t = self.get_type(name).unwrap();
-                                    // type_or_union = t;
-                                    type_or_union = unsafe { raw_ptr.as_ref().unwrap() };
+                                    // gen_type = t;
+                                    gen_type = unsafe { raw_ptr.as_ref().unwrap() };
                                 },
-                                TypeOrUnion::TypeDefUnion(_name, raw_ptr) => {
+                                GenType::TypeDefUnion(_name, raw_ptr) => {
                                     // let t = self.get_type(name).unwrap();
-                                    // type_or_union = t;
-                                    type_or_union = unsafe { raw_ptr.as_ref().unwrap() };
+                                    // gen_type = t;
+                                    gen_type = unsafe { raw_ptr.as_ref().unwrap() };
                                 },                            }
                         }
                     }else{
@@ -840,38 +1078,39 @@ impl<'ctx> Env<'ctx> {
                 if enum_def.is_standard() {
                     Ok(BasicTypeEnum::IntType(ctx.i32_type()))
                 }else{
-                    if let Some(type_or_union) = self.get_type_or_union(name) {
-                        let mut type_or_union = type_or_union;
+                    if let Some(gen_type) = self.get_gen_type(name, ctx, pos)? {
+                        let mut gen_type = &gen_type;
                         loop {
-                            match type_or_union {
-                                TypeOrUnion::Type(t) => {
+                            match &gen_type {
+                                GenType::Type(t) => {
                                     if let Ok(basic_type) = BasicTypeEnum::try_from(*t) {
                                         return Ok(basic_type);
                                     }else{
                                         return Err(Box::new(CodeGenError::mismatch_type_struct_fields(Some(name), pos.clone())));
                                     }
                                 },
-                                TypeOrUnion::Union { max_size_type, .. } => {
+                                GenType::Union { max_size_type, .. } => {
                                     let t = max_size_type.ok_or(CodeGenError::union_has_no_field(None, pos.clone()))?;
                                     return Ok(t);
                                 },
-                                TypeOrUnion::StandardEnum { i32_type, .. } => {
+                                GenType::StandardEnum { i32_type, .. } => {
                                     return Ok(i32_type.as_basic_type_enum());
                                 },
-                                TypeOrUnion::TaggedEnum { name, max_size_type, .. } => {
-                                    let t = max_size_type.ok_or(CodeGenError::enum_has_no_field(name.to_string(), pos.clone()))?;
+                                GenType::TaggedEnum(gen_enum) => {
+                                    let t = gen_enum.get_max_size_type().ok_or(CodeGenError::enum_has_no_field(gen_enum.get_name().to_string(), pos.clone()))?;
                                     return Ok(t);
                                 },
-                                TypeOrUnion::TypeDefStruct(_name, raw_ptr) => {
+                                GenType::TypeDefStruct(_name, raw_ptr) => {
                                     // let t = self.get_type(name).unwrap();
-                                    // type_or_union = t;
-                                    type_or_union = unsafe { raw_ptr.as_ref().unwrap() };
+                                    // gen_type = t;
+                                    gen_type = unsafe { raw_ptr.as_ref().unwrap() };
                                 },
-                                TypeOrUnion::TypeDefUnion(_name, raw_ptr) => {
+                                GenType::TypeDefUnion(_name, raw_ptr) => {
                                     // let t = self.get_type(name).unwrap();
-                                    // type_or_union = t;
-                                    type_or_union = unsafe { raw_ptr.as_ref().unwrap() };
-                                },                            }
+                                    // gen_type = t;
+                                    gen_type = unsafe { raw_ptr.as_ref().unwrap() };
+                                },
+                            }
                         }
 
                     }else{
@@ -882,10 +1121,96 @@ impl<'ctx> Env<'ctx> {
             Type::Tuple(_type_list) => {
                 TypeUtil::to_basic_type_enum(typ, ctx, self, pos)
             },
+            Type::BoundEnumType { enum_type, map } => {
+                let enum_def = enum_type.get_enum_definition().unwrap();
+                let type_variables = enum_type.get_type_variables();
+
+                if enum_def.is_standard() {
+                    if map.len() != 0 {
+                        return Err(Box::new(CodeGenError::mismatch_type_variables_in_bound_enum(0, map.len(), pos.clone())));
+                    }
+
+                    let tag_type = global().enum_tag_type();
+                    let tag_type = TypeUtil::to_basic_type_enum(&Type::Number(tag_type.clone()), ctx, self, pos)?;
+                    return Ok(tag_type);
+                }
+
+                self.add_new_local_types();
+
+                if let Some(typ_vars) = type_variables {
+                    if typ_vars.len() != map.len() {
+                        return Err(Box::new(CodeGenError::mismatch_type_variables_in_bound_enum(typ_vars.len(), map.len(), pos.clone())));
+                    }
+                    self.set_type_variables(typ_vars, map, pos)?;
+                }else{
+                    if map.len() != 0 {
+                        return Err(Box::new(CodeGenError::mismatch_type_variables_in_bound_enum(0, map.len(), pos.clone())));
+                    }
+                }
+
+                let fields = enum_def.get_fields();
+                let mut max_size = 0;
+                let mut max_size_type = None;
+                for field in fields {
+                    if let Some(field_type) = field.get_type() {
+                        let basic_type = TypeUtil::to_basic_type_enum(&field_type, ctx, self, pos)?;
+                        let size = CodeGen::size_of(&basic_type)?;
+                        if size > max_size {
+                            max_size = size;
+                            max_size_type = Some(basic_type);
+                        }
+                    }
+                }
+
+                self.remove_local_types();
+
+                // add tag type
+                let tag_type = global().enum_tag_type();
+                let tag_type = TypeUtil::to_basic_type_enum(&Type::Number(tag_type.clone()), ctx, self, pos)?;
+                let vec;
+                if let Some(max_size_type) = max_size_type {
+                    vec = vec![tag_type, max_size_type];
+                }else{
+                    vec = vec![tag_type];
+                }
+                let struct_ty = ctx.struct_type(&vec, false);
+                let result = struct_ty.as_basic_type_enum();
+
+                Ok(result)
+            },
+            Type::BoundStructType { struct_type, map } => {
+
+
+
+                unimplemented!()
+            },
+            Type::BoundUnionType { union_type, map } => {
+
+
+                unimplemented!()
+            },
             _ => {
                 Ok(TypeUtil::to_basic_type_enum(typ, ctx, self, pos)?)
             },
         }
+    }
+
+    pub fn set_type_variables(&mut self, type_variables: &Vec<String>, map: &HashMap<String, Rc<Type>>, pos: &Position) -> Result<(), Box<dyn Error>> {
+        let map_len = map.len();
+
+        if type_variables.len() != map_len {
+            return Err(Box::new(CodeGenError::mismatch_type_variables_in_bound_enum(type_variables.len(), map.len(), pos.clone())));
+        }
+
+        for typ_var_name in type_variables {
+            if ! map.contains_key(typ_var_name) {
+                return Err(Box::new(CodeGenError::no_such_a_type_variable_in_bound_enum(typ_var_name.to_string(), pos.clone())));
+            }
+
+            self.insert_local_type(typ_var_name, map.get(typ_var_name).unwrap().clone());
+        }
+
+        Ok(())
     }
 
     pub fn get_block(&self, key: &str) -> Option<&BasicBlock> {
@@ -990,29 +1315,76 @@ impl<'ctx> Env<'ctx> {
         self.current_function = Some((typ.clone(), func));
     }
 
-    pub fn get_type_or_union(&self, key: &str) -> Option<&TypeOrUnion<'ctx>> {
+    pub fn get_gen_type(&mut self, key: &str, ctx: &'ctx Context, pos: &Position) -> Result<Option<GenType<'ctx>>, Box<dyn Error>> {
         if let Some((typ, _index_map)) = self.types.get(key) {
             match typ {
-                TypeOrUnion::TypeDefStruct(_name, raw_ptr) => {
+                GenType::TypeDefStruct(_name, raw_ptr) => {
                     // self.get_type(name)
                     let t = unsafe { raw_ptr.as_ref().unwrap() };
-                    Some(t)
+                    Ok(Some(t.clone()))
                 },
-                TypeOrUnion::TypeDefUnion(_name, raw_ptr) => {
+                GenType::TypeDefUnion(_name, raw_ptr) => {
                     // self.get_type(name)
                     let t = unsafe { raw_ptr.as_ref().unwrap() };
-                    Some(t)
+                    Ok(Some(t.clone()))
+                },
+                GenType::TaggedEnum(tagged) => {
+                    if let Some(typ_vars) = tagged.get_type_varialbes() {
+                        let mut bound_map: HashMap<String, (Rc<Type>, BasicTypeEnum<'ctx>)> = HashMap::new();
+
+                        for id in typ_vars {
+                            if let Some(t) = self.get_type_by_id(id) {
+                                let llvm_ty = TypeUtil::to_basic_type_enum(&t, ctx, &mut self.clone(), pos)?;  // self.clone() はバグの温床になる可能性がある。
+                                bound_map.insert(id.to_string(), (Rc::clone(t), llvm_ty));
+
+                            }else{
+                                panic!("no such a type variable: {id} in tagged enum: {}", tagged.get_name());
+                            }
+                        }
+
+                        let type_list = tagged.get_type_list().clone();
+                        let type_var_enum = TypeVarTaggedEnum::new(tagged.get_name().to_string(), type_list.clone(), tagged.get_index_map().clone(), typ_vars.clone());
+                        let index_map = tagged.get_index_map().clone();
+
+                        // let type_pair_list = type_list.iter().map(|t| (Rc::clone(t), TypeUtil::to_basic_type_enum(t, ctx, &mut self.clone(), pos).unwrap())).collect::<Vec<_>>();  // self.clone() はバグの温床になる可能性がある。
+                        let mut type_pair_list = Vec::new();
+                        for typ in type_list {
+                            let llvm_ty = TypeUtil::to_basic_type_enum(&typ, ctx, &mut self.clone(), pos)?;
+
+                            let tag_type = global().enum_tag_type();
+                            let tag_type = TypeUtil::to_basic_type_enum(&Type::Number(tag_type.clone()), ctx, self, pos)?;
+                            let struct_ty = ctx.struct_type(&[tag_type, llvm_ty], false);
+
+eprintln!("typ: {:?}", typ);
+eprintln!("llvm_ty: {:?}", llvm_ty);
+
+                            type_pair_list.push((typ, struct_ty.as_basic_type_enum()));
+                        }
+
+
+
+
+
+                        let bound = BoundTaggedEnum::try_new(Rc::new(type_var_enum), type_pair_list, index_map, bound_map, self, pos).unwrap();
+                        let tag = TaggedEnum::Bound(bound);
+                        let gen_type = GenType::TaggedEnum(tag);
+
+                        Ok(Some(gen_type))
+
+                    }else{
+                        Ok(Some(typ.clone()))
+                    }
                 },
                 _ => {
-                    Some(typ)
+                    Ok(Some(typ.clone()))
                 }
             }
         }else{
-            None
+            Ok(None)
         }
     }
 
-    pub fn get_type_and_index_map(&self, key: &str) -> Option<&(TypeOrUnion<'ctx>, Option<HashMap<String, usize>>)> {
+    pub fn get_type_and_index_map(&self, key: &str) -> Option<&(GenType<'ctx>, Option<HashMap<String, usize>>)> {
         self.types.get(key)
     }
 

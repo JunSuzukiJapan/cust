@@ -1128,6 +1128,13 @@ impl Type {
     pub fn get_enum_definition(&self) -> Option<&EnumDefinition> {
         match self {
             Type::Enum { enum_def, .. } => Some(enum_def),
+            Type::BoundEnumType { enum_type, map } => {
+                if let Type::Enum { enum_def, .. } = &**enum_type {
+                    Some(enum_def)
+                }else{
+                    None
+                }
+            },
             _ => None,
         }
     }
@@ -1248,7 +1255,37 @@ impl Type {
             Type::Struct { type_variables, .. } => type_variables,
             Type::Union { type_variables, .. } => type_variables,
             Type::Enum { type_variables, .. } => type_variables,
+            Type::BoundEnumType { enum_type, .. } => {
+                if let Type::Enum { type_variables, .. } = &**enum_type {
+                    type_variables
+                }else{
+                    &None
+                }
+            },
+            Type::BoundStructType { struct_type, .. } => {
+                if let Type::Struct { type_variables, .. } = &**struct_type {
+                    type_variables
+                }else{
+                    &None
+                }
+            },
+            Type::BoundUnionType { union_type, .. } => {
+                if let Type::Union { type_variables, .. } = &**union_type {
+                    type_variables
+                }else{
+                    &None
+                }
+            },
             _ => &None,
+        }
+    }
+
+    pub fn get_type_map(&self) -> Option<&HashMap<String, Rc<Type>>> {
+        match self {
+            Type::BoundStructType { map, .. } => Some(map),
+            Type::BoundUnionType { map, .. } => Some(map),
+            Type::BoundEnumType { map, .. } => Some(map),
+            _ => None,
         }
     }
 

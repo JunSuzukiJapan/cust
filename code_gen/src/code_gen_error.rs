@@ -133,6 +133,9 @@ pub enum CodeGenError {
     InitializerIsNotEnum(Position),
     NotConstInitializer(Position),
     NoSizeUnion(Position),
+    MismatchTypeVariablesInBoundEnum(usize, usize, Position),
+    NoSuchATypeVariableInBoundEnum(String, Position),
+    NoTypeMapInEnum(String, Position),  // (type name, Position)
 }
 
 impl CodeGenError {
@@ -602,6 +605,18 @@ impl CodeGenError {
     pub fn no_size_union(pos: Position) -> Self {
         Self::NoSizeUnion(pos)
     }
+
+    pub fn mismatch_type_variables_in_bound_enum(expected: usize, real: usize, pos: Position) -> Self {
+        Self::MismatchTypeVariablesInBoundEnum(expected, real, pos)
+    }
+
+    pub fn no_such_a_type_variable_in_bound_enum(name: String, pos: Position) -> Self {
+        Self::NoSuchATypeVariableInBoundEnum(name, pos)
+    }
+
+    pub fn no_type_map_in_enum(type_name: String, pos: Position) -> Self {
+        Self::NoTypeMapInEnum(type_name, pos)
+    }
 }
 
 impl From<ParserError> for CodeGenError {
@@ -978,6 +993,15 @@ impl fmt::Display for CodeGenError {
             },
             Self::NoSizeUnion(_pos) => {
                 write!(f, "no size union")
+            },
+            Self::MismatchTypeVariablesInBoundEnum(expected, real, _pos) => {
+                write!(f, "mismatch type variables in bound enum. expected: {expected}, real: {real}")
+            },
+            Self::NoSuchATypeVariableInBoundEnum(name, _pos) => {
+                write!(f, "no such a type variable '{name}' in bound enum")
+            },
+            Self::NoTypeMapInEnum(type_name, _pos) => {
+                write!(f, "no type map for enum '{type_name}'")
             },
         }
     }

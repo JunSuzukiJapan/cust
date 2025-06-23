@@ -1,3 +1,4 @@
+use crate::env::{GenType, TaggedEnum};
 use crate::parser::{Type, EnumDefinition, Enumerator, EnumLiteral, Initializer, ExprAST};
 use super::{CodeGenError, CompiledValue};
 use super::Env;
@@ -37,102 +38,157 @@ impl<'ctx> CodeGen<'ctx> {
                 Ok(None)
             },
             EnumDefinition::TaggedEnum { fields, .. } => {
-                let (type_list, index_map, max_size, max_size_type) = Self::tagged_enum_from_enum_definition(enum_name, fields, &self.enum_tag_type, type_variables, self.context, env, pos)?;
-                env.insert_tagged_enum(enum_name.into(), type_list, index_map, max_size, max_size_type, pos)?;
-        
-                if let Some(t) = max_size_type {
-                    Ok(Some(t.as_any_type_enum()))
-                }else{
+                if let Some(_type_vars) = type_variables {
+                    let tagged = Self::tagged_enum_from_enum_definition(enum_name, fields, &self.enum_tag_type, type_variables, self.context, env, pos)?;
+                    env.insert_tagged_enum(enum_name.into(), tagged, pos)?;
                     Ok(None)
+
+                }else{
+
+                    let tagged = Self::tagged_enum_from_enum_definition(enum_name, fields, &self.enum_tag_type, type_variables, self.context, env, pos)?;
+                    let max_size_type = tagged.get_max_size_type();
+                    env.insert_tagged_enum(enum_name.into(), tagged, pos)?;
+            
+                    if let Some(t) = max_size_type {
+                        Ok(Some(t.as_any_type_enum()))
+                    }else{
+                        Ok(None)
+                    }
                 }
+
+
+
+                // let tagged = Self::tagged_enum_from_enum_definition(enum_name, fields, &self.enum_tag_type, type_variables, self.context, env, pos)?;
+                // let max_size_type = tagged.get_max_size_type();
+                // env.insert_tagged_enum(enum_name.into(), tagged, pos);
+        
+                // if let Some(t) = max_size_type {
+                //     Ok(Some(t.as_any_type_enum()))
+                // }else{
+                //     Ok(None)
+                // }
             },
         }
     }
 
     pub fn tagged_enum_from_enum_definition<'b, 'c>(
-        _enum_name: &str,
+        enum_name: &str,
         fields: &Vec<Enumerator>,
         tag_type: &Rc<Type>,
         type_variables: &Option<Vec<String>>,
         ctx: &'ctx Context,
         env: &mut Env<'ctx>,
         pos: &Position
-    ) -> Result<(Vec<(Rc<Type>, BasicTypeEnum<'ctx>)>, HashMap<String, usize>, u64, Option<BasicTypeEnum<'ctx>>), Box<dyn Error>> {
+    ) -> Result<TaggedEnum<'ctx>, Box<dyn Error>> {
 
-        let mut list: Vec<(Rc<Type>, BasicTypeEnum<'ctx>)> = Vec::new();
-        let mut index_map: HashMap<String, usize> = HashMap::new();
-        let mut index = 0;
-        let mut max_size = 0;
-        let mut max_size_type: Option<BasicTypeEnum> = None;
- 
-        let tag_basic_type = TypeUtil::to_basic_type_enum(&tag_type, ctx, env, pos)?;
-        let rc_tag_type = Rc::clone(tag_type);
-        let tag_size = Self::size_of(&tag_basic_type)?;
+        if let Some(ty_vars) = type_variables {
+            let mut type_list: Vec<Rc<Type>> = Vec::new();
+            let mut index_map: HashMap<String, usize> = HashMap::new();
+            let mut index = 0;
 
-        for field in fields {
-            match field {
-                Enumerator::Const { name, .. } => {
-                    list.push((Rc::clone(&rc_tag_type), tag_basic_type.clone()));
+            for field in fields {
+                match field {
+                    Enumerator::Const { name, .. } => {
+                        type_list.push(Rc::clone(tag_type));
+                        index_map.insert(name.clone(), index);
+                    },
+                    Enumerator::TypeStruct { name, struct_type } => {
+                        let def = struct_type.get_struct_definition().unwrap();
+                        let type_variables = struct_type.get_type_variables();
+                        let typ = Type::struct_from_struct_definition(Some(name.to_string()), def.clone(), type_variables.clone());
+                        type_list.push(Rc::new(typ));
 
-                    let size = tag_size;
-                    if size > max_size {
-                        max_size = size;
-                        max_size_type = Some(tag_basic_type);
-                    }
+                        index_map.insert(name.clone(), index);
+                    },
+                    Enumerator::TypeTuple { name, tuple_type } => {
+                        type_list.push(Rc::clone(tuple_type));
+                        index_map.insert(name.clone(), index);
+                    },
+                }
 
-                    if max_size_type.is_none() {
-                        max_size = size;
-                        max_size_type = Some(tag_basic_type.clone())
-                    }
-
-                    index_map.insert(name.clone(), index);
-                },
-                Enumerator::TypeStruct { name, struct_type } => {
-                    let def = struct_type.get_struct_definition().unwrap();
-                    let type_variables = struct_type.get_type_variables();
-
-                    let typ = Type::struct_from_struct_definition(Some(name.to_string()), def.clone(), type_variables.clone());
-                    let t = TypeUtil::to_basic_type_enum(&typ, ctx, env, pos)?;
-                    let t = Self::add_tag_type(tag_basic_type, t, ctx);
-                    list.push((Rc::new(typ), t.clone()));
-
-                    let size = Self::size_of(&t)?;
-                    if size > max_size {
-                        max_size = size;
-                        max_size_type = Some(t);
-                    }
-
-                    if max_size_type.is_none() {
-                        max_size = size;
-                        max_size_type = Some(t.clone())
-                    }
-
-                    index_map.insert(name.clone(), index);
-                },
-                Enumerator::TypeTuple { name, tuple_type } => {
-                    let typ = TypeUtil::to_basic_type_enum(&tuple_type, ctx, env, pos)?;
-                    let t = Self::add_tag_type(tag_basic_type, typ, ctx);
-                    list.push((Rc::clone(tuple_type), t.clone()));
-
-                    let size = Self::size_of(&t)?;
-                    if size > max_size {
-                        max_size = size;
-                        max_size_type = Some(t);
-                    }
-
-                    if max_size_type.is_none() {
-                        max_size = size;
-                        max_size_type = Some(t.clone())
-                    }
-
-                    index_map.insert(name.clone(), index);
-                },
+                index += 1;
             }
 
-            index += 1;
-        }
+            let tagged = TaggedEnum::new_type_var_tagged_enum(enum_name.to_string(), type_list, index_map, ty_vars.clone());
+            Ok(tagged)
 
-        Ok((list, index_map, max_size, max_size_type))
+        }else{
+            let mut type_list: Vec<(Rc<Type>, BasicTypeEnum<'ctx>)> = Vec::new();
+            let mut index_map: HashMap<String, usize> = HashMap::new();
+            let mut index = 0;
+            let mut max_size = 0;
+            let mut max_size_type: Option<BasicTypeEnum> = None;
+    
+            let tag_basic_type = TypeUtil::to_basic_type_enum(&tag_type, ctx, env, pos)?;
+            let rc_tag_type = Rc::clone(tag_type);
+            let tag_size = Self::size_of(&tag_basic_type)?;
+
+            for field in fields {
+                match field {
+                    Enumerator::Const { name, .. } => {
+                        type_list.push((Rc::clone(&rc_tag_type), tag_basic_type.clone()));
+
+                        let size = tag_size;
+                        if size > max_size {
+                            max_size = size;
+                            max_size_type = Some(tag_basic_type);
+                        }
+
+                        if max_size_type.is_none() {
+                            max_size = size;
+                            max_size_type = Some(tag_basic_type.clone())
+                        }
+
+                        index_map.insert(name.clone(), index);
+                    },
+                    Enumerator::TypeStruct { name, struct_type } => {
+                        let def = struct_type.get_struct_definition().unwrap();
+                        let type_variables = struct_type.get_type_variables();
+
+                        let typ = Type::struct_from_struct_definition(Some(name.to_string()), def.clone(), type_variables.clone());
+                        let t = TypeUtil::to_basic_type_enum(&typ, ctx, env, pos)?;
+                        let t = Self::add_tag_type(tag_basic_type, t, ctx);
+                        type_list.push((Rc::new(typ), t.clone()));
+
+                        let size = Self::size_of(&t)?;
+                        if size > max_size {
+                            max_size = size;
+                            max_size_type = Some(t);
+                        }
+
+                        if max_size_type.is_none() {
+                            max_size = size;
+                            max_size_type = Some(t.clone())
+                        }
+
+                        index_map.insert(name.clone(), index);
+                    },
+                    Enumerator::TypeTuple { name, tuple_type } => {
+                        let typ = TypeUtil::to_basic_type_enum(&tuple_type, ctx, env, pos)?;
+                        let t = Self::add_tag_type(tag_basic_type, typ, ctx);
+                        type_list.push((Rc::clone(tuple_type), t.clone()));
+
+                        let size = Self::size_of(&t)?;
+                        if size > max_size {
+                            max_size = size;
+                            max_size_type = Some(t);
+                        }
+
+                        if max_size_type.is_none() {
+                            max_size = size;
+                            max_size_type = Some(t.clone())
+                        }
+
+                        index_map.insert(name.clone(), index);
+                    },
+                }
+
+                index += 1;
+            }
+
+            let gen_enum = TaggedEnum::new_normal_tagged_enum(enum_name.to_string(), type_list, index_map, max_size, max_size_type);
+            Ok(gen_enum)
+        }
     }
 
     fn add_tag_type(tag_type: BasicTypeEnum,  typ: BasicTypeEnum, ctx: &'ctx Context) -> BasicTypeEnum<'ctx> {
@@ -175,6 +231,7 @@ impl<'ctx> CodeGen<'ctx> {
 
     pub fn gen_enum_literal(
         &self,
+        literal_typ: &Rc<Type>,
         literal: &EnumLiteral,
         tag: &u64,
         env: &mut Env<'ctx>,
@@ -224,11 +281,12 @@ impl<'ctx> CodeGen<'ctx> {
             EnumLiteral::Tuple(tuple_literal, _tag) => {
                 let typ = tuple_literal.get_type();
                 let pos = tuple_literal.get_position();
-
                 let tag_type = self.enum_tag_llvm_type;
-                let raw_type = env.basic_type_enum_from_type(&typ, self.context, pos)?;
-                let vec: Vec<BasicTypeEnum> = vec!(tag_type.into(), raw_type);
-                let tagged_type = self.context.struct_type(&vec, false);
+                // let raw_type = env.basic_type_enum_from_type(&literal_typ, self.context, pos)?;
+                let tagged_type = env.basic_type_enum_from_type(&literal_typ, self.context, pos)?;
+                // let vec: Vec<BasicTypeEnum> = vec!(tag_type.into(), raw_type);
+                // let tagged_type = self.context.struct_type(&vec, false);
+eprintln!("tagged_type: {:?}", tagged_type);
                 let tagged_ptr = self.builder.build_alloca(tagged_type, "enum_literal")?;
                 let tag_ptr = self.builder.build_struct_gep(tagged_type, tagged_ptr, 0, "struct_gep_for_tag_in_tagged_enum")?;
                 let tuple_ptr = self.builder.build_struct_gep(tagged_type, tagged_ptr, 1, "struct_gep_for_tuple_in_tagged_enum")?;
@@ -350,7 +408,7 @@ impl<'ctx> CodeGen<'ctx> {
         type_variables: &Option<Vec<String>>,
         env: &mut Env<'ctx>
     ) -> Result<GlobalValue<'ctx>, Box<dyn Error>> {
-eprintln!("gen_global_enum_init");
+
         if let Some(variables) = type_variables {
             self.gen_global_init_type_variables(&variables, &*initializer, env)?;
         }

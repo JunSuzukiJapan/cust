@@ -186,6 +186,26 @@ impl<'ctx> CodeGen<'ctx> {
                         Type::Array { name: _, typ, size_list } => {
                             self.gen_array_init(&size_list, ptr, typ, &*const_expr, env, break_catcher, continue_catcher)?;
                         },
+                        Type::BoundEnumType { enum_type, map } => {
+                            // env.add_new_local_types();
+
+                            if let Some(type_variables) = enum_type.get_type_variables() {
+                                let pos = decl.get_declarator().get_position();
+                                env.set_type_variables(type_variables, map, pos)?;
+                            }
+
+                            let mut init_value = self.gen_initializer(&*const_expr, env, break_catcher, continue_catcher)?;
+                            let init_type = TypeUtil::get_initializer_type(const_expr, env)?;
+
+                            if *typ != *init_type {
+                                init_value = self.gen_implicit_cast(&init_value, &init_type, &typ, env, (*const_expr).get_position())?;
+                            }
+
+                            let basic_value = self.try_as_basic_value(&init_value, (*const_expr).get_position())?;
+                            self.builder.build_store(ptr, basic_value)?;
+
+                            // env.remove_local_types();
+                        },
                         _ => {
                             let mut init_value = self.gen_initializer(&*const_expr, env, break_catcher, continue_catcher)?;
                             let init_type = TypeUtil::get_initializer_type(const_expr, env)?;
@@ -1345,8 +1365,10 @@ impl<'ctx> CodeGen<'ctx> {
         self.builder.position_at_end(basic_block);
 
         env.add_new_function_local();
+        env.add_new_local_types();
         // let result = self.gen_code_function_sub(&fn_type, &function, params, body, labels, env, break_catcher, continue_catcher);
         let result = self.gen_code_function_sub(&cust_fn_type, &function, params, body, labels, env, break_catcher, continue_catcher);
+        env.remove_local_types();
         env.remove_function_local();
 
         if let Some(blk) = self.builder.get_insert_block() {
