@@ -609,6 +609,7 @@ impl<'ctx> CodeGen<'ctx> {
                 Ok(Some(CompiledValue::new(to_type.clone(), result)))
             },
             ExprAST::TypeMemberAccess(struct_name, var_name, pos) => {  // struct_name::var_name
+eprintln!("  struct_name: {}, var_name: {}, pos: {:?}", struct_name, var_name, pos);
                 if let Some(gen_type) = env.get_gen_type(struct_name, self.context, pos)? {
                     match gen_type {
                         GenType::StandardEnum { i32_type: _, enumerator_list, index_map } => {

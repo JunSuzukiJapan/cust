@@ -19,7 +19,7 @@
                     "kind": "bin"
                 }
             },
-            "args": ["-c", "../cust_tmp/option.cust"],
+            "args": ["-c", "../cust_tmp/class_var.cust"],
             "cwd": "${workspaceFolder}"
         },
         {

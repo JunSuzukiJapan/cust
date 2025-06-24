@@ -548,7 +548,7 @@ fn code_gen_class_var() -> Result<(), Box<dyn Error>> {
 }
 
 #[test]
-fn code_gen_class_va2() -> Result<(), Box<dyn Error>> {
+fn code_gen_class_var2() -> Result<(), Box<dyn Error>> {
     // parse
     let src = "
         typedef struct foo {
@@ -588,7 +588,7 @@ fn code_gen_class_va2() -> Result<(), Box<dyn Error>> {
 }
 
 #[test]
-fn code_gen_class_va3() -> Result<(), Box<dyn Error>> {
+fn code_gen_class_var3() -> Result<(), Box<dyn Error>> {
     // parse
     let src = "
         typedef struct foo {

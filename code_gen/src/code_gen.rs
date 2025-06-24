@@ -167,7 +167,7 @@ impl<'ctx> CodeGen<'ctx> {
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<(), Box<dyn Error>> {
-
+eprintln!("def var\n");
         let base_type = specifiers.get_type();
         for decl in declarations {
             let declarator = decl.get_declarator();

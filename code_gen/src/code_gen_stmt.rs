@@ -34,6 +34,7 @@ impl<'ctx> CodeGen<'ctx> {
 
                 let result: InstructionValue;
                 if let Some(expr) = opt_expr {
+eprintln!("gen_stmt: return expr: {:?}\n", expr);
                     let mut real_ret = self.gen_expr(expr, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(expr.get_position().clone()))?;
                     let real_ret_type = real_ret.get_type();
 

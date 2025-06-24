@@ -412,8 +412,8 @@ pub enum GenType<'ctx> {
         index_map: HashMap<String,usize>,
     },
     TaggedEnum(TaggedEnum<'ctx>),
-    TypeDefStruct(String, *const GenType<'ctx>),
-    TypeDefUnion(String, *const GenType<'ctx>),
+    TypeDefStruct(String, Box<GenType<'ctx>>),
+    TypeDefUnion(String, Box<GenType<'ctx>>),
 }
 
 impl<'ctx> GenType<'ctx> {
@@ -457,17 +457,11 @@ impl<'ctx> GenType<'ctx> {
             GenType::TaggedEnum(gen_enum) => {
                 Some(gen_enum.get_index_map())
             },
-            GenType::TypeDefStruct(_, raw_ptr) => {
-                let t = unsafe {
-                    raw_ptr.as_ref().unwrap()
-                };
-                t.get_index_map()
+            GenType::TypeDefStruct(_, gen_type) => {
+                gen_type.get_index_map()
             },
-            GenType::TypeDefUnion(_, raw_ptr) => {
-                let t = unsafe {
-                    raw_ptr.as_ref().unwrap()
-                };
-                t.get_index_map()
+            GenType::TypeDefUnion(_, gen_type) => {
+                gen_type.get_index_map()
             },
             _ => None,
         }
@@ -479,17 +473,11 @@ impl<'ctx> GenType<'ctx> {
             GenType::TaggedEnum(gen_enum) => {
                 Some(gen_enum.get_pair_type_list())
             },
-            GenType::TypeDefStruct(_, raw_ptr) => {
-                let t = unsafe {
-                    raw_ptr.as_ref().unwrap()
-                };
-                t.get_type_list()
+            GenType::TypeDefStruct(_, gen_type) => {
+                gen_type.get_type_list()
             },
-            GenType::TypeDefUnion(_, raw_ptr) => {
-                let t = unsafe {
-                    raw_ptr.as_ref().unwrap()
-                };
-                t.get_type_list()
+            GenType::TypeDefUnion(_, gen_type) => {
+                gen_type.get_type_list()
             },
             _ => None,
         }
@@ -513,17 +501,11 @@ impl<'ctx> GenType<'ctx> {
                     panic!("no type in tagged enum");
                 }
             },
-            GenType::TypeDefStruct(_struct_name, raw_ptr) => {
-                let t = unsafe {
-                    raw_ptr.as_ref().unwrap()
-                };
-                t.as_any_type_enum()
+            GenType::TypeDefStruct(_struct_name, gen_type) => {
+                gen_type.as_any_type_enum()
             },
-            GenType::TypeDefUnion(_name, raw_ptr) => {
-                let t = unsafe {
-                    raw_ptr.as_ref().unwrap()
-                };
-                t.as_any_type_enum()
+            GenType::TypeDefUnion(_name, gen_type) => {
+                gen_type.as_any_type_enum()
             },
         }
     }
@@ -900,8 +882,8 @@ impl<'ctx> Env<'ctx> {
                 let (struct_type, index_map) = CodeGen::struct_from_struct_definition(name, fields, type_variables, ctx, self, pos)?;
                 if let Some(struct_name) = name {
                     self.insert_struct(struct_name, &struct_type, index_map, pos)?;
-                    let raw_ptr = &self.get_gen_type(&struct_name, ctx, pos)?.unwrap() as *const GenType;
-                    let t = GenType::TypeDefStruct(struct_name.to_string(), raw_ptr);
+                    let gen_type = self.get_gen_type(&struct_name, ctx, pos)?.unwrap();
+                    let t = GenType::TypeDefStruct(struct_name.to_string(), Box::new(gen_type));
                     self.types.insert(key.to_string(), (t, None));
                 }else{
                     self.insert_struct(key, &struct_type, index_map, pos)?;
@@ -923,8 +905,9 @@ impl<'ctx> Env<'ctx> {
                 if let Some(union_name) = name {
                     self.insert_union(&union_name, type_list, index_map, max_size, max_size_type, pos)?;
 
-                    let raw_ptr = &self.get_gen_type(&union_name, ctx, pos)?.unwrap() as *const GenType;
-                    let t = GenType::TypeDefUnion(union_name.to_string(), raw_ptr);
+                    // let raw_ptr = &self.get_gen_type(&union_name, ctx, pos)?.unwrap() as *const GenType;
+                    let gen_type = self.get_gen_type(&union_name, ctx, pos)?.unwrap();
+                    let t = GenType::TypeDefUnion(union_name.to_string(), Box::new(gen_type));
                     self.types.insert(key.to_string(), (t.clone(), None));
 
                 }else{
@@ -1006,11 +989,11 @@ impl<'ctx> Env<'ctx> {
                                         return Err(Box::new(CodeGenError::enum_has_no_field(gen_enum.get_name().to_string(), pos.clone())));
                                     }
                                 },
-                                GenType::TypeDefStruct(_name, raw_ptr) => {
-                                    gen_type = unsafe { raw_ptr.as_ref().unwrap() };
+                                GenType::TypeDefStruct(_name, gen_t) => {
+                                    gen_type = gen_t;
                                 },
-                                GenType::TypeDefUnion(_name, raw_ptr) => {
-                                    gen_type = unsafe { raw_ptr.as_ref().unwrap() };
+                                GenType::TypeDefUnion(_name, gen_t) => {
+                                    gen_type = gen_t
                                 },
                             }
                         }
@@ -1052,16 +1035,13 @@ impl<'ctx> Env<'ctx> {
                                         return Err(Box::new(CodeGenError::enum_has_no_field(gen_enum.get_name().to_string(), pos.clone())));
                                     }
                                 },
-                                GenType::TypeDefStruct(_name, raw_ptr) => {
-                                    // let t = self.get_type(name).unwrap();
-                                    // gen_type = t;
-                                    gen_type = unsafe { raw_ptr.as_ref().unwrap() };
+                                GenType::TypeDefStruct(_name, gen_t) => {
+                                    gen_type = gen_t;
                                 },
-                                GenType::TypeDefUnion(_name, raw_ptr) => {
-                                    // let t = self.get_type(name).unwrap();
-                                    // gen_type = t;
-                                    gen_type = unsafe { raw_ptr.as_ref().unwrap() };
-                                },                            }
+                                GenType::TypeDefUnion(_name, gen_t) => {
+                                    gen_type = gen_t;
+                                },
+                            }
                         }
                     }else{
                         let (_type_list, _index_map, _max_size, max_size_type_opt) = CodeGen::union_from_struct_definition(&None, fields, type_variables, ctx, self, pos)?;
@@ -1100,15 +1080,11 @@ impl<'ctx> Env<'ctx> {
                                     let t = gen_enum.get_max_size_type().ok_or(CodeGenError::enum_has_no_field(gen_enum.get_name().to_string(), pos.clone()))?;
                                     return Ok(t);
                                 },
-                                GenType::TypeDefStruct(_name, raw_ptr) => {
-                                    // let t = self.get_type(name).unwrap();
-                                    // gen_type = t;
-                                    gen_type = unsafe { raw_ptr.as_ref().unwrap() };
+                                GenType::TypeDefStruct(_name, gen_t) => {
+                                    gen_type = gen_t;
                                 },
-                                GenType::TypeDefUnion(_name, raw_ptr) => {
-                                    // let t = self.get_type(name).unwrap();
-                                    // gen_type = t;
-                                    gen_type = unsafe { raw_ptr.as_ref().unwrap() };
+                                GenType::TypeDefUnion(_name, gen_t) => {
+                                    gen_type = gen_t;
                                 },
                             }
                         }
@@ -1318,15 +1294,11 @@ impl<'ctx> Env<'ctx> {
     pub fn get_gen_type(&mut self, key: &str, ctx: &'ctx Context, pos: &Position) -> Result<Option<GenType<'ctx>>, Box<dyn Error>> {
         if let Some((typ, _index_map)) = self.types.get(key) {
             match typ {
-                GenType::TypeDefStruct(_name, raw_ptr) => {
-                    // self.get_type(name)
-                    let t = unsafe { raw_ptr.as_ref().unwrap() };
-                    Ok(Some(t.clone()))
+                GenType::TypeDefStruct(_name, gen_t) => {
+                    Ok(Some(*gen_t.clone()))
                 },
-                GenType::TypeDefUnion(_name, raw_ptr) => {
-                    // self.get_type(name)
-                    let t = unsafe { raw_ptr.as_ref().unwrap() };
-                    Ok(Some(t.clone()))
+                GenType::TypeDefUnion(_name, gen_t) => {
+                    Ok(Some(*gen_t.clone()))
                 },
                 GenType::TaggedEnum(tagged) => {
                     if let Some(typ_vars) = tagged.get_type_varialbes() {
