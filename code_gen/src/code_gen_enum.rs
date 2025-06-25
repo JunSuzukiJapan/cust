@@ -55,18 +55,6 @@ impl<'ctx> CodeGen<'ctx> {
                         Ok(None)
                     }
                 }
-
-
-
-                // let tagged = Self::tagged_enum_from_enum_definition(enum_name, fields, &self.enum_tag_type, type_variables, self.context, env, pos)?;
-                // let max_size_type = tagged.get_max_size_type();
-                // env.insert_tagged_enum(enum_name.into(), tagged, pos);
-        
-                // if let Some(t) = max_size_type {
-                //     Ok(Some(t.as_any_type_enum()))
-                // }else{
-                //     Ok(None)
-                // }
             },
         }
     }
@@ -282,11 +270,8 @@ impl<'ctx> CodeGen<'ctx> {
                 let typ = tuple_literal.get_type();
                 let pos = tuple_literal.get_position();
                 let tag_type = self.enum_tag_llvm_type;
-                // let raw_type = env.basic_type_enum_from_type(&literal_typ, self.context, pos)?;
                 let tagged_type = env.basic_type_enum_from_type(&literal_typ, self.context, pos)?;
-                // let vec: Vec<BasicTypeEnum> = vec!(tag_type.into(), raw_type);
-                // let tagged_type = self.context.struct_type(&vec, false);
-eprintln!("tagged_type: {:?}", tagged_type);
+
                 let tagged_ptr = self.builder.build_alloca(tagged_type, "enum_literal")?;
                 let tag_ptr = self.builder.build_struct_gep(tagged_type, tagged_ptr, 0, "struct_gep_for_tag_in_tagged_enum")?;
                 let tuple_ptr = self.builder.build_struct_gep(tagged_type, tagged_ptr, 1, "struct_gep_for_tuple_in_tagged_enum")?;

@@ -569,9 +569,9 @@ impl Parser {
                                         ));
                                     },
                                     Token::Less => {  // '<'
-                                        if let Some(generic_type) = defs.get_type(name) {  // すでに存在する型の場合は、型変数ではなく、実際の型がくるはず。
-                                            iter.next();  // skip '<'
+                                        iter.next();  // skip '<'
 
+                                        if let Some(generic_type) = defs.get_type(name) {  // すでに存在する型の場合は、型変数ではなく、実際の型がくるはず。
                                             if ! generic_type.has_type_variables() {
                                                 return Err(ParserError::has_not_type_variables(name.to_string(), pos.clone()));
                                             }
@@ -853,8 +853,6 @@ impl Parser {
     }
 
     fn parse_type_variables(&self, iter: &mut Peekable<Iter<(Token, Position)>>, defs: &mut Defines) -> Result<Vec<String>, ParserError> {
-        iter.next();  // skip '<'
-
         let mut list = Vec::new();
 
         loop {
