@@ -342,11 +342,11 @@ mod tests {
                         // check literal
                         let struct_literal = literal.get_struct_literal().unwrap();
                         if let StructLiteral::ConstLiteral (typ, map, _pos)= struct_literal {
-                            assert_eq!(typ.deref(), &Type::Struct(StructType::new(
+                            assert_eq!(typ.deref(), &Type::Struct(Rc::new(CustStructType::new(
                                 None,
                                 struct_def,
                                 None
-                            )));
+                            ))));
 
                             assert_eq!(map.len(), 2);
                             assert_eq!(map.get("x").unwrap(), &ConstExpr::Int(1, Position::new(10, 31)));
@@ -494,11 +494,11 @@ mod tests {
                         // check literal
                         let struct_literal = literal.get_struct_literal().unwrap();
                         if let StructLiteral::ConstLiteral (typ, map, _pos)= struct_literal {
-                            assert_eq!(typ.deref(), &Type::Struct(StructType::new(
+                            assert_eq!(typ.deref(), &Type::Struct(Rc::new(CustStructType::new(
                                 None,
                                 struct_def,
                                 None
-                            )));
+                            ))));
 
                             assert_eq!(map.len(), 2);
                             assert_eq!(map.get("x").unwrap(), &ConstExpr::Int(1, Position::new(10, 31)));

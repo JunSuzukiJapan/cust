@@ -1,4 +1,4 @@
-use crate::types::StructType;
+use crate::types::CustStructType;
 use crate::{Initializer};
 
 use super::{ParserError, Type, ConstExpr, DeclarationSpecifier, Declarator, Params};
@@ -79,7 +79,7 @@ enum DefineType {
 
 impl DefineType {
     pub fn new_struct(name: &str, fields: StructDefinition, type_variables: Option<Vec<String>>) -> DefineType {
-        let struct_type = Type::Struct(StructType::new(Some(name.to_string()), fields, type_variables));
+        let struct_type = Type::Struct(Rc::new(CustStructType::new(Some(name.to_string()), fields, type_variables)));
         DefineType::Struct {
             struct_type: Rc::new(struct_type),
         }

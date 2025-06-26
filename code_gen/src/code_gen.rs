@@ -147,7 +147,7 @@ impl<'ctx> CodeGen<'ctx> {
                 Ok(Some(AnyValueEnum::FunctionValue(fun_proto)))
             },
             ToplevelAST::DefineStruct{name, definition, type_variables, pos} => {
-                self.gen_define_struct(name, definition, type_variables, env, break_catcher, continue_catcher, pos)?;
+                self.gen_define_struct(name, definition, type_variables, env, pos)?;
                 env.remove_local_types();
                 Ok(None)
             },

@@ -3,7 +3,7 @@
 use crate::parser::{ExprAST, BinOp, Type, Pointer, NumberType};
 use super::{CompiledValue, CodeGenError};
 use super::Env;
-use super::env::{BreakCatcher, ContinueCatcher, GenType, TaggedEnum};
+use super::env::{BreakCatcher, ContinueCatcher, GenType};
 use super::caster::Caster;
 use super::type_util::TypeUtil;
 use crate::CodeGen;
@@ -511,7 +511,7 @@ impl<'ctx> CodeGen<'ctx> {
                 }
             },
             ExprAST::_self(pos) => {
-                let (typ, sq, ptr) = if let Some((typ, sq, ptr)) = env.get_self_ptr() {
+                let (typ, _sq, ptr) = if let Some((typ, sq, ptr)) = env.get_self_ptr() {
                     (typ.clone(), sq.clone(), ptr.clone())
                 }else{
                     return Err(Box::new(CodeGenError::no_such_a_variable("self", pos.clone())));

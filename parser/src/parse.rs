@@ -402,6 +402,7 @@ impl Parser {
                                         let declaration = self.parse_struct_declaration_list(iter, defs)?;
                                         let definition = StructDefinition::try_new(Some(name.clone()), Some(declaration), pos3)?;
                                         let type_struct = Type::struct_from_struct_definition(Some(name.clone()), definition.clone(), None);
+                                        let type_struct = Type::Struct(Rc::new(type_struct));
                                         defs.set_struct(name, definition, None, pos3)?;
 
                                         opt_type = Some((
@@ -445,6 +446,7 @@ impl Parser {
                                             let declaration = self.parse_struct_declaration_list(iter, defs)?;
                                             let definition = StructDefinition::try_new(Some(name.clone()), Some(declaration), pos3)?;
                                             let type_struct = Type::struct_from_struct_definition(Some(name.clone()), definition.clone(), Some(type_variables.clone()));
+                                            let type_struct = Type::Struct(Rc::new(type_struct));
                                             defs.set_struct(name, definition, Some(type_variables), pos3)?;
 
                                             opt_type = Some((
@@ -460,8 +462,9 @@ impl Parser {
                                             t.clone()
                                         }else{
                                             let definition = StructDefinition::try_new(Some(name.clone()), None, pos3)?;
-                                            let typ = Type::struct_from_struct_definition(Some(name.clone()), definition, None);
-                                            Rc::new(typ)
+                                            let type_struct = Type::struct_from_struct_definition(Some(name.clone()), definition, None);
+                                            let type_struct = Type::Struct(Rc::new(type_struct));
+                                            Rc::new(type_struct)
                                         };
 
                                         opt_type = Some((
@@ -476,6 +479,8 @@ impl Parser {
                                 let declaration = self.parse_struct_declaration_list(iter, defs)?;
                                 let definition = StructDefinition::try_new(None, Some(declaration), pos2)?;
                                 let type_struct = Type::struct_from_struct_definition(None, definition, None);
+                                let type_struct = Type::Struct(Rc::new(type_struct));
+
                                 opt_type = Some((
                                     Rc::new(type_struct),
                                     pos.clone()
@@ -2421,6 +2426,7 @@ impl Parser {
                             if let Some(typ) = opt_type {
                                 iter.next();  // skip '<'
 
+                                let typ = typ.get_struct_type().unwrap();
                                 let mut type_list = Vec::new();
                                 loop {
                                     let (tok3, pos3) = iter.peek().unwrap();

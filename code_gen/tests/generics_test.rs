@@ -79,7 +79,7 @@ fn code_gen_option2() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
-/*
+
 #[test]
 fn code_gen_generic_struct() -> Result<(), Box<dyn Error>> {
     let src = "
@@ -112,4 +112,3 @@ fn code_gen_generic_struct() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
-*/

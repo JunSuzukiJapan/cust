@@ -833,7 +833,7 @@ mod tests {
 
             let dummy_pos = Position::new(1, 1);
             let struct_definition = StructDefinition::try_new(Some("date".to_string()), Some(field_list), &dummy_pos)?;
-            let type_struct = Rc::new(Type::Struct(StructType::new(Some("date".to_string()), struct_definition.clone(), None)));
+            let type_struct = Rc::new(Type::Struct(Rc::new(CustStructType::new(Some("date".to_string()), struct_definition.clone(), None))));
             let specifier = DeclarationSpecifier::new(&Rc::clone(&type_struct), sq);
 
             let mut v = Vec::new();

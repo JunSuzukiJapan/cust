@@ -3,12 +3,11 @@
 use std::collections::HashMap;
 use std::error::Error;
 use std::rc::Rc;
-use std::thread::panicking;
 use inkwell::values::{PointerValue, FunctionValue, GlobalValue, AnyValueEnum, IntValue, BasicValueEnum, BasicValue};
 use inkwell::types::{StructType, AnyTypeEnum, AnyType, BasicTypeEnum, IntType, BasicType};
 use inkwell::basic_block::BasicBlock;
 use inkwell::context::Context;
-use parser::FunProto;
+use parser::{CustStructType, FunProto};
 use tokenizer::Position;
 use crate::global::global;
 use crate::parser::{Type, ConstExpr, NumberType, ExprAST, CustFunctionType, SpecifierQualifier};
@@ -411,6 +410,7 @@ pub enum GenType<'ctx> {
         enumerator_list: Vec<(String, IntValue<'ctx>)>,
         index_map: HashMap<String,usize>,
     },
+    Struct(CustStructType),
     TaggedEnum(TaggedEnum<'ctx>),
     TypeDefStruct(String, Box<GenType<'ctx>>),
     TypeDefUnion(String, Box<GenType<'ctx>>),
@@ -506,6 +506,9 @@ impl<'ctx> GenType<'ctx> {
             },
             GenType::TypeDefUnion(_name, gen_type) => {
                 gen_type.as_any_type_enum()
+            },
+            GenType::Struct(_struct_type) => {
+                panic!("cannot convert struct to any_type_enum")
             },
         }
     }
@@ -832,8 +835,18 @@ impl<'ctx> Env<'ctx> {
         if let Some(_any_type_enum) = self.types.get(key) {
             return Err(CodeGenError::already_type_defined_in_struct(key, pos.clone()));
         }
-
         self.types.insert(key.to_string(), (GenType::Type(struct_type.as_any_type_enum()), Some(index_map)));
+
+        Ok(())
+    }
+
+    pub fn insert_cust_struct(&mut self, key: &str, struct_type: CustStructType, pos: &Position) -> Result<(), CodeGenError> {
+        if let Some(_any_type_enum) = self.types.get(key) {
+            return Err(CodeGenError::already_type_defined_in_struct(key, pos.clone()));
+        }
+
+        let gen_type = GenType::Struct(struct_type);
+        self.types.insert(key.to_string(), (gen_type, None));
 
         Ok(())
     }
@@ -1003,6 +1016,10 @@ impl<'ctx> Env<'ctx> {
                                 GenType::TypeDefUnion(_name, gen_t) => {
                                     gen_type = gen_t
                                 },
+                                GenType::Struct(struct_type) => {
+                                    let name = struct_type.get_name().as_ref().unwrap();
+                                    return Err(Box::new(CodeGenError::cannot_convert_to_basic_type(name.to_string(), pos.clone())));
+                                },
                             }
                         }
                     }else{
@@ -1049,6 +1066,10 @@ impl<'ctx> Env<'ctx> {
                                 GenType::TypeDefUnion(_name, gen_t) => {
                                     gen_type = gen_t;
                                 },
+                                GenType::Struct(struct_type) => {
+                                    let name = struct_type.get_name().as_ref().unwrap();
+                                    return Err(Box::new(CodeGenError::cannot_convert_to_basic_type(name.to_string(), pos.clone())));
+                                },
                             }
                         }
                     }else{
@@ -1093,6 +1114,10 @@ impl<'ctx> Env<'ctx> {
                                 },
                                 GenType::TypeDefUnion(_name, gen_t) => {
                                     gen_type = gen_t;
+                                },
+                                GenType::Struct(struct_type) => {
+                                    let name = struct_type.get_name().as_ref().unwrap();
+                                    return Err(Box::new(CodeGenError::cannot_convert_to_basic_type(name.to_string(), pos.clone())))
                                 },
                             }
                         }
@@ -1162,13 +1187,18 @@ impl<'ctx> Env<'ctx> {
 
                 Ok(result)
             },
-            Type::BoundStructType { struct_type, map } => {
+            Type::BoundStructType { struct_type, map: _ } => {
+                let typ_vars = struct_type.get_type_variables();
+
+
+
+
 
 
 
                 unimplemented!()
             },
-            Type::BoundUnionType { union_type, map } => {
+            Type::BoundUnionType { union_type: _, map: _ } => {
 
 
                 unimplemented!()

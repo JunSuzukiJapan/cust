@@ -3,7 +3,6 @@ use crate::Env;
 
 use inkwell::builder::Builder;
 use inkwell::context::Context;
-use inkwell::types::AnyType;
 use inkwell::values::{AnyValue, AnyValueEnum, BasicValueEnum};
 
 use parser::{NumberType, ExprAST};
@@ -877,22 +876,22 @@ impl Caster {
             //
             // Enum & Enum
             //
-            (Type::Enum{name, enum_def, type_variables}, Type::Enum{name: name2, enum_def: enum_def2, type_variables: type_variables2}) => {
+            (Type::Enum{name: _, enum_def: _, type_variables: _}, Type::Enum{name: _name2, enum_def: _enum_def2, type_variables: _type_variables2}) => {
 
 
 
 
                 unimplemented!()
             },
-            (left @ Type::Enum{name, enum_def, type_variables}, right @ Type::BoundEnumType{enum_type, map}) => {
+            (left @ Type::Enum{name: _, enum_def: _, type_variables: _}, right @ Type::BoundEnumType{enum_type, map: _}) => {
                 if left == enum_type.as_ref() {
-                    let r_type = env.basic_type_enum_from_type(right, ctx, pos)?;
+                    let _r_type = env.basic_type_enum_from_type(right, ctx, pos)?;
                     return Ok(*value);
                 }
 
                 unimplemented!()
             },
-            (left @ Type::TypeVariable(name), right) => {
+            (Type::TypeVariable(name), right) => {
                 let t = env.get_type_by_id(name).unwrap().clone();
                 Self::gen_implicit_cast(builder, ctx, value, &t, right, env, pos)
             },

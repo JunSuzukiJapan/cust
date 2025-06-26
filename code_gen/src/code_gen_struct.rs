@@ -353,21 +353,15 @@ eprintln!("gen_struct_init: {:?}", init);
         fields: &StructDefinition,
         type_variables: &Option<Vec<String>>,
         env: &mut Env<'ctx>,
-        _break_catcher: Option<&'b BreakCatcher>,
-        _continue_catcher: Option<&'c ContinueCatcher>,
         pos: &Position
-    ) -> Result<Option<AnyTypeEnum<'ctx>>, Box<dyn Error>> {
+    ) -> Result<(), Box<dyn Error>> {
 
         let typ = Type::struct_from_struct_definition(name.clone(), fields.clone(), type_variables.clone());
-
-
-
-        let (struct_type, index_map) = Self::struct_from_struct_definition(name, fields, type_variables, self.context, env, pos)?;
         if let Some(id) = name {
-            env.insert_struct(id, &struct_type, index_map, pos)?;
+            env.insert_cust_struct(id, typ, pos)?;
         }
 
-        Ok(Some(struct_type.as_any_type_enum()))
+        Ok(())
     }
 
     pub fn struct_from_struct_definition(

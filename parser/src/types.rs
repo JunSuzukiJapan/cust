@@ -529,7 +529,7 @@ impl Enumerator {
 
     pub fn new_struct(name: &str, definition: StructDefinition) -> Enumerator {
         let struct_type = Type::struct_from_struct_definition(None, definition, None);
-        Enumerator::TypeStruct { name: name.to_string(), struct_type: Rc::new(struct_type) }
+        Enumerator::TypeStruct { name: name.to_string(), struct_type: Rc::new(Type::Struct(Rc::new(struct_type))) }
     }
 
     pub fn is_const(&self) -> bool {
@@ -777,15 +777,15 @@ impl CustFunctionType {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct StructType {
+pub struct CustStructType {
     name: Option<String>,
     definition: StructDefinition,
     type_variables: Option<Vec<String>>,
 }
 
-impl StructType {
-    pub fn new(name: Option<String>, definition: StructDefinition, type_variables: Option<Vec<String>>) -> StructType {
-        StructType {
+impl CustStructType {
+    pub fn new(name: Option<String>, definition: StructDefinition, type_variables: Option<Vec<String>>) -> CustStructType {
+        CustStructType {
             name,
             definition,
             type_variables,
@@ -826,7 +826,7 @@ pub enum Type {
     //     fields: StructDefinition,
     //     type_variables: Option<Vec<String>>,
     // },
-    Struct(StructType),
+    Struct(Rc<CustStructType>),
     Union {
         name: Option<String>,
         fields: StructDefinition,
@@ -840,7 +840,7 @@ pub enum Type {
     Tuple(Vec<Rc<Type>>),
     TypeVariable(String),
     BoundStructType {
-        struct_type: Rc<Type>,
+        struct_type: Rc<CustStructType>,
         map: HashMap<String, Rc<Type>>,
     },
     BoundUnionType {
@@ -887,9 +887,8 @@ impl Type {
         }
     }
 
-    pub fn struct_from_struct_definition(name: Option<String>, definition: StructDefinition, type_variables:Option<Vec<String>>) -> Type {
-        let st = StructType { name, definition, type_variables };
-        Type::Struct(st)
+    pub fn struct_from_struct_definition(name: Option<String>, definition: StructDefinition, type_variables:Option<Vec<String>>) -> CustStructType {
+        CustStructType { name, definition, type_variables }
     }
 
     pub fn union_from_struct_definition(name: Option<String>, fields: StructDefinition, type_variables:Option<Vec<String>>) -> Type {
@@ -898,6 +897,13 @@ impl Type {
 
     pub fn enum_from_enum_definition(name: String, enum_def: EnumDefinition, type_variables:Option<Vec<String>>) -> Type {
         Type::Enum { name, enum_def, type_variables }
+    }
+
+    pub fn get_struct_type(&self) -> Option<&Rc<CustStructType>> {
+        match self {
+            Type::Struct(struct_type) => Some(struct_type),
+            _ => None,
+        }
     }
 
     #[inline]
@@ -1056,15 +1062,19 @@ impl Type {
 
     pub fn get_struct_fields(&self) -> Option<&Vec<StructField>> {
         match self {
-            Type::Struct(StructType {definition, ..}) => definition.get_fields(),
-            Type::BoundStructType { struct_type, .. } => struct_type.get_struct_fields(),
+            Type::Struct(struct_type) => {
+                let definition = struct_type.get_struct_definition();
+                definition.get_fields()
+            },
+            Type::BoundStructType { struct_type, .. } => struct_type.get_struct_definition().get_fields(),
             _ => None,
         }
     }
 
     pub fn get_field_type_from_struct_at_index(&self, index: usize) -> Option<&Rc<Type>> {
         match self {
-            Type::Struct(StructType { definition, .. }) => {
+            Type::Struct(struct_type) => {
+                let definition = struct_type.get_struct_definition();
                 if let Some(field) = definition.get_fields() {
                     if index < field.len() {
                         field[index].get_type()
@@ -1075,21 +1085,40 @@ impl Type {
                     None
                 }
             },
-            Type::BoundStructType { struct_type, .. } => struct_type.get_field_type_from_struct_at_index(index),
+            Type::BoundStructType { struct_type, .. } =>{
+                let definition = struct_type.get_struct_definition();
+                if let Some(field) = definition.get_fields() {
+                    if index < field.len() {
+                        field[index].get_type()
+                    }else{
+                        None
+                    }
+                }else{
+                    None
+                }
+            },
             _ => None,
         }
     }
 
     pub fn get_field_type_from_struct_by_name(&self, name: &str) -> Option<&Rc<Type>> {
         match self {
-            Type::Struct(StructType { definition, .. }) => {
+            Type::Struct(struct_type) => {
+                let definition = struct_type.get_struct_definition();
                 if let Some(field) = definition.get_field_by_name(name) {
                     field.get_type()
                 }else{
                     None
                 }
             },
-            Type::BoundStructType { struct_type, .. } => struct_type.get_field_type_from_struct_by_name(name),
+            Type::BoundStructType { struct_type, .. } => {
+                let definition = struct_type.get_struct_definition();
+                if let Some(field) = definition.get_field_by_name(name) {
+                    field.get_type()
+                }else{
+                    None
+                }
+            },
             _ => None,
         }
     }
@@ -1110,7 +1139,10 @@ impl Type {
 
     pub fn get_struct_definition(&self) -> Option<&StructDefinition> {
         match self {
-            Type::Struct(StructType { definition, .. }) => Some(definition),
+            Type::Struct(struct_type) => {
+                let definition = struct_type.get_struct_definition();
+                Some(definition)
+            },
             _ => None,
         }
     }
@@ -1219,7 +1251,8 @@ impl Type {
 
             Type::Void   => String::from("void"),
             Type::Symbol(name) => name.to_string(),
-            Type::Struct(StructType { name, .. }) => {
+            Type::Struct(struct_type) => {
+                let name = struct_type.get_name();
                 if let Some(id) = name {
                     id.clone()
                 }else{
@@ -1240,7 +1273,10 @@ impl Type {
 
     pub fn has_type_variables(&self) -> bool {
         match self {
-            Type::Struct(StructType { type_variables, .. }) => type_variables.is_some(),
+            Type::Struct(struct_type) => {
+                let type_variables = struct_type.get_type_variables();
+                type_variables.is_some()
+            },
             Type::Union { type_variables, .. } => type_variables.is_some(),
             Type::Enum { type_variables, .. } => type_variables.is_some(),
             _ => false,
@@ -1249,7 +1285,7 @@ impl Type {
 
     pub fn get_type_variables(&self) -> &Option<Vec<String>> {
         match self {
-            Type::Struct(StructType { type_variables, .. }) => type_variables,
+            Type::Struct(struct_type) => struct_type.get_type_variables(),
             Type::Union { type_variables, .. } => type_variables,
             Type::Enum { type_variables, .. } => type_variables,
             Type::BoundEnumType { enum_type, .. } => {
@@ -1260,11 +1296,7 @@ impl Type {
                 }
             },
             Type::BoundStructType { struct_type, .. } => {
-                if let Type::Struct(StructType { type_variables, .. }) = &**struct_type {
-                    type_variables
-                }else{
-                    &None
-                }
+                struct_type.get_type_variables()
             },
             Type::BoundUnionType { union_type, .. } => {
                 if let Type::Union { type_variables, .. } = &**union_type {
@@ -1308,10 +1340,11 @@ impl Type {
 
     pub fn bind_type_variables(&self, map: HashMap<String, Rc<Type>>, pos: &Position) -> Result<Rc<Type>, ParserError> {
         match self {
-            Type::Struct(StructType { type_variables, .. }) => {
+            Type::Struct(struct_type) => {
+                let type_variables = struct_type.get_type_variables();
                 Self::check_exist_type_variables(&type_variables, &map, pos)?;
 
-                let typ = Type::BoundStructType { struct_type: Rc::new(self.clone()), map: map };
+                let typ = Type::BoundStructType { struct_type: Rc::clone(struct_type), map: map };
                 Ok(Rc::new(typ))
             },
             Type::Union { type_variables, .. } => {
@@ -1356,7 +1389,8 @@ impl fmt::Display for Type {
             Type::Pointer(p, t) => {
                 write!(f, "{} {}", *t, p)
             },
-            Type::Struct(StructType {name, .. }) => {
+            Type::Struct(struct_type) => {
+                let name = struct_type.get_name();
                 let name = if let Some(id) = name {
                     id
                 }else{
@@ -1410,16 +1444,13 @@ impl fmt::Display for Type {
                 write!(f, "<generic type: {}>", name)
             },
             Type::BoundStructType { struct_type, .. } => {
-                if let Type::Struct(StructType { name, .. }) = struct_type.as_ref() {
-                    let name = if let Some(id) = name {
-                        id
-                    }else{
-                        "<no_name>"
-                    };
-                    write!(f, "bound struct {}", name)
+                let name = struct_type.get_name();
+                let name = if let Some(id) = name {
+                    id
                 }else{
-                    panic!("not a struct type")
-                }
+                    "<no_name>"
+                };
+                write!(f, "bound struct {}", name)
             },
             Type::BoundUnionType { union_type: struct_type, .. } => {
                 if let Type::Union { name, .. } = struct_type.as_ref() {

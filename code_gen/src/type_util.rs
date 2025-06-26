@@ -6,7 +6,6 @@ use crate::Env;
 use inkwell::context::Context;
 use std::error::Error;
 use std::rc::Rc;
-use std::thread::panicking;
 use inkwell::types::{BasicTypeEnum, AnyTypeEnum, BasicType, BasicMetadataTypeEnum, IntType, PointerType};
 use inkwell::AddressSpace;
 use inkwell::types::AnyType;
@@ -85,15 +84,11 @@ impl TypeUtil {
                 Ok(BasicTypeEnum::StructType(struct_type))
             },
             Type::BoundStructType { struct_type, map: _ } => {
-                if let Type::Struct(st_ty) = struct_type.as_ref() {
-                    let name = st_ty.get_name();
-                    let definition = st_ty.get_struct_definition();
-                    let type_variables = st_ty.get_type_variables();
-                    let (struct_type, _index_map) = CodeGen::struct_from_struct_definition(name, definition, type_variables, ctx, env, pos)?;
-                    Ok(BasicTypeEnum::StructType(struct_type))
-                }else{
-                    panic!()
-                }
+                let name = struct_type.get_name();
+                let definition = struct_type.get_struct_definition();
+                let type_variables = struct_type.get_type_variables();
+                let (struct_type, _index_map) = CodeGen::struct_from_struct_definition(name, definition, type_variables, ctx, env, pos)?;
+                Ok(BasicTypeEnum::StructType(struct_type))
             },
             Type::Union { name, fields, type_variables } => {
                 let (_union_type, _index_map, _max_size, max_size_type) = CodeGen::union_from_struct_definition(name, fields, type_variables, ctx, env, pos)?;
@@ -121,7 +116,7 @@ impl TypeUtil {
                     }
                 }
             },
-            Type::BoundEnumType { enum_type, map } => {
+            Type::BoundEnumType { enum_type: _, map: _ } => {
                 let t = env.basic_type_enum_from_type(typ, ctx, pos)?;
                 Ok(t)
             },

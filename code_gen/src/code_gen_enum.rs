@@ -1,4 +1,4 @@
-use crate::env::{GenType, TaggedEnum};
+use crate::env::{TaggedEnum};
 use crate::parser::{Type, EnumDefinition, Enumerator, EnumLiteral, Initializer, ExprAST};
 use super::{CodeGenError, CompiledValue};
 use super::Env;
@@ -83,8 +83,9 @@ impl<'ctx> CodeGen<'ctx> {
                     Enumerator::TypeStruct { name, struct_type } => {
                         let def = struct_type.get_struct_definition().unwrap();
                         let type_variables = struct_type.get_type_variables();
-                        let typ = Type::struct_from_struct_definition(Some(name.to_string()), def.clone(), type_variables.clone());
-                        type_list.push(Rc::new(typ));
+                        let type_struct = Type::struct_from_struct_definition(Some(name.to_string()), def.clone(), type_variables.clone());
+                        let type_struct = Type::Struct(Rc::new(type_struct));
+                        type_list.push(Rc::new(type_struct));
 
                         index_map.insert(name.clone(), index);
                     },
@@ -133,10 +134,11 @@ impl<'ctx> CodeGen<'ctx> {
                         let def = struct_type.get_struct_definition().unwrap();
                         let type_variables = struct_type.get_type_variables();
 
-                        let typ = Type::struct_from_struct_definition(Some(name.to_string()), def.clone(), type_variables.clone());
-                        let t = TypeUtil::to_basic_type_enum(&typ, ctx, env, pos)?;
+                        let type_struct = Type::struct_from_struct_definition(Some(name.to_string()), def.clone(), type_variables.clone());
+                        let type_struct = Type::Struct(Rc::new(type_struct));
+                        let t = TypeUtil::to_basic_type_enum(&type_struct, ctx, env, pos)?;
                         let t = Self::add_tag_type(tag_basic_type, t, ctx);
-                        type_list.push((Rc::new(typ), t.clone()));
+                        type_list.push((Rc::new(type_struct), t.clone()));
 
                         let size = Self::size_of(&t)?;
                         if size > max_size {
