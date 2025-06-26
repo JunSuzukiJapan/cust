@@ -867,7 +867,11 @@ impl<'ctx> Env<'ctx> {
                 let t = self.get_gen_type(name, ctx, pos)?.ok_or(CodeGenError::no_such_a_type(name, pos.clone()))?.clone();
                 self.types.insert(key.to_string(), (t.clone(), None));
             },
-            Type::Struct { name, fields, type_variables } => {
+            Type::Struct(st_ty) => {
+                let name = st_ty.get_name();
+                let definition = st_ty.get_struct_definition();
+                let type_variables = st_ty.get_type_variables();
+
                 if let Some(struct_name) = name {
                     if let Some(t) = &self.get_gen_type(struct_name, ctx, pos)? {
                         if ! t.is_struct_type() {
@@ -879,7 +883,7 @@ impl<'ctx> Env<'ctx> {
                     }
                 }
 
-                let (struct_type, index_map) = CodeGen::struct_from_struct_definition(name, fields, type_variables, ctx, self, pos)?;
+                let (struct_type, index_map) = CodeGen::struct_from_struct_definition(name, definition, type_variables, ctx, self, pos)?;
                 if let Some(struct_name) = name {
                     self.insert_struct(struct_name, &struct_type, index_map, pos)?;
                     let gen_type = self.get_gen_type(&struct_name, ctx, pos)?.unwrap();
@@ -962,7 +966,11 @@ impl<'ctx> Env<'ctx> {
 
     pub fn basic_type_enum_from_type(&mut self, typ: &Type, ctx: &'ctx Context, pos: &Position) -> Result<BasicTypeEnum<'ctx>, Box<dyn Error>> {
         match typ {
-            Type::Struct { name, fields, type_variables } => {
+            Type::Struct(st_ty) => {
+                let name = st_ty.get_name();
+                let definition = st_ty.get_struct_definition();
+                let type_variables = st_ty.get_type_variables();
+
                 if let Some(id) = name {
                     if let Some(gen_type) = self.get_gen_type(id, ctx, pos)? {
                         let mut gen_type = &gen_type;
@@ -998,12 +1006,12 @@ impl<'ctx> Env<'ctx> {
                             }
                         }
                     }else{
-                        let (any_type, _index_map) = CodeGen::struct_from_struct_definition(&None, fields, type_variables, ctx, self, pos)?;
+                        let (any_type, _index_map) = CodeGen::struct_from_struct_definition(&None, definition, type_variables, ctx, self, pos)?;
                         let basic_type = BasicTypeEnum::try_from(any_type).unwrap();
                         Ok(basic_type)
                     }
                 }else{
-                    let (any_type, _index_map) = CodeGen::struct_from_struct_definition(&None, fields, type_variables, ctx, self, pos)?;
+                    let (any_type, _index_map) = CodeGen::struct_from_struct_definition(&None, definition, type_variables, ctx, self, pos)?;
                     let basic_type = BasicTypeEnum::try_from(any_type).unwrap();
                     Ok(basic_type)
                 }
@@ -1327,15 +1335,8 @@ impl<'ctx> Env<'ctx> {
                             let tag_type = TypeUtil::to_basic_type_enum(&Type::Number(tag_type.clone()), ctx, self, pos)?;
                             let struct_ty = ctx.struct_type(&[tag_type, llvm_ty], false);
 
-eprintln!("typ: {:?}", typ);
-eprintln!("llvm_ty: {:?}", llvm_ty);
-
                             type_pair_list.push((typ, struct_ty.as_basic_type_enum()));
                         }
-
-
-
-
 
                         let bound = BoundTaggedEnum::try_new(Rc::new(type_var_enum), type_pair_list, index_map, bound_map, self, pos).unwrap();
                         let tag = TaggedEnum::Bound(bound);

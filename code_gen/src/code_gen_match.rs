@@ -843,9 +843,7 @@ impl<'ctx> CodeGen<'ctx> {
                 //
                 let arg_type = arg.get_type();
                 let arg_enum_def = arg_type.get_enum_definition().ok_or(CodeGenError::not_enum(arg_type.as_ref().clone(), pos.clone()))?;
-eprintln!("  ** arg_enum_def = {:?}", arg_enum_def);
                 let required_tag = arg_enum_def.get_index_by_name(&sub_name).ok_or(CodeGenError::no_such_a_field(arg_enum_def.get_name().to_string(), type_name.to_string(), pos.clone()))?;
-eprintln!("  ** required_tag = {:?}", required_tag);
                 let enum_tag_number_type = global().enum_tag_type().clone();
                 let enum_tag_type = Rc::new(Type::Number(enum_tag_number_type.clone()));
                 let enum_tag_llvm_type = TypeUtil::to_llvm_type(&enum_tag_type, self.context, env, &Position::new(1, 1))?.into_int_type();
@@ -871,7 +869,6 @@ eprintln!("  ** required_tag = {:?}", required_tag);
                     let map = arg_type.get_type_map().ok_or(CodeGenError::no_type_map_in_enum(type_name.to_string(), pos.clone()))?;
                     // 型変数を環境に登録
                     for name in typ_vars {
-eprintln!("  ** name = {:?}", name);
                         let typ = map.get(name).ok_or(CodeGenError::no_such_a_type(name, pos.clone()))?;
                         env.insert_local_type(name, Rc::clone(typ));
                     }
@@ -879,22 +876,16 @@ eprintln!("  ** name = {:?}", name);
 
                 self.builder.position_at_end(next_block);
                 let llvm_struct_ptr = self.gen_get_struct_ptr_from_enum(arg)?;
-eprintln!(" type_name = {:?}", type_name);
                 let enum_type = env.get_gen_type(type_name, self.context, pos)?.ok_or(CodeGenError::no_such_a_type(type_name, pos.clone()))?;
                 let enum_type = enum_type.clone();  // env.insert_localメソッドを使用可能にするためclone。
                 let index_map = enum_type.get_index_map().ok_or(CodeGenError::no_index_map(type_name.to_string(), pos.clone()))?;
                 let type_list = enum_type.get_type_list().ok_or(CodeGenError::no_type_list(type_name.to_string(), pos.clone()))?;
 
                 let index = index_map.get(sub_name).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), sub_name.to_string(), pos.clone()))?;
-eprintln!("  type_list = {:?}", type_list);
-for i in 0..type_list.len() {
-    eprintln!("  type_list[{}] = {:?}", i, type_list[i]);
-}
                 let (cust_type, llvm_type) = type_list.get(*index).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), sub_name.to_string(), pos.clone()))?;
                 let tpl_type_list = cust_type.get_tuple_type_list().ok_or(CodeGenError::not_tuple_in_enum(type_name.to_string(), sub_name.to_string(), pos.clone()))?;
 
                 let tagged_tuple_type = llvm_type.into_struct_type();
-eprintln!("  tagged_tuple_type = {:?}", tagged_tuple_type);
                 let tuple_type = tagged_tuple_type.get_field_type_at_index(1).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), sub_name.to_string(), pos.clone()))?.into_struct_type();
 
                 // check length

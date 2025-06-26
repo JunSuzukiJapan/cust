@@ -5,7 +5,7 @@ use crate::parser::{AST, ToplevelAST, Type, Block, Params, NumberType, Function,
 #[allow(unused_imports)]
 use crate::parser::Pointer;
 use crate::parser::{Declaration, DeclarationSpecifier, CustFunctionType, Initializer, ConstInitializer, ImplElement, SpecifierQualifier};
-use crate::env::{self, Class};
+use crate::env::Class;
 use super::{CompiledValue, CodeGenError};
 use super::Env;
 use super::env::{BreakCatcher, ContinueCatcher};
@@ -100,6 +100,8 @@ impl<'ctx> CodeGen<'ctx> {
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
 
+        env.add_new_local_types();
+
         match ast {
             ToplevelAST::GlobalDefVar{specifiers, declaration, pos} => {
                 let base_type = specifiers.get_type();
@@ -112,10 +114,12 @@ impl<'ctx> CodeGen<'ctx> {
                     self.gen_global_def_var_sub(name, base_type, sq, decl, declarator, env, break_catcher, continue_catcher, pos)?;
                 }
 
+                env.remove_local_types();
                 Ok(None)
             },
             ToplevelAST::TypeDef(name, typ, pos) => {
                 env.insert_typedef(name, typ, self.context, pos)?;
+                env.remove_local_types();
                 Ok(None)
             },
             ToplevelAST::Function(Function {specifiers, declarator, params, body, labels}, pos) => {
@@ -127,6 +131,7 @@ impl<'ctx> CodeGen<'ctx> {
 
                 env.insert_function(&name, fun_type, function);
 
+                env.remove_local_types();
                 Ok(Some(AnyValueEnum::FunctionValue(function)))
             },
             ToplevelAST::FunProto(FunProto {specifiers, declarator, params}, pos) => {
@@ -138,23 +143,27 @@ impl<'ctx> CodeGen<'ctx> {
 
                 env.insert_function(&name, fun_type, fun_proto);
 
+                env.remove_local_types();
                 Ok(Some(AnyValueEnum::FunctionValue(fun_proto)))
             },
-            ToplevelAST::DefineStruct{name, fields, type_variables, pos} => {
-                self.gen_define_struct(name, fields, type_variables, env, break_catcher, continue_catcher, pos)?;
+            ToplevelAST::DefineStruct{name, definition, type_variables, pos} => {
+                self.gen_define_struct(name, definition, type_variables, env, break_catcher, continue_catcher, pos)?;
+                env.remove_local_types();
                 Ok(None)
             },
             ToplevelAST::DefineUnion { name, fields, type_variables, pos } => {
                 self.gen_define_union(name, fields, type_variables, env, break_catcher, continue_catcher, pos)?;
+                env.remove_local_types();
                 Ok(None)
             },
             ToplevelAST::DefineEnum { name, fields, type_variables, pos } => {
                 self.gen_define_enum(name, fields, type_variables, env, break_catcher, continue_catcher, pos)?;
+                env.remove_local_types();
                 Ok(None)
             },
             ToplevelAST::Impl { name, typ, for_type, defines, pos } => {
                 self.gen_impl(name, typ, for_type, defines, env, break_catcher, continue_catcher, pos)?;
-
+                env.remove_local_types();
                 Ok(None)
             },
         }
@@ -167,7 +176,7 @@ impl<'ctx> CodeGen<'ctx> {
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<(), Box<dyn Error>> {
-eprintln!("def var\n");
+
         let base_type = specifiers.get_type();
         for decl in declarations {
             let declarator = decl.get_declarator();
@@ -180,8 +189,9 @@ eprintln!("def var\n");
             match init_expr {
                 Some(const_expr) => {
                     match typ.as_ref() {
-                        Type::Struct { fields, .. } => {
-                            self.gen_struct_init(&typ, &fields, ptr, &*const_expr, env, break_catcher, continue_catcher)?;
+                        Type::Struct(st_ty) => {
+                            let definition = st_ty.get_struct_definition();
+                            self.gen_struct_init(&typ, &definition, ptr, &*const_expr, env, break_catcher, continue_catcher)?;
                         },
                         Type::Array { name: _, typ, size_list } => {
                             self.gen_array_init(&size_list, ptr, typ, &*const_expr, env, break_catcher, continue_catcher)?;
@@ -911,8 +921,9 @@ eprintln!("def var\n");
             match decl.get_init_expr() {
                 Some(initializer) => {
                     match typ.as_ref() {
-                        Type::Struct { fields, .. } => {
-                            self.gen_global_struct_init(&fields, ptr, &*initializer, env, break_catcher, continue_catcher)?;
+                        Type::Struct(st_ty) => {
+                            let definition = st_ty.get_struct_definition();
+                            self.gen_global_struct_init(&definition, ptr, &*initializer, env, break_catcher, continue_catcher)?;
                         },
                         Type::Array { name: _, typ, size_list } => {
                             self.gen_global_array_init(&size_list, ptr, &*typ, &*initializer, env, break_catcher, continue_catcher)?;
@@ -954,13 +965,15 @@ eprintln!("def var\n");
         match decl.get_init_expr() {
             Some(initializer) => {
                 match typ.as_ref() {
-                    Type::Struct { fields, type_variables, .. } => {
+                    Type::Struct(st_ty) => {
+                        let definition = st_ty.get_struct_definition();
+                        let type_variables = st_ty.get_type_variables();
                         ptr = self.module.add_global(basic_type, Some(AddressSpace::default()), &name);
 
                         if let Some(variables) = type_variables {
                             self.gen_global_init_type_variables(&variables, &*initializer, env)?;
                         }
-                        self.gen_global_struct_init(&fields, ptr, &*initializer, env, break_catcher, continue_catcher)?;
+                        self.gen_global_struct_init(&definition, ptr, &*initializer, env, break_catcher, continue_catcher)?;
                     },
                     Type::Array { typ, size_list, .. } => {
                         ptr = self.module.add_global(basic_type, Some(AddressSpace::default()), &name);

@@ -609,7 +609,6 @@ impl<'ctx> CodeGen<'ctx> {
                 Ok(Some(CompiledValue::new(to_type.clone(), result)))
             },
             ExprAST::TypeMemberAccess(struct_name, var_name, pos) => {  // struct_name::var_name
-eprintln!("  struct_name: {}, var_name: {}, pos: {:?}", struct_name, var_name, pos);
                 if let Some(gen_type) = env.get_gen_type(struct_name, self.context, pos)? {
                     match gen_type {
                         GenType::StandardEnum { i32_type: _, enumerator_list, index_map } => {
@@ -1409,10 +1408,13 @@ eprintln!("  struct_name: {}, var_name: {}, pos: {:?}", struct_name, var_name, p
                 let (typ, ptr, _sq) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
 
                 match typ.as_ref() {
-                    Type::Struct {name, fields, .. } => {
-                        let index = fields.get_index(member_name).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
-                        let elem_type = fields.get_type(member_name).unwrap();
-                        let sq = fields.get_specifier_qualifier(member_name).unwrap();
+                    Type::Struct(st_ty) => {
+                        let name = st_ty.get_name();
+                        let definition = st_ty.get_struct_definition();
+
+                        let index = definition.get_index(member_name).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
+                        let elem_type = definition.get_type(member_name).unwrap();
+                        let sq = definition.get_specifier_qualifier(member_name).unwrap();
                         let msg = if let Some(id) = &name {
                             format!("struct_{}.{}", id, member_name)
                         }else{
@@ -1463,10 +1465,13 @@ eprintln!("  struct_name: {}, var_name: {}, pos: {:?}", struct_name, var_name, p
                                     return Err(Box::new(CodeGenError::not_pointer(&expr_type, pos.clone())));
                                 };
                                 match typ.as_ref() {
-                                    Type::Struct {name, fields, .. } => {
-                                        let index = fields.get_index(member_name).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
-                                        let elem_type = fields.get_type(member_name).unwrap();
-                                        let sq = fields.get_specifier_qualifier(member_name).unwrap();
+                                    Type::Struct(st_ty) => {
+                                        let name = st_ty.get_name();
+                                        let definition = st_ty.get_struct_definition();
+
+                                        let index = definition.get_index(member_name).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
+                                        let elem_type = definition.get_type(member_name).unwrap();
+                                        let sq = definition.get_specifier_qualifier(member_name).unwrap();
                                         let msg = if let Some(id) = &name {
                                             format!("struct_{}.{}", id, member_name)
                                         }else{
@@ -1512,12 +1517,15 @@ eprintln!("  struct_name: {}, var_name: {}, pos: {:?}", struct_name, var_name, p
                 let pointed_type = typ.get_pointed_type(pos)?;
 
                 match pointed_type {
-                    Type::Struct {fields, name, .. } => {
-                        let index = fields.get_index(member_name).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
-                        let sq = fields.get_specifier_qualifier(member_name).unwrap();
+                    Type::Struct(st_ty) => {
+                        let name = st_ty.get_name();
+                        let definition = st_ty.get_struct_definition();
+
+                        let index = definition.get_index(member_name).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
+                        let sq = definition.get_specifier_qualifier(member_name).unwrap();
                         let elem_ptr = self.builder.build_struct_gep(TypeUtil::to_basic_type_enum(&pointed_type, &self.context, env, pos)?, ptr, index as u32, "struct_member_access");
                         if let Ok(p) = elem_ptr {
-                            let typ = fields.get_type(member_name).unwrap();
+                            let typ = definition.get_type(member_name).unwrap();
                             Ok((typ.clone(), p, sq.clone()))
                         }else{
                             return Err(Box::new(CodeGenError::cannot_access_struct_member(&member_name, pos.clone())));

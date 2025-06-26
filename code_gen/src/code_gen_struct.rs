@@ -24,6 +24,7 @@ impl<'ctx> CodeGen<'ctx> {
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
+eprintln!("gen_struct_literal: {:?}", struct_literal);
         match struct_literal {
             StructLiteral::NormalLiteral(typ, map, pos) => {
                 let literal;
@@ -82,6 +83,7 @@ impl<'ctx> CodeGen<'ctx> {
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
             StructLiteral::ConstLiteral(typ, const_map, pos) => {
+eprintln!(" ConstLiteral: {:?}", const_map);
                 let struct_name = typ.get_type_name();
 
                 let mut vec = Vec::new();
@@ -200,7 +202,7 @@ impl<'ctx> CodeGen<'ctx> {
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
-
+eprintln!("gen_struct_init: {:?}", init);
         match init {
             Initializer::Struct(init_value_list, _typ, _pos) => {
                 let target_len = target_fields.len();
@@ -356,6 +358,10 @@ impl<'ctx> CodeGen<'ctx> {
         pos: &Position
     ) -> Result<Option<AnyTypeEnum<'ctx>>, Box<dyn Error>> {
 
+        let typ = Type::struct_from_struct_definition(name.clone(), fields.clone(), type_variables.clone());
+
+
+
         let (struct_type, index_map) = Self::struct_from_struct_definition(name, fields, type_variables, self.context, env, pos)?;
         if let Some(id) = name {
             env.insert_struct(id, &struct_type, index_map, pos)?;
@@ -394,9 +400,10 @@ impl<'ctx> CodeGen<'ctx> {
     ) -> Result<(StructType<'ctx>, HashMap<String, usize>), Box<dyn Error>> {
 
         if let Some(type_vars) = type_variables {
-
-
-            unimplemented!()
+            for id in type_vars {
+                let typ = Type::TypeVariable(id.clone());
+                env.insert_local_type(id, Rc::new(typ));
+            }
         }
 
         let mut list: Vec<BasicTypeEnum<'ctx>> = Vec::new();

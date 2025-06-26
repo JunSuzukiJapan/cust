@@ -138,10 +138,13 @@ impl Parser {
             iter.next();  // skip ';'
 
             match ds.get_type().as_ref() {
-                Type::Struct { name, fields, type_variables } => {
+                Type::Struct(struct_type) => {
+                    let name = struct_type.get_name();
+                    let definition = struct_type.get_struct_definition();
+                    let type_variables = struct_type.get_type_variables();
                     return Ok(Some(ToplevelAST::DefineStruct{
                         name: name.clone(),
-                        fields: fields.clone(),
+                        definition: definition.clone(),
                         type_variables: type_variables.clone(),
                         pos: pos.clone()}));
                 },
@@ -407,9 +410,9 @@ impl Parser {
                                         ));
                                     },
                                     Token::Less => {  // '<'
-                                    if let Some(generic_type) = defs.get_type(name) {  // すでに存在する型の場合は、型変数ではなく、実際の型がくるはず。
-                                            iter.next();  // skip '<'
+                                        iter.next();  // skip '<'
 
+                                        if let Some(generic_type) = defs.get_type(name) {  // すでに存在する型の場合は、型変数ではなく、実際の型がくるはず。
                                             if ! generic_type.has_type_variables() {
                                                 return Err(ParserError::has_not_type_variables(name.to_string(), pos.clone()));
                                             }
@@ -2134,7 +2137,7 @@ impl Parser {
                         // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                         Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()))
                     }
-               },
+                },
                 Token::Dec => {
                     iter.next();  // skip '--'
 
@@ -2214,7 +2217,6 @@ impl Parser {
                     Ok(None)
                 },
                 _ => {
-                    // println!("Syntax Error. {}:{}:{}", file!(), line!(), column!());
                     Err(ParserError::syntax_error(file!(), line!(), column!(), pos.clone()))
                 },
             }
@@ -2413,6 +2415,60 @@ impl Parser {
                             }else{
                                 return Err(ParserError::no_such_a_struct(name, pos.clone()));
                             }
+                        },
+                        Token::Less => {
+                            let opt_type = defs.get_type(name);
+                            if let Some(typ) = opt_type {
+                                iter.next();  // skip '<'
+
+                                let mut type_list = Vec::new();
+                                loop {
+                                    let (tok3, pos3) = iter.peek().unwrap();
+                                    if tok3.is_eof() { return Err(ParserError::illegal_end_of_input(pos3.clone())); }
+
+                                    if *tok3 == Token::Greater {
+                                        iter.next();  // skip '>'
+                                        break;
+                                    }
+
+                                    if *tok3 == Token::Comma {
+                                        iter.next();  // skip ','
+                                    }
+
+                                    let typ = self.parse_type(iter, defs)?;
+                                    type_list.push(typ);
+                                }
+eprintln!("type_list: {:?}", type_list);
+
+                                let type_var_list = typ.get_type_variables();
+                                if let Some(list) = type_var_list {
+                                    if list.len() != type_list.len() {
+                                        return Err(ParserError::type_variable_mismatch(name.to_string(), pos.clone()));
+                                    }
+
+                                    let mut map = HashMap::new();
+                                    for i in 0..type_list.len() {
+                                        let id = &list[i];
+                                        let t = &type_list[i];
+                                        map.insert(id.clone(), Rc::clone(&t));
+                                    }
+
+                                    let t = Type::BoundStructType { struct_type: Rc::clone(typ), map };
+
+                                    let literal = self.parse_struct_literal(Rc::new(t), name, pos, iter, defs)?;
+eprintln!("literal: {:?}", literal);
+                                    return Ok(Some(ExprAST::StructLiteral(literal)))
+
+                                }else{
+                                    if type_list.len() > 0 {
+                                        return Err(ParserError::type_variable_mismatch(name.to_string(), pos.clone()));
+                                    }
+
+                                    return Err(ParserError::type_variable_mismatch(name.to_string(), pos.clone()));
+                                }
+                            }
+
+                            Ok(Some(ExprAST::Symbol(name.clone(), pos.clone())))
                         },
                         _ => {
                             Ok(Some(ExprAST::Symbol(name.clone(), pos.clone())))

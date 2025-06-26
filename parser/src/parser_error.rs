@@ -98,6 +98,7 @@ pub enum ParserError {
     NotStructOrUnionWhileParseingInitializer(Rc<Type>, Position),
     NotUnionTypeWhenParsingUnionInitializer(Position),
     NoValueInUnionInitializer(Position),
+    TypeVvariableMismatch(String, Position),
 }
 
 impl ParserError {
@@ -431,6 +432,10 @@ impl ParserError {
     pub fn no_value_in_union_initializer(pos: Position) -> Self {
         ParserError::NoValueInUnionInitializer(pos)
     }
+
+    pub fn type_variable_mismatch(name: String, pos: Position) -> Self {
+        ParserError::TypeVvariableMismatch(name, pos)
+    }
 }
 
 impl From<TokenizerError> for ParserError {
@@ -533,6 +538,7 @@ impl fmt::Display for ParserError {
             Self::NotStructOrUnionWhileParseingInitializer(_typ, _pos) => write!(f, "not struct or union while parseing initializer"),
             Self::NotUnionTypeWhenParsingUnionInitializer(_pos) => write!(f, "not union type when parsing union initializer"),
             Self::NoValueInUnionInitializer(_pos) => write!(f, "no value in union initializer"),
+            Self::TypeVvariableMismatch(name, _pos) => write!(f, "type variable mismatch '{name}'"),
         }
     }
 }

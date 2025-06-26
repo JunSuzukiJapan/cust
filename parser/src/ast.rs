@@ -1218,7 +1218,7 @@ pub enum ToplevelAST {
     TypeDef(String, Rc<Type>, Position),
     DefineStruct {
         name: Option<String>,
-        fields: StructDefinition,
+        definition: StructDefinition,
         type_variables: Option<Vec<String>>,
         pos: Position,
     },

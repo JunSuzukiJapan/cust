@@ -1,3 +1,4 @@
+use crate::types::StructType;
 use crate::{Initializer};
 
 use super::{ParserError, Type, ConstExpr, DeclarationSpecifier, Declarator, Params};
@@ -78,7 +79,7 @@ enum DefineType {
 
 impl DefineType {
     pub fn new_struct(name: &str, fields: StructDefinition, type_variables: Option<Vec<String>>) -> DefineType {
-        let struct_type = Type::Struct { name: Some(name.to_string()), fields, type_variables };
+        let struct_type = Type::Struct(StructType::new(Some(name.to_string()), fields, type_variables));
         DefineType::Struct {
             struct_type: Rc::new(struct_type),
         }
@@ -271,9 +272,12 @@ impl Defines {
             return Err(ParserError::already_type_defined_in_env(typedef_name, pos.clone()));
         }
 
-        if let Type::Struct { name, fields, .. } = typ.as_ref() {
+        if let Type::Struct(struct_type) = typ.as_ref() {
+            let name = struct_type.get_name();
+            let definition = struct_type.get_struct_definition();
+
             if let Some(id) = name {
-                if ! fields.has_fields() {
+                if ! definition.has_fields() {
                     let t = &self.get_struct_type(id).ok_or(ParserError::no_such_a_struct(id, pos.clone()))?;
                     let def_type = DefineType::new_typedef(typedef_name, t);
                     if self.local_maps.last().unwrap().len() > 0 {

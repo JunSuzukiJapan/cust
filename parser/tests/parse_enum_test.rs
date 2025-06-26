@@ -94,12 +94,14 @@ mod tests {
             if let Enumerator::TypeStruct {name, struct_type} = &fields[2] {
                 assert_eq!(name, "Hoge");
 
-                if let Type::Struct { name, fields, type_variables: _ } = &**struct_type {
+                if let Type::Struct(struct_type) = &**struct_type {
+                    let name = struct_type.get_name();
+                    let definition = struct_type.get_struct_definition();
+
                     assert_eq!(name, &None);
+                    assert_eq!(definition.get_name(), &None);
 
-                    assert_eq!(fields.get_name(), &None);
-
-                    if let Some(fields) = fields.get_fields() {
+                    if let Some(fields) = definition.get_fields() {
                         let field1 = &fields[0];
                         assert_eq!(field1.is_normal(), true);
                         assert_eq!(field1.get_name().as_ref().unwrap(), "x");
@@ -340,11 +342,11 @@ mod tests {
                         // check literal
                         let struct_literal = literal.get_struct_literal().unwrap();
                         if let StructLiteral::ConstLiteral (typ, map, _pos)= struct_literal {
-                            assert_eq!(typ.deref(), &Type::Struct {
-                                name: None,
-                                fields: struct_def,
-                                type_variables: None
-                            });
+                            assert_eq!(typ.deref(), &Type::Struct(StructType::new(
+                                None,
+                                struct_def,
+                                None
+                            )));
 
                             assert_eq!(map.len(), 2);
                             assert_eq!(map.get("x").unwrap(), &ConstExpr::Int(1, Position::new(10, 31)));
@@ -492,11 +494,11 @@ mod tests {
                         // check literal
                         let struct_literal = literal.get_struct_literal().unwrap();
                         if let StructLiteral::ConstLiteral (typ, map, _pos)= struct_literal {
-                            assert_eq!(typ.deref(), &Type::Struct {
-                                name: None,
-                                fields: struct_def,
-                                type_variables: None
-                            });
+                            assert_eq!(typ.deref(), &Type::Struct(StructType::new(
+                                None,
+                                struct_def,
+                                None
+                            )));
 
                             assert_eq!(map.len(), 2);
                             assert_eq!(map.get("x").unwrap(), &ConstExpr::Int(1, Position::new(10, 31)));

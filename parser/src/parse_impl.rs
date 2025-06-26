@@ -152,10 +152,14 @@ impl Parser {
             iter.next();  // skip ';'
 
             match ds.get_type().as_ref() {
-                Type::Struct { name, fields, type_variables, .. } => {
+                Type::Struct(struct_type) => {
+                    let name = struct_type.get_name();
+                    let definition = struct_type.get_struct_definition();
+                    let type_variables = struct_type.get_type_variables();
+
                     return Ok(Some(ToplevelAST::DefineStruct{
                         name: name.clone(),
-                        fields: fields.clone(),
+                        definition: definition.clone(),
                         type_variables: type_variables.clone(),
                         pos: pos.clone()}));
                 },
