@@ -379,7 +379,7 @@ impl<'ctx> TaggedEnum<'ctx> {
         }
     }
 
-    pub fn get_type_varialbes(&self) -> Option<&Vec<String>> {
+    pub fn get_type_variables(&self) -> Option<&Vec<String>> {
         match self {
             TaggedEnum::TypeVar(type_var_enum) => Some(type_var_enum.get_type_variables()),
             TaggedEnum::Bound(bound_enum) => Some(bound_enum.get_type_var_enum().get_type_variables()),
@@ -1382,7 +1382,7 @@ impl<'ctx> Env<'ctx> {
                     Ok(Some(*gen_t.clone()))
                 },
                 GenType::TaggedEnum(tagged) => {
-                    if let Some(typ_vars) = tagged.get_type_varialbes() {
+                    if let Some(typ_vars) = tagged.get_type_variables() {
                         let mut bound_map: HashMap<String, (Rc<Type>, BasicTypeEnum<'ctx>)> = HashMap::new();
 
                         for id in typ_vars {
