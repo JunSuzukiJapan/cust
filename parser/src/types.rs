@@ -425,7 +425,7 @@ impl StructDefinition {
         &self.name
     }
 
-    pub fn get_type(&self, name: &str) -> Option<&Rc<Type>> {
+    pub fn get_field_type_by_name(&self, name: &str) -> Option<&Rc<Type>> {
         if let Some((fields, index_map)) = &self.fields_and_index_map {
             if let Some(index) = index_map.get(name) {
                 fields[*index].get_type()

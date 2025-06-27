@@ -79,15 +79,15 @@ impl TypeUtil {
             Type::Struct(st_ty) => {
                 let name = st_ty.get_name();
                 let definition = st_ty.get_struct_definition();
-                let type_variables = st_ty.get_type_variables();
-                let (struct_type, _index_map) = CodeGen::struct_from_struct_definition(name, definition, type_variables, ctx, env, pos)?;
+                // let type_variables = st_ty.get_type_variables();
+                let (struct_type, _index_map) = CodeGen::struct_from_struct_definition(name, definition, ctx, env, pos)?;
                 Ok(BasicTypeEnum::StructType(struct_type))
             },
             Type::BoundStructType { struct_type, map: _ } => {
                 let name = struct_type.get_name();
                 let definition = struct_type.get_struct_definition();
-                let type_variables = struct_type.get_type_variables();
-                let (struct_type, _index_map) = CodeGen::struct_from_struct_definition(name, definition, type_variables, ctx, env, pos)?;
+                // let type_variables = struct_type.get_type_variables();
+                let (struct_type, _index_map) = CodeGen::struct_from_struct_definition(name, definition, ctx, env, pos)?;
                 Ok(BasicTypeEnum::StructType(struct_type))
             },
             Type::Union { name, fields, type_variables } => {
@@ -173,14 +173,14 @@ impl TypeUtil {
             Type::Struct(st_ty) => {
                 let name = st_ty.get_name();
                 let definition = st_ty.get_struct_definition();
-                let type_variables = st_ty.get_type_variables();
+                // let type_variables = st_ty.get_type_variables();
 
                 let name = if let Some(id) = name {
                     Some(id.clone())
                 }else{
                     None
                 };
-                let (struct_type, _tbl) = CodeGen::struct_from_struct_definition(&name, &definition, type_variables, ctx, env, pos)?;
+                let (struct_type, _tbl) = CodeGen::struct_from_struct_definition(&name, &definition, ctx, env, pos)?;
                 Ok(struct_type.as_any_type_enum())
             },
             Type::Pointer(_ptr, typ) => {
@@ -236,14 +236,14 @@ impl TypeUtil {
             Type::Struct(st_ty) => {
                 let name = st_ty.get_name();
                 let definition = st_ty.get_struct_definition();
-                let type_variables = st_ty.get_type_variables();
+                // let type_variables = st_ty.get_type_variables();
 
                 let name = if let Some(id) = name {
                     Some(id.clone())
                 }else{
                     None
                 };
-                let (struct_type, _tbl) = CodeGen::struct_from_struct_definition(&name, &definition, type_variables, ctx, env, pos)?;
+                let (struct_type, _tbl) = CodeGen::struct_from_struct_definition(&name, &definition, ctx, env, pos)?;
                 Ok(struct_type.ptr_type(AddressSpace::default()))
             },
             Type::Pointer(_ptr, typ) => {
@@ -403,11 +403,11 @@ impl TypeUtil {
                 match typ.as_ref() {
                     Type::Struct(st_ty) => {
                         let definition = st_ty.get_struct_definition();
-                        let t = definition.get_type(&field_name).ok_or(CodeGenError::type_has_not_member(&field_name, pos.clone()))?;
+                        let t = definition.get_field_type_by_name(&field_name).ok_or(CodeGenError::type_has_not_member(&field_name, pos.clone()))?;
                         Ok(t.clone())
                     },
                     Type::Union { name: _, fields, type_variables: _ } => {
-                        let t = fields.get_type(&field_name).ok_or(CodeGenError::type_has_not_member(&field_name, pos.clone()))?;
+                        let t = fields.get_field_type_by_name(&field_name).ok_or(CodeGenError::type_has_not_member(&field_name, pos.clone()))?;
                         Ok(t.clone())
                     },
                     _ => {
@@ -423,11 +423,11 @@ impl TypeUtil {
                 match pointed_type {
                     Type::Struct(st_ty) => {
                         let definition = st_ty.get_struct_definition();
-                        let t = definition.get_type(&field_name).ok_or(CodeGenError::type_has_not_member(&field_name, pos.clone()))?;
+                        let t = definition.get_field_type_by_name(&field_name).ok_or(CodeGenError::type_has_not_member(&field_name, pos.clone()))?;
                         Ok(t.clone())
                     },
                     Type::Union { name: _, fields, type_variables: _ } => {
-                        let t = fields.get_type(&field_name).ok_or(CodeGenError::type_has_not_member(&field_name, pos.clone()))?;
+                        let t = fields.get_field_type_by_name(&field_name).ok_or(CodeGenError::type_has_not_member(&field_name, pos.clone()))?;
                         Ok(t.clone())
                     },
                     _ => {

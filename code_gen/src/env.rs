@@ -883,7 +883,7 @@ impl<'ctx> Env<'ctx> {
             Type::Struct(st_ty) => {
                 let name = st_ty.get_name();
                 let definition = st_ty.get_struct_definition();
-                let type_variables = st_ty.get_type_variables();
+                // let type_variables = st_ty.get_type_variables();
 
                 if let Some(struct_name) = name {
                     if let Some(t) = &self.get_gen_type(struct_name, ctx, pos)? {
@@ -896,7 +896,7 @@ impl<'ctx> Env<'ctx> {
                     }
                 }
 
-                let (struct_type, index_map) = CodeGen::struct_from_struct_definition(name, definition, type_variables, ctx, self, pos)?;
+                let (struct_type, index_map) = CodeGen::struct_from_struct_definition(name, definition, ctx, self, pos)?;
                 if let Some(struct_name) = name {
                     self.insert_struct(struct_name, &struct_type, index_map, pos)?;
                     let gen_type = self.get_gen_type(&struct_name, ctx, pos)?.unwrap();
@@ -982,7 +982,7 @@ impl<'ctx> Env<'ctx> {
             Type::Struct(st_ty) => {
                 let name = st_ty.get_name();
                 let definition = st_ty.get_struct_definition();
-                let type_variables = st_ty.get_type_variables();
+                // let type_variables = st_ty.get_type_variables();
 
                 if let Some(id) = name {
                     if let Some(gen_type) = self.get_gen_type(id, ctx, pos)? {
@@ -1023,12 +1023,12 @@ impl<'ctx> Env<'ctx> {
                             }
                         }
                     }else{
-                        let (any_type, _index_map) = CodeGen::struct_from_struct_definition(&None, definition, type_variables, ctx, self, pos)?;
+                        let (any_type, _index_map) = CodeGen::struct_from_struct_definition(&None, definition, ctx, self, pos)?;
                         let basic_type = BasicTypeEnum::try_from(any_type).unwrap();
                         Ok(basic_type)
                     }
                 }else{
-                    let (any_type, _index_map) = CodeGen::struct_from_struct_definition(&None, definition, type_variables, ctx, self, pos)?;
+                    let (any_type, _index_map) = CodeGen::struct_from_struct_definition(&None, definition, ctx, self, pos)?;
                     let basic_type = BasicTypeEnum::try_from(any_type).unwrap();
                     Ok(basic_type)
                 }
@@ -1187,16 +1187,40 @@ impl<'ctx> Env<'ctx> {
 
                 Ok(result)
             },
-            Type::BoundStructType { struct_type, map: _ } => {
-                let typ_vars = struct_type.get_type_variables();
+            Type::BoundStructType { struct_type, map } => {
+                self.add_new_local_types();
 
+                let type_variables = struct_type.get_type_variables();
+                if let Some(typ_vars) = type_variables {
+                    if typ_vars.len() != map.len() {
+                        return Err(Box::new(CodeGenError::mismatch_type_variables_in_bound_enum(typ_vars.len(), map.len(), pos.clone())));
+                    }
+                    self.set_type_variables(typ_vars, map, pos)?;
+                }else{
+                    if map.len() != 0 {
+                        return Err(Box::new(CodeGenError::mismatch_type_variables_in_bound_enum(0, map.len(), pos.clone())));
+                    }
+                }
 
+                let struct_def = struct_type.get_struct_definition();
+                let name = struct_def.get_name();
+                let (st, _map2) = CodeGen::struct_from_struct_definition(name, struct_def, ctx, self, pos)?;
 
+                if st.size_of().is_none() {
+                    return  Err(Box::new(CodeGenError::cannot_get_size_of(&Rc::new(typ.clone()), pos.clone())));
+                }
 
+                // add tag type
+                let tag_type = global().enum_tag_type();
+                let tag_type = TypeUtil::to_basic_type_enum(&Type::Number(tag_type.clone()), ctx, self, pos)?;
+                let vec = vec![tag_type, st.as_basic_type_enum()];
 
+                let struct_ty = ctx.struct_type(&vec, false);
+                let result = struct_ty.as_basic_type_enum();
 
+                self.remove_local_types();
 
-                unimplemented!()
+                Ok(result)
             },
             Type::BoundUnionType { union_type: _, map: _ } => {
 

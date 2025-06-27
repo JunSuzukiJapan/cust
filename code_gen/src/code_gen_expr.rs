@@ -1413,7 +1413,7 @@ impl<'ctx> CodeGen<'ctx> {
                         let definition = st_ty.get_struct_definition();
 
                         let index = definition.get_index(member_name).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
-                        let elem_type = definition.get_type(member_name).unwrap();
+                        let elem_type = definition.get_field_type_by_name(member_name).unwrap();
                         let sq = definition.get_specifier_qualifier(member_name).unwrap();
                         let msg = if let Some(id) = &name {
                             format!("struct_{}.{}", id, member_name)
@@ -1428,8 +1428,55 @@ impl<'ctx> CodeGen<'ctx> {
                             return Err(Box::new(CodeGenError::cannot_access_struct_member(&member_name, pos.clone())));
                         }
                     },
+                    Type::BoundStructType { struct_type: st_ty, map } => {
+                        env.add_new_local_types();
+
+                        let type_variables = st_ty.get_type_variables();
+                        if let Some(typ_vars) = type_variables {
+                            if typ_vars.len() != map.len() {
+                                env.remove_local_types();
+                                return Err(Box::new(CodeGenError::mismatch_type_variables_in_bound_enum(typ_vars.len(), map.len(), pos.clone())));
+                            }
+                            env.set_type_variables(typ_vars, map, pos)?;
+                        }else{
+                            if map.len() != 0 {
+                                env.remove_local_types();
+                                return Err(Box::new(CodeGenError::mismatch_type_variables_in_bound_enum(0, map.len(), pos.clone())));
+                            }
+                        }
+
+                        let name = st_ty.get_name();
+                        let definition = st_ty.get_struct_definition();
+
+                        let index = definition.get_index(member_name).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
+                        let elem_type = definition.get_field_type_by_name(member_name).unwrap();
+                        let sq = definition.get_specifier_qualifier(member_name).unwrap();
+                        let msg = if let Some(id) = &name {
+                            format!("struct_{}.{}", id, member_name)
+                        }else{
+                            format!("struct?.{}", member_name)
+                        };
+
+                        let elem_ptr = self.builder.build_struct_gep(TypeUtil::to_basic_type_enum(&typ, &self.context, env, pos)?, ptr, index as u32, &msg);
+
+                        if let Ok(p) = elem_ptr {
+                            if let Type::TypeVariable(id) = elem_type.as_ref() {
+                                let t = env.get_type_by_id(id).unwrap().clone();
+
+                                env.remove_local_types();
+
+                                Ok((t, p, sq.clone()))
+                            }else{
+                                env.remove_local_types();
+                                Ok((elem_type.clone(), p, sq.clone()))
+                            }
+                        }else{
+                            env.remove_local_types();
+                            return Err(Box::new(CodeGenError::cannot_access_struct_member(&member_name, pos.clone())));
+                        }
+                    },
                     Type::Union { name, fields, .. } => {
-                        let elem_type = fields.get_type(member_name).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
+                        let elem_type = fields.get_field_type_by_name(member_name).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
                         let sq = fields.get_specifier_qualifier(member_name).unwrap();
 
                         let to_type = TypeUtil::to_basic_type_enum(elem_type, self.context, env, pos)?;
@@ -1470,7 +1517,7 @@ impl<'ctx> CodeGen<'ctx> {
                                         let definition = st_ty.get_struct_definition();
 
                                         let index = definition.get_index(member_name).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
-                                        let elem_type = definition.get_type(member_name).unwrap();
+                                        let elem_type = definition.get_field_type_by_name(member_name).unwrap();
                                         let sq = definition.get_specifier_qualifier(member_name).unwrap();
                                         let msg = if let Some(id) = &name {
                                             format!("struct_{}.{}", id, member_name)
@@ -1486,7 +1533,7 @@ impl<'ctx> CodeGen<'ctx> {
                                         }
                                     },
                                     Type::Union { name, fields, .. } => {
-                                        let type2 = fields.get_type(member_name).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
+                                        let type2 = fields.get_field_type_by_name(member_name).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
                                         let sq = fields.get_specifier_qualifier(member_name).unwrap();
                                         let to_type = TypeUtil::to_basic_type_enum(type2, self.context, env, pos)?;
                                         let ptr_type = to_type.ptr_type(AddressSpace::default());
@@ -1525,14 +1572,14 @@ impl<'ctx> CodeGen<'ctx> {
                         let sq = definition.get_specifier_qualifier(member_name).unwrap();
                         let elem_ptr = self.builder.build_struct_gep(TypeUtil::to_basic_type_enum(&pointed_type, &self.context, env, pos)?, ptr, index as u32, "struct_member_access");
                         if let Ok(p) = elem_ptr {
-                            let typ = definition.get_type(member_name).unwrap();
+                            let typ = definition.get_field_type_by_name(member_name).unwrap();
                             Ok((typ.clone(), p, sq.clone()))
                         }else{
                             return Err(Box::new(CodeGenError::cannot_access_struct_member(&member_name, pos.clone())));
                         }
                     },
                     Type::Union { name, fields, .. } => {
-                        let type2 = fields.get_type(member_name).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
+                        let type2 = fields.get_field_type_by_name(member_name).ok_or(CodeGenError::no_such_a_member(name, member_name, pos.clone()))?;
                         let sq = fields.get_specifier_qualifier(member_name).unwrap();
                         let to_type = TypeUtil::to_basic_type_enum(type2, self.context, env, pos)?;
                         let ptr_type = to_type.ptr_type(AddressSpace::default());

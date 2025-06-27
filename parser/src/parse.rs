@@ -2444,7 +2444,6 @@ impl Parser {
                                     let typ = self.parse_type(iter, defs)?;
                                     type_list.push(typ);
                                 }
-eprintln!("type_list: {:?}", type_list);
 
                                 let type_var_list = typ.get_type_variables();
                                 if let Some(list) = type_var_list {
@@ -2462,7 +2461,7 @@ eprintln!("type_list: {:?}", type_list);
                                     let t = Type::BoundStructType { struct_type: Rc::clone(typ), map };
 
                                     let literal = self.parse_struct_literal(Rc::new(t), name, pos, iter, defs)?;
-eprintln!("literal: {:?}", literal);
+
                                     return Ok(Some(ExprAST::StructLiteral(literal)))
 
                                 }else{

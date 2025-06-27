@@ -24,13 +24,13 @@ impl<'ctx> CodeGen<'ctx> {
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
-eprintln!("gen_struct_literal: {:?}", struct_literal);
+
         match struct_literal {
             StructLiteral::NormalLiteral(typ, map, pos) => {
                 let literal;
                 let struct_ty;
                 let struct_name = typ.get_type_name();
-                let type_variables = typ.get_type_variables();
+                // let type_variables = typ.get_type_variables();
 
                 let mut all_const = true;
                 map.iter().for_each(|(_key, value)| {
@@ -43,7 +43,7 @@ eprintln!("gen_struct_literal: {:?}", struct_literal);
                     let i32_type = self.context.i32_type();
                     let const_zero = i32_type.const_int(0, false);
 
-                    let (struct_type, _index_map) = Self::struct_from_fields(&None, fields, type_variables, &self.context, env, pos)?;
+                    let (struct_type, _index_map) = Self::struct_from_fields(&None, fields, &self.context, env, pos)?;
                     struct_ty = struct_type;
                     let mut index = 0;
                     let mut values = Vec::new();
@@ -66,7 +66,7 @@ eprintln!("gen_struct_literal: {:?}", struct_literal);
                     literal = struct_ty.const_named_struct(values.as_slice());
 
                 }else{
-                    let (struct_type, _index_map) =  Self::struct_from_fields(&None, &Vec::new(), type_variables, &self.context, env, pos)?;
+                    let (struct_type, _index_map) =  Self::struct_from_fields(&None, &Vec::new(), &self.context, env, pos)?;
                     struct_ty = struct_type;
 
                     literal = struct_ty.const_named_struct(&Vec::new());
@@ -83,14 +83,17 @@ eprintln!("gen_struct_literal: {:?}", struct_literal);
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
             StructLiteral::ConstLiteral(typ, const_map, pos) => {
-eprintln!(" ConstLiteral: {:?}", const_map);
                 let struct_name = typ.get_type_name();
-
                 let mut vec = Vec::new();
                 let struct_ty;
                 let type_variables = typ.get_type_variables();
 
                 if let Some(fields) = typ.get_struct_fields() {
+                    env.add_new_local_types();
+
+                    let map = typ.get_type_map().unwrap();
+                    env.set_type_variables(&type_variables.as_ref().unwrap(), map, pos)?;
+
                     for field in fields {
                         let name = field.get_name().as_ref().unwrap();
                         let const_expr = const_map.get(name).unwrap();
@@ -101,10 +104,12 @@ eprintln!(" ConstLiteral: {:?}", const_map);
                     let values = self.context.const_struct(&vec, false);
                     let _result = self.builder.build_store(struct_ptr, values.as_basic_value_enum());
 
-                    let (struct_type, _index_map) = Self::struct_from_fields(&None, fields, type_variables, &self.context, env, pos)?;
+                    let (struct_type, _index_map) = Self::struct_from_fields(&None, fields, &self.context, env, pos)?;
                     struct_ty = struct_type;
+
+                    env.remove_local_types();
                 }else{
-                    let (struct_type, _index_map) =  Self::struct_from_fields(&None, &Vec::new(), type_variables, &self.context, env, pos)?;
+                    let (struct_type, _index_map) =  Self::struct_from_fields(&None, &Vec::new(), &self.context, env, pos)?;
                     struct_ty = struct_type;
                 }
 
@@ -202,7 +207,7 @@ eprintln!(" ConstLiteral: {:?}", const_map);
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
     ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
-eprintln!("gen_struct_init: {:?}", init);
+
         match init {
             Initializer::Struct(init_value_list, _typ, _pos) => {
                 let target_len = target_fields.len();
@@ -294,7 +299,7 @@ eprintln!("gen_struct_init: {:?}", init);
                                     let i32_type = self.context.i32_type();
                                     let const_zero = i32_type.const_int(0, false);
 
-                                    let type_variables = typ.get_type_variables();
+                                    // let type_variables = typ.get_type_variables();
                                     let mut index = 0;
 
                                     for field in fields {
@@ -306,7 +311,7 @@ eprintln!("gen_struct_init: {:?}", init);
                                         let const_index = i32_type.const_int(index, false);
                                         let indexes = vec![const_zero, const_index];
 
-                                        let (struct_type, _index_map) = Self::struct_from_fields(&None, fields, type_variables, &self.context, env, pos2)?;
+                                        let (struct_type, _index_map) = Self::struct_from_fields(&None, fields, &self.context, env, pos2)?;
                                         let ptr = unsafe { self.builder.build_in_bounds_gep(struct_type, target_struct_ptr, &indexes, "gep_for_struct_field")? };
                                         let _result = self.builder.build_store(ptr, basic_value);
         
@@ -367,14 +372,14 @@ eprintln!("gen_struct_init: {:?}", init);
     pub fn struct_from_struct_definition(
         name: &Option<String>,
         struct_def: &StructDefinition,
-        type_variables: &Option<Vec<String>>,
+        // type_variables: &Option<Vec<String>>,
         ctx: &'ctx Context,
         env: &mut Env<'ctx>,
         pos: &Position
     ) -> Result<(StructType<'ctx>, HashMap<String, usize>), Box<dyn Error>> {
 
         if let Some(fields) = struct_def.get_fields() {
-            return Self::struct_from_fields(name, fields, type_variables, ctx, env, pos);
+            return Self::struct_from_fields(name, fields, ctx, env, pos);
         }
 
         let list: Vec<BasicTypeEnum<'ctx>> = Vec::new();
@@ -387,18 +392,18 @@ eprintln!("gen_struct_init: {:?}", init);
     fn struct_from_fields(
         name: &Option<String>,
         fields: &Vec<StructField>,
-        type_variables: &Option<Vec<String>>,
+        // _type_variables: &Option<Vec<String>>,
         ctx: &'ctx Context,
         env: &mut Env<'ctx>,
         pos: &Position
     ) -> Result<(StructType<'ctx>, HashMap<String, usize>), Box<dyn Error>> {
 
-        if let Some(type_vars) = type_variables {
-            for id in type_vars {
-                let typ = Type::TypeVariable(id.clone());
-                env.insert_local_type(id, Rc::new(typ));
-            }
-        }
+        // if let Some(type_vars) = type_variables {
+        //     for id in type_vars {
+        //         let typ = Type::TypeVariable(id.clone());
+        //         env.insert_local_type(id, Rc::new(typ));
+        //     }
+        // }
 
         let mut list: Vec<BasicTypeEnum<'ctx>> = Vec::new();
         let mut packed = false;
