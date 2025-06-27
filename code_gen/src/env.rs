@@ -483,6 +483,13 @@ impl<'ctx> GenType<'ctx> {
         }
     }
 
+    pub fn get_struct_type(&self) -> Option<&CustStructType> {
+        match self {
+            GenType::Struct(st) => Some(st),
+            _ => None,
+        }
+    }
+
     pub fn as_any_type_enum(&self) -> AnyTypeEnum<'ctx> {
         match self {
             GenType::Type(t) => t.as_any_type_enum(),
@@ -886,12 +893,14 @@ impl<'ctx> Env<'ctx> {
                 // let type_variables = st_ty.get_type_variables();
 
                 if let Some(struct_name) = name {
-                    if let Some(t) = &self.get_gen_type(struct_name, ctx, pos)? {
-                        if ! t.is_struct_type() {
+                    if let Some(gen_t) = &self.get_gen_type(struct_name, ctx, pos)? {
+                        let cust_t = gen_t.get_struct_type().unwrap();
+                        let def2 = cust_t.get_struct_definition();
+                        if ! gen_t.is_struct_type() && (definition != def2) {
                             return  Err(Box::new(CodeGenError::already_type_defined_in_typedef(typ, struct_name, pos.clone())));
                         }
 
-                        self.types.insert(key.to_string(), (t.clone(), None));
+                        self.types.insert(key.to_string(), (gen_t.clone(), None));
                         return Ok(());
                     }
                 }
@@ -1017,8 +1026,18 @@ impl<'ctx> Env<'ctx> {
                                     gen_type = gen_t
                                 },
                                 GenType::Struct(struct_type) => {
-                                    let name = struct_type.get_name().as_ref().unwrap();
-                                    return Err(Box::new(CodeGenError::cannot_convert_to_basic_type(name.to_string(), pos.clone())));
+                                    let struct_def = struct_type.get_struct_definition();
+                                    let name = struct_def.get_name();
+                                    let (st, _map2) = CodeGen::struct_from_struct_definition(name, struct_def, ctx, self, pos)?;
+
+                                    if st.size_of().is_none() {
+                                        return  Err(Box::new(CodeGenError::cannot_get_size_of(&Rc::new(typ.clone()), pos.clone())));
+                                    }
+
+                                    let basic_type = BasicTypeEnum::try_from(st).unwrap();
+                                    return Ok(basic_type);
+
+                                    // return Err(Box::new(CodeGenError::cannot_convert_to_basic_type(name.as_ref().unwrap().to_string(), pos.clone())));
                                 },
                             }
                         }

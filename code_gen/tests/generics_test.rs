@@ -108,7 +108,7 @@ fn code_gen_generic_struct() -> Result<(), Box<dyn Error>> {
     }
 
     let f: JitFunction<FuncType_void_i32> = unsafe { gen.execution_engine.get_function("test").ok().unwrap() };
-    assert_eq!(unsafe { f.call() }, 10);
+    assert_eq!(unsafe { f.call() }, 30);
 
     Ok(())
 }

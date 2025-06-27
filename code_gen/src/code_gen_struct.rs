@@ -91,8 +91,9 @@ impl<'ctx> CodeGen<'ctx> {
                 if let Some(fields) = typ.get_struct_fields() {
                     env.add_new_local_types();
 
-                    let map = typ.get_type_map().unwrap();
-                    env.set_type_variables(&type_variables.as_ref().unwrap(), map, pos)?;
+                    if let Some(map) = typ.get_type_map() {
+                        env.set_type_variables(&type_variables.as_ref().unwrap(), map, pos)?;
+                    }
 
                     for field in fields {
                         let name = field.get_name().as_ref().unwrap();
