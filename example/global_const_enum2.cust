@@ -1,18 +1,17 @@
-enum Foo {
-    Bar (int, int),
-    Zot {
+enum SomeEnum {
+    Foo (int, int),
+    Bar {
         int x;
         int y;
         int z;
     },
-    Hoge,
-    Fuga,
+    Zot,
 };
 
-Foo foo = Foo::Zot{ x: 1; y: 2; z: 3;};
+SomeEnum some_enum = SomeEnum::Bar{ x: 1; y: 2; z: 3;};
 
 int main() {
-    if let (Foo::Zot { x, y, z } = foo) {
+    if let (SomeEnum::Bar { x, y, z } = some_enum) {
         return x + y + z;
     }else{
         return 0;

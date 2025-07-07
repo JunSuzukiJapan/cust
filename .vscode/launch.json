@@ -19,7 +19,7 @@
                     "kind": "bin"
                 }
             },
-            "args": ["-c", "./example/struct_init.cust"],
+            "args": ["-c", "./example/global_const_enum2.cust"],
             "cwd": "${workspaceFolder}"
         },
         {
