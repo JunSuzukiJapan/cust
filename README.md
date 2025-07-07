@@ -6,7 +6,7 @@ Customized C like Rust
 
 - LLVM
 - Standard C Libraries & Headers
-
+- C Toolchain
 
 # Unsupported yet
 
