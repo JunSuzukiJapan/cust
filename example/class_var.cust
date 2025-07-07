@@ -1,0 +1,15 @@
+typedef struct foo {
+    int bar;
+} Foo;
+
+impl foo {
+    int Zot = 1;
+
+    int test() {
+        return Foo::Zot;
+    }
+}
+
+int main(){
+    return foo::test();
+}

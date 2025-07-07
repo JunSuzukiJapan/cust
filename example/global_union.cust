@@ -1,0 +1,17 @@
+union foo {
+    int i_value;
+    double d_value;
+};
+
+typedef union foo Bar;
+Bar bar;
+
+int main() {
+    bar.i_value = 100;
+    int i = bar.i_value;
+
+    bar.d_value = 3.14;
+    double d = bar.d_value;
+
+    return i;
+}

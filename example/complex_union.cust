@@ -1,0 +1,18 @@
+struct date {
+    int year;
+    int month;
+    int day;
+};
+typedef struct date Date;
+
+union foo {
+    $<int, int> tpl;
+    Date date;
+};
+typedef union foo Foo;
+
+Foo foo = {$(1, 2)};
+
+int main() {
+    return foo.tpl.0 + foo.tpl.1;
+}

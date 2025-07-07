@@ -1,0 +1,15 @@
+int printf(char* format, ...);
+
+int main() {
+    char* s = "Hello";
+    if let ("Hello" = s) {
+        if let ("Hello" = s) {
+            printf("Matched\n");
+            return 1;
+        }
+        return 2;
+    }
+
+    printf("Not Matched\n");
+    return 0;
+}

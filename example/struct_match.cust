@@ -1,0 +1,18 @@
+struct Circle {
+    int x, y;
+    int radius;
+};
+
+int main() {
+    Circle c = Circle {
+        x: 1;
+        y: 1;
+        radius: 100;
+    };
+
+    if let (Circle { x: x @ 1, y: y @ 1, radius: radius @ 100 } = c) {
+        return x + y + radius;
+    } else {
+        return -1;
+    }
+}

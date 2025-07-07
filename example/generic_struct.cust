@@ -1,0 +1,9 @@
+struct SomeType<T, U> {
+    T x;
+    U y;
+};
+
+int main(){
+    struct SomeType<int, int> some = SomeType<int, int>{x:10; y:20;};
+    return some.x + some.y;
+}

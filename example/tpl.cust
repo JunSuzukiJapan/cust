@@ -1,0 +1,7 @@
+int printf(char* format, ...);
+
+$<int, int> tpl = $(1, 2);
+
+int main(){
+    return tpl.0 + tpl.1;
+}

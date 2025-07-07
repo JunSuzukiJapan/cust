@@ -1,0 +1,35 @@
+int printf(const char *format, ...);
+
+int test(char input) {
+    int output = 0;
+
+    do match (input) {
+        'a' => {
+            output = 10;
+        },
+        'b' => {
+            output = 20;
+        },
+        'c' => {
+            output = 30;
+        },
+        _ => {
+            output = 40;
+        },
+    }
+
+    return output;
+}
+
+int main() {
+    int result = test('a');
+    printf("Output for input 'a': %d\n", result);
+    result = test('b');
+    printf("Output for input 'b': %d\n", result);
+    result = test('c');
+    printf("Output for input 'c': %d\n", result);
+    result = test('d');
+    printf("Output for input 'd': %d\n", result);
+
+    return 0;
+}

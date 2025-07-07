@@ -1,0 +1,19 @@
+int printf(char* format, ...);
+
+int strcmp(const char *s1, const char *s2) {
+  while (*s1 && *s1 == *s2) {
+    s1 += 1;
+    s2 += 1;
+  }
+  return *(unsigned char *)s1 - *(unsigned char *)s2;
+}
+
+int main() {
+  char *s1 = "hello";
+  char *s2 = "hello";
+  char *s3 = "world";
+  printf("%d\n", strcmp(s1, s2));
+  printf("%d\n", strcmp(s1, s3));
+
+  return 0;
+}

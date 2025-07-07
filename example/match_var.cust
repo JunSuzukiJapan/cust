@@ -1,0 +1,10 @@
+int main(){
+    int x = 3;
+    int y = 0;
+    if let (x = x) {
+        x = x * x;
+        y = x;
+    }
+
+    return x + y;
+}

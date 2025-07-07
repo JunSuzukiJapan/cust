@@ -1,0 +1,37 @@
+int printf(const char *format, ...);
+
+int test(int input){
+    int output = 0;
+
+    do match (input) {
+        0 | 1 | 2 | 3 => {
+            output = 10 + input;
+        },
+        4 | 5 | 6 => {
+            output = 20 + input;
+        },
+        _ => {
+            output = 30 + input;
+        },
+    }
+
+    return output;
+}
+
+int main() {
+    printf("10\n");
+    printf("Output for input 0: %d\n", test(0));
+    printf("Output for input 1: %d\n", test(1));
+    printf("Output for input 2: %d\n", test(2));
+    printf("Output for input 3: %d\n", test(3));
+
+    printf("20\n");
+    printf("Output for input 4: %d\n", test(4));
+    printf("Output for input 5: %d\n", test(5));
+    printf("Output for input 6: %d\n", test(6));
+
+    printf("30\n");
+    printf("Output for input 7: %d\n", test(7));
+    printf("Output for input 8: %d\n", test(8));
+    return 0;
+}

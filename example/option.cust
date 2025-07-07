@@ -1,0 +1,13 @@
+enum Option<T> {
+    Some<T>,
+    None,
+};
+
+int main(){
+    enum Option<int> opt = Option::Some(10);
+    if let (Option::Some(x) = opt) {
+        return x;
+    }
+
+    return -1;
+}

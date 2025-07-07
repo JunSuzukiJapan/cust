@@ -1,0 +1,10 @@
+int main(){
+    int i = 5;
+    if let (x @ alias_x = i) {
+        return x * alias_x;
+    }else{
+        return 10;
+    }
+
+    return 100;
+}

@@ -1,0 +1,20 @@
+enum Foo {
+    Bar (int, int),
+    Zot {
+        int x;
+        int y;
+        int z;
+    },
+    Hoge,
+    Fuga,
+};
+
+Foo foo = Foo::Bar(1, 2);
+
+int main() {
+    if let (Foo::Bar(x, y) = foo) {
+        return x + y;
+    }else{
+        return 0;
+    }
+}

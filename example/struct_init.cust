@@ -1,0 +1,13 @@
+struct date {
+    int year, month;
+    int day;
+};
+
+typedef struct date Date;
+
+int main() {
+    Date date = {2023, 1, 1};
+    Date* pointer = &date;
+
+    return date.year + pointer->month + pointer->day;
+}

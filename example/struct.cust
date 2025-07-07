@@ -1,0 +1,33 @@
+int printf(char* format, ...);
+
+struct Circle {
+    int x, y;
+    int radius;
+};
+
+impl Circle {
+    const int PI100 = 314;
+
+    Self new(int x, int y, int radius) {
+        return Circle {
+            x: x;
+            y: y;
+            radius: radius;
+        };
+    }
+
+    int area(&self) {
+        printf("radius: %d\n", self.radius);
+        return self.radius * Self::PI100 / 100;
+    }
+}
+
+int main() {
+    Circle c = Circle::new(0, 0, 100);
+    int i;
+    i = c.area();
+    i = c.area();
+    printf("area: %d\n", i);
+    printf("area: %d\n", c.area());
+    return i;
+}

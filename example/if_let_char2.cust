@@ -1,0 +1,14 @@
+int main(){
+    if let (x @ ('a' | 'b') = 'c') {
+        if(x == 'a'){
+            return 10;
+        }else if(x == 'b') {
+            return 20;
+        }
+        return 30;
+    }else{
+        return 2;
+    }
+
+    return 3;
+}

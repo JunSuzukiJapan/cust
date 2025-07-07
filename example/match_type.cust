@@ -1,0 +1,26 @@
+int printf(char* format, ...);
+
+int test(int input){
+    int output = 0;
+    do match (input) {
+        x @ 0 | x @ 1 | x @ 2 => {
+            return 10 + x;
+        },
+        x @ 3 | x @ 4 | x @ 5 => {
+            return 20 + x;
+        },
+        _ => {
+            return 100 + input;
+        }
+    }
+}
+
+void main() {
+    printf("0 -> %d\n", test(0));
+    printf("1 -> %d\n", test(1));
+    printf("2 -> %d\n", test(2));
+    printf("3 -> %d\n", test(3));
+    printf("4 -> %d\n", test(4));
+    printf("5 -> %d\n", test(5));
+    printf("6 -> %d\n", test(6));
+}

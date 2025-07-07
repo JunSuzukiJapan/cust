@@ -1,0 +1,22 @@
+enum SomeEnum {
+    Foo,
+    Bar {
+        int x;
+        int y;
+        int z;
+    },
+};
+
+int main() {
+    enum SomeEnum x = SomeEnum::Bar {
+        x: 1;
+        y: 2;
+        z: 3;
+    };
+
+    if let (SomeEnum::Bar { x: a, y: b, z: c } = x) {
+        return a + b + c;
+    } else {
+        return 0;
+    }
+}

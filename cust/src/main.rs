@@ -6,7 +6,7 @@ extern crate parser;
 extern crate code_gen;
 extern crate clap;
 
-use std::fs::File;
+use std::{fs::File};
 use std::io::prelude::*;
 use std::path::Path;
 use inkwell::context::Context;
@@ -39,22 +39,42 @@ fn main() {
     let dest = path.with_extension("ll");
 
     // read file
-    let mut f = File::open(filename).expect("file not found");
+    let mut f = File::open(filename.clone()).expect("file not found");
     let mut src = String::new();
     f.read_to_string(&mut src)
         .expect("something went wrong reading the file");  // error while read file
 
     // tokenize
-    let token_list = Tokenizer::tokenize(&src).unwrap();
+    let token_list = Tokenizer::tokenize(&src);
+    if let Err(err) = &token_list {
+        eprintln!("{} {}", err, filename);
+        return;
+    }
+    let token_list = token_list.unwrap();
 
     // parse
-    let asts = parser::Parser::parse(token_list).unwrap();
+    let asts = parser::Parser::parse(token_list);
+    if let Err(err) = &asts {
+        eprintln!("{} {}", err, filename);
+        return;
+    }
+    let asts = asts.unwrap();
 
     // code gen
     let context = Context::create();
-    let gen = CodeGen::try_new(&context, "test run").unwrap();
+    let gen = CodeGen::try_new(&context, "test run");
+    if let Err(err) = gen {
+        eprintln!("{} {}", err, filename);
+        return;
+    }
+    let gen = gen.unwrap();
+
     let mut env = Env::new();
-    gen.gen_toplevels(&asts, &mut env).unwrap();
+    let result = gen.gen_toplevels(&asts, &mut env);
+    if let Err(err) = result {
+        eprintln!("{} {}", err, filename);
+        return;
+    }
 
     // write to file
     gen.module.print_to_file(dest).expect("something went wrong writing the file");

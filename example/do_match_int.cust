@@ -1,0 +1,25 @@
+int test(int input){
+    int output = 0;
+
+    do match (input) {
+        0 => {
+            output = 1;
+        },
+        1 => {
+            output = 2;
+        },
+        2 => {
+            output = 3;
+        },
+        _ => {
+            output = 4;
+        }
+    }
+
+    return output;
+}
+
+int main() {
+    int result = test(1);
+    return result;
+}

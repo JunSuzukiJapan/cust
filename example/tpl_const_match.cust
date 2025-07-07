@@ -1,0 +1,9 @@
+$<int, int, int> tpl = $(1, 2, 3);
+
+int main(){
+    if let ($(1, 4, z) = tpl) {
+        return 1 + 2 + z;
+    } else {
+        return 10;
+    }
+}

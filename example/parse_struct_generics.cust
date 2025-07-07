@@ -1,0 +1,10 @@
+struct Foo<T, U> {
+    T bar;
+    U baz;
+};
+
+int main(){
+    struct Foo<int, char> opt = {10, 'a'};
+
+    return opt.bar;
+}

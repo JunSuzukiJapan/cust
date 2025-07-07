@@ -2,13 +2,26 @@
 
 Customized C like Rust
 
-## Requirement
+# Requirement
 
 - LLVM
 - Standard C Libraries & Headers
 
 
-## FAQ
+# Unsupported yet
+
+- preprocessor
+- standard libs & headers
+
+# Usage
+
+## Compile
+
+```
+cust -c <filename>
+```
+
+# FAQ
 
 - Q. Are there plans to implement 'lifetime in the future?
 - A. Never

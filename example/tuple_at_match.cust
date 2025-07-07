@@ -1,0 +1,9 @@
+$<int, int> tpl = $(1, 2);
+
+int main(){
+    if let ($(x @ a, y @ b) = tpl) {
+        return x + y + a + b;
+    } else {
+        return 0;
+    }
+}

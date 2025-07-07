@@ -1,0 +1,24 @@
+int printf(char* format, ...);
+
+struct date {
+    int year, month;
+    int day;
+};
+typedef struct date Date;
+
+Date days[2] = {{2024, 1, 1}, {2024, 1, 2}};
+
+int test() {
+    Date* ptr = days;
+
+    int i = ptr[0].year + ptr[0].month + ptr[0].day
+          + ptr[1].year + ptr[1].month + ptr[1].day;
+    return i;
+}
+
+int main() {
+    int result = test();
+    printf("result: %d\n", result);
+
+    return 0;
+}

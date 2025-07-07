@@ -1,0 +1,29 @@
+int printf(const char* format, ...);
+
+enum Foo {
+    Bar,
+    Zot {
+        int x;
+        int y;
+        int z;
+    },
+};
+
+int main() {
+    enum Foo x = Foo::Zot {
+        x: 1;
+        y: 2;
+        z: 3;
+    };
+
+    if let (Foo::Zot { x, y, z } = x) {
+        printf("x: %d\n", x);
+        printf("y: %d\n", y);
+        printf("z: %d\n", z);
+        printf("x + y: %d\n", x + y + z);
+        return x + y + z;
+    }else{
+        printf("No match\n");
+        return 0;
+    }
+}

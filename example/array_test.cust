@@ -1,0 +1,9 @@
+int printf(char* format, ...);
+
+int nums[2] = {1, 2};
+
+int main(){
+    int result = nums[0] + nums[1];
+    printf("result: %d\n", result);
+    return 0;
+}

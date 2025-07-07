@@ -1,0 +1,23 @@
+int printf(char* format, ...);
+
+enum Foo {
+    Bar (int, int),
+    Zot {
+        int x;
+        int y;
+    },
+};
+
+int main() {
+    enum Foo foo = Foo::Bar(
+        1,
+        2
+    );
+
+    if let (Foo::Bar ( x, y ) = foo) {
+        printf("x: %d, y: %d\n", x, y);
+        return x + y;
+    }else{
+        return 0;
+    }
+}
