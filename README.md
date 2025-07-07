@@ -13,6 +13,13 @@ Customized C like Rust
 - preprocessor
 - standard libs & headers
 
+# Install
+
+```
+git clone https://github.com/JunSuzukiJapan/cust
+cargo build
+```
+
 # Usage
 
 ## Compile
