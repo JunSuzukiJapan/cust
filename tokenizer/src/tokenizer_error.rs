@@ -27,7 +27,7 @@ impl TokenizerError {
         TokenizerError::SyntaxError(pos)
     }
 
-    pub fn get_location(&self) -> &Position {
+    pub fn get_position(&self) -> &Position {
         match self {
             Self::IllegalEndOfInput(pos) => pos,
             Self::SyntaxError(pos) => pos,

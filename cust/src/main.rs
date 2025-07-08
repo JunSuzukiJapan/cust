@@ -12,8 +12,8 @@ use std::path::Path;
 use inkwell::context::Context;
 use clap::*;
 
-use parser::{ExprAST, Tokenizer, ParserError, Defines};
-use code_gen::{CodeGen, Env};
+use parser::{Defines, ExprAST, ParserError, Position, Tokenizer};
+use code_gen::{CodeGen, CodeGenError, Env, GetPosition};
 
 #[derive(clap::Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -47,7 +47,8 @@ fn main() {
     // tokenize
     let token_list = Tokenizer::tokenize(&src);
     if let Err(err) = &token_list {
-        eprintln!("{} {}", err, filename);
+        let pos = err.get_position();
+        eprintln!("{} {}:{}", err, filename, pos);
         return;
     }
     let token_list = token_list.unwrap();
@@ -55,7 +56,8 @@ fn main() {
     // parse
     let asts = parser::Parser::parse(token_list);
     if let Err(err) = &asts {
-        eprintln!("{} {}", err, filename);
+        let pos = err.get_position();
+        eprintln!("{} {}:{}", err, filename, pos);
         return;
     }
     let asts = asts.unwrap();
@@ -64,7 +66,8 @@ fn main() {
     let context = Context::create();
     let gen = CodeGen::try_new(&context, "test run");
     if let Err(err) = gen {
-        eprintln!("{} {}", err, filename);
+        let pos = Position::new(1, 1);
+        eprintln!("{} {}:{}", err, filename, pos);
         return;
     }
     let gen = gen.unwrap();
@@ -72,7 +75,16 @@ fn main() {
     let mut env = Env::new();
     let result = gen.gen_toplevels(&asts, &mut env);
     if let Err(err) = result {
-        eprintln!("{} {}", err, filename);
+        let err = err.as_ref().downcast_ref::<CodeGenError>();
+        if let Some(e) = err {
+            if let Some(pos) = e.get_position() {
+                eprintln!("{} {}:{}", e, filename, pos);
+            }else{
+                eprintln!("{} {}", e, filename);
+            }
+        }else{
+            eprintln!("Error {:?} in {}", err, filename);
+        }
         return;
     }
 
