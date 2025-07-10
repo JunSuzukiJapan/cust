@@ -6,13 +6,13 @@ use super::env::{BreakCatcher, ContinueCatcher};
 use super::type_util::TypeUtil;
 use crate::Position;
 use crate::CodeGen;
+use crate::code_gen_error::WithPos;
 
 use inkwell::context::Context;
 use inkwell::values::{AnyValue, AnyValueEnum, BasicMetadataValueEnum, BasicValue, BasicValueEnum, GlobalValue, PointerValue, StructValue};
 use inkwell::types::{AnyTypeEnum, BasicType, BasicTypeEnum};
 use inkwell::types::AnyType;
 use inkwell::types::StructType;
-use std::error::Error;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -23,7 +23,7 @@ impl<'ctx> CodeGen<'ctx> {
         env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
-    ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
+    ) -> Result<Option<CompiledValue<'ctx>>, CodeGenError> {
 
         match struct_literal {
             StructLiteral::NormalLiteral(typ, map, pos) => {
@@ -57,7 +57,7 @@ impl<'ctx> CodeGen<'ctx> {
 
                         let const_index = i32_type.const_int(index, false);
                         let indexes = vec![const_zero, const_index];
-                        let ptr = unsafe { self.builder.build_in_bounds_gep(struct_type, struct_ptr, &indexes, "gep_for_struct_field")? };
+                        let ptr = unsafe { self.builder.build_in_bounds_gep(struct_type, struct_ptr, &indexes, "gep_for_struct_field").ok_or_with_pos(pos, file!(), line!(), column!())? };
                         let _result = self.builder.build_store(ptr, basic_value);
 
                         index += 1;
@@ -76,7 +76,7 @@ impl<'ctx> CodeGen<'ctx> {
                 if all_const {
                     any_val = literal.as_any_value_enum();
                 }else{
-                    let basic_val = self.builder.build_load(struct_ty, struct_ptr, &format!("load_struct_{}_normal_literal", struct_name))?;
+                    let basic_val = self.builder.build_load(struct_ty, struct_ptr, &format!("load_struct_{}_normal_literal", struct_name)).ok_or_with_pos(pos, file!(), line!(), column!())?;
                     any_val = basic_val.as_any_value_enum();
                 }
 
@@ -114,7 +114,7 @@ impl<'ctx> CodeGen<'ctx> {
                     struct_ty = struct_type;
                 }
 
-                let basic_val = self.builder.build_load(struct_ty, struct_ptr, &format!("load_struct_{}_const_literal", struct_name))?;
+                let basic_val = self.builder.build_load(struct_ty, struct_ptr, &format!("load_struct_{}_const_literal", struct_name)).ok_or_with_pos(pos, file!(), line!(), column!())?;
                 let any_val = basic_val.as_any_value_enum();
 
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
@@ -129,12 +129,12 @@ impl<'ctx> CodeGen<'ctx> {
         env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
-    ) -> Result<StructValue<'ctx>, Box<dyn Error>> {
+    ) -> Result<StructValue<'ctx>, CodeGenError> {
 
         let target_len = target_fields.len();
         let init_len = init_value_list.len();
         if target_len < init_len {
-            return  Err(Box::new(CodeGenError::initial_list_is_too_long(init_pos.clone())));
+            return  Err(CodeGenError::initial_list_is_too_long(init_pos.clone()));
         }
 
         let mut vec = Vec::new();
@@ -147,7 +147,7 @@ impl<'ctx> CodeGen<'ctx> {
                 let init_value = &init_value_list[i];
                 let init_type = TypeUtil::get_initializer_type(init_value, env)?;
                 if *field_type != init_type {
-                    return Err(Box::new(CodeGenError::mismatch_initializer_type(field_type, &init_type, init_value.get_position().clone())));
+                    return Err(CodeGenError::mismatch_initializer_type(field_type, &init_type, init_value.get_position().clone()));
                 }
 
                 let compiled_val = self.gen_initializer(init_value, env, break_catcher, continue_catcher)?;
@@ -171,18 +171,18 @@ impl<'ctx> CodeGen<'ctx> {
         env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
-    ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
+    ) -> Result<Option<AnyValueEnum<'ctx>>, CodeGenError> {
 
         let init_value_list = if let Initializer::Struct(list, _typ, _pos) = init {
             list
         }else{
-            return Err(Box::new(CodeGenError::initializer_is_not_struct(init.get_position().clone())));
+            return Err(CodeGenError::initializer_is_not_struct(init.get_position().clone()));
         };
 
         let target_len = target_fields.len();
         let init_len = init_value_list.len();
         if target_len < init_len {
-            return  Err(Box::new(CodeGenError::initial_list_is_too_long(init.get_position().clone())));
+            return  Err(CodeGenError::initial_list_is_too_long(init.get_position().clone()));
         }
 
         if target_len == 0 {
@@ -207,14 +207,14 @@ impl<'ctx> CodeGen<'ctx> {
         env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
-    ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
+    ) -> Result<Option<AnyValueEnum<'ctx>>, CodeGenError> {
 
         match init {
             Initializer::Struct(init_value_list, _typ, _pos) => {
                 let target_len = target_fields.len();
                 let init_len = init_value_list.len();
                 if target_len < init_len {
-                    return  Err(Box::new(CodeGenError::initial_list_is_too_long(init.get_position().clone())));
+                    return  Err(CodeGenError::initial_list_is_too_long(init.get_position().clone()));
                 }
         
                 if target_len == 0 {
@@ -241,10 +241,10 @@ impl<'ctx> CodeGen<'ctx> {
                                 if let Some((fn_typ, _function)) = env.get_function(name) {
                                     let ret_type = fn_typ.get_return_type();
                                     if typ != ret_type.as_ref() {
-                                        return Err(Box::new(CodeGenError::initializer_is_not_struct(init.get_position().clone())));
+                                        return Err(CodeGenError::initializer_is_not_struct(init.get_position().clone()));
                                     }
                                 }else{
-                                    return Err(Box::new(CodeGenError::no_such_a_function(&name, pos2.clone())));
+                                    return Err(CodeGenError::no_such_a_function(&name, pos2.clone()));
                                 }
 
                                 self.gen_call_function(name, &v, env, break_catcher, continue_catcher, pos2)?.unwrap()
@@ -255,10 +255,10 @@ impl<'ctx> CodeGen<'ctx> {
                                 if let Some((fn_typ, _function)) = env.get_member_function(&class_name, fun_name) {
                                     let ret_type = fn_typ.get_return_type();
                                     if typ != ret_type.as_ref() {
-                                        return Err(Box::new(CodeGenError::initializer_is_not_struct(init.get_position().clone())));
+                                        return Err(CodeGenError::initializer_is_not_struct(init.get_position().clone()));
                                     }
                                 }else{
-                                    return Err(Box::new(CodeGenError::no_such_a_member_function(class_name, fun_name.to_string(), pos2.clone())));
+                                    return Err(CodeGenError::no_such_a_member_function(class_name, fun_name.to_string(), pos2.clone()));
                                 }
 
                                 let (_t, obj, _sq) = self.get_l_value(&**ast, env, break_catcher, continue_catcher)?;
@@ -274,16 +274,16 @@ impl<'ctx> CodeGen<'ctx> {
                                 if let Some((fn_typ, _function)) = env.get_class_function(class_name, &method_name) {
                                     let ret_type = fn_typ.get_return_type();
                                     if typ != ret_type.as_ref() {
-                                        return Err(Box::new(CodeGenError::initializer_is_not_struct(init.get_position().clone())));
+                                        return Err(CodeGenError::initializer_is_not_struct(init.get_position().clone()));
                                     }
                                 }else{
-                                    return Err(Box::new(CodeGenError::no_such_a_class_function(class_name.to_string(), method_name.to_string(), pos2.clone())));
+                                    return Err(CodeGenError::no_such_a_class_function(class_name.to_string(), method_name.to_string(), pos2.clone()));
                                 }
 
                                 self.gen_call_class_function(&class_name, &method_name, &v, env, break_catcher, continue_catcher, pos2)?.unwrap()
                             },
                             _ => {
-                                return Err(Box::new(CodeGenError::not_function(&format!("{:?}", fun), pos2.clone())));
+                                return Err(CodeGenError::not_function(&format!("{:?}", fun), pos2.clone()));
                             }
                         };
 
@@ -293,7 +293,7 @@ impl<'ctx> CodeGen<'ctx> {
                         match struct_literal {
                             StructLiteral::NormalLiteral(typ2, map, pos2) => {
                                 if typ != typ2.as_ref() {
-                                    return Err(Box::new(CodeGenError::mismatch_initializer_type(typ, typ2, pos2.clone())));
+                                    return Err(CodeGenError::mismatch_initializer_type(typ, typ2, pos2.clone()));
                                 }
         
                                 if let Some(fields) = typ.get_struct_fields() {
@@ -313,7 +313,7 @@ impl<'ctx> CodeGen<'ctx> {
                                         let indexes = vec![const_zero, const_index];
 
                                         let (struct_type, _index_map) = Self::struct_from_fields(&None, fields, &self.context, env, pos2)?;
-                                        let ptr = unsafe { self.builder.build_in_bounds_gep(struct_type, target_struct_ptr, &indexes, "gep_for_struct_field")? };
+                                        let ptr = unsafe { self.builder.build_in_bounds_gep(struct_type, target_struct_ptr, &indexes, "gep_for_struct_field").ok_or_with_pos(pos2, file!(), line!(), column!())? };
                                         let _result = self.builder.build_store(ptr, basic_value);
         
                                         index += 1;
@@ -322,7 +322,7 @@ impl<'ctx> CodeGen<'ctx> {
                             },
                             StructLiteral::ConstLiteral(typ2, const_map, pos2) => {
                                 if typ != typ2.as_ref() {
-                                    return Err(Box::new(CodeGenError::mismatch_initializer_type(typ, typ2, pos2.clone())));
+                                    return Err(CodeGenError::mismatch_initializer_type(typ, typ2, pos2.clone()));
                                 }
         
                                 let mut vec = Vec::new();
@@ -341,12 +341,12 @@ impl<'ctx> CodeGen<'ctx> {
                         }
                     },
                     _ => {
-                        return Err(Box::new(CodeGenError::initializer_is_not_struct(init.get_position().clone())));
+                        return Err(CodeGenError::initializer_is_not_struct(init.get_position().clone()));
                     }
                 }
             },
             _ => {
-                return Err(Box::new(CodeGenError::initializer_is_not_struct(init.get_position().clone())));
+                return Err(CodeGenError::initializer_is_not_struct(init.get_position().clone()));
             },
         };
 
@@ -360,7 +360,7 @@ impl<'ctx> CodeGen<'ctx> {
         type_variables: &Option<Vec<String>>,
         env: &mut Env<'ctx>,
         pos: &Position
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(), CodeGenError> {
 
         let typ = Type::struct_from_struct_definition(name.clone(), fields.clone(), type_variables.clone());
         if let Some(id) = name {
@@ -377,7 +377,7 @@ impl<'ctx> CodeGen<'ctx> {
         ctx: &'ctx Context,
         env: &mut Env<'ctx>,
         pos: &Position
-    ) -> Result<(StructType<'ctx>, HashMap<String, usize>), Box<dyn Error>> {
+    ) -> Result<(StructType<'ctx>, HashMap<String, usize>), CodeGenError> {
 
         if let Some(fields) = struct_def.get_fields() {
             return Self::struct_from_fields(name, fields, ctx, env, pos);
@@ -397,7 +397,7 @@ impl<'ctx> CodeGen<'ctx> {
         ctx: &'ctx Context,
         env: &mut Env<'ctx>,
         pos: &Position
-    ) -> Result<(StructType<'ctx>, HashMap<String, usize>), Box<dyn Error>> {
+    ) -> Result<(StructType<'ctx>, HashMap<String, usize>), CodeGenError> {
 
         // if let Some(type_vars) = type_variables {
         //     for id in type_vars {
@@ -449,7 +449,7 @@ impl<'ctx> CodeGen<'ctx> {
         _break_catcher: Option<&'b BreakCatcher>,
         _continue_catcher: Option<&'c ContinueCatcher>,
         pos: &Position
-    ) -> Result<Option<AnyTypeEnum<'ctx>>, Box<dyn Error>> {
+    ) -> Result<Option<AnyTypeEnum<'ctx>>, CodeGenError> {
 
         let (type_list, index_map, max_size, max_size_type) = Self::union_from_struct_definition(name, fields, type_variables, self.context, env, pos)?;
         if let Some(id) = name {
@@ -470,7 +470,7 @@ impl<'ctx> CodeGen<'ctx> {
         ctx: &'ctx Context,
         env: &mut Env<'ctx>,
         pos: &Position
-    ) -> Result<(Vec<(Rc<Type>, BasicTypeEnum<'ctx>)>, HashMap<String, usize>, u64, Option<BasicTypeEnum<'ctx>>), Box<dyn Error>>
+    ) -> Result<(Vec<(Rc<Type>, BasicTypeEnum<'ctx>)>, HashMap<String, usize>, u64, Option<BasicTypeEnum<'ctx>>), CodeGenError>
     {
         let mut list: Vec<(Rc<Type>, BasicTypeEnum<'ctx>)> = Vec::new();
         let mut index_map: HashMap<String, usize> = HashMap::new();
@@ -485,7 +485,7 @@ impl<'ctx> CodeGen<'ctx> {
                         let t = TypeUtil::to_basic_type_enum(typ, ctx, env, pos)?;
                         list.push((Rc::clone(typ), t.clone()));
 
-                        let size = Self::size_of(&t)?;
+                        let size = Self::size_of(&t, pos)?;
                         if size > max_size {
                             max_size = size;
                             max_size_type = Some(t);

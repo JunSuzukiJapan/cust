@@ -6,13 +6,13 @@ use super::env::{BreakCatcher, ContinueCatcher};
 use super::type_util::TypeUtil;
 use crate::Position;
 use crate::CodeGen;
+use crate::code_gen_error::WithPos;
 
 use inkwell::context::Context;
 use inkwell::values::{AnyValue, BasicValue, GlobalValue, IntValue};
 use inkwell::types::{AnyTypeEnum, BasicTypeEnum, BasicType};
 use inkwell::types::AnyType;
 use inkwell::AddressSpace;
-use std::error::Error;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -27,7 +27,7 @@ impl<'ctx> CodeGen<'ctx> {
         _break_catcher: Option<&'b BreakCatcher>,
         _continue_catcher: Option<&'c ContinueCatcher>,
         pos: &Position
-    ) -> Result<Option<AnyTypeEnum<'ctx>>, Box<dyn Error>> {
+    ) -> Result<Option<AnyTypeEnum<'ctx>>, CodeGenError> {
 
         match enum_def {
             EnumDefinition::StandardEnum { fields, .. } => {
@@ -67,7 +67,7 @@ impl<'ctx> CodeGen<'ctx> {
         ctx: &'ctx Context,
         env: &mut Env<'ctx>,
         pos: &Position
-    ) -> Result<TaggedEnum<'ctx>, Box<dyn Error>> {
+    ) -> Result<TaggedEnum<'ctx>, CodeGenError> {
 
         if let Some(ty_vars) = type_variables {
             let mut type_list: Vec<Rc<Type>> = Vec::new();
@@ -110,7 +110,7 @@ impl<'ctx> CodeGen<'ctx> {
     
             let tag_basic_type = TypeUtil::to_basic_type_enum(&tag_type, ctx, env, pos)?;
             let rc_tag_type = Rc::clone(tag_type);
-            let tag_size = Self::size_of(&tag_basic_type)?;
+            let tag_size = Self::size_of(&tag_basic_type, pos)?;
 
             for field in fields {
                 match field {
@@ -140,7 +140,7 @@ impl<'ctx> CodeGen<'ctx> {
                         let t = Self::add_tag_type(tag_basic_type, t, ctx);
                         type_list.push((Rc::new(type_struct), t.clone()));
 
-                        let size = Self::size_of(&t)?;
+                        let size = Self::size_of(&t, pos)?;
                         if size > max_size {
                             max_size = size;
                             max_size_type = Some(t);
@@ -158,7 +158,7 @@ impl<'ctx> CodeGen<'ctx> {
                         let t = Self::add_tag_type(tag_basic_type, typ, ctx);
                         type_list.push((Rc::clone(tuple_type), t.clone()));
 
-                        let size = Self::size_of(&t)?;
+                        let size = Self::size_of(&t, pos)?;
                         if size > max_size {
                             max_size = size;
                             max_size_type = Some(t);
@@ -227,21 +227,21 @@ impl<'ctx> CodeGen<'ctx> {
         env: &mut Env<'ctx>,
         break_catcher: Option<&BreakCatcher>,
         continue_catcher: Option<&ContinueCatcher>,
-        _pos: &Position
-    ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
+        pos: &Position
+    ) -> Result<Option<CompiledValue<'ctx>>, CodeGenError> {
 
         match literal {
             EnumLiteral::Symbol(_elem_name, _index) => {
                 let tag_type = self.enum_tag_llvm_type;
                 let vec: Vec<BasicTypeEnum> = vec!(tag_type.into());
                 let tagged_type = self.context.struct_type(&vec, false);
-                let tagged_ptr = self.builder.build_alloca(tagged_type, "enum_literal")?;
-                let tag_ptr = self.builder.build_struct_gep(tagged_type, tagged_ptr, 0, "struct_gep_in_tagged_enum")?;
+                let tagged_ptr = self.builder.build_alloca(tagged_type, "enum_literal").ok_or_with_pos(pos, file!(), line!(), column!())?;
+                let tag_ptr = self.builder.build_struct_gep(tagged_type, tagged_ptr, 0, "struct_gep_in_tagged_enum").ok_or_with_pos(pos, file!(), line!(), column!())?;
 
                 let tag_value = tag_type.const_int(*tag as u64, false);
                 let _ = self.builder.build_store(tag_ptr, tag_value);
 
-                let basic_val = self.builder.build_load(tagged_type, tagged_ptr, &format!("load_enum_literal"))?;
+                let basic_val = self.builder.build_load(tagged_type, tagged_ptr, &format!("load_enum_literal")).ok_or_with_pos(pos, file!(), line!(), column!())?;
                 let any_val = basic_val.as_any_value_enum();
                 let typ = &self.enum_only_tag_type;
                 Ok(Some(CompiledValue::new(Rc::clone(typ), any_val)))
@@ -254,9 +254,9 @@ impl<'ctx> CodeGen<'ctx> {
                 let raw_type = env.basic_type_enum_from_type(&typ, self.context, pos)?;
                 let vec: Vec<BasicTypeEnum> = vec!(tag_type.into(), raw_type);
                 let tagged_type = self.context.struct_type(&vec, false);
-                let tagged_ptr = self.builder.build_alloca(tagged_type, "enum_literal")?;
-                let tag_ptr = self.builder.build_struct_gep(tagged_type, tagged_ptr, 0, "struct_gep_in_tagged_enum")?;
-                let struct_ptr = self.builder.build_struct_gep(tagged_type, tagged_ptr, 1, "struct_gep_in_tagged_enum")?;
+                let tagged_ptr = self.builder.build_alloca(tagged_type, "enum_literal").ok_or_with_pos(pos, file!(), line!(), column!())?;
+                let tag_ptr = self.builder.build_struct_gep(tagged_type, tagged_ptr, 0, "struct_gep_in_tagged_enum").ok_or_with_pos(pos, file!(), line!(), column!())?;
+                let struct_ptr = self.builder.build_struct_gep(tagged_type, tagged_ptr, 1, "struct_gep_in_tagged_enum").ok_or_with_pos(pos, file!(), line!(), column!())?;
 
                 let tag_value = tag_type.const_int(*tag as u64, false);
                 let _ = self.builder.build_store(tag_ptr, tag_value);
@@ -264,7 +264,7 @@ impl<'ctx> CodeGen<'ctx> {
                 let initialized_literal = self.gen_struct_literal(struct_literal, struct_ptr, env, break_catcher, continue_catcher)?;
                 let _initialized_literal = initialized_literal.ok_or(CodeGenError::cannot_init_enum(literal.get_type().get_type_name(), pos.clone()))?;
 
-                let basic_val = self.builder.build_load(tagged_type, tagged_ptr, &format!("load_enum_literal"))?;
+                let basic_val = self.builder.build_load(tagged_type, tagged_ptr, &format!("load_enum_literal")).ok_or_with_pos(pos, file!(), line!(), column!())?;
                 let any_val = basic_val.as_any_value_enum();
                 Ok(Some(CompiledValue::new(Rc::clone(typ), any_val)))
             },
@@ -274,16 +274,15 @@ impl<'ctx> CodeGen<'ctx> {
                 let tag_type = self.enum_tag_llvm_type;
                 let tagged_type = env.basic_type_enum_from_type(&literal_typ, self.context, pos)?;
 
-                let tagged_ptr = self.builder.build_alloca(tagged_type, "enum_literal")?;
-                let tag_ptr = self.builder.build_struct_gep(tagged_type, tagged_ptr, 0, "struct_gep_for_tag_in_tagged_enum")?;
-                let tuple_ptr = self.builder.build_struct_gep(tagged_type, tagged_ptr, 1, "struct_gep_for_tuple_in_tagged_enum")?;
+                let tagged_ptr = self.builder.build_alloca(tagged_type, "enum_literal").ok_or_with_pos(pos, file!(), line!(), column!())?;
+                let tag_ptr = self.builder.build_struct_gep(tagged_type, tagged_ptr, 0, "struct_gep_for_tag_in_tagged_enum").ok_or_with_pos(pos, file!(), line!(), column!())?;
+                let tuple_ptr = self.builder.build_struct_gep(tagged_type, tagged_ptr, 1, "struct_gep_for_tuple_in_tagged_enum").ok_or_with_pos(pos, file!(), line!(), column!())?;
                 let tag_value = tag_type.const_int(*tag as u64, false);
                 let _ = self.builder.build_store(tag_ptr, tag_value);
 
                 if tuple_literal.is_const() {
                     let const_list = tuple_literal.get_const_list();
-                    // let initialized_literal = self.gen_tuple_literal_from_const_expr_list(const_list, tuple_ptr, typ, pos)?;
-                    let initialized_literal = self.gen_tuple_literal_from_const_expr_list(const_list, env, pos)?;
+                    let initialized_literal = self.gen_tuple_literal_from_const_expr_list(const_list, env, pos).ok_or_with_pos(pos, file!(), line!(), column!())?;
                     let literal = initialized_literal.ok_or(CodeGenError::cannot_init_enum(literal.get_type().get_type_name(), pos.clone()))?;
                     let any_val = literal.get_value();
                     let _result = self.builder.build_store(tuple_ptr, self.try_as_basic_value(&any_val, pos)?);
@@ -294,7 +293,7 @@ impl<'ctx> CodeGen<'ctx> {
                     let _initialized_literal = initialized_literal.ok_or(CodeGenError::cannot_init_enum(literal.get_type().get_type_name(), pos.clone()))?;
                 }
 
-                let basic_val = self.builder.build_load(tagged_type, tagged_ptr, &format!("load_enum_literal"))?;
+                let basic_val = self.builder.build_load(tagged_type, tagged_ptr, &format!("load_enum_literal")).ok_or_with_pos(pos, file!(), line!(), column!())?;
                 let any_val = basic_val.as_any_value_enum();
                 Ok(Some(CompiledValue::new(Rc::clone(typ), any_val)))
             },
@@ -305,7 +304,7 @@ impl<'ctx> CodeGen<'ctx> {
         &self,
         literal: &EnumLiteral,
         pos: &Position
-    ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
+    ) -> Result<Option<CompiledValue<'ctx>>, CodeGenError> {
 
         match literal {
             EnumLiteral::Symbol(_elem_name, tag) => {
@@ -394,7 +393,7 @@ impl<'ctx> CodeGen<'ctx> {
         target_type: BasicTypeEnum<'ctx>,
         type_variables: &Option<Vec<String>>,
         env: &mut Env<'ctx>
-    ) -> Result<GlobalValue<'ctx>, Box<dyn Error>> {
+    ) -> Result<GlobalValue<'ctx>, CodeGenError> {
 
         if let Some(variables) = type_variables {
             self.gen_global_init_type_variables(&variables, &*initializer, env)?;
@@ -403,15 +402,15 @@ impl<'ctx> CodeGen<'ctx> {
         let (init_value, pos) = if let Initializer::Simple(ExprAST::EnumLiteral(_typ, _tag, enum_literal, _pos), pos2) = initializer {
             (enum_literal, pos2)
         }else{
-            return Err(Box::new(CodeGenError::initializer_is_not_enum(initializer.get_position().clone())));
+            return Err(CodeGenError::initializer_is_not_enum(initializer.get_position().clone()));
         };
 
         let literal = self.gen_enum_const_literal(init_value, pos)?.unwrap();
         let init_value = self.try_as_basic_value(&literal.get_value(), pos)?;
         let init_value_type = init_value.get_type();
-        let init_value_size = Self::size_of(&init_value_type)?;
+        let init_value_size = Self::size_of(&init_value_type, pos)?;
 
-        let target_type_size = Self::size_of(&target_type)?;
+        let target_type_size = Self::size_of(&target_type, pos)?;
 
         let ptr;
         if init_value_size == target_type_size {
@@ -466,7 +465,7 @@ impl<'ctx> CodeGen<'ctx> {
         env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
-    ) -> Result<StructValue<'ctx>, Box<dyn Error>> {
+    ) -> Result<StructValue<'ctx>, CodeGenError> {
 
         let target_len = type_list.len();
         let init_len = init_value_list.len();
@@ -500,7 +499,7 @@ impl<'ctx> CodeGen<'ctx> {
     }
 
     #[allow(dead_code)]
-    fn tuple_type_from_type_list(list: &Vec<Rc<Type>>, ctx: &'ctx Context, pos: &Position) -> Result<StructType<'ctx>, Box<dyn Error>> {
+    fn tuple_type_from_type_list(list: &Vec<Rc<Type>>, ctx: &'ctx Context, pos: &Position) -> Result<StructType<'ctx>, CodeGenError> {
         let mut vec = Vec::new();
 
         for typ in list {

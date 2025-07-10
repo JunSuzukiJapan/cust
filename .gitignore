@@ -12,6 +12,6 @@ Cargo.lock
 
 .clj-kondo/
 .lsp/
-# .vscode/
+.vscode/
 /TODO.md
 *.ll

@@ -13,7 +13,7 @@ use inkwell::context::Context;
 use clap::*;
 
 use parser::{Defines, ExprAST, ParserError, Position, Tokenizer};
-use code_gen::{CodeGen, CodeGenError, Env, GetPosition};
+use code_gen::{CodeGen, Env, GetPosition};
 
 #[derive(clap::Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -75,15 +75,10 @@ fn main() {
     let mut env = Env::new();
     let result = gen.gen_toplevels(&asts, &mut env);
     if let Err(err) = result {
-        let err = err.as_ref().downcast_ref::<CodeGenError>();
-        if let Some(e) = err {
-            if let Some(pos) = e.get_position() {
-                eprintln!("{} {}:{}", e, filename, pos);
-            }else{
-                eprintln!("{} {}", e, filename);
-            }
+        if let Some(pos) = err.get_position() {
+            eprintln!("{} in {}:{}", err, filename, pos);
         }else{
-            eprintln!("Error {:?} in {}", err, filename);
+            eprintln!("{} in {}", err, filename);
         }
         return;
     }

@@ -1,0 +1,9 @@
+int num[2][2] = {{1, 2}, {3, 4}};
+
+int main() {
+    int* ptr = num[0];
+    int* ptr2 = num;
+
+    return ptr[0] + ptr[1] + ptr[2] + ptr[3]
+            + ptr2[0] + ptr2[1] + ptr2[2] + ptr2[3];
+}

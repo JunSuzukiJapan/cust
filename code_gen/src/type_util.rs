@@ -4,7 +4,6 @@ use crate::global::global;
 use crate::parser::{Type, NumberType, Pointer, BinOp, Position};
 use crate::Env;
 use inkwell::context::Context;
-use std::error::Error;
 use std::rc::Rc;
 use inkwell::types::{BasicTypeEnum, AnyTypeEnum, BasicType, BasicMetadataTypeEnum, IntType, PointerType};
 use inkwell::AddressSpace;
@@ -15,7 +14,7 @@ use super::{CodeGen, CodeGenError};
 pub struct TypeUtil;
 
 impl TypeUtil {
-    pub fn to_llvm_int_type<'a>(typ: &Type, ctx: &'a Context, pos: &Position) -> Result<IntType<'a>, Box<dyn Error>> {
+    pub fn to_llvm_int_type<'a>(typ: &Type, ctx: &'a Context, pos: &Position) -> Result<IntType<'a>, CodeGenError> {
         match typ {
             Type::Number(NumberType::_Bool)  => Ok(ctx.bool_type()),
             Type::Number(NumberType::Char)   => Ok(ctx.i8_type()),
@@ -26,11 +25,11 @@ impl TypeUtil {
             Type::Number(NumberType::UnsignedInt)    => Ok(ctx.i32_type()),
             Type::Number(NumberType::UnsignedLong)  => Ok(ctx.i64_type()),
             Type::Number(NumberType::UnsignedShort)  => Ok(ctx.i16_type()),
-            _ => Err(Box::new(CodeGenError::not_int_type(typ.clone(), pos.clone()))),
+            _ => Err(CodeGenError::not_int_type(typ.clone(), pos.clone())),
         }
     }
 
-    pub fn to_basic_type_enum<'a>(typ: &Type, ctx: &'a Context, env: &mut Env<'a>, pos: &Position) -> Result<BasicTypeEnum<'a>, Box<dyn Error>> {
+    pub fn to_basic_type_enum<'a>(typ: &Type, ctx: &'a Context, env: &mut Env<'a>, pos: &Position) -> Result<BasicTypeEnum<'a>, CodeGenError> {
         match typ {
             Type::Number(NumberType::_Bool)  => Ok(BasicTypeEnum::IntType(ctx.bool_type())),
             Type::Number(NumberType::Char)   => Ok(BasicTypeEnum::IntType(ctx.i8_type())),
@@ -64,7 +63,7 @@ impl TypeUtil {
                 }else if typ.is_struct_type() {
                     Ok(typ.into_struct_type().ptr_type(AddressSpace::default()).into())
                 }else{
-                    Err(Box::new(CodeGenError::illegal_type_for_pointer(&to_type, pos.clone())))
+                    Err(CodeGenError::illegal_type_for_pointer(&to_type, pos.clone()))
                 }
             },
             Type::Array { name: _, typ: type2, size_list } => {
@@ -96,9 +95,9 @@ impl TypeUtil {
                     Ok(typ)
                 }else{
                     if let Some(id) = name {
-                        Err(Box::new(CodeGenError::union_has_no_field(Some(id.to_string()), pos.clone())))
+                        Err(CodeGenError::union_has_no_field(Some(id.to_string()), pos.clone()))
                     }else{
-                        Err(Box::new(CodeGenError::union_has_no_field(None, pos.clone())))
+                        Err(CodeGenError::union_has_no_field(None, pos.clone()))
                     }
                 }
             },
@@ -112,7 +111,7 @@ impl TypeUtil {
                     if let Some(typ) = tagged_enum.get_max_size_type() {
                         Ok(typ)
                     }else{
-                        Err(Box::new(CodeGenError::enum_has_no_field(name.to_string(), pos.clone())))
+                        Err(CodeGenError::enum_has_no_field(name.to_string(), pos.clone()))
                     }
                 }
             },
@@ -121,7 +120,7 @@ impl TypeUtil {
                 Ok(t)
             },
             Type::Symbol(_name) => {
-                Err(Box::new(CodeGenError::cannot_convert_to_basic_type(typ.to_string(), pos.clone())))
+                Err(CodeGenError::cannot_convert_to_basic_type(typ.to_string(), pos.clone()))
             },
             Type::Tuple(type_list) => {
                 let mut vec = Vec::new();
@@ -138,26 +137,26 @@ impl TypeUtil {
             Type::TypeVariable(name) => {
                 if let Some(ty) = env.get_type_by_id(name) {
                     if *typ == **ty {
-                        return Err(Box::new(CodeGenError::cannot_convert_to_basic_type(typ.to_string(), pos.clone())));
+                        return Err(CodeGenError::cannot_convert_to_basic_type(typ.to_string(), pos.clone()));
                     }
                     let t = TypeUtil::to_basic_type_enum(&ty.clone(), ctx, env, pos)?;
                     Ok(t)
                 }else{
-                    return Err(Box::new(CodeGenError::no_such_a_type(name, pos.clone())));
+                    return Err(CodeGenError::no_such_a_type(name, pos.clone()));
                 }
             },
             _ => {
-                Err(Box::new(CodeGenError::cannot_convert_to_basic_type(typ.to_string(), pos.clone())))
+                Err(CodeGenError::cannot_convert_to_basic_type(typ.to_string(), pos.clone()))
             },
         }
     }
 
     #[inline]
-    pub fn to_llvm_type<'a>(typ: &Type, ctx: &'a Context, env: &mut Env<'a>, pos: &Position) -> Result<BasicMetadataTypeEnum<'a>, Box<dyn Error>> {
+    pub fn to_llvm_type<'a>(typ: &Type, ctx: &'a Context, env: &mut Env<'a>, pos: &Position) -> Result<BasicMetadataTypeEnum<'a>, CodeGenError> {
         Ok(Self::to_basic_type_enum(typ, ctx, env, pos)?.into())
     }
 
-    pub fn to_llvm_any_type<'a>(typ: &Type, ctx: &'a Context, env: &mut Env<'a>, pos: &Position) -> Result<AnyTypeEnum<'a>, Box<dyn Error>> {
+    pub fn to_llvm_any_type<'a>(typ: &Type, ctx: &'a Context, env: &mut Env<'a>, pos: &Position) -> Result<AnyTypeEnum<'a>, CodeGenError> {
         match typ {
             Type::Number(NumberType::Char)   => Ok(AnyTypeEnum::IntType(ctx.i8_type())),
             Type::Number(NumberType::Short)  => Ok(AnyTypeEnum::IntType(ctx.i16_type())),
@@ -197,7 +196,7 @@ impl TypeUtil {
                     if let Some(typ) = tagged_enum.get_max_size_type() {
                         Ok(typ.as_any_type_enum())
                     }else{
-                        Err(Box::new(CodeGenError::enum_has_no_field(name.to_string(), pos.clone())))
+                        Err(CodeGenError::enum_has_no_field(name.to_string(), pos.clone()))
                     }
                 }
             },
@@ -220,7 +219,7 @@ impl TypeUtil {
         }
     }
 
-    pub fn make_llvm_ptr_type<'a>(typ: &Type, ctx: &'a Context, env: &mut Env<'a>, pos: &Position) -> Result<PointerType<'a>, Box<dyn Error>> {
+    pub fn make_llvm_ptr_type<'a>(typ: &Type, ctx: &'a Context, env: &mut Env<'a>, pos: &Position) -> Result<PointerType<'a>, CodeGenError> {
         match typ {
             Type::Number(NumberType::Char)   => Ok(ctx.i8_type().ptr_type(AddressSpace::default())),
             Type::Number(NumberType::Short)  => Ok(ctx.i16_type().ptr_type(AddressSpace::default())),
@@ -262,7 +261,7 @@ impl TypeUtil {
                 Ok(any_type.ptr_type(AddressSpace::default()))
             },
             _ => {
-                Err(Box::new(CodeGenError::cannot_make_pointer_type(typ.clone(), pos.clone())))
+                Err(CodeGenError::cannot_make_pointer_type(typ.clone(), pos.clone()))
             },
         }
     }

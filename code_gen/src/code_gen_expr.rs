@@ -7,6 +7,7 @@ use super::env::{BreakCatcher, ContinueCatcher, GenType};
 use super::caster::Caster;
 use super::type_util::TypeUtil;
 use crate::CodeGen;
+use crate::code_gen_error::WithPos;
 
 use inkwell::values::{AnyValue, BasicMetadataValueEnum, BasicValue, BasicValueEnum, PointerValue};
 use inkwell::types::{AsTypeRef,  BasicType, BasicTypeEnum, PointerType};
@@ -15,7 +16,6 @@ use inkwell::{IntPredicate, FloatPredicate};
 use inkwell::AddressSpace;
 use inkwell::types::{AnyType, IntType};
 use parser::{ConstExpr, Position, SpecifierQualifier};
-use std::error::Error;
 use std::rc::Rc;
 
 impl<'ctx> CodeGen<'ctx> {
@@ -25,7 +25,7 @@ impl<'ctx> CodeGen<'ctx> {
         env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
-    ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
+    ) -> Result<Option<CompiledValue<'ctx>>, CodeGenError> {
 
         match expr_ast {
             ExprAST::Char(num, _pos) => {
@@ -92,8 +92,8 @@ impl<'ctx> CodeGen<'ctx> {
                 let result = f64_type.const_float(*num);
                 Ok(Some(CompiledValue::new(Type::Number(NumberType::Double).into(), result.as_any_value_enum())))
             },
-            ExprAST::StringLiteral(s, _pos) => {
-                let result = self.builder.build_global_string_ptr(s, &format!("global_str_{}", s))?;
+            ExprAST::StringLiteral(s, pos) => {
+                let result = self.builder.build_global_string_ptr(s, &format!("global_str_{}", s)).ok_or_with_pos(pos, file!(), line!(), column!())?;
                 let pointer = Pointer::new(false, false);
                 Ok(Some(CompiledValue::new(Type::Pointer(pointer, Box::new(Type::Number(NumberType::Char).into())).into(), result.as_any_value_enum())))
             },
@@ -101,12 +101,12 @@ impl<'ctx> CodeGen<'ctx> {
                 let (typ, _sq, ptr) = if let Some((typ, sq, ptr)) = env.get_ptr(name) {
                     (Rc::clone(typ), sq.clone(), ptr.clone())
                 }else{
-                    return Err(Box::new(CodeGenError::no_such_a_variable(name, sym_pos.clone())));
+                    return Err(CodeGenError::no_such_a_variable(name, sym_pos.clone()));
                 };
 
                 if typ.is_pointer() {
                     let basic_type = TypeUtil::to_basic_type_enum(&typ, &self.context, env, pos)?;
-                    let basic_val = self.builder.build_load(basic_type, ptr, name)?;
+                    let basic_val = self.builder.build_load(basic_type, ptr, name).ok_or_with_pos(pos, file!(), line!(), column!())?;
                     let pre_val = basic_val.as_any_value_enum();
 
                     let pointed_type = typ.peel_off_pointer().ok_or(CodeGenError::not_pointer(&typ, pos.clone()))?;
@@ -114,19 +114,19 @@ impl<'ctx> CodeGen<'ctx> {
                     let size = basic_pointed_type.size_of().ok_or(CodeGenError::cannot_get_size_of(&pointed_type, pos.clone()))?;
 
                     let int_type = self.context.i64_type();
-                    let ptr_to_int = self.builder.build_ptr_to_int(pre_val.into_pointer_value(), int_type, name)?;
-                    let added = self.builder.build_int_add(ptr_to_int, size, "pre_increment")?;
-                    let (_ptr_type, _sq, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(&name, sym_pos.clone())))?;
+                    let ptr_to_int = self.builder.build_ptr_to_int(pre_val.into_pointer_value(), int_type, name).ok_or_with_pos(pos, file!(), line!(), column!())?;
+                    let added = self.builder.build_int_add(ptr_to_int, size, "pre_increment").ok_or_with_pos(pos, file!(), line!(), column!())?;
+                    let (_ptr_type, _sq, ptr) = env.get_ptr(&name).ok_or(CodeGenError::no_such_a_variable(&name, sym_pos.clone()))?;
                     let _result = self.builder.build_store(ptr, added);
 
                     Ok(Some(CompiledValue::new(typ.clone(), added.as_any_value_enum())))
 
                 }else{
-                    let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&typ, &self.context, env, pos)?, ptr, name)?;
+                    let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&typ, &self.context, env, pos)?, ptr, name).ok_or_with_pos(pos, file!(), line!(), column!())?;
                     let any_val = basic_val.as_any_value_enum();
                     let one = TypeUtil::to_llvm_int_type(&typ, self.context, pos)?.const_int(1, false);
-                    let added = self.builder.build_int_add(any_val.into_int_value(), one, "pre_increment")?;
-                    let (_ptr_type, _sq, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(&name, sym_pos.clone())))?;
+                    let added = self.builder.build_int_add(any_val.into_int_value(), one, "pre_increment").ok_or_with_pos(pos, file!(), line!(), column!())?;
+                    let (_ptr_type, _sq, ptr) = env.get_ptr(&name).ok_or(CodeGenError::no_such_a_variable(&name, sym_pos.clone()))?;
                     let _result = self.builder.build_store(ptr, added);
 
                     Ok(Some(CompiledValue::new(Rc::clone(&typ), added.as_any_value_enum())))
@@ -136,12 +136,12 @@ impl<'ctx> CodeGen<'ctx> {
                 let (typ, _sq, ptr) = if let Some((typ, sq, ptr)) = env.get_ptr(name) {
                     (Rc::clone(typ), sq.clone(), ptr.clone())
                 }else{
-                    return Err(Box::new(CodeGenError::no_such_a_variable(name, sym_pos.clone())));
+                    return Err(CodeGenError::no_such_a_variable(name, sym_pos.clone()));
                 };
 
                 if typ.is_pointer() {
                     let basic_type = TypeUtil::to_basic_type_enum(&typ, &self.context, env, pos)?;
-                    let basic_val = self.builder.build_load(basic_type, ptr, name)?;
+                    let basic_val = self.builder.build_load(basic_type, ptr, name).ok_or_with_pos(pos, file!(), line!(), column!())?;
                     let pre_val = basic_val.as_any_value_enum();
 
                     let pointed_type = typ.peel_off_pointer().ok_or(CodeGenError::not_pointer(&typ, pos.clone()))?;
@@ -149,19 +149,19 @@ impl<'ctx> CodeGen<'ctx> {
                     let size = basic_pointed_type.size_of().ok_or(CodeGenError::cannot_get_size_of(&pointed_type, pos.clone()))?;
 
                     let int_type = self.context.i64_type();
-                    let ptr_to_int = self.builder.build_ptr_to_int(pre_val.into_pointer_value(), int_type, name)?;
-                    let subed = self.builder.build_int_sub(ptr_to_int, size, "pre_decrement")?;
-                    let (_ptr_type, _sq, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(&name, sym_pos.clone())))?;
+                    let ptr_to_int = self.builder.build_ptr_to_int(pre_val.into_pointer_value(), int_type, name).ok_or_with_pos(pos, file!(), line!(), column!())?;
+                    let subed = self.builder.build_int_sub(ptr_to_int, size, "pre_decrement").ok_or_with_pos(pos, file!(), line!(), column!())?;
+                    let (_ptr_type, _sq, ptr) = env.get_ptr(&name).ok_or(CodeGenError::no_such_a_variable(&name, sym_pos.clone()))?;
                     let _result = self.builder.build_store(ptr, subed);
 
                     Ok(Some(CompiledValue::new(typ.clone(), subed.as_any_value_enum())))
 
                 }else{
-                    let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&typ, &self.context, env, pos)?, ptr, name)?;
+                    let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&typ, &self.context, env, pos)?, ptr, name).ok_or_with_pos(pos, file!(), line!(), column!())?;
                     let any_val = basic_val.as_any_value_enum();
                     let one = TypeUtil::to_llvm_int_type(&typ, self.context, pos)?.const_int(1, false);
-                    let subed = self.builder.build_int_sub(any_val.into_int_value(), one, "pre_decrement")?;
-                    let (_ptr_type, _sq, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(&name, sym_pos.clone())))?;
+                    let subed = self.builder.build_int_sub(any_val.into_int_value(), one, "pre_decrement").ok_or_with_pos(pos, file!(), line!(), column!())?;
+                    let (_ptr_type, _sq, ptr) = env.get_ptr(&name).ok_or(CodeGenError::no_such_a_variable(&name, sym_pos.clone()))?;
                     let _result = self.builder.build_store(ptr, subed);
 
                     Ok(Some(CompiledValue::new(Rc::clone(&typ), subed.as_any_value_enum())))
@@ -172,12 +172,12 @@ impl<'ctx> CodeGen<'ctx> {
                     (Rc::clone(typ), sq.clone(), ptr.clone())
 
                 }else{
-                    return Err(Box::new(CodeGenError::no_such_a_variable(name, sym_pos.clone())));
+                    return Err(CodeGenError::no_such_a_variable(name, sym_pos.clone()));
                 };
 
                 if typ.is_pointer() {
                     let basic_type = TypeUtil::to_basic_type_enum(&typ, &self.context, env, pos)?;
-                    let basic_val = self.builder.build_load(basic_type, ptr, name)?;
+                    let basic_val = self.builder.build_load(basic_type, ptr, name).ok_or_with_pos(pos, file!(), line!(), column!())?;
                     let pre_val = basic_val.as_any_value_enum();
 
                     let pointed_type = typ.peel_off_pointer().ok_or(CodeGenError::not_pointer(&typ, pos.clone()))?;
@@ -185,19 +185,19 @@ impl<'ctx> CodeGen<'ctx> {
                     let size = basic_pointed_type.size_of().ok_or(CodeGenError::cannot_get_size_of(&pointed_type, pos.clone()))?;
 
                     let int_type = self.context.i64_type();
-                    let ptr_to_int = self.builder.build_ptr_to_int(pre_val.into_pointer_value(), int_type, name)?;
-                    let added = self.builder.build_int_add(ptr_to_int, size, "post_increment")?;
-                    let (_ptr_type, _sq, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(&name, sym_pos.clone())))?;
+                    let ptr_to_int = self.builder.build_ptr_to_int(pre_val.into_pointer_value(), int_type, name).ok_or_with_pos(pos, file!(), line!(), column!())?;
+                    let added = self.builder.build_int_add(ptr_to_int, size, "post_increment").ok_or_with_pos(pos, file!(), line!(), column!())?;
+                    let (_ptr_type, _sq, ptr) = env.get_ptr(&name).ok_or(CodeGenError::no_such_a_variable(&name, sym_pos.clone()))?;
                     let _result = self.builder.build_store(ptr, added);
 
                     Ok(Some(CompiledValue::new(typ.clone(), pre_val)))
 
                 }else{
-                    let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&typ, &self.context, env, pos)?, ptr, name)?;
+                    let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&typ, &self.context, env, pos)?, ptr, name).ok_or_with_pos(pos, file!(), line!(), column!())?;
                     let pre_val = basic_val.as_any_value_enum();
                     let one = TypeUtil::to_llvm_int_type(&typ, self.context, pos)?.const_int(1, false);
-                    let added = self.builder.build_int_add(pre_val.into_int_value(), one, "post_increment")?;
-                    let (_ptr_type, _sq, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(&name, sym_pos.clone())))?;
+                    let added = self.builder.build_int_add(pre_val.into_int_value(), one, "post_increment").ok_or_with_pos(pos, file!(), line!(), column!())?;
+                    let (_ptr_type, _sq, ptr) = env.get_ptr(&name).ok_or(CodeGenError::no_such_a_variable(&name, sym_pos.clone()))?;
                     let _result = self.builder.build_store(ptr, added);
 
                     Ok(Some(CompiledValue::new(Rc::clone(&typ), pre_val)))
@@ -208,12 +208,12 @@ impl<'ctx> CodeGen<'ctx> {
                     (Rc::clone(typ), sq.clone(), ptr.clone())
 
                 }else{
-                    return Err(Box::new(CodeGenError::no_such_a_variable(name, sym_pos.clone())));
+                    return Err(CodeGenError::no_such_a_variable(name, sym_pos.clone()));
                 };
 
                 if typ.is_pointer() {
                     let basic_type = TypeUtil::to_basic_type_enum(&typ, &self.context, env, pos)?;
-                    let basic_val = self.builder.build_load(basic_type, ptr, name)?;
+                    let basic_val = self.builder.build_load(basic_type, ptr, name).ok_or_with_pos(pos, file!(), line!(), column!())?;
                     let pre_val = basic_val.as_any_value_enum();
 
                     let pointed_type = typ.peel_off_pointer().ok_or(CodeGenError::not_pointer(&typ, pos.clone()))?;
@@ -221,19 +221,19 @@ impl<'ctx> CodeGen<'ctx> {
                     let size = basic_pointed_type.size_of().ok_or(CodeGenError::cannot_get_size_of(&pointed_type, pos.clone()))?;
 
                     let int_type = self.context.i64_type();
-                    let ptr_to_int = self.builder.build_ptr_to_int(pre_val.into_pointer_value(), int_type, name)?;
-                    let subed = self.builder.build_int_sub(ptr_to_int, size, "post_decrement")?;
-                    let (_ptr_type, _sq, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(&name, sym_pos.clone())))?;
+                    let ptr_to_int = self.builder.build_ptr_to_int(pre_val.into_pointer_value(), int_type, name).ok_or_with_pos(pos, file!(), line!(), column!())?;
+                    let subed = self.builder.build_int_sub(ptr_to_int, size, "post_decrement").ok_or_with_pos(pos, file!(), line!(), column!())?;
+                    let (_ptr_type, _sq, ptr) = env.get_ptr(&name).ok_or(CodeGenError::no_such_a_variable(&name, sym_pos.clone()))?;
                     let _result = self.builder.build_store(ptr, subed);
 
                     Ok(Some(CompiledValue::new(typ.clone(), pre_val)))
 
                 }else{
-                    let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&typ, &self.context, env, pos)?, ptr, name)?;
+                    let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&typ, &self.context, env, pos)?, ptr, name).ok_or_with_pos(pos, file!(), line!(), column!())?;
                     let pre_val = basic_val.as_any_value_enum();
                     let one = TypeUtil::to_llvm_int_type(&typ, self.context, pos)?.const_int(1, false);
-                    let subed = self.builder.build_int_sub(pre_val.into_int_value(), one, "post_decrement")?;
-                    let (_ptr_type, _sq, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(&name, sym_pos.clone())))?;
+                    let subed = self.builder.build_int_sub(pre_val.into_int_value(), one, "post_decrement").ok_or_with_pos(pos, file!(), line!(), column!())?;
+                    let (_ptr_type, _sq, ptr) = env.get_ptr(&name).ok_or(CodeGenError::no_such_a_variable(&name, sym_pos.clone()))?;
                     let _result = self.builder.build_store(ptr, subed);
 
                     Ok(Some(CompiledValue::new(Rc::clone(&typ), pre_val)))
@@ -249,7 +249,7 @@ impl<'ctx> CodeGen<'ctx> {
 
                 if typ.is_pointer() {
                     let basic_type = TypeUtil::to_basic_type_enum(&typ, &self.context, env, pos)?;
-                    let basic_val = self.builder.build_load(basic_type, ptr, name)?;
+                    let basic_val = self.builder.build_load(basic_type, ptr, name).ok_or_with_pos(pos, file!(), line!(), column!())?;
                     let any_val = basic_val.as_any_value_enum();
 
                     let pointed_type = typ.peel_off_pointer().ok_or(CodeGenError::not_pointer(&typ, pos.clone()))?;
@@ -257,18 +257,18 @@ impl<'ctx> CodeGen<'ctx> {
                     let size = basic_pointed_type.size_of().ok_or(CodeGenError::cannot_get_size_of(&pointed_type, pos.clone()))?;
 
                     let int_type = self.context.i64_type();
-                    let ptr_to_int = self.builder.build_ptr_to_int(any_val.into_pointer_value(), int_type, name)?;
-                    let added = self.builder.build_int_add(ptr_to_int, size, "pre_increment_member")?;
-                    let (_ptr_type, _sq, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(&name, pos.clone())))?;
+                    let ptr_to_int = self.builder.build_ptr_to_int(any_val.into_pointer_value(), int_type, name).ok_or_with_pos(pos, file!(), line!(), column!())?;
+                    let added = self.builder.build_int_add(ptr_to_int, size, "pre_increment_member").ok_or_with_pos(pos, file!(), line!(), column!())?;
+                    let (_ptr_type, _sq, ptr) = env.get_ptr(&name).ok_or(CodeGenError::no_such_a_variable(&name, pos.clone()))?;
                     let _result = self.builder.build_store(ptr, added);
 
                     Ok(Some(CompiledValue::new(typ.clone(), added.as_any_value_enum())))
 
                 }else{
-                    let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&typ, &self.context, env, pos)?, ptr, name)?;
+                    let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&typ, &self.context, env, pos)?, ptr, name).ok_or_with_pos(pos, file!(), line!(), column!())?;
                     let any_val = basic_val.as_any_value_enum();
                     let one = TypeUtil::to_llvm_int_type(&typ, self.context, pos)?.const_int(1, false);
-                    let added = self.builder.build_int_add(any_val.into_int_value(), one, "pre_increment_member")?;
+                    let added = self.builder.build_int_add(any_val.into_int_value(), one, "pre_increment_member").ok_or_with_pos(pos, file!(), line!(), column!())?;
                     let _result = self.builder.build_store(ptr, added);
 
                     Ok(Some(CompiledValue::new(typ.clone(), added.as_any_value_enum())))
@@ -284,7 +284,7 @@ impl<'ctx> CodeGen<'ctx> {
 
                 if typ.is_pointer() {
                     let basic_type = TypeUtil::to_basic_type_enum(&typ, &self.context, env, pos)?;
-                    let basic_val = self.builder.build_load(basic_type, ptr, name)?;
+                    let basic_val = self.builder.build_load(basic_type, ptr, name).ok_or_with_pos(pos, file!(), line!(), column!())?;
                     let any_val = basic_val.as_any_value_enum();
 
                     let pointed_type = typ.peel_off_pointer().ok_or(CodeGenError::not_pointer(&typ, pos.clone()))?;
@@ -292,18 +292,18 @@ impl<'ctx> CodeGen<'ctx> {
                     let size = basic_pointed_type.size_of().ok_or(CodeGenError::cannot_get_size_of(&pointed_type, pos.clone()))?;
 
                     let int_type = self.context.i64_type();
-                    let ptr_to_int = self.builder.build_ptr_to_int(any_val.into_pointer_value(), int_type, name)?;
-                    let subed = self.builder.build_int_sub(ptr_to_int, size, "pre_decrement_member")?;
-                    let (_ptr_type, _sq, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(&name, pos.clone())))?;
+                    let ptr_to_int = self.builder.build_ptr_to_int(any_val.into_pointer_value(), int_type, name).ok_or_with_pos(pos, file!(), line!(), column!())?;
+                    let subed = self.builder.build_int_sub(ptr_to_int, size, "pre_decrement_member").ok_or_with_pos(pos, file!(), line!(), column!())?;
+                    let (_ptr_type, _sq, ptr) = env.get_ptr(&name).ok_or(CodeGenError::no_such_a_variable(&name, pos.clone()))?;
                     let _result = self.builder.build_store(ptr, subed);
 
                     Ok(Some(CompiledValue::new(typ.clone(), subed.as_any_value_enum())))
 
                 }else{
-                    let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&typ, &self.context, env, pos)?, ptr, name)?;
+                    let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&typ, &self.context, env, pos)?, ptr, name).ok_or_with_pos(pos, file!(), line!(), column!())?;
                     let any_val = basic_val.as_any_value_enum();
                     let one = TypeUtil::to_llvm_int_type(&typ, self.context, pos)?.const_int(1, false);
-                    let subed = self.builder.build_int_sub(any_val.into_int_value(), one, "pre_decrement_member")?;
+                    let subed = self.builder.build_int_sub(any_val.into_int_value(), one, "pre_decrement_member").ok_or_with_pos(pos, file!(), line!(), column!())?;
                     let _result = self.builder.build_store(ptr, subed);
 
                     Ok(Some(CompiledValue::new(typ.clone(), subed.as_any_value_enum())))
@@ -319,7 +319,7 @@ impl<'ctx> CodeGen<'ctx> {
 
                 if typ.is_pointer() {
                     let basic_type = TypeUtil::to_basic_type_enum(&typ, &self.context, env, pos)?;
-                    let basic_val = self.builder.build_load(basic_type, ptr, name)?;
+                    let basic_val = self.builder.build_load(basic_type, ptr, name).ok_or_with_pos(pos, file!(), line!(), column!())?;
                     let pre_val = basic_val.as_any_value_enum();
 
                     let pointed_type = typ.peel_off_pointer().ok_or(CodeGenError::not_pointer(&typ, pos.clone()))?;
@@ -327,18 +327,18 @@ impl<'ctx> CodeGen<'ctx> {
                     let size = basic_pointed_type.size_of().ok_or(CodeGenError::cannot_get_size_of(&pointed_type, pos.clone()))?;
 
                     let int_type = self.context.i64_type();
-                    let ptr_to_int = self.builder.build_ptr_to_int(pre_val.into_pointer_value(), int_type, name)?;
-                    let added = self.builder.build_int_add(ptr_to_int, size, "post_increment_member")?;
-                    let (_ptr_type, _sq, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(&name, pos.clone())))?;
+                    let ptr_to_int = self.builder.build_ptr_to_int(pre_val.into_pointer_value(), int_type, name).ok_or_with_pos(pos, file!(), line!(), column!())?;
+                    let added = self.builder.build_int_add(ptr_to_int, size, "post_increment_member").ok_or_with_pos(pos, file!(), line!(), column!())?;
+                    let (_ptr_type, _sq, ptr) = env.get_ptr(&name).ok_or(CodeGenError::no_such_a_variable(&name, pos.clone()))?;
                     let _result = self.builder.build_store(ptr, added);
 
                     Ok(Some(CompiledValue::new(typ.clone(), pre_val)))
 
                 }else{
-                    let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&typ, &self.context, env, pos)?, ptr, name)?;
+                    let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&typ, &self.context, env, pos)?, ptr, name).ok_or_with_pos(pos, file!(), line!(), column!())?;
                     let pre_val = basic_val.as_any_value_enum();
                     let one = TypeUtil::to_llvm_int_type(&typ, self.context, pos)?.const_int(1, false);
-                    let added = self.builder.build_int_add(pre_val.into_int_value(), one, "post_increment_member")?;
+                    let added = self.builder.build_int_add(pre_val.into_int_value(), one, "post_increment_member").ok_or_with_pos(pos, file!(), line!(), column!())?;
                     let _result = self.builder.build_store(ptr, added);
 
                     Ok(Some(CompiledValue::new(typ.clone(), pre_val.as_any_value_enum())))
@@ -354,7 +354,7 @@ impl<'ctx> CodeGen<'ctx> {
 
                 if typ.is_pointer() {
                     let basic_type = TypeUtil::to_basic_type_enum(&typ, &self.context, env, pos)?;
-                    let basic_val = self.builder.build_load(basic_type, ptr, name)?;
+                    let basic_val = self.builder.build_load(basic_type, ptr, name).ok_or_with_pos(pos, file!(), line!(), column!())?;
                     let pre_val = basic_val.as_any_value_enum();
 
                     let pointed_type = typ.peel_off_pointer().ok_or(CodeGenError::not_pointer(&typ, pos.clone()))?;
@@ -362,18 +362,18 @@ impl<'ctx> CodeGen<'ctx> {
                     let size = basic_pointed_type.size_of().ok_or(CodeGenError::cannot_get_size_of(&pointed_type, pos.clone()))?;
 
                     let int_type = self.context.i64_type();
-                    let ptr_to_int = self.builder.build_ptr_to_int(pre_val.into_pointer_value(), int_type, name)?;
-                    let subed = self.builder.build_int_sub(ptr_to_int, size, "post_decrement_member")?;
-                    let (_ptr_type, _sq, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(&name, pos.clone())))?;
+                    let ptr_to_int = self.builder.build_ptr_to_int(pre_val.into_pointer_value(), int_type, name).ok_or_with_pos(pos, file!(), line!(), column!())?;
+                    let subed = self.builder.build_int_sub(ptr_to_int, size, "post_decrement_member").ok_or_with_pos(pos, file!(), line!(), column!())?;
+                    let (_ptr_type, _sq, ptr) = env.get_ptr(&name).ok_or(CodeGenError::no_such_a_variable(&name, pos.clone()))?;
                     let _result = self.builder.build_store(ptr, subed);
 
                     Ok(Some(CompiledValue::new(typ.clone(), pre_val)))
 
                 }else{
-                    let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&typ, &self.context, env, pos)?, ptr, name)?;
+                    let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&typ, &self.context, env, pos)?, ptr, name).ok_or_with_pos(pos, file!(), line!(), column!())?;
                     let pre_val = basic_val.as_any_value_enum();
                     let one = TypeUtil::to_llvm_int_type(&typ, self.context, pos)?.const_int(1, false);
-                    let subed = self.builder.build_int_sub(pre_val.into_int_value(), one, "post_decrement_member")?;
+                    let subed = self.builder.build_int_sub(pre_val.into_int_value(), one, "post_decrement_member").ok_or_with_pos(pos, file!(), line!(), column!())?;
                     let _result = self.builder.build_store(ptr, subed);
 
                     Ok(Some(CompiledValue::new(typ.clone(), pre_val.as_any_value_enum())))
@@ -382,7 +382,7 @@ impl<'ctx> CodeGen<'ctx> {
             ExprAST::UnaryMinus(boxed_ast, pos) => {
                 let code = self.gen_expr(&*boxed_ast, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(pos.clone()))?;
 
-                let result = self.builder.build_int_neg(code.get_value().into_int_value(), "neg")?;
+                let result = self.builder.build_int_neg(code.get_value().into_int_value(), "neg").ok_or_with_pos(pos, file!(), line!(), column!())?;
                 Ok(Some(CompiledValue::new(code.get_type().clone(), result.as_any_value_enum())))
             },
             ExprAST::Not(boxed_ast, pos) => {
@@ -390,7 +390,7 @@ impl<'ctx> CodeGen<'ctx> {
                 let code = value.get_value().into_int_value();
                 let zero = self.context.i32_type().const_int(0, false);
 
-                let result = self.builder.build_int_compare(IntPredicate::EQ, code, zero, "Not")?;
+                let result = self.builder.build_int_compare(IntPredicate::EQ, code, zero, "Not").ok_or_with_pos(pos, file!(), line!(), column!())?;
                 Ok(Some(CompiledValue::new(value.get_type().clone(), result.as_any_value_enum())))
             },
             ExprAST::UnaryTilda(boxed_ast, pos) => {
@@ -398,10 +398,10 @@ impl<'ctx> CodeGen<'ctx> {
                 let code = value.get_value().into_int_value();
                 let all_ones = self.context.i32_type().const_all_ones();
 
-                let result = self.builder.build_xor(code, all_ones, "bit_reversal")?;
+                let result = self.builder.build_xor(code, all_ones, "bit_reversal").ok_or_with_pos(pos, file!(), line!(), column!())?;
                 Ok(Some(CompiledValue::new(value.get_type().clone(), result.as_any_value_enum())))
             },
-            ExprAST::BinExpr(op, left, right, _pos) => self.gen_bin_expr(op, &**left, &**right, env, break_catcher, continue_catcher),
+            ExprAST::BinExpr(op, left, right, pos) => self.gen_bin_expr(op, &**left, &**right, env, break_catcher, continue_catcher, pos),
             ExprAST::UnaryGetAddress(boxed_ast, pos) => {  // &var
                 let ast = &**boxed_ast;
                 let (typ, ptr, _sq) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
@@ -415,15 +415,15 @@ impl<'ctx> CodeGen<'ctx> {
                 let ptr = self.gen_expr(&ast, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::not_pointer(&TypeUtil::get_type(&ast, env)?.as_ref().clone(), pos.clone()))?;
                 let typ = ptr.get_type();
                 let elem_type = typ.peel_off_pointer().unwrap();
-                let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&elem_type, &self.context, env, pos)?, ptr.get_value().into_pointer_value(), &format!("get_value_from_pointer"))?;
+                let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&elem_type, &self.context, env, pos)?, ptr.get_value().into_pointer_value(), &format!("get_value_from_pointer")).ok_or_with_pos(pos, file!(), line!(), column!())?;
 
                 let any_val = basic_val.as_any_value_enum();
                 let type2 = typ.peel_off_pointer().ok_or(CodeGenError::not_pointer(&typ, pos.clone()))?;
 
                 Ok(Some(CompiledValue::new(type2, any_val)))
             },
-            ExprAST::Assign(l_value, r_value, _pos) => self.gen_assign(&**l_value, &**r_value, env, break_catcher, continue_catcher),
-            ExprAST::OpAssign(op, l_value, r_value, _pos) => self.gen_op_assign(op, &**l_value, &**r_value, env, break_catcher, continue_catcher),
+            ExprAST::Assign(l_value, r_value, pos) => self.gen_assign(&**l_value, &**r_value, env, break_catcher, continue_catcher, pos),
+            ExprAST::OpAssign(op, l_value, r_value, pos) => self.gen_op_assign(op, &**l_value, &**r_value, env, break_catcher, continue_catcher, pos),
             ExprAST::CallFunction(fun, args, pos) => {
                 let mut v: Vec<BasicMetadataValueEnum> = Vec::new();
                 for expr in args {
@@ -452,19 +452,19 @@ impl<'ctx> CodeGen<'ctx> {
                         self.gen_call_class_function(&class_name, &method_name, &v, env, break_catcher, continue_catcher, pos)
                     },
                     _ => {
-                        Err(Box::new(CodeGenError::not_function(&format!("{:?}", fun), pos.clone())))
+                        Err(CodeGenError::not_function(&format!("{:?}", fun), pos.clone()))
                     }
                 }
             },
             ExprAST::MemberAccess(_boxed_ast, field_name, pos) => {
                 let (typ, ptr, _sq) = self.get_l_value(expr_ast, env, break_catcher, continue_catcher)?;
-                let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&typ, &self.context, env, pos)?, ptr, &format!("access_to_field_{}", field_name))?;
+                let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&typ, &self.context, env, pos)?, ptr, &format!("access_to_field_{}", field_name)).ok_or_with_pos(pos, file!(), line!(), column!())?;
                 let any_val = basic_val.as_any_value_enum();
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
             ExprAST::PointerAccess(_boxed_ast, field_name, pos) => {
                 let (typ, ptr, _sq) = self.get_l_value(expr_ast, env, break_catcher, continue_catcher)?;
-                let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&typ, &self.context, env, pos)?, ptr, &format!("pointer_access_to_field_{}", field_name))?;
+                let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&typ, &self.context, env, pos)?, ptr, &format!("pointer_access_to_field_{}", field_name)).ok_or_with_pos(pos, file!(), line!(), column!())?;
                 let any_val = basic_val.as_any_value_enum();
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
@@ -476,7 +476,7 @@ impl<'ctx> CodeGen<'ctx> {
                     Ok(Some(CompiledValue::new(t.into(), any_val)))
 
                 }else{
-                    let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&typ, &self.context, env, pos)?, ptr, "get_value_from_array")?;
+                    let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&typ, &self.context, env, pos)?, ptr, "get_value_from_array").ok_or_with_pos(pos, file!(), line!(), column!())?;
                     let any_val = basic_val.as_any_value_enum();
                     Ok(Some(CompiledValue::new(typ, any_val)))
                 }
@@ -496,7 +496,7 @@ impl<'ctx> CodeGen<'ctx> {
                     }
     
                 }else{
-                    return Err(Box::new(CodeGenError::no_such_a_variable(name, pos.clone())));
+                    return Err(CodeGenError::no_such_a_variable(name, pos.clone()));
                 };
 
                 if let Type::Array { typ, .. } = typ.as_ref() {
@@ -505,7 +505,7 @@ impl<'ctx> CodeGen<'ctx> {
                     Ok(Some(CompiledValue::new(Rc::new(t), any_val)))
 
                 }else{
-                    let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&typ, &self.context, env, pos)?, ptr, name)?;
+                    let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&typ, &self.context, env, pos)?, ptr, name).ok_or_with_pos(pos, file!(), line!(), column!())?;
                     let any_val = basic_val.as_any_value_enum();
                     Ok(Some(CompiledValue::new(typ.clone(), any_val)))
                 }
@@ -514,10 +514,10 @@ impl<'ctx> CodeGen<'ctx> {
                 let (typ, _sq, ptr) = if let Some((typ, sq, ptr)) = env.get_self_ptr() {
                     (typ.clone(), sq.clone(), ptr.clone())
                 }else{
-                    return Err(Box::new(CodeGenError::no_such_a_variable("self", pos.clone())));
+                    return Err(CodeGenError::no_such_a_variable("self", pos.clone()));
                 };
 
-                let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&typ, &self.context, env, pos)?, ptr, "get_self")?;
+                let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&typ, &self.context, env, pos)?, ptr, "get_self").ok_or_with_pos(pos, file!(), line!(), column!())?;
                 let any_val = basic_val.as_any_value_enum();
 
                 Ok(Some(CompiledValue::new(Rc::clone(&typ), any_val)))
@@ -543,15 +543,15 @@ impl<'ctx> CodeGen<'ctx> {
                 let else_block = self.context.append_basic_block(func, "ternary.else");
                 let end_block  = self.context.append_basic_block(func, "ternary.end");
 
-                self.builder.build_unconditional_branch(cond_block)?;
+                self.builder.build_unconditional_branch(cond_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
                 self.builder.position_at_end(cond_block);
 
                 // check condition
                 let cond = self.gen_expr(condition, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::condition_is_not_number(condition, condition.get_position().clone()))?;
                 let mut comparison = cond.get_value().into_int_value();
                 let i1_type = self.context.bool_type();
-                comparison = self.builder.build_int_cast(comparison, i1_type, "cast to i1")?;  // cast to i1
-                self.builder.build_conditional_branch(comparison, then_block, else_block)?;
+                comparison = self.builder.build_int_cast(comparison, i1_type, "cast to i1").ok_or_with_pos(pos, file!(), line!(), column!())?;  // cast to i1
+                self.builder.build_conditional_branch(comparison, then_block, else_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
 
                 // then block
                 self.builder.position_at_end(then_block);
@@ -559,12 +559,12 @@ impl<'ctx> CodeGen<'ctx> {
                 if let Some(blk) = self.builder.get_insert_block() {
                     if ! self.last_is_jump_statement(blk) {
                         self.builder.position_at_end(blk);
-                        self.builder.build_unconditional_branch(end_block)?;
+                        self.builder.build_unconditional_branch(end_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
                     }
                 }
                 if ! self.last_is_jump_statement(then_block) {
                     self.builder.position_at_end(then_block);
-                    self.builder.build_unconditional_branch(end_block)?;
+                    self.builder.build_unconditional_branch(end_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
                 }
 
                 // else block
@@ -573,12 +573,12 @@ impl<'ctx> CodeGen<'ctx> {
                 if let Some(blk) = self.builder.get_insert_block() {
                     if ! self.last_is_jump_statement(blk) {
                         self.builder.position_at_end(blk);
-                        self.builder.build_unconditional_branch(end_block)?;
+                        self.builder.build_unconditional_branch(end_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
                     }
                 }
                 if ! self.last_is_jump_statement(else_block) {
                     self.builder.position_at_end(else_block);
-                    self.builder.build_unconditional_branch(end_block)?;
+                    self.builder.build_unconditional_branch(end_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
                 }
 
                 // end block
@@ -586,27 +586,34 @@ impl<'ctx> CodeGen<'ctx> {
 
                 let typ = then_result.get_type();
                 let llvm_type = TypeUtil::to_basic_type_enum(typ, self.context, env, then.get_position())?;
-                let phi_value = self.builder.build_phi(llvm_type, "ternary.phi")?;
+                let phi_value = self.builder.build_phi(llvm_type, "ternary.phi").ok_or_with_pos(pos, file!(), line!(), column!())?;
                 let then_value = if let Ok(val) = BasicValueEnum::try_from(then_result.get_value()) {
                     val
                 }else{
-                    return Err(Box::new(CodeGenError::cannot_convert_to_basic_value((**then).clone(), then.get_position().clone())));
+                    return Err(CodeGenError::cannot_convert_to_basic_value((**then).clone(), then.get_position().clone()));
                 };
                 let else_value = if let Ok(val) = BasicValueEnum::try_from(else_result.get_value()) {
                     val
                 }else{
-                    return Err(Box::new(CodeGenError::cannot_convert_to_basic_value((**_else).clone(), _else.get_position().clone())));
+                    return Err(CodeGenError::cannot_convert_to_basic_value((**_else).clone(), _else.get_position().clone()));
                 };
                 let incoming: [(&dyn BasicValue<'ctx>, BasicBlock<'ctx>); 2] = [(&then_value, then_block), (&else_value, else_block)];
                 phi_value.add_incoming(&incoming);
 
                 Ok(Some(CompiledValue::new(typ.clone(), phi_value.as_any_value_enum())))
             },
-            ExprAST::Cast(to_type, expr, _pos) => {
+            ExprAST::Cast(to_type, expr, pos) => {
                 let from = TypeUtil::get_type(&**expr, env)?;
                 let value = self.gen_expr(&**expr, env, break_catcher, continue_catcher)?.unwrap().get_value();
-                let result = Caster::gen_cast(&self.builder, self.context, &value, &from, to_type, &**expr, env)?;
-                Ok(Some(CompiledValue::new(to_type.clone(), result)))
+                let result = Caster::gen_cast(&self.builder, self.context, &value, &from, to_type, &**expr, env);
+                match result {
+                    Ok(item) => {
+                        Ok(Some(CompiledValue::new(to_type.clone(), item)))
+                    },
+                    Err(e) => {
+                        Err(CodeGenError::from_error(e, pos.clone(), file!(), line!(), column!()))
+                    },
+                }
             },
             ExprAST::TypeMemberAccess(struct_name, var_name, pos) => {  // struct_name::var_name
                 if let Some(gen_type) = env.get_gen_type(struct_name, self.context, pos)? {
@@ -623,14 +630,14 @@ impl<'ctx> CodeGen<'ctx> {
                 }
 
                 let (typ, ptr, _sq) = self.get_l_value(expr_ast, env, break_catcher, continue_catcher)?;
-                let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&*typ, &self.context, env, pos)?, ptr, &format!("access_to_field_{}_in_class_{}", var_name, struct_name))?;
+                let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&*typ, &self.context, env, pos)?, ptr, &format!("access_to_field_{}_in_class_{}", var_name, struct_name)).ok_or_with_pos(pos, file!(), line!(), column!())?;
                 let any_val = basic_val.as_any_value_enum();
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
 
             },
             ExprAST::SelfStaticSymbol(var_name, pos) => {  // _Self::Symbol
                 let (typ, ptr, _sq) = self.get_l_value(expr_ast, env, break_catcher, continue_catcher)?;
-                let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&*typ, &self.context, env, pos)?, ptr, &format!("access_to_field_{}_in_Self", var_name))?;
+                let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&*typ, &self.context, env, pos)?, ptr, &format!("access_to_field_{}_in_Self", var_name)).ok_or_with_pos(pos, file!(), line!(), column!())?;
                 let any_val = basic_val.as_any_value_enum();
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
@@ -638,13 +645,13 @@ impl<'ctx> CodeGen<'ctx> {
                 let typ = struct_literal.get_type();
                 let pos = struct_literal.get_position();
                 let basic_type = env.basic_type_enum_from_type(&typ, self.context, pos)?;
-                let struct_ptr = self.builder.build_alloca(basic_type, "struct_literal")?;
+                let struct_ptr = self.builder.build_alloca(basic_type, "struct_literal").ok_or_with_pos(pos, file!(), line!(), column!())?;
 
                 self.gen_struct_literal(struct_literal, struct_ptr, env, break_catcher, continue_catcher)
             },
             ExprAST::UnionLiteral(typ, list, pos) => {
                 let basic_type = env.basic_type_enum_from_type(&typ, self.context, pos)?;
-                let union_ptr = self.builder.build_alloca(basic_type, "union_literal")?;
+                let union_ptr = self.builder.build_alloca(basic_type, "union_literal").ok_or_with_pos(pos, file!(), line!(), column!())?;
                 let union_name = typ.get_type_name();
 
                 for (_field_name, expr_ast2) in list {
@@ -653,13 +660,13 @@ impl<'ctx> CodeGen<'ctx> {
                     let _result = self.builder.build_store(union_ptr, basic_value);                        
                 }
 
-                let basic_val = self.builder.build_load(basic_type, union_ptr, &format!("load_union_{}_literal", union_name))?;
+                let basic_val = self.builder.build_load(basic_type, union_ptr, &format!("load_union_{}_literal", union_name)).ok_or_with_pos(pos, file!(), line!(), column!())?;
                 let any_val = basic_val.as_any_value_enum();
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
             ExprAST::UnionConstLiteral(typ, const_list, pos) => {
                 let basic_type = env.basic_type_enum_from_type(&typ, self.context, pos)?;
-                let union_ptr = self.builder.build_alloca(basic_type, "union_literal")?;
+                let union_ptr = self.builder.build_alloca(basic_type, "union_literal").ok_or_with_pos(pos, file!(), line!(), column!())?;
                 let union_name = typ.get_type_name();
 
                 for (_field_name, const_expr) in const_list {
@@ -667,7 +674,7 @@ impl<'ctx> CodeGen<'ctx> {
                     let _result = self.builder.build_store(union_ptr, basic_value);                        
                 }
 
-                let basic_val = self.builder.build_load(basic_type, union_ptr, &format!("load_union_{}_literal", union_name))?;
+                let basic_val = self.builder.build_load(basic_type, union_ptr, &format!("load_union_{}_literal", union_name)).ok_or_with_pos(pos, file!(), line!(), column!())?;
                 let any_val = basic_val.as_any_value_enum();
                 Ok(Some(CompiledValue::new(typ.clone(), any_val)))
             },
@@ -675,21 +682,21 @@ impl<'ctx> CodeGen<'ctx> {
                 self.gen_enum_literal(typ, literal, tag, env, break_catcher, continue_catcher, pos)
             },
             ExprAST::TupleLiteral(expr_list, pos) => {
-                self.gen_tuple_literal(expr_list, None, env, break_catcher, continue_catcher, pos)
+                self.gen_tuple_literal(expr_list, None, env, break_catcher, continue_catcher, pos).ok_or_with_pos(pos, file!(), line!(), column!())
             },
             ExprAST::ConstTupleLiteral(const_list, pos) => {
-                self.gen_tuple_literal_from_const_expr_list(const_list, env, pos)
+                self.gen_tuple_literal_from_const_expr_list(const_list, env, pos).ok_or_with_pos(pos, file!(), line!(), column!())
             },
             ExprAST::TupleMemberAccess(tpl, index, pos) => {
                 let (elem_type, ptr, _sq) = self.get_indexed_tuple_ptr_and_type(tpl, *index, pos, env, break_catcher, continue_catcher)?;
-                let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&elem_type, &self.context, env, pos)?, ptr, "load_tuple_element")?;
+                let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&elem_type, &self.context, env, pos)?, ptr, "load_tuple_element").ok_or_with_pos(pos, file!(), line!(), column!())?;
                 let any_val = basic_val.as_any_value_enum();
 
                 Ok(Some(CompiledValue::new(Rc::clone(&elem_type), any_val)))
             },
             ExprAST::TuplePointerAccess(tpl, index, pos) => {
                 let (elem_type, ptr, _sq) = self.get_pointed_indexed_tuple_ptr_and_type(tpl, *index, pos, env, break_catcher, continue_catcher)?;
-                let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&elem_type, &self.context, env, pos)?, ptr, "load_tuple_element")?;
+                let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&elem_type, &self.context, env, pos)?, ptr, "load_tuple_element").ok_or_with_pos(pos, file!(), line!(), column!())?;
                 let any_val = basic_val.as_any_value_enum();
 
                 Ok(Some(CompiledValue::new(Rc::clone(&elem_type), any_val)))
@@ -704,7 +711,7 @@ impl<'ctx> CodeGen<'ctx> {
         break_catcher: Option<&'b BreakCatcher<'_>>,
         continue_catcher: Option<&'c ContinueCatcher<'_>>,
         pos: &Position
-    ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error + 'static>> {
+    ) -> Result<Option<CompiledValue<'ctx>>, CodeGenError> {
 
         //
         // codegen each element
@@ -730,7 +737,7 @@ impl<'ctx> CodeGen<'ctx> {
         if let Some(tpl_ptr) = opt_tuple_ptr {
             tuple_ptr = tpl_ptr;
         }else{
-            tuple_ptr = self.builder.build_alloca(basic_type, "tuple_literal")?;
+            tuple_ptr = self.builder.build_alloca(basic_type, "tuple_literal").ok_or_with_pos(pos, file!(), line!(), column!())?;
         }
     
         //
@@ -743,7 +750,7 @@ impl<'ctx> CodeGen<'ctx> {
             let basic_value = BasicValueEnum::try_from(any_value).map_err(|_e| CodeGenError::system_error(pos.clone()))?;
             let const_index = i32_type.const_int(index, false);
             let indexes = vec![const_zero, const_index];
-            let ptr = unsafe { self.builder.build_in_bounds_gep(basic_type, tuple_ptr, &indexes, "gep_for_tuple_element")? };
+            let ptr = unsafe { self.builder.build_in_bounds_gep(basic_type, tuple_ptr, &indexes, "gep_for_tuple_element").ok_or_with_pos(pos, file!(), line!(), column!())? };
             let _result = self.builder.build_store(ptr, basic_value);
     
             index += 1;
@@ -752,7 +759,7 @@ impl<'ctx> CodeGen<'ctx> {
         //
         // return result
         //
-        let basic_val = self.builder.build_load(basic_type, tuple_ptr, &format!("load_tuple_literal"))?;
+        let basic_val = self.builder.build_load(basic_type, tuple_ptr, &format!("load_tuple_literal")).ok_or_with_pos(pos, file!(), line!(), column!())?;
         let any_val = basic_val.as_any_value_enum();
         let tuple_type = Type::Tuple(cust_type_list);
         Ok(Some(CompiledValue::new(Rc::new(tuple_type), any_val)))
@@ -762,7 +769,7 @@ impl<'ctx> CodeGen<'ctx> {
         const_list: &Vec<ConstExpr>,
         env: &mut Env<'ctx>,
         pos: &Position
-    ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error + 'static>> {
+    ) -> Result<Option<CompiledValue<'ctx>>, CodeGenError> {
         //
         // calc type
         //
@@ -808,8 +815,9 @@ impl<'ctx> CodeGen<'ctx> {
         right_arg: &ExprAST,
         env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
-        continue_catcher: Option<&'c ContinueCatcher>
-    ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
+        continue_catcher: Option<&'c ContinueCatcher>,
+        pos: &Position
+    ) -> Result<Option<CompiledValue<'ctx>>, CodeGenError> {
         match op {
             BinOp::Add => {
                 let left = self.gen_expr(&left_arg, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::illegal_end_of_input(left_arg.get_position().clone()))?;
@@ -825,11 +833,11 @@ impl<'ctx> CodeGen<'ctx> {
                     let size = basic_pointed_type.size_of().ok_or(CodeGenError::cannot_get_size_of(&pointed_type, pos.clone()))?;
 
                     let right_value = right.get_value();
-                    let size = self.builder.build_int_mul(size, right_value.into_int_value(), "size*right_value")?;
+                    let size = self.builder.build_int_mul(size, right_value.into_int_value(), "size*right_value").ok_or_with_pos(pos, file!(), line!(), column!())?;
 
                     let int_type = self.context.i64_type();
-                    let ptr_to_int = self.builder.build_ptr_to_int(any_val.into_pointer_value(), int_type, "op_add_pointer")?;
-                    let added = self.builder.build_int_add(ptr_to_int, size, "op_add_pointer")?;
+                    let ptr_to_int = self.builder.build_ptr_to_int(any_val.into_pointer_value(), int_type, "op_add_pointer").ok_or_with_pos(pos, file!(), line!(), column!())?;
+                    let added = self.builder.build_int_add(ptr_to_int, size, "op_add_pointer").ok_or_with_pos(pos, file!(), line!(), column!())?;
 
                     Ok(Some(CompiledValue::new(left_type.clone(), added.as_any_value_enum())))
 
@@ -839,13 +847,13 @@ impl<'ctx> CodeGen<'ctx> {
                     let right_value = right.get_value();
 
                     if left_value.is_int_value() {
-                        let result = self.builder.build_int_add(left_value.into_int_value(), right_value.into_int_value(), "add_int")?;
+                        let result = self.builder.build_int_add(left_value.into_int_value(), right_value.into_int_value(), "add_int").ok_or_with_pos(pos, file!(), line!(), column!())?;
                         Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                     }else if left_value.is_float_value() {
-                        let result = self.builder.build_float_add(left_value.into_float_value(), right_value.into_float_value(), "add_float")?;
+                        let result = self.builder.build_float_add(left_value.into_float_value(), right_value.into_float_value(), "add_float").ok_or_with_pos(pos, file!(), line!(), column!())?;
                         Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                     }else{
-                        Err(Box::new(CodeGenError::cannot_add_value(left_type.as_ref(), right.get_type(), left_arg.get_position().clone())))
+                        Err(CodeGenError::cannot_add_value(left_type.as_ref(), right.get_type(), left_arg.get_position().clone()))
                     }
                 }
             },
@@ -863,11 +871,11 @@ impl<'ctx> CodeGen<'ctx> {
                     let size = basic_pointed_type.size_of().ok_or(CodeGenError::cannot_get_size_of(&pointed_type, pos.clone()))?;
 
                     let right_value = right.get_value();
-                    let size = self.builder.build_int_mul(size, right_value.into_int_value(), "size*right_value")?;
+                    let size = self.builder.build_int_mul(size, right_value.into_int_value(), "size*right_value").ok_or_with_pos(pos, file!(), line!(), column!())?;
 
                     let int_type = self.context.i64_type();
-                    let ptr_to_int = self.builder.build_ptr_to_int(any_val.into_pointer_value(), int_type, "op_sub_pointer")?;
-                    let subed = self.builder.build_int_sub(ptr_to_int, size, "op_sub_pointer")?;
+                    let ptr_to_int = self.builder.build_ptr_to_int(any_val.into_pointer_value(), int_type, "op_sub_pointer").ok_or_with_pos(pos, file!(), line!(), column!())?;
+                    let subed = self.builder.build_int_sub(ptr_to_int, size, "op_sub_pointer").ok_or_with_pos(pos, file!(), line!(), column!())?;
 
                     Ok(Some(CompiledValue::new(left_type.clone(), subed.as_any_value_enum())))
 
@@ -877,13 +885,13 @@ impl<'ctx> CodeGen<'ctx> {
                     let right_value = right.get_value();
 
                     if left_value.is_int_value() {
-                        let result = self.builder.build_int_sub(left_value.into_int_value(), right_value.into_int_value(), "sub_int")?;
+                        let result = self.builder.build_int_sub(left_value.into_int_value(), right_value.into_int_value(), "sub_int").ok_or_with_pos(pos, file!(), line!(), column!())?;
                         Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                     }else if left_value.is_float_value() {
-                        let result = self.builder.build_float_sub(left_value.into_float_value(), right_value.into_float_value(), "sub_float")?;
+                        let result = self.builder.build_float_sub(left_value.into_float_value(), right_value.into_float_value(), "sub_float").ok_or_with_pos(pos, file!(), line!(), column!())?;
                         Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                     }else{
-                        Err(Box::new(CodeGenError::cannot_sub_value(left_type.as_ref(), right.get_type(), left_arg.get_position().clone())))
+                        Err(CodeGenError::cannot_sub_value(left_type.as_ref(), right.get_type(), left_arg.get_position().clone()))
                     }
                 }
             },
@@ -896,13 +904,13 @@ impl<'ctx> CodeGen<'ctx> {
                 let right_value = right.get_value();
 
                 if left_value.is_int_value() {
-                    let result = self.builder.build_int_mul(left_value.into_int_value(), right_value.into_int_value(), "mul_int")?;
+                    let result = self.builder.build_int_mul(left_value.into_int_value(), right_value.into_int_value(), "mul_int").ok_or_with_pos(pos, file!(), line!(), column!())?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else if left_value.is_float_value() {
-                    let result = self.builder.build_float_mul(left_value.into_float_value(), right_value.into_float_value(), "mul_float")?;
+                    let result = self.builder.build_float_mul(left_value.into_float_value(), right_value.into_float_value(), "mul_float").ok_or_with_pos(pos, file!(), line!(), column!())?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CodeGenError::cannot_mul_value(left_type, right.get_type(), left_arg.get_position().clone())))
+                    Err(CodeGenError::cannot_mul_value(left_type, right.get_type(), left_arg.get_position().clone()))
                 }
             },
             BinOp::Div => {
@@ -915,17 +923,17 @@ impl<'ctx> CodeGen<'ctx> {
 
                 if left_value.is_int_value() {
                     if left_type.is_signed()? {
-                        let result = self.builder.build_int_signed_div(left_value.into_int_value(), right_value.into_int_value(), "div_int")?;
+                        let result = self.builder.build_int_signed_div(left_value.into_int_value(), right_value.into_int_value(), "div_int").ok_or_with_pos(pos, file!(), line!(), column!())?;
                         Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                     }else{
-                        let result = self.builder.build_int_unsigned_div(left_value.into_int_value(), right_value.into_int_value(), "div_int")?;
+                        let result = self.builder.build_int_unsigned_div(left_value.into_int_value(), right_value.into_int_value(), "div_int").ok_or_with_pos(pos, file!(), line!(), column!())?;
                         Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                     }
                 }else if left_value.is_float_value() {
-                    let result = self.builder.build_float_div(left_value.into_float_value(), right_value.into_float_value(), "div_float")?;
+                    let result = self.builder.build_float_div(left_value.into_float_value(), right_value.into_float_value(), "div_float").ok_or_with_pos(pos, file!(), line!(), column!())?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CodeGenError::cannot_div_value(left_type, right.get_type(), left_arg.get_position().clone())))
+                    Err(CodeGenError::cannot_div_value(left_type, right.get_type(), left_arg.get_position().clone()))
                 }
             },
             BinOp::Mod => {
@@ -938,17 +946,17 @@ impl<'ctx> CodeGen<'ctx> {
 
                 if left_value.is_int_value() {
                     if left_type.is_signed()? {
-                        let result = self.builder.build_int_signed_rem(left_value.into_int_value(), right_value.into_int_value(), "mod_int")?;
+                        let result = self.builder.build_int_signed_rem(left_value.into_int_value(), right_value.into_int_value(), "mod_int").ok_or_with_pos(pos, file!(), line!(), column!())?;
                         Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                     }else{
-                        let result = self.builder.build_int_unsigned_rem(left_value.into_int_value(), right_value.into_int_value(), "mod_int")?;
+                        let result = self.builder.build_int_unsigned_rem(left_value.into_int_value(), right_value.into_int_value(), "mod_int").ok_or_with_pos(pos, file!(), line!(), column!())?;
                         Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                     }
                 }else if left_value.is_float_value() {
-                    let result = self.builder.build_float_rem(left_value.into_float_value(), right_value.into_float_value(), "mod_float")?;
+                    let result = self.builder.build_float_rem(left_value.into_float_value(), right_value.into_float_value(), "mod_float").ok_or_with_pos(pos, file!(), line!(), column!())?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CodeGenError::cannot_mod_value(left_type, right.get_type(), left_arg.get_position().clone())))
+                    Err(CodeGenError::cannot_mod_value(left_type, right.get_type(), left_arg.get_position().clone()))
                 }
             },
             BinOp::Equal => {
@@ -960,13 +968,13 @@ impl<'ctx> CodeGen<'ctx> {
                 let right_value = right.get_value();
 
                 if left_value.is_int_value() {
-                    let result = self.builder.build_int_compare(IntPredicate::EQ, left_value.into_int_value(), right_value.into_int_value(), "eq_int")?;
+                    let result = self.builder.build_int_compare(IntPredicate::EQ, left_value.into_int_value(), right_value.into_int_value(), "eq_int").ok_or_with_pos(pos, file!(), line!(), column!())?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else if left_value.is_float_value() {
-                    let result = self.builder.build_float_compare(FloatPredicate::OEQ, left_value.into_float_value(), right_value.into_float_value(), "eq_float")?;
+                    let result = self.builder.build_float_compare(FloatPredicate::OEQ, left_value.into_float_value(), right_value.into_float_value(), "eq_float").ok_or_with_pos(pos, file!(), line!(), column!())?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CodeGenError::cannot_compare_value(left_type, left_arg.get_position().clone())))
+                    Err(CodeGenError::cannot_compare_value(left_type, left_arg.get_position().clone()))
                 }
             },
             BinOp::NotEqual => {
@@ -978,13 +986,13 @@ impl<'ctx> CodeGen<'ctx> {
                 let right_value = right.get_value();
 
                 if left_value.is_int_value() {
-                    let result = self.builder.build_int_compare(IntPredicate::NE, left_value.into_int_value(), right_value.into_int_value(), "not_eq_int")?;
+                    let result = self.builder.build_int_compare(IntPredicate::NE, left_value.into_int_value(), right_value.into_int_value(), "not_eq_int").ok_or_with_pos(pos, file!(), line!(), column!())?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else if left_value.is_float_value() {
-                    let result = self.builder.build_float_compare(FloatPredicate::ONE, left_value.into_float_value(), right_value.into_float_value(), "not_eq_float")?;
+                    let result = self.builder.build_float_compare(FloatPredicate::ONE, left_value.into_float_value(), right_value.into_float_value(), "not_eq_float").ok_or_with_pos(pos, file!(), line!(), column!())?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CodeGenError::cannot_compare_value(left_type, left_arg.get_position().clone())))
+                    Err(CodeGenError::cannot_compare_value(left_type, left_arg.get_position().clone()))
                 }
             },
             BinOp::Less => {
@@ -997,17 +1005,17 @@ impl<'ctx> CodeGen<'ctx> {
 
                 if left_value.is_int_value() {
                     if left_type.is_signed()? {
-                            let result = self.builder.build_int_compare(IntPredicate::SLT, left_value.into_int_value(), right_value.into_int_value(), "less_int")?;
+                            let result = self.builder.build_int_compare(IntPredicate::SLT, left_value.into_int_value(), right_value.into_int_value(), "less_int").ok_or_with_pos(pos, file!(), line!(), column!())?;
                         Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                     }else{
-                        let result = self.builder.build_int_compare(IntPredicate::ULT, left_value.into_int_value(), right_value.into_int_value(), "less_int")?;
+                        let result = self.builder.build_int_compare(IntPredicate::ULT, left_value.into_int_value(), right_value.into_int_value(), "less_int").ok_or_with_pos(pos, file!(), line!(), column!())?;
                             Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                     }
                 }else if left_value.is_float_value() {
-                    let result = self.builder.build_float_compare(FloatPredicate::OLT, left_value.into_float_value(), right_value.into_float_value(), "less_float")?;
+                    let result = self.builder.build_float_compare(FloatPredicate::OLT, left_value.into_float_value(), right_value.into_float_value(), "less_float").ok_or_with_pos(pos, file!(), line!(), column!())?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CodeGenError::cannot_compare_value(left_type, left_arg.get_position().clone())))
+                    Err(CodeGenError::cannot_compare_value(left_type, left_arg.get_position().clone()))
                 }
             },
             BinOp::LessEqual => {
@@ -1020,17 +1028,17 @@ impl<'ctx> CodeGen<'ctx> {
 
                 if left_value.is_int_value() {
                     if left_type.is_signed()? {
-                            let result = self.builder.build_int_compare(IntPredicate::SLE, left_value.into_int_value(), right_value.into_int_value(), "less_eq_int")?;
+                            let result = self.builder.build_int_compare(IntPredicate::SLE, left_value.into_int_value(), right_value.into_int_value(), "less_eq_int").ok_or_with_pos(pos, file!(), line!(), column!())?;
                         Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                     }else{
-                        let result = self.builder.build_int_compare(IntPredicate::ULE, left_value.into_int_value(), right_value.into_int_value(), "less_eq_int")?;
+                        let result = self.builder.build_int_compare(IntPredicate::ULE, left_value.into_int_value(), right_value.into_int_value(), "less_eq_int").ok_or_with_pos(pos, file!(), line!(), column!())?;
                             Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                     }
                 }else if left_value.is_float_value() {
-                    let result = self.builder.build_float_compare(FloatPredicate::OLE, left_value.into_float_value(), right_value.into_float_value(), "less_eq_float")?;
+                    let result = self.builder.build_float_compare(FloatPredicate::OLE, left_value.into_float_value(), right_value.into_float_value(), "less_eq_float").ok_or_with_pos(pos, file!(), line!(), column!())?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CodeGenError::cannot_compare_value(left_type, left_arg.get_position().clone())))
+                    Err(CodeGenError::cannot_compare_value(left_type, left_arg.get_position().clone()))
                 }
             },
             BinOp::Greater => {
@@ -1043,17 +1051,17 @@ impl<'ctx> CodeGen<'ctx> {
 
                 if left_value.is_int_value() {
                     if left_type.is_signed()? {
-                            let result = self.builder.build_int_compare(IntPredicate::SGT, left_value.into_int_value(), right_value.into_int_value(), "greater_int")?;
+                            let result = self.builder.build_int_compare(IntPredicate::SGT, left_value.into_int_value(), right_value.into_int_value(), "greater_int").ok_or_with_pos(pos, file!(), line!(), column!())?;
                         Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                     }else{
-                        let result = self.builder.build_int_compare(IntPredicate::UGT, left_value.into_int_value(), right_value.into_int_value(), "greater_int")?;
+                        let result = self.builder.build_int_compare(IntPredicate::UGT, left_value.into_int_value(), right_value.into_int_value(), "greater_int").ok_or_with_pos(pos, file!(), line!(), column!())?;
                             Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                     }
                 }else if left_value.is_float_value() {
-                    let result = self.builder.build_float_compare(FloatPredicate::OGT, left_value.into_float_value(), right_value.into_float_value(), "greater_float")?;
+                    let result = self.builder.build_float_compare(FloatPredicate::OGT, left_value.into_float_value(), right_value.into_float_value(), "greater_float").ok_or_with_pos(pos, file!(), line!(), column!())?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CodeGenError::cannot_compare_value(left_type, left_arg.get_position().clone())))
+                    Err(CodeGenError::cannot_compare_value(left_type, left_arg.get_position().clone()))
                 }
             },
             BinOp::GreaterEqual => {
@@ -1066,17 +1074,17 @@ impl<'ctx> CodeGen<'ctx> {
 
                 if left_value.is_int_value() {
                     if left_type.is_signed()? {
-                            let result = self.builder.build_int_compare(IntPredicate::SGE, left_value.into_int_value(), right_value.into_int_value(), "greater_eq_int")?;
+                            let result = self.builder.build_int_compare(IntPredicate::SGE, left_value.into_int_value(), right_value.into_int_value(), "greater_eq_int").ok_or_with_pos(pos, file!(), line!(), column!())?;
                         Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                     }else{
-                        let result = self.builder.build_int_compare(IntPredicate::UGE, left_value.into_int_value(), right_value.into_int_value(), "greater_eq_int")?;
+                        let result = self.builder.build_int_compare(IntPredicate::UGE, left_value.into_int_value(), right_value.into_int_value(), "greater_eq_int").ok_or_with_pos(pos, file!(), line!(), column!())?;
                             Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                     }
                 }else if left_value.is_float_value() {
-                    let result = self.builder.build_float_compare(FloatPredicate::OGE, left_value.into_float_value(), right_value.into_float_value(), "greater_eq_float")?;
+                    let result = self.builder.build_float_compare(FloatPredicate::OGE, left_value.into_float_value(), right_value.into_float_value(), "greater_eq_float").ok_or_with_pos(pos, file!(), line!(), column!())?;
                     Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
                 }else{
-                    Err(Box::new(CodeGenError::cannot_compare_value(left_type, left_arg.get_position().clone())))
+                    Err(CodeGenError::cannot_compare_value(left_type, left_arg.get_position().clone()))
                 }
             },
             BinOp::And => {
@@ -1100,13 +1108,13 @@ impl<'ctx> CodeGen<'ctx> {
                 let right_value = right.get_value();
 
                 if ! left_value.is_int_value() {
-                    return Err(Box::new(CodeGenError::not_int_in_shift(&left_type, left_arg.get_position().clone())));
+                    return Err(CodeGenError::not_int_in_shift(&left_type, left_arg.get_position().clone()));
                 }
                 if ! right_value.is_int_value() {
-                    return Err(Box::new(CodeGenError::not_int_in_shift(&right_type, right_arg.get_position().clone())));
+                    return Err(CodeGenError::not_int_in_shift(&right_type, right_arg.get_position().clone()));
                 }
 
-                let result = self.builder.build_left_shift(left_value.into_int_value(), right_value.into_int_value(), "ShiftLeft")?;
+                let result = self.builder.build_left_shift(left_value.into_int_value(), right_value.into_int_value(), "ShiftLeft").ok_or_with_pos(pos, file!(), line!(), column!())?;
                 Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
             },
             BinOp::ShiftRight => {
@@ -1118,13 +1126,13 @@ impl<'ctx> CodeGen<'ctx> {
                 let right_value = right.get_value();
 
                 if ! left_value.is_int_value() {
-                    return Err(Box::new(CodeGenError::not_int_in_shift(&left_type, left_arg.get_position().clone())));
+                    return Err(CodeGenError::not_int_in_shift(&left_type, left_arg.get_position().clone()));
                 }
                 if ! right_value.is_int_value() {
-                    return Err(Box::new(CodeGenError::not_int_in_shift(&right_type, right_arg.get_position().clone())));
+                    return Err(CodeGenError::not_int_in_shift(&right_type, right_arg.get_position().clone()));
                 }
 
-                let result = self.builder.build_right_shift(left_value.into_int_value(), right_value.into_int_value(), left_type.is_signed()?, "ShiftRight")?;
+                let result = self.builder.build_right_shift(left_value.into_int_value(), right_value.into_int_value(), left_type.is_signed()?, "ShiftRight").ok_or_with_pos(pos, file!(), line!(), column!())?;
                 Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
             },
             BinOp::BitAnd => {
@@ -1136,13 +1144,13 @@ impl<'ctx> CodeGen<'ctx> {
                 let right_value = right.get_value();
 
                 if ! left_value.is_int_value() {
-                    return Err(Box::new(CodeGenError::not_int_bit_and(&left_type, left_arg.get_position().clone())));
+                    return Err(CodeGenError::not_int_bit_and(&left_type, left_arg.get_position().clone()));
                 }
                 if ! right_value.is_int_value() {
-                    return Err(Box::new(CodeGenError::not_int_bit_and(&right_type, right_arg.get_position().clone())));
+                    return Err(CodeGenError::not_int_bit_and(&right_type, right_arg.get_position().clone()));
                 }
 
-                let result = self.builder.build_and(left_value.into_int_value(), right_value.into_int_value(), "BitAnd")?;
+                let result = self.builder.build_and(left_value.into_int_value(), right_value.into_int_value(), "BitAnd").ok_or_with_pos(pos, file!(), line!(), column!())?;
                 Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
             },
             BinOp::BitOr => {
@@ -1154,13 +1162,13 @@ impl<'ctx> CodeGen<'ctx> {
                 let right_value = right.get_value();
 
                 if ! left_value.is_int_value() {
-                    return Err(Box::new(CodeGenError::not_int_bit_or(&left_type, left_arg.get_position().clone())));
+                    return Err(CodeGenError::not_int_bit_or(&left_type, left_arg.get_position().clone()));
                 }
                 if ! right_value.is_int_value() {
-                    return Err(Box::new(CodeGenError::not_int_bit_or(&right_type, right_arg.get_position().clone())));
+                    return Err(CodeGenError::not_int_bit_or(&right_type, right_arg.get_position().clone()));
                 }
 
-                let result = self.builder.build_and(left_value.into_int_value(), right_value.into_int_value(), "BitOr")?;
+                let result = self.builder.build_and(left_value.into_int_value(), right_value.into_int_value(), "BitOr").ok_or_with_pos(pos, file!(), line!(), column!())?;
                 Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
             },
             BinOp::BitXor => {
@@ -1172,13 +1180,13 @@ impl<'ctx> CodeGen<'ctx> {
                 let right_value = right.get_value();
 
                 if ! left_value.is_int_value() {
-                    return Err(Box::new(CodeGenError::not_int_bit_xor(&left_type, left_arg.get_position().clone())));
+                    return Err(CodeGenError::not_int_bit_xor(&left_type, left_arg.get_position().clone()));
                 }
                 if ! right_value.is_int_value() {
-                    return Err(Box::new(CodeGenError::not_int_bit_xor(&right_type, right_arg.get_position().clone())));
+                    return Err(CodeGenError::not_int_bit_xor(&right_type, right_arg.get_position().clone()));
                 }
 
-                let result = self.builder.build_xor(left_value.into_int_value(), right_value.into_int_value(), "BitXor")?;
+                let result = self.builder.build_xor(left_value.into_int_value(), right_value.into_int_value(), "BitXor").ok_or_with_pos(pos, file!(), line!(), column!())?;
                 Ok(Some(CompiledValue::new(left_type.clone(), result.as_any_value_enum())))
             },
         }
@@ -1190,7 +1198,7 @@ impl<'ctx> CodeGen<'ctx> {
         env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
-    ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
+    ) -> Result<Option<CompiledValue<'ctx>>, CodeGenError> {
 
         let pos = l_expr.get_position();
         let (_fun_type, func) = env.get_current_function().ok_or(CodeGenError::no_current_function(pos.clone()))?;
@@ -1200,7 +1208,7 @@ impl<'ctx> CodeGen<'ctx> {
         let false_block = self.context.append_basic_block(func, "and.false");
         let end_block  = self.context.append_basic_block(func, "and.end");
 
-        self.builder.build_unconditional_branch(left_expr_block)?;
+        self.builder.build_unconditional_branch(left_expr_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
         self.builder.position_at_end(left_expr_block);
 
         // check left expr
@@ -1212,8 +1220,8 @@ impl<'ctx> CodeGen<'ctx> {
             l_value.get_value().into_int_value(),
             zero.as_basic_value_enum().into_int_value(),
             "and.not_zero_left"
-        )?;
-        self.builder.build_conditional_branch(comparison, right_expr_block, false_block)?;
+        ).ok_or_with_pos(pos, file!(), line!(), column!())?;
+        self.builder.build_conditional_branch(comparison, right_expr_block, false_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
 
         // right expr
         self.builder.position_at_end(right_expr_block);
@@ -1225,17 +1233,17 @@ impl<'ctx> CodeGen<'ctx> {
             r_value.get_value().into_int_value(),
             zero.as_basic_value_enum().into_int_value(),
             "and.not_zero_right"
-        )?;
-        self.builder.build_conditional_branch(comparison, end_block, false_block)?;
+        ).ok_or_with_pos(pos, file!(), line!(), column!())?;
+        self.builder.build_conditional_branch(comparison, end_block, false_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
 
         // false block
         self.builder.position_at_end(false_block);
-        self.builder.build_unconditional_branch(end_block)?;
+        self.builder.build_unconditional_branch(end_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
 
         // end block
         self.builder.position_at_end(end_block);
 
-        let phi_value = self.builder.build_phi(self.context.bool_type(), "and.result")?;
+        let phi_value = self.builder.build_phi(self.context.bool_type(), "and.result").ok_or_with_pos(pos, file!(), line!(), column!())?;
         let true_value = self.context.bool_type().const_int(1, false);
         let false_value = self.context.bool_type().const_zero();
         phi_value.add_incoming(&[(&true_value, right_expr_block), (&false_value, false_block)]);
@@ -1249,7 +1257,7 @@ impl<'ctx> CodeGen<'ctx> {
         env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
-    ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
+    ) -> Result<Option<CompiledValue<'ctx>>, CodeGenError> {
 
         let pos = l_expr.get_position();
         let (_fun_type, func) = env.get_current_function().ok_or(CodeGenError::no_current_function(pos.clone()))?;
@@ -1259,7 +1267,7 @@ impl<'ctx> CodeGen<'ctx> {
         let true_block = self.context.append_basic_block(func, "or.true");
         let end_block  = self.context.append_basic_block(func, "or.end");
 
-        self.builder.build_unconditional_branch(left_expr_block)?;
+        self.builder.build_unconditional_branch(left_expr_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
         self.builder.position_at_end(left_expr_block);
 
         // check left expr
@@ -1271,8 +1279,8 @@ impl<'ctx> CodeGen<'ctx> {
             l_value.get_value().into_int_value(),
             zero.as_basic_value_enum().into_int_value(),
             "or.not_zero_left"
-        )?;
-        self.builder.build_conditional_branch(comparison, true_block, right_expr_block)?;
+        ).ok_or_with_pos(pos, file!(), line!(), column!())?;
+        self.builder.build_conditional_branch(comparison, true_block, right_expr_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
 
         // right expr
         self.builder.position_at_end(right_expr_block);
@@ -1284,17 +1292,17 @@ impl<'ctx> CodeGen<'ctx> {
             r_value.get_value().into_int_value(),
             zero.as_basic_value_enum().into_int_value(),
             "or.not_zero_right"
-        )?;
-        self.builder.build_conditional_branch(comparison, true_block, end_block)?;
+        ).ok_or_with_pos(pos, file!(), line!(), column!())?;
+        self.builder.build_conditional_branch(comparison, true_block, end_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
 
         // true block
         self.builder.position_at_end(true_block);
-        self.builder.build_unconditional_branch(end_block)?;
+        self.builder.build_unconditional_branch(end_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
 
         // end block
         self.builder.position_at_end(end_block);
 
-        let phi_value = self.builder.build_phi(self.context.bool_type(), "or.result")?;
+        let phi_value = self.builder.build_phi(self.context.bool_type(), "or.result").ok_or_with_pos(pos, file!(), line!(), column!())?;
         let true_value = self.context.bool_type().const_int(1, false);
         let false_value = self.context.bool_type().const_zero();
         phi_value.add_incoming(&[(&true_value, true_block), (&false_value, right_expr_block)]);
@@ -1307,9 +1315,10 @@ impl<'ctx> CodeGen<'ctx> {
         r_value: &ExprAST,
         env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
-        continue_catcher: Option<&'c ContinueCatcher>
-    ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
-        let compiled_value = self.gen_expr(r_value, env, break_catcher, continue_catcher)?.ok_or(Box::new(CodeGenError::assign_illegal_value(r_value, r_value.get_position().clone())))?;
+        continue_catcher: Option<&'c ContinueCatcher>,
+        pos: &Position
+    ) -> Result<Option<CompiledValue<'ctx>>, CodeGenError> {
+        let compiled_value = self.gen_expr(r_value, env, break_catcher, continue_catcher)?.ok_or(Box::new(CodeGenError::assign_illegal_value(r_value, r_value.get_position().clone()))).ok_or_with_pos(pos, file!(), line!(), column!())?;
         let value = self.try_as_basic_value(&compiled_value.get_value(), l_value.get_position())?;
         let (ptr_type, ptr, _sq) = self.get_l_value_with_const_check(l_value, env, break_catcher, continue_catcher)?;
 
@@ -1318,7 +1327,7 @@ impl<'ctx> CodeGen<'ctx> {
         let ptr_elem_type = TypeUtil::to_basic_type_enum(&ptr_elem_type, &self.context, env, l_value.get_position())?.as_any_type_enum();
 
         if value_type == ptr_elem_type {
-            self.builder.build_store(ptr, value)?;
+            self.builder.build_store(ptr, value).ok_or_with_pos(pos, file!(), line!(), column!())?;
             Ok(Some(compiled_value))
 
         }else{
@@ -1328,15 +1337,15 @@ impl<'ctx> CodeGen<'ctx> {
                 // let t = unsafe { llvm_sys::core::LLVMPointerType(t, address_space) };
                 // let ptr_type = unsafe { PointerType::new(t) };
                 let ptr_type = unsafe { PointerType::new(t) };
-                let ptr = self.builder.build_pointer_cast(ptr, ptr_type, "cast_ptr_to_value_typ_ptr")?;
-                self.builder.build_store(ptr, value)?;
+                let ptr = self.builder.build_pointer_cast(ptr, ptr_type, "cast_ptr_to_value_typ_ptr").ok_or_with_pos(pos, file!(), line!(), column!())?;
+                self.builder.build_store(ptr, value).ok_or_with_pos(pos, file!(), line!(), column!())?;
                 Ok(Some(compiled_value))
 
             }else{
                 let casted = self.gen_implicit_cast(&value.as_any_value_enum(), &compiled_value.get_type(), &ptr_type, env, r_value.get_position())?;
                 let compiled_value2 = CompiledValue::new(ptr_type.clone(), casted);
                 let value2 = self.try_as_basic_value(&compiled_value2.get_value(), l_value.get_position())?;
-                self.builder.build_store(ptr, value2)?;
+                self.builder.build_store(ptr, value2).ok_or_with_pos(pos, file!(), line!(), column!())?;
 
                 Ok(Some(compiled_value2))
             }
@@ -1349,13 +1358,14 @@ impl<'ctx> CodeGen<'ctx> {
         r_value: &ExprAST,
         env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
-        continue_catcher: Option<&'c ContinueCatcher>
-    ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
-        let compiled_value = self.gen_bin_expr(op, l_value, r_value, env, break_catcher, continue_catcher)?.ok_or(Box::new(CodeGenError::cannot_calculate(l_value.get_position().clone())))?;
+        continue_catcher: Option<&'c ContinueCatcher>,
+        pos: &Position
+    ) -> Result<Option<CompiledValue<'ctx>>, CodeGenError> {
+        let compiled_value = self.gen_bin_expr(op, l_value, r_value, env, break_catcher, continue_catcher, pos)?.ok_or(Box::new(CodeGenError::cannot_calculate(l_value.get_position().clone()))).ok_or_with_pos(pos, file!(), line!(), column!())?;
         let value = self.try_as_basic_value(&compiled_value.get_value(), l_value.get_position())?;
         let (_to_type, ptr, _sq) = self.get_l_value_with_const_check(l_value, env, break_catcher, continue_catcher)?;
 
-        self.builder.build_store(ptr, value)?;
+        self.builder.build_store(ptr, value).ok_or_with_pos(pos, file!(), line!(), column!())?;
         Ok(Some(compiled_value))
     }
 
@@ -1364,7 +1374,7 @@ impl<'ctx> CodeGen<'ctx> {
         env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
-    ) -> Result<(Rc<Type>, PointerValue<'ctx>, SpecifierQualifier), Box<dyn Error>> {
+    ) -> Result<(Rc<Type>, PointerValue<'ctx>, SpecifierQualifier), CodeGenError> {
 
         let (typ, ptr, sq) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
 
@@ -1374,7 +1384,7 @@ impl<'ctx> CodeGen<'ctx> {
         || (!is_pointer && sq.is_const())
         {
             let pos = ast.get_position();
-            return Err(Box::new(CodeGenError::cannot_assign_constant(pos.clone())));
+            return Err(CodeGenError::cannot_assign_constant(pos.clone()));
         }
 
         return Ok((typ, ptr, sq.clone()));
@@ -1385,10 +1395,10 @@ impl<'ctx> CodeGen<'ctx> {
         env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
-    ) -> Result<(Rc<Type>, PointerValue<'ctx>, SpecifierQualifier), Box<dyn Error>> {
+    ) -> Result<(Rc<Type>, PointerValue<'ctx>, SpecifierQualifier), CodeGenError> {
         match ast {
             ExprAST::Symbol(name, pos) => {
-                let (typ, sq, ptr) = env.get_ptr(&name).ok_or(Box::new(CodeGenError::no_such_a_variable(&name, pos.clone())))?;
+                let (typ, sq, ptr) = env.get_ptr(&name).ok_or(CodeGenError::no_such_a_variable(&name, pos.clone()))?;
                 Ok((Rc::clone(typ), ptr, sq.clone()))
             },
             ExprAST::UnaryPointerAccess(boxed_ast, pos) => {  // *pointer
@@ -1396,11 +1406,11 @@ impl<'ctx> CodeGen<'ctx> {
                 let (typ, ptr_to_ptr, sq) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
 
                 if let Some(type2) = typ.peel_off_pointer() {
-                    let ptr = self.builder.build_load(TypeUtil::to_basic_type_enum(&typ, &self.context, env, pos)?, ptr_to_ptr, "load_ptr")?;
+                    let ptr = self.builder.build_load(TypeUtil::to_basic_type_enum(&typ, &self.context, env, pos)?, ptr_to_ptr, "load_ptr").ok_or_with_pos(pos, file!(), line!(), column!())?;
 
                     Ok((Type::new_pointer_type(type2.clone(), sq.is_const(), sq.is_volatile()).into(), ptr.into_pointer_value(), sq))
                 }else{
-                    Err(Box::new(CodeGenError::not_pointer(&typ, pos.clone())))
+                    Err(CodeGenError::not_pointer(&typ, pos.clone()))
                 }
             },
             ExprAST::MemberAccess(expr, member_name, pos) => {  // struct_or_union.member
@@ -1425,7 +1435,7 @@ impl<'ctx> CodeGen<'ctx> {
                         if let Ok(p) = elem_ptr {
                             Ok((elem_type.clone(), p, sq.clone()))
                         }else{
-                            return Err(Box::new(CodeGenError::cannot_access_struct_member(&member_name, pos.clone())));
+                            return Err(CodeGenError::cannot_access_struct_member(&member_name, pos.clone()));
                         }
                     },
                     Type::BoundStructType { struct_type: st_ty, map } => {
@@ -1435,13 +1445,13 @@ impl<'ctx> CodeGen<'ctx> {
                         if let Some(typ_vars) = type_variables {
                             if typ_vars.len() != map.len() {
                                 env.remove_local_types();
-                                return Err(Box::new(CodeGenError::mismatch_type_variables_in_bound_enum(typ_vars.len(), map.len(), pos.clone())));
+                                return Err(CodeGenError::mismatch_type_variables_in_bound_enum(typ_vars.len(), map.len(), pos.clone()));
                             }
                             env.set_type_variables(typ_vars, map, pos)?;
                         }else{
                             if map.len() != 0 {
                                 env.remove_local_types();
-                                return Err(Box::new(CodeGenError::mismatch_type_variables_in_bound_enum(0, map.len(), pos.clone())));
+                                return Err(CodeGenError::mismatch_type_variables_in_bound_enum(0, map.len(), pos.clone()));
                             }
                         }
 
@@ -1472,7 +1482,7 @@ impl<'ctx> CodeGen<'ctx> {
                             }
                         }else{
                             env.remove_local_types();
-                            return Err(Box::new(CodeGenError::cannot_access_struct_member(&member_name, pos.clone())));
+                            return Err(CodeGenError::cannot_access_struct_member(&member_name, pos.clone()));
                         }
                     },
                     Type::Union { name, fields, .. } => {
@@ -1492,7 +1502,7 @@ impl<'ctx> CodeGen<'ctx> {
                                 let index_len = index_list.len();
 
                                 if index_len > 1 {
-                                    return Err(Box::new(CodeGenError::array_index_is_too_long(pos.clone())));
+                                    return Err(CodeGenError::array_index_is_too_long(pos.clone()));
                                 }
 
                                 let i32_type = self.context.i32_type();
@@ -1501,15 +1511,15 @@ impl<'ctx> CodeGen<'ctx> {
                                 let index_val = value.get_value().into_int_value();
                                 let index_list = [const_zero, index_val];
                                 let ty = TypeUtil::to_basic_type_enum(&expr_type, &self.context, env, pos)?;
-                                let ptr = self.builder.build_load(ty, base_ptr, "load_ptr")?.into_pointer_value();
+                                let ptr = self.builder.build_load(ty, base_ptr, "load_ptr").ok_or_with_pos(pos, file!(), line!(), column!())?.into_pointer_value();
                                 // let ptr = unsafe { ptr.const_in_bounds_gep(TypeUtil::to_basic_type_enum(&elem_type, &self.context, pos)?, &index_list) };
                                 let ty2 = TypeUtil::to_basic_type_enum(&elem_type, &self.context, env, pos)?;
-                                let ptr = unsafe { self.builder.build_in_bounds_gep(ty2, ptr, &index_list, "in_bounds_gep")? };
+                                let ptr = unsafe { self.builder.build_in_bounds_gep(ty2, ptr, &index_list, "in_bounds_gep").ok_or_with_pos(pos, file!(), line!(), column!())? };
 
                                 let typ = if let Some(type2) = expr_type.peel_off_pointer() {
                                     type2
                                 }else{
-                                    return Err(Box::new(CodeGenError::not_pointer(&expr_type, pos.clone())));
+                                    return Err(CodeGenError::not_pointer(&expr_type, pos.clone()));
                                 };
                                 match typ.as_ref() {
                                     Type::Struct(st_ty) => {
@@ -1529,7 +1539,7 @@ impl<'ctx> CodeGen<'ctx> {
                                         if let Ok(p) = elem_ptr {
                                             Ok((elem_type.clone(), p, sq.clone()))
                                         }else{
-                                            return Err(Box::new(CodeGenError::cannot_access_struct_member(&member_name, pos.clone())));
+                                            return Err(CodeGenError::cannot_access_struct_member(&member_name, pos.clone()));
                                         }
                                     },
                                     Type::Union { name, fields, .. } => {
@@ -1541,25 +1551,25 @@ impl<'ctx> CodeGen<'ctx> {
                                         Ok((type2.clone(), p, sq.clone()))
                                     },
                                     _ => {
-                                        Err(Box::new(CodeGenError::has_not_member(typ.to_string(), member_name.to_string(), pos.clone())))
+                                        Err(CodeGenError::has_not_member(typ.to_string(), member_name.to_string(), pos.clone()))
                                     }
                                 }
 
                             },
                             _ => {
-                                Err(Box::new(CodeGenError::has_not_member(typ.to_string(), member_name.to_string(), pos.clone())))
+                                Err(CodeGenError::has_not_member(typ.to_string(), member_name.to_string(), pos.clone()))
                             },
                         }
                     },
                     _ => {
-                        Err(Box::new(CodeGenError::has_not_member(typ.to_string(), member_name.to_string(), pos.clone())))
+                        Err(CodeGenError::has_not_member(typ.to_string(), member_name.to_string(), pos.clone()))
                     }
                 }
             },
             ExprAST::PointerAccess(expr, member_name, pos) => {  // ptr->member
                 let ast = &**expr;
                 let (typ, ptr, _sq) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
-                let ptr = self.builder.build_load(TypeUtil::to_basic_type_enum(&*typ, &self.context, env, pos)?, ptr, "get_pointer")?.into_pointer_value();
+                let ptr = self.builder.build_load(TypeUtil::to_basic_type_enum(&*typ, &self.context, env, pos)?, ptr, "get_pointer").ok_or_with_pos(pos, file!(), line!(), column!())?.into_pointer_value();
                 let typ = TypeUtil::get_type(ast, env)?;
                 let pointed_type = typ.get_pointed_type(pos)?;
 
@@ -1575,7 +1585,7 @@ impl<'ctx> CodeGen<'ctx> {
                             let typ = definition.get_field_type_by_name(member_name).unwrap();
                             Ok((typ.clone(), p, sq.clone()))
                         }else{
-                            return Err(Box::new(CodeGenError::cannot_access_struct_member(&member_name, pos.clone())));
+                            return Err(CodeGenError::cannot_access_struct_member(&member_name, pos.clone()));
                         }
                     },
                     Type::Union { name, fields, .. } => {
@@ -1587,7 +1597,7 @@ impl<'ctx> CodeGen<'ctx> {
                         Ok((type2.clone(), p, sq.clone()))
                     },
                     _ => {
-                        Err(Box::new(CodeGenError::has_not_member(pointed_type.to_string(), member_name.to_string(), pos.clone())))
+                        Err(CodeGenError::has_not_member(pointed_type.to_string(), member_name.to_string(), pos.clone()))
                     },
                 }
             },
@@ -1601,15 +1611,15 @@ impl<'ctx> CodeGen<'ctx> {
                 //
                 if let Type::Pointer(_, elem_type) = expr_type.as_ref() {
                     if index_len > 1 {
-                        return Err(Box::new(CodeGenError::array_index_is_too_long(pos.clone())));
+                        return Err(CodeGenError::array_index_is_too_long(pos.clone()));
                     }
 
-                    let ptr = self.builder.build_load(TypeUtil::to_basic_type_enum(&expr_type, &self.context, env, pos)?, base_ptr, "load_ptr")?.into_pointer_value();
+                    let ptr = self.builder.build_load(TypeUtil::to_basic_type_enum(&expr_type, &self.context, env, pos)?, base_ptr, "load_ptr").ok_or_with_pos(pos, file!(), line!(), column!())?.into_pointer_value();
                     let value = self.gen_expr(&index_list[0], env, break_catcher, continue_catcher)?.ok_or(CodeGenError::no_index_value_while_access_array(pos.clone()))?;
                     let index_val = value.get_value().into_int_value();
                     let index_list = [index_val];
                     let ty = TypeUtil::to_basic_type_enum(&elem_type, &self.context, env, pos)?;
-                    let ptr = unsafe { self.builder.build_in_bounds_gep(ty, ptr, &index_list, "gep_for_array_element")? };
+                    let ptr = unsafe { self.builder.build_in_bounds_gep(ty, ptr, &index_list, "gep_for_array_element").ok_or_with_pos(pos, file!(), line!(), column!())? };
                     // let ptr = unsafe { ptr.const_in_bounds_gep(ty, &index_list) };
 
                     return Ok((*elem_type.clone(), ptr, sq));
@@ -1619,13 +1629,13 @@ impl<'ctx> CodeGen<'ctx> {
                 // when Array
                 //
                 if ! expr_type.is_array() {
-                    return Err(Box::new(CodeGenError::not_array(ast.clone(), pos.clone())));
+                    return Err(CodeGenError::not_array(ast.clone(), pos.clone()));
                 }
                 let array_dim = expr_type.get_array_dimension();
                 let array_dim_len = array_dim.len();
 
                 if index_len > array_dim_len {
-                    return Err(Box::new(CodeGenError::array_index_is_too_long(pos.clone())));
+                    return Err(CodeGenError::array_index_is_too_long(pos.clone()));
                 }
 
                 let item_type = expr_type.get_array_item_type();
@@ -1658,12 +1668,12 @@ impl<'ctx> CodeGen<'ctx> {
 
                 // ptr = unsafe { ptr.const_in_bounds_gep(TypeUtil::to_basic_type_enum(&expr_type, &self.context, pos)?, &vec) };
                 let ty = TypeUtil::to_basic_type_enum(&expr_type, &self.context, env, pos)?;
-                ptr = unsafe { self.builder.build_in_bounds_gep(ty, ptr, &vec, "gep_for_array_element")? };
+                ptr = unsafe { self.builder.build_in_bounds_gep(ty, ptr, &vec, "gep_for_array_element").ok_or_with_pos(pos, file!(), line!(), column!())? };
 
                 Ok((result_type, ptr, sq))
             },
             ExprAST::_self(pos) => {
-                let (typ, sq, ptr) = env.get_ptr("self").ok_or(Box::new(CodeGenError::no_such_a_variable("self", pos.clone())))?;
+                let (typ, sq, ptr) = env.get_ptr("self").ok_or(CodeGenError::no_such_a_variable("self", pos.clone()))?;
                 Ok((typ.clone(), ptr, sq.clone()))
             },
             ExprAST::SelfStaticSymbol(var_name, pos) => {
@@ -1672,14 +1682,14 @@ impl<'ctx> CodeGen<'ctx> {
                 if let Some((typ, sq, ptr)) = cls.get_class_var(var_name) {
                     Ok((typ.clone(), ptr.as_pointer_value(), sq.clone()))
                 }else{
-                    return Err(Box::new(CodeGenError::no_such_a_class_var(cls.get_name().to_string(), var_name.clone(), pos.clone())));
+                    return Err(CodeGenError::no_such_a_class_var(cls.get_name().to_string(), var_name.clone(), pos.clone()));
                 }
             },
             ExprAST::TypeMemberAccess(struct_name, var_name, pos) => {
                 if let Some((type2, sq, ptr)) = env.get_class_var(struct_name, var_name) {
                     Ok((Rc::clone(type2), ptr.as_pointer_value(), sq.clone()))
                 }else{
-                    return Err(Box::new(CodeGenError::no_such_a_class_var(struct_name.clone(), var_name.clone(), pos.clone())));
+                    return Err(CodeGenError::no_such_a_class_var(struct_name.clone(), var_name.clone(), pos.clone()));
                 }
             },
             ExprAST::TupleMemberAccess(tpl, index, pos) => {
@@ -1689,7 +1699,7 @@ impl<'ctx> CodeGen<'ctx> {
                 self.get_pointed_indexed_tuple_ptr_and_type(expr_ast, *index, pos, env, break_catcher, continue_catcher)
             },
             _ => {
-                Err(Box::new(CodeGenError::has_not_l_value(format!("{:?}", ast), ast.get_position().clone())))
+                Err(CodeGenError::has_not_l_value(format!("{:?}", ast), ast.get_position().clone()))
             }
         }
     }
@@ -1702,13 +1712,13 @@ impl<'ctx> CodeGen<'ctx> {
         env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
-    ) -> Result<(Rc<Type>, PointerValue<'ctx>, SpecifierQualifier), Box<dyn Error>> {
+    ) -> Result<(Rc<Type>, PointerValue<'ctx>, SpecifierQualifier), CodeGenError> {
         //
         // is expr tuple?
         //
         let tuple_type = TypeUtil::get_type(&tpl, env)?;
         if ! tuple_type.is_tuple() {
-            return Err(Box::new(CodeGenError::not_tuple_in_tuple_access_by_index(tpl.clone(), pos.clone())));
+            return Err(CodeGenError::not_tuple_in_tuple_access_by_index(tpl.clone(), pos.clone()));
         }
 
         //
@@ -1716,7 +1726,7 @@ impl<'ctx> CodeGen<'ctx> {
         //
         let size = tuple_type.get_tuple_size().unwrap();
         if size <= index {
-            return Err(Box::new(CodeGenError::tuple_index_too_big(size, index, pos.clone())));
+            return Err(CodeGenError::tuple_index_too_big(size, index, pos.clone()));
         }
 
         //
@@ -1730,7 +1740,7 @@ impl<'ctx> CodeGen<'ctx> {
 
         let (_typ, tuple_ptr, sq) = self.get_l_value(&tpl, env, break_catcher, continue_catcher)?;
         let t = TypeUtil::to_basic_type_enum(&tuple_type, &self.context, env, pos)?;
-        let ptr = unsafe { self.builder.build_in_bounds_gep(t, tuple_ptr, &indexes, "gep_for_tuple_element")? };
+        let ptr = unsafe { self.builder.build_in_bounds_gep(t, tuple_ptr, &indexes, "gep_for_tuple_element").ok_or_with_pos(pos, file!(), line!(), column!())? };
 
         let elem_type = {
             match &*tuple_type {
@@ -1752,10 +1762,10 @@ impl<'ctx> CodeGen<'ctx> {
         env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
-    ) -> Result<(Rc<Type>, PointerValue<'ctx>, SpecifierQualifier), Box<dyn Error>> {
+    ) -> Result<(Rc<Type>, PointerValue<'ctx>, SpecifierQualifier), CodeGenError> {
 
         let (typ, ptr, sq) = self.get_l_value(ast, env, break_catcher, continue_catcher)?;
-        let tuple_ptr = self.builder.build_load(TypeUtil::to_basic_type_enum(&*typ, &self.context, env, pos)?, ptr, "get_pointer")?.into_pointer_value();
+        let tuple_ptr = self.builder.build_load(TypeUtil::to_basic_type_enum(&*typ, &self.context, env, pos)?, ptr, "get_pointer").ok_or_with_pos(pos, file!(), line!(), column!())?.into_pointer_value();
         let typ = TypeUtil::get_type(ast, env)?;
         let tuple_type = typ.get_pointed_type(pos)?;
 
@@ -1763,7 +1773,7 @@ impl<'ctx> CodeGen<'ctx> {
         // is expr tuple?
         //
         if ! tuple_type.is_tuple() {
-            return Err(Box::new(CodeGenError::not_tuple_in_tuple_access_by_index(ast.clone(), pos.clone())));
+            return Err(CodeGenError::not_tuple_in_tuple_access_by_index(ast.clone(), pos.clone()));
         }
 
         //
@@ -1771,7 +1781,7 @@ impl<'ctx> CodeGen<'ctx> {
         //
         let size = tuple_type.get_tuple_size().unwrap();
         if size <= index {
-            return Err(Box::new(CodeGenError::tuple_index_too_big(size, index, pos.clone())));
+            return Err(CodeGenError::tuple_index_too_big(size, index, pos.clone()));
         }
 
         //
@@ -1785,7 +1795,7 @@ impl<'ctx> CodeGen<'ctx> {
 
         // let (_typ, tuple_ptr) = self.get_l_value(&tpl, env, break_catcher, continue_catcher)?;
         let t = TypeUtil::to_basic_type_enum(&tuple_type, &self.context, env, pos)?;
-        let ptr = unsafe { self.builder.build_in_bounds_gep(t, tuple_ptr, &indexes, "gep_for_tuple_element")? };
+        let ptr = unsafe { self.builder.build_in_bounds_gep(t, tuple_ptr, &indexes, "gep_for_tuple_element").ok_or_with_pos(pos, file!(), line!(), column!())? };
 
         let elem_type = {
             match &*tuple_type {
@@ -1799,21 +1809,21 @@ impl<'ctx> CodeGen<'ctx> {
         Ok((Rc::clone(elem_type), ptr, sq))
     }
 
-    pub fn bin_expr_implicit_cast(&self, left: CompiledValue<'ctx>, right: CompiledValue<'ctx>, pos: &Position) -> Result<(CompiledValue<'ctx>, CompiledValue<'ctx>), Box<dyn Error>> {
+    pub fn bin_expr_implicit_cast(&self, left: CompiledValue<'ctx>, right: CompiledValue<'ctx>, pos: &Position) -> Result<(CompiledValue<'ctx>, CompiledValue<'ctx>), CodeGenError> {
         if let (Type::Number(left_type), Type::Number(right_type)) = (left.get_type().as_ref(), right.get_type().as_ref()) {
             if left_type == right_type {
                 Ok((left, right))
 
             }else if left_type < right_type {
                 let typ = self.as_int_type(right_type, &right, pos)?;
-                let other = self.builder.build_int_cast(left.get_value().into_int_value(), typ, "implicit cast")?;
+                let other = self.builder.build_int_cast(left.get_value().into_int_value(), typ, "implicit cast").ok_or_with_pos(pos, file!(), line!(), column!())?;
                 let other = CompiledValue::new(Rc::clone(right.get_type()), other.as_any_value_enum());
                 Ok((right.clone(), other))
 
             }else{  // left_type > right_type
                 let typ = self.as_int_type(left_type, &left, pos)?;
                 // let other = right.get_value().into_int_value().const_cast(typ, left_type.is_signed());
-                let other = self.builder.build_int_cast(right.get_value().into_int_value(), typ, "implicit cast")?;
+                let other = self.builder.build_int_cast(right.get_value().into_int_value(), typ, "implicit cast").ok_or_with_pos(pos, file!(), line!(), column!())?;
                 let other = CompiledValue::new(Rc::clone(left.get_type()), other.as_any_value_enum());
                 Ok((left.clone(), other))
             }
@@ -1822,7 +1832,7 @@ impl<'ctx> CodeGen<'ctx> {
         }
     }
 
-    fn as_int_type(&self, num_type: &NumberType, _value: &CompiledValue<'ctx>, pos: &Position) -> Result<IntType<'ctx>, Box<dyn Error>> {
+    fn as_int_type(&self, num_type: &NumberType, _value: &CompiledValue<'ctx>, pos: &Position) -> Result<IntType<'ctx>, CodeGenError> {
         match num_type {
             NumberType::Char | NumberType::UnsignedChar => Ok(self.context.i8_type()),
             NumberType::Int | NumberType::UnsignedInt => Ok(self.context.i32_type()),
@@ -1830,7 +1840,7 @@ impl<'ctx> CodeGen<'ctx> {
             NumberType::LongLong | NumberType::UnsignedLongLong => Ok(self.context.i64_type()),
             NumberType::Short | NumberType::UnsignedShort => Ok(self.context.i16_type()),
             NumberType::_Bool => Ok(self.context.bool_type()),
-            _ => Err(Box::new(CodeGenError::float_or_double_cannot_convert_to_int_type(pos.clone()))),
+            _ => Err(CodeGenError::float_or_double_cannot_convert_to_int_type(pos.clone())),
         }
     }
 }

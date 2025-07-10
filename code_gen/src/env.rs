@@ -1,7 +1,6 @@
 #![allow(dead_code)]
 
 use std::collections::HashMap;
-use std::error::Error;
 use std::rc::Rc;
 use inkwell::values::{PointerValue, FunctionValue, GlobalValue, AnyValueEnum, IntValue, BasicValueEnum, BasicValue};
 use inkwell::types::{StructType, AnyTypeEnum, AnyType, BasicTypeEnum, IntType, BasicType};
@@ -236,7 +235,7 @@ impl<'ctx> BoundTaggedEnum<'ctx> {
         bound_map: HashMap<String, (Rc<Type>, BasicTypeEnum<'ctx>)>,
         env: &mut Env<'ctx>,
         pos: &Position
-    ) -> Result<Self, Box<dyn Error>> {
+    ) -> Result<Self, CodeGenError> {
 
         env.add_new_local_types();
 
@@ -249,7 +248,7 @@ impl<'ctx> BoundTaggedEnum<'ctx> {
         let mut max_size = 0;
         let mut max_size_type = None;
         for (_ty, basic_ty) in &type_list {
-            let size = CodeGen::size_of(basic_ty)?;
+            let size = CodeGen::size_of(basic_ty, pos)?;
             if size > max_size {
                 max_size = size;
                 max_size_type = Some(basic_ty.clone());
@@ -323,7 +322,7 @@ impl<'ctx> TaggedEnum<'ctx> {
         bound_map: HashMap<String, (Rc<Type>, BasicTypeEnum<'ctx>)>,
         env: &mut Env<'ctx>,
         pos: &Position
-    ) ->Result<Self, Box<dyn Error>> {
+    ) ->Result<Self, CodeGenError> {
         let bound_enum = BoundTaggedEnum::try_new(type_var_enum, type_list, index_map, bound_map, env, pos)?;
         Ok(TaggedEnum::Bound(bound_enum))
     }
@@ -877,9 +876,9 @@ impl<'ctx> Env<'ctx> {
         Ok(())
     }
 
-    pub fn insert_typedef(&mut self, key: &str, typ: &Type, ctx: &'ctx Context, pos: &Position) -> Result<(), Box<dyn Error>> {
+    pub fn insert_typedef(&mut self, key: &str, typ: &Type, ctx: &'ctx Context, pos: &Position) -> Result<(), CodeGenError> {
         if let Some(_any_type_enum) = self.types.get(key) {
-            return Err(Box::new(CodeGenError::already_type_defined_in_typedef(typ, key, pos.clone())));
+            return Err(CodeGenError::already_type_defined_in_typedef(typ, key, pos.clone()));
         }
 
         match typ {
@@ -897,7 +896,7 @@ impl<'ctx> Env<'ctx> {
                         let cust_t = gen_t.get_struct_type().unwrap();
                         let def2 = cust_t.get_struct_definition();
                         if ! gen_t.is_struct_type() && (definition != def2) {
-                            return  Err(Box::new(CodeGenError::already_type_defined_in_typedef(typ, struct_name, pos.clone())));
+                            return  Err(CodeGenError::already_type_defined_in_typedef(typ, struct_name, pos.clone()));
                         }
 
                         self.types.insert(key.to_string(), (gen_t.clone(), None));
@@ -919,7 +918,7 @@ impl<'ctx> Env<'ctx> {
                 if let Some(id) = name {
                     if let Some(t) = self.get_gen_type(id, ctx, pos)? {
                         if ! t.is_union_type() {
-                            return  Err(Box::new(CodeGenError::already_type_defined_in_typedef(typ, id, pos.clone())));
+                            return  Err(CodeGenError::already_type_defined_in_typedef(typ, id, pos.clone()));
                         }
 
                         self.types.insert(key.to_string(), (t.clone(), None));
@@ -986,7 +985,7 @@ impl<'ctx> Env<'ctx> {
         Ok(())
     }
 
-    pub fn basic_type_enum_from_type(&mut self, typ: &Type, ctx: &'ctx Context, pos: &Position) -> Result<BasicTypeEnum<'ctx>, Box<dyn Error>> {
+    pub fn basic_type_enum_from_type(&mut self, typ: &Type, ctx: &'ctx Context, pos: &Position) -> Result<BasicTypeEnum<'ctx>, CodeGenError> {
         match typ {
             Type::Struct(st_ty) => {
                 let name = st_ty.get_name();
@@ -1002,7 +1001,7 @@ impl<'ctx> Env<'ctx> {
                                     if let Ok(basic_type) = BasicTypeEnum::try_from(*t) {
                                         return Ok(basic_type);
                                     }else{
-                                        return Err(Box::new(CodeGenError::mismatch_type_struct_fields(Some(id), pos.clone())));
+                                        return Err(CodeGenError::mismatch_type_struct_fields(Some(id), pos.clone()));
                                     }
                                 },
                                 GenType::Union { max_size_type, .. } => {
@@ -1016,7 +1015,7 @@ impl<'ctx> Env<'ctx> {
                                     if let Some(t) = gen_enum.get_max_size_type() {
                                         return Ok(t);
                                     }else{
-                                        return Err(Box::new(CodeGenError::enum_has_no_field(gen_enum.get_name().to_string(), pos.clone())));
+                                        return Err(CodeGenError::enum_has_no_field(gen_enum.get_name().to_string(), pos.clone()));
                                     }
                                 },
                                 GenType::TypeDefStruct(_name, gen_t) => {
@@ -1031,7 +1030,7 @@ impl<'ctx> Env<'ctx> {
                                     let (st, _map2) = CodeGen::struct_from_struct_definition(name, struct_def, ctx, self, pos)?;
 
                                     if st.size_of().is_none() {
-                                        return  Err(Box::new(CodeGenError::cannot_get_size_of(&Rc::new(typ.clone()), pos.clone())));
+                                        return  Err(CodeGenError::cannot_get_size_of(&Rc::new(typ.clone()), pos.clone()));
                                     }
 
                                     let basic_type = BasicTypeEnum::try_from(st).unwrap();
@@ -1062,7 +1061,7 @@ impl<'ctx> Env<'ctx> {
                                     if let Ok(basic_type) = BasicTypeEnum::try_from(*t) {
                                         return Ok(basic_type);
                                     }else{
-                                        return Err(Box::new(CodeGenError::mismatch_type_struct_fields(Some(id), pos.clone())));
+                                        return Err(CodeGenError::mismatch_type_struct_fields(Some(id), pos.clone()));
                                     }
                                 },
                                 GenType::Union { max_size_type, .. } => {
@@ -1076,7 +1075,7 @@ impl<'ctx> Env<'ctx> {
                                     if let Some(t) = gen_enum.get_max_size_type() {
                                         return Ok(t);
                                     }else{
-                                        return Err(Box::new(CodeGenError::enum_has_no_field(gen_enum.get_name().to_string(), pos.clone())));
+                                        return Err(CodeGenError::enum_has_no_field(gen_enum.get_name().to_string(), pos.clone()));
                                     }
                                 },
                                 GenType::TypeDefStruct(_name, gen_t) => {
@@ -1087,7 +1086,7 @@ impl<'ctx> Env<'ctx> {
                                 },
                                 GenType::Struct(struct_type) => {
                                     let name = struct_type.get_name().as_ref().unwrap();
-                                    return Err(Box::new(CodeGenError::cannot_convert_to_basic_type(name.to_string(), pos.clone())));
+                                    return Err(CodeGenError::cannot_convert_to_basic_type(name.to_string(), pos.clone()));
                                 },
                             }
                         }
@@ -1114,7 +1113,7 @@ impl<'ctx> Env<'ctx> {
                                     if let Ok(basic_type) = BasicTypeEnum::try_from(*t) {
                                         return Ok(basic_type);
                                     }else{
-                                        return Err(Box::new(CodeGenError::mismatch_type_struct_fields(Some(name), pos.clone())));
+                                        return Err(CodeGenError::mismatch_type_struct_fields(Some(name), pos.clone()));
                                     }
                                 },
                                 GenType::Union { max_size_type, .. } => {
@@ -1136,13 +1135,13 @@ impl<'ctx> Env<'ctx> {
                                 },
                                 GenType::Struct(struct_type) => {
                                     let name = struct_type.get_name().as_ref().unwrap();
-                                    return Err(Box::new(CodeGenError::cannot_convert_to_basic_type(name.to_string(), pos.clone())))
+                                    return Err(CodeGenError::cannot_convert_to_basic_type(name.to_string(), pos.clone()))
                                 },
                             }
                         }
 
                     }else{
-                        Err(Box::new(CodeGenError::no_such_a_type(name, pos.clone())))
+                        Err(CodeGenError::no_such_a_type(name, pos.clone()))
                     }
                 }
             },
@@ -1155,7 +1154,7 @@ impl<'ctx> Env<'ctx> {
 
                 if enum_def.is_standard() {
                     if map.len() != 0 {
-                        return Err(Box::new(CodeGenError::mismatch_type_variables_in_bound_enum(0, map.len(), pos.clone())));
+                        return Err(CodeGenError::mismatch_type_variables_in_bound_enum(0, map.len(), pos.clone()));
                     }
 
                     let tag_type = global().enum_tag_type();
@@ -1167,12 +1166,12 @@ impl<'ctx> Env<'ctx> {
 
                 if let Some(typ_vars) = type_variables {
                     if typ_vars.len() != map.len() {
-                        return Err(Box::new(CodeGenError::mismatch_type_variables_in_bound_enum(typ_vars.len(), map.len(), pos.clone())));
+                        return Err(CodeGenError::mismatch_type_variables_in_bound_enum(typ_vars.len(), map.len(), pos.clone()));
                     }
                     self.set_type_variables(typ_vars, map, pos)?;
                 }else{
                     if map.len() != 0 {
-                        return Err(Box::new(CodeGenError::mismatch_type_variables_in_bound_enum(0, map.len(), pos.clone())));
+                        return Err(CodeGenError::mismatch_type_variables_in_bound_enum(0, map.len(), pos.clone()));
                     }
                 }
 
@@ -1182,7 +1181,7 @@ impl<'ctx> Env<'ctx> {
                 for field in fields {
                     if let Some(field_type) = field.get_type() {
                         let basic_type = TypeUtil::to_basic_type_enum(&field_type, ctx, self, pos)?;
-                        let size = CodeGen::size_of(&basic_type)?;
+                        let size = CodeGen::size_of(&basic_type, pos)?;
                         if size > max_size {
                             max_size = size;
                             max_size_type = Some(basic_type);
@@ -1212,12 +1211,12 @@ impl<'ctx> Env<'ctx> {
                 let type_variables = struct_type.get_type_variables();
                 if let Some(typ_vars) = type_variables {
                     if typ_vars.len() != map.len() {
-                        return Err(Box::new(CodeGenError::mismatch_type_variables_in_bound_enum(typ_vars.len(), map.len(), pos.clone())));
+                        return Err(CodeGenError::mismatch_type_variables_in_bound_enum(typ_vars.len(), map.len(), pos.clone()));
                     }
                     self.set_type_variables(typ_vars, map, pos)?;
                 }else{
                     if map.len() != 0 {
-                        return Err(Box::new(CodeGenError::mismatch_type_variables_in_bound_enum(0, map.len(), pos.clone())));
+                        return Err(CodeGenError::mismatch_type_variables_in_bound_enum(0, map.len(), pos.clone()));
                     }
                 }
 
@@ -1226,7 +1225,7 @@ impl<'ctx> Env<'ctx> {
                 let (st, _map2) = CodeGen::struct_from_struct_definition(name, struct_def, ctx, self, pos)?;
 
                 if st.size_of().is_none() {
-                    return  Err(Box::new(CodeGenError::cannot_get_size_of(&Rc::new(typ.clone()), pos.clone())));
+                    return  Err(CodeGenError::cannot_get_size_of(&Rc::new(typ.clone()), pos.clone()));
                 }
 
                 // add tag type
@@ -1252,16 +1251,16 @@ impl<'ctx> Env<'ctx> {
         }
     }
 
-    pub fn set_type_variables(&mut self, type_variables: &Vec<String>, map: &HashMap<String, Rc<Type>>, pos: &Position) -> Result<(), Box<dyn Error>> {
+    pub fn set_type_variables(&mut self, type_variables: &Vec<String>, map: &HashMap<String, Rc<Type>>, pos: &Position) -> Result<(), CodeGenError> {
         let map_len = map.len();
 
         if type_variables.len() != map_len {
-            return Err(Box::new(CodeGenError::mismatch_type_variables_in_bound_enum(type_variables.len(), map.len(), pos.clone())));
+            return Err(CodeGenError::mismatch_type_variables_in_bound_enum(type_variables.len(), map.len(), pos.clone()));
         }
 
         for typ_var_name in type_variables {
             if ! map.contains_key(typ_var_name) {
-                return Err(Box::new(CodeGenError::no_such_a_type_variable_in_bound_enum(typ_var_name.to_string(), pos.clone())));
+                return Err(CodeGenError::no_such_a_type_variable_in_bound_enum(typ_var_name.to_string(), pos.clone()));
             }
 
             self.insert_local_type(typ_var_name, map.get(typ_var_name).unwrap().clone());
@@ -1372,7 +1371,7 @@ impl<'ctx> Env<'ctx> {
         self.current_function = Some((typ.clone(), func));
     }
 
-    pub fn get_gen_type(&mut self, key: &str, ctx: &'ctx Context, pos: &Position) -> Result<Option<GenType<'ctx>>, Box<dyn Error>> {
+    pub fn get_gen_type(&mut self, key: &str, ctx: &'ctx Context, pos: &Position) -> Result<Option<GenType<'ctx>>, CodeGenError> {
         if let Some((typ, _index_map)) = self.types.get(key) {
             match typ {
                 GenType::TypeDefStruct(_name, gen_t) => {

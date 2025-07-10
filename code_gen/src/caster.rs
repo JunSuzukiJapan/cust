@@ -14,7 +14,7 @@ use std::error::Error;
 pub struct Caster;
 
 impl Caster {
-    pub fn gen_implicit_cast<'ctx>(builder: &Builder<'ctx>, ctx: &'ctx Context, value: &AnyValueEnum<'ctx>, from_type: &Type, to_type: &Type, env:&mut Env<'ctx>, pos: &Position) -> Result<AnyValueEnum<'ctx>, Box<dyn Error>> {
+    pub fn gen_implicit_cast<'ctx>(builder: &Builder<'ctx>, ctx: &'ctx Context, value: &AnyValueEnum<'ctx>, from_type: &Type, to_type: &Type, env:&mut Env<'ctx>, pos: &Position) -> Result<AnyValueEnum<'ctx>, Box<dyn Error + 'static>> {
         match (from_type, to_type) {
             //
             // same types

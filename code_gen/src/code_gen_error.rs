@@ -5,8 +5,9 @@ use std::fmt;
 use std::rc::Rc;
 use inkwell::values::AnyValueEnum;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug)]
 pub enum CodeGenError {
+    Err(Box<dyn Error>, Position, String, u32, u32),
     ParserError(ParserError),
     SystemError(Position),
     ConditionIsNotNumber(ExprAST, Position),
@@ -139,6 +140,10 @@ pub enum CodeGenError {
 }
 
 impl CodeGenError {
+    pub fn from_error(e: Box<dyn Error>, pos: Position, file: &str, line: u32, column: u32) -> Self {
+        Self::Err(e, pos, file.to_string(), line, column)
+    }
+
     pub fn condition_is_not_number(expr: &ExprAST, pos: Position) -> Self {
         Self::ConditionIsNotNumber(expr.clone(), pos)
     }
@@ -625,9 +630,25 @@ impl From<ParserError> for CodeGenError {
     }
 }
 
+pub trait WithPos<T> {
+    fn ok_or_with_pos(self, pos: &Position, file: &str, line: u32, column: u32) -> Result<T, CodeGenError>;
+}
+
+impl<T, U> WithPos<T> for Result<T, U> where U: Error + 'static {
+    fn ok_or_with_pos(self, pos: &Position, file: &str, line: u32, column: u32) -> Result<T, CodeGenError> {
+        match self {
+            Ok(item) => Ok(item),
+            Err(item) => {
+                Err(CodeGenError::Err(Box::new(item), pos.clone(), file.to_string(), line, column))
+            }
+        }
+    }
+}
+
 impl fmt::Display for CodeGenError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            Self::Err(err, _pos, _file, _line, _column) => std::fmt::Display::fmt(&err.as_ref(), f),
             Self::ParserError(err) => err.fmt(f),
             Self::SystemError(_pos) => {
                 write!(f, "system error")
@@ -1020,6 +1041,7 @@ pub trait GetPosition : Error {
 impl GetPosition for CodeGenError {
     fn get_position(&self) -> Option<&Position> {
         match self {
+            Self::Err(_, pos, _file, _line, _column) => Some(pos),
             Self::ParserError(err) => Some(err.get_position()),
             Self::SystemError(pos) => Some(pos),
             Self::ConditionIsNotNumber(_expr_ast, pos) => Some(pos),

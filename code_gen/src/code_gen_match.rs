@@ -9,13 +9,13 @@ use super::Env;
 use super::env::{BreakCatcher, ContinueCatcher};
 use crate::{Position};
 use crate::CodeGen;
+use crate::code_gen_error::WithPos;
 
 use inkwell::basic_block::BasicBlock;
 use inkwell::types::{BasicType, BasicMetadataTypeEnum};
 use inkwell::values::{AnyValue, AnyValueEnum, BasicMetadataValueEnum, FunctionValue, IntValue, PointerValue};
 use inkwell::{IntPredicate, AddressSpace};
 use parser::{NumberType, SpecifierQualifier, StructPattern};
-use std::error::Error;
 use std::rc::Rc;
 use std::collections::HashSet;
 
@@ -28,14 +28,14 @@ impl<'ctx> CodeGen<'ctx> {
         env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
-    ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
+    ) -> Result<Option<AnyValueEnum<'ctx>>, CodeGenError> {
 
         let (_fun_type, func) = env.get_current_function().ok_or(CodeGenError::no_current_function(pos.clone()))?;
         let func = func.clone();
         let cond_block = self.context.append_basic_block(func, "match.cond");
         let end_block  = self.context.append_basic_block(func, "match.end");
 
-        self.builder.build_unconditional_branch(cond_block)?;
+        self.builder.build_unconditional_branch(cond_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
         self.builder.position_at_end(cond_block);
 
         // generate condition
@@ -55,7 +55,7 @@ impl<'ctx> CodeGen<'ctx> {
                     let current_block = self.builder.get_insert_block().unwrap();
 
                     self.builder.position_at_end(blk);
-                    self.builder.build_unconditional_branch(then_block.unwrap())?;
+                    self.builder.build_unconditional_branch(then_block.unwrap()).ok_or_with_pos(pos, file!(), line!(), column!())?;
 
                     self.builder.position_at_end(current_block);
                 }                
@@ -89,7 +89,7 @@ impl<'ctx> CodeGen<'ctx> {
 
             if ! self.last_is_jump_statement(cond_block) {
                 self.builder.position_at_end(cond_block);
-                self.builder.build_unconditional_branch(then_block.unwrap())?;
+                self.builder.build_unconditional_branch(then_block.unwrap()).ok_or_with_pos(pos, file!(), line!(), column!())?;
             }
 
             // then block
@@ -97,7 +97,7 @@ impl<'ctx> CodeGen<'ctx> {
             self.gen_stmt(&then, env, break_catcher, continue_catcher)?;
             if ! self.last_is_jump_statement(then_block.unwrap()) {
                 self.builder.position_at_end(then_block.unwrap());
-                self.builder.build_unconditional_branch(end_block)?;
+                self.builder.build_unconditional_branch(end_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
             }
 
             env.remove_local();
@@ -111,7 +111,7 @@ impl<'ctx> CodeGen<'ctx> {
                 let current_block = self.builder.get_insert_block().unwrap();
 
                 self.builder.position_at_end(blk);
-                self.builder.build_unconditional_branch(then_block.unwrap())?;
+                self.builder.build_unconditional_branch(then_block.unwrap()).ok_or_with_pos(pos, file!(), line!(), column!())?;
 
                 self.builder.position_at_end(current_block);
             }                
@@ -135,7 +135,7 @@ impl<'ctx> CodeGen<'ctx> {
         env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
-    ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
+    ) -> Result<Option<AnyValueEnum<'ctx>>, CodeGenError> {
 
         let (_fun_type, func) = env.get_current_function().ok_or(CodeGenError::no_current_function(pos.clone()))?;
         let func = func.clone();
@@ -144,7 +144,7 @@ impl<'ctx> CodeGen<'ctx> {
         let else_block = self.context.append_basic_block(func, "if_let.else");
         let end_block  = self.context.append_basic_block(func, "if_let.end");
 
-        self.builder.build_unconditional_branch(cond_block)?;
+        self.builder.build_unconditional_branch(cond_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
         self.builder.position_at_end(cond_block);
 
         env.add_new_local();
@@ -164,7 +164,7 @@ impl<'ctx> CodeGen<'ctx> {
 
         if ! self.last_is_jump_statement(cond_block) {
             self.builder.position_at_end(cond_block);
-            self.builder.build_unconditional_branch(then_block)?;
+            self.builder.build_unconditional_branch(then_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
         }
 
         // then block
@@ -173,12 +173,12 @@ impl<'ctx> CodeGen<'ctx> {
         if let Some(blk) = self.builder.get_insert_block() {
             if ! self.last_is_jump_statement(blk) {
                 self.builder.position_at_end(blk);
-                self.builder.build_unconditional_branch(end_block)?;
+                self.builder.build_unconditional_branch(end_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
             }
         }
         if ! self.last_is_jump_statement(then_block) {
             self.builder.position_at_end(then_block);
-            self.builder.build_unconditional_branch(end_block)?;
+            self.builder.build_unconditional_branch(end_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
         }
 
         env.remove_local();
@@ -190,13 +190,13 @@ impl<'ctx> CodeGen<'ctx> {
             if let Some(blk) = self.builder.get_insert_block() {
                 if ! self.last_is_jump_statement(blk) {
                     self.builder.position_at_end(blk);
-                    self.builder.build_unconditional_branch(end_block)?;
+                    self.builder.build_unconditional_branch(end_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
                 }
             }
         }
         if ! self.last_is_jump_statement(else_block) {
             self.builder.position_at_end(else_block);
-            self.builder.build_unconditional_branch(end_block)?;
+            self.builder.build_unconditional_branch(end_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
         }
 
         // end block
@@ -214,7 +214,7 @@ impl<'ctx> CodeGen<'ctx> {
         next_block: BasicBlock<'ctx>,
         all_match_then_block: BasicBlock<'ctx>,
         else_block: BasicBlock<'ctx>,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(), CodeGenError> {
 
         self.check_at_name_in_pattern_or_list(pattern_list)?;
 
@@ -285,11 +285,11 @@ impl<'ctx> CodeGen<'ctx> {
             let sq = SpecifierQualifier::default();
             let typ = value.get_type();
             let basic_type = env.basic_type_enum_from_type(&typ, self.context, pattern_pos)?;
-            let ptr = self.builder.build_alloca(basic_type, alias_name)?;
+            let ptr = self.builder.build_alloca(basic_type, alias_name).ok_or_with_pos(pattern_pos, file!(), line!(), column!())?;
 
             let any_value = value.get_value();
             let basic_value = self.try_as_basic_value(&any_value, pattern_pos)?;
-            self.builder.build_store(ptr, basic_value)?;
+            self.builder.build_store(ptr, basic_value).ok_or_with_pos(pattern_pos, file!(), line!(), column!())?;
 
             env.insert_local(alias_name, Rc::clone(typ), sq, ptr);
 
@@ -299,7 +299,7 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(())
     }
 
-    fn check_at_name_in_pattern_or_list<'b, 'c>(&self, pattern_list: &Vec<Box<Pattern>>) -> Result<(), Box<dyn Error>> {
+    fn check_at_name_in_pattern_or_list<'b, 'c>(&self, pattern_list: &Vec<Box<Pattern>>) -> Result<(), CodeGenError> {
 
         let mut at_name_set_list: Vec<HashSet<String>> = Vec::new();
 
@@ -335,7 +335,7 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(())
     }
 
-    fn code_gen_fun_string_match_body(&self, current_function: FunctionValue<'ctx>) -> Result<(), Box<dyn Error>> {
+    fn code_gen_fun_string_match_body(&self, current_function: FunctionValue<'ctx>, pos: &Position) -> Result<(), CodeGenError> {
         let loop_pre_condition = self.context.append_basic_block(current_function, "loop.pre_condition");
         let loop_start = self.context.append_basic_block(current_function, "loop.start");
         let loop_update = self.context.append_basic_block(current_function, "loop.update");
@@ -358,14 +358,14 @@ impl<'ctx> CodeGen<'ctx> {
         let s2 = self.builder.build_alloca(char_ptr_type, "s2").unwrap();
         let param1 = current_function.get_nth_param(0).unwrap();
         let param2 = current_function.get_nth_param(1).unwrap();
-        self.builder.build_store(s1, param1)?;
-        self.builder.build_store(s2, param2)?;
-        self.builder.build_unconditional_branch(loop_pre_condition)?;
+        self.builder.build_store(s1, param1).ok_or_with_pos(pos, file!(), line!(), column!())?;
+        self.builder.build_store(s2, param2).ok_or_with_pos(pos, file!(), line!(), column!())?;
+        self.builder.build_unconditional_branch(loop_pre_condition).ok_or_with_pos(pos, file!(), line!(), column!())?;
             
         //     loop.pre_condition:                               ; preds = %loop.update, %entry
         //       br label %and.left
         self.builder.position_at_end(loop_pre_condition);
-        self.builder.build_unconditional_branch(and_left)?;
+        self.builder.build_unconditional_branch(and_left).ok_or_with_pos(pos, file!(), line!(), column!())?;
             
         //     loop.start:                                       ; preds = %and.end
         //       %s16 = load ptr, ptr %s1, align 8
@@ -378,20 +378,20 @@ impl<'ctx> CodeGen<'ctx> {
         //       store i64 %op_add_pointer10, ptr %s2, align 8
         //       br label %loop.update
         self.builder.position_at_end(loop_start);
-        let s16 = self.builder.build_load(char_ptr_type, s1, "load_s1")?;
-        let op_add_pointer = self.builder.build_ptr_to_int(s16.into_pointer_value(), self.context.i64_type(), "op_add_pointer")?;
-        let op_add_pointer7 = self.builder.build_int_add(op_add_pointer, self.context.i64_type().const_int(1, false), "op_add_pointer7")?;
-        self.builder.build_store(s1, self.builder.build_int_to_ptr(op_add_pointer7, char_ptr_type, "int_to_ptr")?)?;
-        let s28 = self.builder.build_load(char_ptr_type, s2, "load_s2")?;
-        let op_add_pointer9 = self.builder.build_ptr_to_int(s28.into_pointer_value(), self.context.i64_type(), "op_add_pointer9")?;
-        let op_add_pointer10 = self.builder.build_int_add(op_add_pointer9, self.context.i64_type().const_int(1, false), "op_add_pointer10")?;
-        self.builder.build_store(s2, self.builder.build_int_to_ptr(op_add_pointer10, char_ptr_type, "int_to_ptr")?)?;
-        self.builder.build_unconditional_branch(loop_update)?;
+        let s16 = self.builder.build_load(char_ptr_type, s1, "load_s1").ok_or_with_pos(pos, file!(), line!(), column!())?;
+        let op_add_pointer = self.builder.build_ptr_to_int(s16.into_pointer_value(), self.context.i64_type(), "op_add_pointer").ok_or_with_pos(pos, file!(), line!(), column!())?;
+        let op_add_pointer7 = self.builder.build_int_add(op_add_pointer, self.context.i64_type().const_int(1, false), "op_add_pointer7").ok_or_with_pos(pos, file!(), line!(), column!())?;
+        self.builder.build_store(s1, self.builder.build_int_to_ptr(op_add_pointer7, char_ptr_type, "int_to_ptr").ok_or_with_pos(pos, file!(), line!(), column!())?).ok_or_with_pos(pos, file!(), line!(), column!())?;
+        let s28 = self.builder.build_load(char_ptr_type, s2, "load_s2").ok_or_with_pos(pos, file!(), line!(), column!())?;
+        let op_add_pointer9 = self.builder.build_ptr_to_int(s28.into_pointer_value(), self.context.i64_type(), "op_add_pointer9").ok_or_with_pos(pos, file!(), line!(), column!())?;
+        let op_add_pointer10 = self.builder.build_int_add(op_add_pointer9, self.context.i64_type().const_int(1, false), "op_add_pointer10").ok_or_with_pos(pos, file!(), line!(), column!())?;
+        self.builder.build_store(s2, self.builder.build_int_to_ptr(op_add_pointer10, char_ptr_type, "int_to_ptr").ok_or_with_pos(pos, file!(), line!(), column!())?).ok_or_with_pos(pos, file!(), line!(), column!())?;
+        self.builder.build_unconditional_branch(loop_update).ok_or_with_pos(pos, file!(), line!(), column!())?;
             
         //     loop.update:                                      ; preds = %loop.start
         //       br label %loop.pre_condition
         self.builder.position_at_end(loop_update);
-        self.builder.build_unconditional_branch(loop_pre_condition)?;
+        self.builder.build_unconditional_branch(loop_pre_condition).ok_or_with_pos(pos, file!(), line!(), column!())?;
             
         //     loop.end:                                         ; preds = %and.end
         //       %s111 = load ptr, ptr %s1, align 8
@@ -402,13 +402,13 @@ impl<'ctx> CodeGen<'ctx> {
         //       %cast_from_unsigned_char_to_int = sext i8 %sub_int to i32
         //       ret i32 %cast_from_unsigned_char_to_int
         self.builder.position_at_end(loop_end);
-        let s111 = self.builder.build_load(char_ptr_type, s1, "load_s1")?;
-        let get_value_from_pointer12 = self.builder.build_load(char_type, s111.into_pointer_value(), "get_value_from_pointer12")?;
-        let s213 = self.builder.build_load(char_ptr_type, s2, "load_s2")?;
-        let get_value_from_pointer14 = self.builder.build_load(char_type, s213.into_pointer_value(), "get_value_from_pointer14")?;
-        let sub_int = self.builder.build_int_sub(get_value_from_pointer12.into_int_value(), get_value_from_pointer14.into_int_value(), "sub_int")?;
-        let eq_zero = self.builder.build_int_compare(IntPredicate::EQ, sub_int, self.context.i8_type().const_zero(), "eq_zero")?;
-        self.builder.build_return(Some(&eq_zero))?;
+        let s111 = self.builder.build_load(char_ptr_type, s1, "load_s1").ok_or_with_pos(pos, file!(), line!(), column!())?;
+        let get_value_from_pointer12 = self.builder.build_load(char_type, s111.into_pointer_value(), "get_value_from_pointer12").ok_or_with_pos(pos, file!(), line!(), column!())?;
+        let s213 = self.builder.build_load(char_ptr_type, s2, "load_s2").ok_or_with_pos(pos, file!(), line!(), column!())?;
+        let get_value_from_pointer14 = self.builder.build_load(char_type, s213.into_pointer_value(), "get_value_from_pointer14").ok_or_with_pos(pos, file!(), line!(), column!())?;
+        let sub_int = self.builder.build_int_sub(get_value_from_pointer12.into_int_value(), get_value_from_pointer14.into_int_value(), "sub_int").ok_or_with_pos(pos, file!(), line!(), column!())?;
+        let eq_zero = self.builder.build_int_compare(IntPredicate::EQ, sub_int, self.context.i8_type().const_zero(), "eq_zero").ok_or_with_pos(pos, file!(), line!(), column!())?;
+        self.builder.build_return(Some(&eq_zero)).ok_or_with_pos(pos, file!(), line!(), column!())?;
             
         //     and.left:                                         ; preds = %loop.pre_condition
         //       %s11 = load ptr, ptr %s1, align 8
@@ -416,11 +416,11 @@ impl<'ctx> CodeGen<'ctx> {
         //       %and.not_zero_left = icmp ne i8 %get_value_from_pointer, 0
         //       br i1 %and.not_zero_left, label %and.right, label %and.false
         self.builder.position_at_end(and_left);
-        let s11 = self.builder.build_load(char_ptr_type, s1, "load_s1")?;
-        let get_value_from_pointer = self.builder.build_load(char_type, s11.into_pointer_value(), "get_value_from_pointer")?;
+        let s11 = self.builder.build_load(char_ptr_type, s1, "load_s1").ok_or_with_pos(pos, file!(), line!(), column!())?;
+        let get_value_from_pointer = self.builder.build_load(char_type, s11.into_pointer_value(), "get_value_from_pointer").ok_or_with_pos(pos, file!(), line!(), column!())?;
         let int_val = get_value_from_pointer.into_int_value();
-        let and_not_zero_left = self.builder.build_int_compare(IntPredicate::NE, int_val, self.context.i8_type().const_zero(), "and_not_zero_left")?;
-        self.builder.build_conditional_branch(and_not_zero_left, and_right, and_false)?;
+        let and_not_zero_left = self.builder.build_int_compare(IntPredicate::NE, int_val, self.context.i8_type().const_zero(), "and_not_zero_left").ok_or_with_pos(pos, file!(), line!(), column!())?;
+        self.builder.build_conditional_branch(and_not_zero_left, and_right, and_false).ok_or_with_pos(pos, file!(), line!(), column!())?;
             
         //     and.right:                                        ; preds = %and.left
         //       %s12 = load ptr, ptr %s1, align 8
@@ -431,34 +431,34 @@ impl<'ctx> CodeGen<'ctx> {
         //       %and.not_zero_right = icmp ne i1 %eq_int, false
         //       br i1 %and.not_zero_right, label %and.end, label %and.false
         self.builder.position_at_end(and_right);
-        let s12 = self.builder.build_load(char_ptr_type, s1, "load_s1")?;
-        let get_value_from_pointer3 = self.builder.build_load(char_type, s12.into_pointer_value(), "get_value_from_pointer3")?;
-        let s24 = self.builder.build_load(char_ptr_type, s2, "load_s2")?;
-        let get_value_from_pointer5 = self.builder.build_load(char_type, s24.into_pointer_value(), "get_value_from_pointer5")?;
+        let s12 = self.builder.build_load(char_ptr_type, s1, "load_s1").ok_or_with_pos(pos, file!(), line!(), column!())?;
+        let get_value_from_pointer3 = self.builder.build_load(char_type, s12.into_pointer_value(), "get_value_from_pointer3").ok_or_with_pos(pos, file!(), line!(), column!())?;
+        let s24 = self.builder.build_load(char_ptr_type, s2, "load_s2").ok_or_with_pos(pos, file!(), line!(), column!())?;
+        let get_value_from_pointer5 = self.builder.build_load(char_type, s24.into_pointer_value(), "get_value_from_pointer5").ok_or_with_pos(pos, file!(), line!(), column!())?;
         let int_val = get_value_from_pointer3.into_int_value();
         let int_val2 = get_value_from_pointer5.into_int_value();
-        let eq_int = self.builder.build_int_compare(IntPredicate::EQ, int_val, int_val2, "eq_int")?;
-        let and_not_zero_right = self.builder.build_int_compare(IntPredicate::NE, eq_int, self.context.bool_type().const_zero(), "and_not_zero_right")?;
-        self.builder.build_conditional_branch(and_not_zero_right, and_end, and_false)?;
+        let eq_int = self.builder.build_int_compare(IntPredicate::EQ, int_val, int_val2, "eq_int").ok_or_with_pos(pos, file!(), line!(), column!())?;
+        let and_not_zero_right = self.builder.build_int_compare(IntPredicate::NE, eq_int, self.context.bool_type().const_zero(), "and_not_zero_right").ok_or_with_pos(pos, file!(), line!(), column!())?;
+        self.builder.build_conditional_branch(and_not_zero_right, and_end, and_false).ok_or_with_pos(pos, file!(), line!(), column!())?;
             
         //     and.false:                                        ; preds = %and.right, %and.left
         //       br label %and.end
         self.builder.position_at_end(and_false);
-        self.builder.build_unconditional_branch(and_end)?;
+        self.builder.build_unconditional_branch(and_end).ok_or_with_pos(pos, file!(), line!(), column!())?;
             
         //     and.end:                                          ; preds = %and.false, %and.right
         //       %and.result = phi i1 [ true, %and.right ], [ false, %and.false ]
         //       br i1 %and.result, label %loop.start, label %loop.end
         //     }
         self.builder.position_at_end(and_end);
-        let and_result = self.builder.build_phi(self.context.bool_type(), "and.result")?;
+        let and_result = self.builder.build_phi(self.context.bool_type(), "and.result").ok_or_with_pos(pos, file!(), line!(), column!())?;
         and_result.add_incoming(&[(&self.context.bool_type().const_all_ones(), and_right), (&self.context.bool_type().const_zero(), and_false)]);
-        self.builder.build_conditional_branch(and_result.as_basic_value().into_int_value(), loop_start, loop_end)?;
+        self.builder.build_conditional_branch(and_result.as_basic_value().into_int_value(), loop_start, loop_end).ok_or_with_pos(pos, file!(), line!(), column!())?;
 
         Ok(())
     }
 
-    fn get_fun_string_match(&self, _current_function: FunctionValue<'ctx>, env: &mut Env<'ctx>) -> Result<FunctionValue<'ctx>, Box<dyn Error>> {
+    fn get_fun_string_match(&self, _current_function: FunctionValue<'ctx>, env: &mut Env<'ctx>, pos: &Position) -> Result<FunctionValue<'ctx>, CodeGenError> {
         if let Some(function) = env.get_inner_fun_string_match() {
             return Ok(function);
         }
@@ -481,7 +481,7 @@ impl<'ctx> CodeGen<'ctx> {
         let basic_block = self.context.append_basic_block(function, "entry");
         self.builder.position_at_end(basic_block);
 
-        self.code_gen_fun_string_match_body(function)?;
+        self.code_gen_fun_string_match_body(function, pos)?;
 
         env.set_inner_fun_string_match(function);
 
@@ -499,12 +499,13 @@ impl<'ctx> CodeGen<'ctx> {
         arg1: BasicMetadataValueEnum<'ctx>,
         arg2: BasicMetadataValueEnum<'ctx>,
         current_function: FunctionValue<'ctx>,
-        env: &mut Env<'ctx>
-    ) -> Result<IntValue<'ctx>, Box<dyn Error>> {
+        env: &mut Env<'ctx>,
+        pos: &Position
+    ) -> Result<IntValue<'ctx>, CodeGenError> {
 
         let args = [arg1, arg2];
-        let function = self.get_fun_string_match(current_function, env)?;
-        let call_site_value = self.builder.build_call(function, &args, "call_inner::fun_string_match")?;
+        let function = self.get_fun_string_match(current_function, env, pos)?;
+        let call_site_value = self.builder.build_call(function, &args, "call_inner::fun_string_match").ok_or_with_pos(pos, file!(), line!(), column!())?;
         let any_val = call_site_value.try_as_basic_value().left().unwrap().as_any_value_enum();
         let int_val = any_val.into_int_value();
 
@@ -517,7 +518,7 @@ impl<'ctx> CodeGen<'ctx> {
         env: &mut Env<'ctx>,
         pos: &Position,
         name: &String
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(), CodeGenError> {
 
         let current_block = self.builder.get_insert_block().unwrap();
 
@@ -526,10 +527,10 @@ impl<'ctx> CodeGen<'ctx> {
         // sq.const_ = true;
         let typ = value.get_type();
         let basic_type = env.basic_type_enum_from_type(&typ, self.context, pos)?;
-        let ptr = self.builder.build_alloca(basic_type, name)?;
+        let ptr = self.builder.build_alloca(basic_type, name).ok_or_with_pos(pos, file!(), line!(), column!())?;
         let any_value = value.get_value();
         let basic_value = self.try_as_basic_value(&any_value, pos)?;
-        self.builder.build_store(ptr, basic_value)?;
+        self.builder.build_store(ptr, basic_value).ok_or_with_pos(pos, file!(), line!(), column!())?;
         env.insert_local(name, Rc::clone(typ), sq, ptr);
 
         self.builder.position_at_end(current_block);
@@ -543,7 +544,7 @@ impl<'ctx> CodeGen<'ctx> {
         else_block: BasicBlock<'ctx>,
         pos: &Position,
         ch: &char
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(), CodeGenError> {
 
         let i8_type = self.context.i8_type();
         let i8_ch = i8_type.const_int(*ch as u64, true);
@@ -551,8 +552,8 @@ impl<'ctx> CodeGen<'ctx> {
         let (left, right) = self.bin_expr_implicit_cast(c, value.clone(), pos)?;
         let left_value = left.get_value();
         let right_value = right.get_value();
-        let comparison = self.builder.build_int_compare(IntPredicate::EQ, left_value.into_int_value(), right_value.into_int_value(), "match_compare_char")?;
-        self.builder.build_conditional_branch(comparison, next_block, else_block)?;
+        let comparison = self.builder.build_int_compare(IntPredicate::EQ, left_value.into_int_value(), right_value.into_int_value(), "match_compare_char").ok_or_with_pos(pos, file!(), line!(), column!())?;
+        self.builder.build_conditional_branch(comparison, next_block, else_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
 
         Ok(())
     }
@@ -565,7 +566,7 @@ impl<'ctx> CodeGen<'ctx> {
         pos: &Position,
         ch1: &char,
         ch2: &char
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(), CodeGenError> {
         let greater_than_block = self.context.append_basic_block(func, "match.greater");
 
         let i8_type = self.context.i8_type();
@@ -574,8 +575,8 @@ impl<'ctx> CodeGen<'ctx> {
         let (other, target) = self.bin_expr_implicit_cast(c, value.clone(), pos)?;
         let other_value = other.get_value();
         let target_value = target.get_value();
-        let comparison = self.builder.build_int_compare(IntPredicate::UGE, target_value.into_int_value(), other_value.into_int_value(), "match_compare_char")?;
-        self.builder.build_conditional_branch(comparison, greater_than_block, else_block)?;
+        let comparison = self.builder.build_int_compare(IntPredicate::UGE, target_value.into_int_value(), other_value.into_int_value(), "match_compare_char").ok_or_with_pos(pos, file!(), line!(), column!())?;
+        self.builder.build_conditional_branch(comparison, greater_than_block, else_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
 
         self.builder.position_at_end(greater_than_block);
         let i8_ch2 = i8_type.const_int(*ch2 as u64, true);
@@ -583,8 +584,8 @@ impl<'ctx> CodeGen<'ctx> {
         let (other, target) = self.bin_expr_implicit_cast(c2, value.clone(), pos)?;
         let other_value = other.get_value();
         let target_value = target.get_value();
-        let comparison = self.builder.build_int_compare(IntPredicate::ULE, target_value.into_int_value(), other_value.into_int_value(), "match_compare_char")?;
-        self.builder.build_conditional_branch(comparison, next_block, else_block)?;
+        let comparison = self.builder.build_int_compare(IntPredicate::ULE, target_value.into_int_value(), other_value.into_int_value(), "match_compare_char").ok_or_with_pos(pos, file!(), line!(), column!())?;
+        self.builder.build_conditional_branch(comparison, next_block, else_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
 
         // self.builder.position_at_end(else_block);
 
@@ -597,7 +598,7 @@ impl<'ctx> CodeGen<'ctx> {
         else_block: BasicBlock<'ctx>,
         pos: &Position,
         num: &i128
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(), CodeGenError> {
 
         let i64_type = self.context.i64_type();
         let i64_num = i64_type.const_int(*num as u64, true);
@@ -605,8 +606,8 @@ impl<'ctx> CodeGen<'ctx> {
         let (left, right) = self.bin_expr_implicit_cast(n, value.clone(), pos)?;
         let left_value = left.get_value();
         let right_value = right.get_value();
-        let comparison = self.builder.build_int_compare(IntPredicate::EQ, left_value.into_int_value(), right_value.into_int_value(), "match_compare_number")?;
-        self.builder.build_conditional_branch(comparison, next_block, else_block)?;
+        let comparison = self.builder.build_int_compare(IntPredicate::EQ, left_value.into_int_value(), right_value.into_int_value(), "match_compare_number").ok_or_with_pos(pos, file!(), line!(), column!())?;
+        self.builder.build_conditional_branch(comparison, next_block, else_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
 
         Ok(())
     }
@@ -619,7 +620,7 @@ impl<'ctx> CodeGen<'ctx> {
         pos: &Position,
         num1: &i128,
         num2: &i128
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(), CodeGenError> {
         let greater_than_block = self.context.append_basic_block(func, "match.greater");
 
         let i64_type = self.context.i64_type();
@@ -628,8 +629,8 @@ impl<'ctx> CodeGen<'ctx> {
         let (other, target) = self.bin_expr_implicit_cast(n, value.clone(), pos)?;
         let other_value = other.get_value();
         let target_value = target.get_value();
-        let comparison = self.builder.build_int_compare(IntPredicate::UGE, target_value.into_int_value(), other_value.into_int_value(), "match_compare_char")?;
-        self.builder.build_conditional_branch(comparison, greater_than_block, else_block)?;
+        let comparison = self.builder.build_int_compare(IntPredicate::UGE, target_value.into_int_value(), other_value.into_int_value(), "match_compare_char").ok_or_with_pos(pos, file!(), line!(), column!())?;
+        self.builder.build_conditional_branch(comparison, greater_than_block, else_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
 
         self.builder.position_at_end(greater_than_block);
         let i64_num2 = i64_type.const_int(*num2 as u64, true);
@@ -637,8 +638,8 @@ impl<'ctx> CodeGen<'ctx> {
         let (other, target) = self.bin_expr_implicit_cast(n2, value.clone(), pos)?;
         let other_value = other.get_value();
         let target_value = target.get_value();
-        let comparison = self.builder.build_int_compare(IntPredicate::ULE, target_value.into_int_value(), other_value.into_int_value(), "match_compare_char")?;
-        self.builder.build_conditional_branch(comparison, next_block, else_block)?;
+        let comparison = self.builder.build_int_compare(IntPredicate::ULE, target_value.into_int_value(), other_value.into_int_value(), "match_compare_char").ok_or_with_pos(pos, file!(), line!(), column!())?;
+        self.builder.build_conditional_branch(comparison, next_block, else_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
 
         self.builder.position_at_end(else_block);
 
@@ -653,14 +654,14 @@ impl<'ctx> CodeGen<'ctx> {
         func: FunctionValue<'ctx>,
         pos: &Position,
         s: &String
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(), CodeGenError> {
 
-        let str1 = self.builder.build_global_string_ptr(s, "global_str_for_match")?;
+        let str1 = self.builder.build_global_string_ptr(s, "global_str_for_match").ok_or_with_pos(pos, file!(), line!(), column!())?;
         let str1 = self.try_as_basic_metadata_value(&str1.as_any_value_enum(), pos)?;
         let str2 = value.get_value();
         let str2 = self.try_as_basic_metadata_value(&str2, pos)?;
-        let comparison = self.gen_string_match(str1, str2, func, env)?;
-        self.builder.build_conditional_branch(comparison, next_block, else_block)?;
+        let comparison = self.gen_string_match(str1, str2, func, env, pos)?;
+        self.builder.build_conditional_branch(comparison, next_block, else_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
 
         self.builder.position_at_end(else_block);
         Ok(())
@@ -675,7 +676,7 @@ impl<'ctx> CodeGen<'ctx> {
         env: &mut Env<'ctx>,
         func: FunctionValue<'ctx>,
         pos: &Position
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(), CodeGenError> {
 
         let arg_type = arg.get_type();
         let arg_value = arg.get_value();
@@ -694,17 +695,17 @@ impl<'ctx> CodeGen<'ctx> {
             let raw_field_index = struct_def.get_index(field_name).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), field_name.to_string(), pos.clone()))?;
             let field_type = arg_type.as_ref().get_field_type_from_struct_at_index(raw_field_index).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), field_name.to_string(), pos.clone()))?;
             let ptr_to_struct = struct_value.get_field_at_index(0 as u32).unwrap().into_pointer_value();
-            let field_ptr = self.builder.build_struct_gep(arg_llvm_type, ptr_to_struct, raw_field_index as u32, "get_field_ptr")?;
+            let field_ptr = self.builder.build_struct_gep(arg_llvm_type, ptr_to_struct, raw_field_index as u32, "get_field_ptr").ok_or_with_pos(pos, file!(), line!(), column!())?;
 
             next_block = self.context.append_basic_block(func, "match_struct.next");
             if let Some(pattern_list) = item {  // if let (type_name::FieldName {pat_name: at_name @ item})
                 let raw_field_type = arg_llvm_type.get_field_type_at_index(raw_field_index as u32).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), field_name.to_string(), pos.clone()))?;
-                let value = self.builder.build_load(raw_field_type, field_ptr, "get_field_value")?;
+                let value = self.builder.build_load(raw_field_type, field_ptr, "get_field_value").ok_or_with_pos(pos, file!(), line!(), column!())?;
                 let compiled_value = CompiledValue::new(Rc::clone(field_type), value.as_any_value_enum());
                 self.gen_match_pattern_or_list(pattern_list, pos, &compiled_value, env, func, next_block, all_match_then_block, else_block)?;
 
                 if ! self.last_is_jump_statement(current_block) {
-                    self.builder.build_unconditional_branch(next_block)?;
+                    self.builder.build_unconditional_branch(next_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
                 }
 
             }else{ // item is None.                               if let (type_name::FieldName {pat_name})
@@ -716,7 +717,7 @@ impl<'ctx> CodeGen<'ctx> {
             }
 
             if ! self.last_is_jump_statement(current_block) {
-                self.builder.build_unconditional_branch(next_block)?;
+                self.builder.build_unconditional_branch(next_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
             }
 
             self.builder.position_at_end(next_block);
@@ -724,7 +725,7 @@ impl<'ctx> CodeGen<'ctx> {
         }
 
         if ! self.last_is_jump_statement(next_block) {
-            self.builder.build_unconditional_branch(all_match_then_block)?;
+            self.builder.build_unconditional_branch(all_match_then_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
         }
 
         Ok(())
@@ -739,7 +740,7 @@ impl<'ctx> CodeGen<'ctx> {
         env: &mut Env<'ctx>,
         func: FunctionValue<'ctx>,
         pos: &Position
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(), CodeGenError> {
 
         // check length
         let arg_type = arg.get_type();
@@ -760,8 +761,8 @@ impl<'ctx> CodeGen<'ctx> {
         for i in 0..len {
             let pat_list = &tpl_pattern_list[i];
             let raw_field_type = struct_type.get_field_type_at_index(i as u32).unwrap();
-            let ptr_to_value = self.builder.build_struct_gep(struct_type, ptr, i as u32, "get_tuple_item")?;
-            let value = self.builder.build_load(raw_field_type, ptr_to_value, "load_tuple_item")?;
+            let ptr_to_value = self.builder.build_struct_gep(struct_type, ptr, i as u32, "get_tuple_item").ok_or_with_pos(pos, file!(), line!(), column!())?;
+            let value = self.builder.build_load(raw_field_type, ptr_to_value, "load_tuple_item").ok_or_with_pos(pos, file!(), line!(), column!())?;
             let field_type = &tpl_type_list[i];
             let compiled_value = CompiledValue::new(Rc::clone(field_type), value.as_any_value_enum());
 
@@ -769,7 +770,7 @@ impl<'ctx> CodeGen<'ctx> {
             self.gen_match_pattern_or_list(pat_list, pos, &compiled_value, env, func, next_block, all_match_then_block, else_block)?;
 
             if ! self.last_is_jump_statement(current_block) {
-                self.builder.build_unconditional_branch(next_block)?;
+                self.builder.build_unconditional_branch(next_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
             }
 
             self.builder.position_at_end(next_block);
@@ -777,7 +778,7 @@ impl<'ctx> CodeGen<'ctx> {
         }
 
         if ! self.last_is_jump_statement(next_block) {
-            self.builder.build_unconditional_branch(all_match_then_block)?;
+            self.builder.build_unconditional_branch(all_match_then_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
         }
 
         Ok(())
@@ -792,7 +793,7 @@ impl<'ctx> CodeGen<'ctx> {
         env: &mut Env<'ctx>,
         func: FunctionValue<'ctx>,
         pos: &Position
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(), CodeGenError> {
 
         env.add_new_local_types();
 
@@ -821,8 +822,8 @@ impl<'ctx> CodeGen<'ctx> {
                 let (left, right) = self.bin_expr_implicit_cast(left, right, pos)?;
                 let left_value = left.get_value();
                 let right_value = right.get_value();
-                let comparison = self.builder.build_int_compare(IntPredicate::EQ, left_value.into_int_value(), right_value.into_int_value(), "match_compare_number")?;
-                self.builder.build_conditional_branch(comparison, all_match_then_block, else_block)?;
+                let comparison = self.builder.build_int_compare(IntPredicate::EQ, left_value.into_int_value(), right_value.into_int_value(), "match_compare_number").ok_or_with_pos(pos, file!(), line!(), column!())?;
+                self.builder.build_conditional_branch(comparison, all_match_then_block, else_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
     
                 //
                 // matched
@@ -857,10 +858,10 @@ impl<'ctx> CodeGen<'ctx> {
                 let (left, right) = self.bin_expr_implicit_cast(left, right, pos)?;
                 let left_value = left.get_value();
                 let right_value = right.get_value();
-                let comparison = self.builder.build_int_compare(IntPredicate::EQ, left_value.into_int_value(), right_value.into_int_value(), "match_compare_number")?;
+                let comparison = self.builder.build_int_compare(IntPredicate::EQ, left_value.into_int_value(), right_value.into_int_value(), "match_compare_number").ok_or_with_pos(pos, file!(), line!(), column!())?;
                 let old_next_block = next_block;
                 let mut next_block = self.context.append_basic_block(func, "match_enum.next");
-                self.builder.build_conditional_branch(comparison, next_block, else_block)?;
+                self.builder.build_conditional_branch(comparison, next_block, else_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
     
                 //
                 // tag matched
@@ -875,7 +876,7 @@ impl<'ctx> CodeGen<'ctx> {
                 }
 
                 self.builder.position_at_end(next_block);
-                let llvm_struct_ptr = self.gen_get_struct_ptr_from_enum(arg)?;
+                let llvm_struct_ptr = self.gen_get_struct_ptr_from_enum(arg, pos)?;
                 let enum_type = env.get_gen_type(type_name, self.context, pos)?.ok_or(CodeGenError::no_such_a_type(type_name, pos.clone()))?;
                 let enum_type = enum_type.clone();  // env.insert_localメソッドを使用可能にするためclone。
                 let index_map = enum_type.get_index_map().ok_or(CodeGenError::no_index_map(type_name.to_string(), pos.clone()))?;
@@ -900,8 +901,8 @@ impl<'ctx> CodeGen<'ctx> {
                 for i in 0..len {
                     let pat_list = &pattern_list[i];
                     let raw_field_type = tuple_type.get_field_type_at_index(i as u32).unwrap();
-                    let ptr_to_value = self.builder.build_struct_gep(tuple_type, llvm_struct_ptr, i as u32, "get_tuple_item")?;
-                    let value = self.builder.build_load(raw_field_type, ptr_to_value, "load_tuple_item")?;
+                    let ptr_to_value = self.builder.build_struct_gep(tuple_type, llvm_struct_ptr, i as u32, "get_tuple_item").ok_or_with_pos(pos, file!(), line!(), column!())?;
+                    let value = self.builder.build_load(raw_field_type, ptr_to_value, "load_tuple_item").ok_or_with_pos(pos, file!(), line!(), column!())?;
                     let field_type = &tpl_type_list[i];
                     let compiled_value = CompiledValue::new(Rc::clone(field_type), value.as_any_value_enum());
 
@@ -909,7 +910,7 @@ impl<'ctx> CodeGen<'ctx> {
                     self.gen_match_pattern_or_list(pat_list, pos, &compiled_value, env, func, next_block, all_match_then_block, else_block)?;
 
                     if ! self.last_is_jump_statement(current_block) {
-                        self.builder.build_unconditional_branch(next_block)?;
+                        self.builder.build_unconditional_branch(next_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
                     }
 
                     self.builder.position_at_end(next_block);
@@ -918,7 +919,7 @@ impl<'ctx> CodeGen<'ctx> {
 
                 if ! self.last_is_jump_statement(next_block) {
                     // self.builder.build_unconditional_branch(all_match_then_block)?;
-                    self.builder.build_unconditional_branch(old_next_block)?;
+                    self.builder.build_unconditional_branch(old_next_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
                 }
             },
             //
@@ -945,8 +946,8 @@ impl<'ctx> CodeGen<'ctx> {
                 let (left, right) = self.bin_expr_implicit_cast(left, right, pos)?;
                 let left_value = left.get_value();
                 let right_value = right.get_value();
-                let comparison = self.builder.build_int_compare(IntPredicate::EQ, left_value.into_int_value(), right_value.into_int_value(), "match_compare_number")?;
-                self.builder.build_conditional_branch(comparison, all_match_then_block, else_block)?;
+                let comparison = self.builder.build_int_compare(IntPredicate::EQ, left_value.into_int_value(), right_value.into_int_value(), "match_compare_number").ok_or_with_pos(pos, file!(), line!(), column!())?;
+                self.builder.build_conditional_branch(comparison, all_match_then_block, else_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
     
                 //
                 // tag matched
@@ -954,7 +955,7 @@ impl<'ctx> CodeGen<'ctx> {
                 self.builder.position_at_end(all_match_then_block);
                 let pattern_map = struct_pat.get_map();
                 let key_list = struct_pat.get_keys();
-                let struct_ptr = self.gen_get_struct_ptr_from_enum(arg)?;
+                let struct_ptr = self.gen_get_struct_ptr_from_enum(arg, pos)?;
 
                 let enum_type = env.get_gen_type(type_name, self.context, pos)?.ok_or(CodeGenError::no_such_a_type(type_name, pos.clone()))?;
                 let enum_type = enum_type.clone();  // env.insert_localメソッドを使用可能にするためclone。
@@ -970,12 +971,12 @@ impl<'ctx> CodeGen<'ctx> {
                 for pat_name in key_list {
                     let item = pattern_map.get(pat_name).unwrap();
                     let raw_field_index = struct_def.get_index(pat_name).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), pat_name.to_string(), pos.clone()))?;
-                    let field_ptr = self.builder.build_struct_gep(struct_type, struct_ptr, raw_field_index as u32, "get_field_ptr")?;
+                    let field_ptr = self.builder.build_struct_gep(struct_type, struct_ptr, raw_field_index as u32, "get_field_ptr").ok_or_with_pos(pos, file!(), line!(), column!())?;
                     let field_type = cust_type.as_ref().get_field_type_from_struct_at_index(raw_field_index).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), pat_name.to_string(), pos.clone()))?;
 
                     if let Some(pattern_list) = item {  // if let (type_name::FieldName {pat_name: item @ at_name})
                         let raw_field_type = struct_type.get_field_type_at_index(raw_field_index as u32).ok_or(CodeGenError::no_such_a_field(type_name.to_string(), sub_name.to_string(), pos.clone()))?;
-                        let value = self.builder.build_load(raw_field_type, field_ptr, "get_field_value")?;
+                        let value = self.builder.build_load(raw_field_type, field_ptr, "get_field_value").ok_or_with_pos(pos, file!(), line!(), column!())?;
                         let compiled_value = CompiledValue::new(Rc::clone(field_type), value.as_any_value_enum());
                         self.gen_match_pattern_or_list(pattern_list, pos, &compiled_value, env, func, next_block, all_match_then_block, else_block)?;
 
@@ -1003,25 +1004,25 @@ impl<'ctx> CodeGen<'ctx> {
     fn gen_get_tag_from_enum(&self,
         value: &CompiledValue<'ctx>,
         _env: &mut Env<'ctx>,
-        _pos: &Position
-    ) -> Result<IntValue<'ctx>, Box<dyn Error>> {
+        pos: &Position
+    ) -> Result<IntValue<'ctx>, CodeGenError> {
 
         let v = value.get_value();
         let st_value = v.into_struct_value();
         let ptr = st_value.get_field_at_index(0).unwrap().into_pointer_value();
         let ty = st_value.get_type();
         let ty2 = ty.get_field_type_at_index(0).unwrap();
-        let tag_value = self.builder.build_load(ty2, ptr, "get_tag")?;
+        let tag_value = self.builder.build_load(ty2, ptr, "get_tag").ok_or_with_pos(pos, file!(), line!(), column!())?;
 
         Ok(tag_value.into_int_value())
     }
 
-    fn gen_get_struct_ptr_from_enum(&self, value: &CompiledValue<'ctx>) -> Result<PointerValue<'ctx>, Box<dyn Error>> {
+    fn gen_get_struct_ptr_from_enum(&self, value: &CompiledValue<'ctx>, pos: &Position) -> Result<PointerValue<'ctx>, CodeGenError> {
         let v = value.get_value();
         let st_value = v.into_struct_value();
         let ty = st_value.get_type();
         let ptr = st_value.get_field_at_index(0).unwrap().into_pointer_value();
-        let struct_ptr = self.builder.build_struct_gep(ty, ptr, 1, "get_struct_ptr")?;
+        let struct_ptr = self.builder.build_struct_gep(ty, ptr, 1, "get_struct_ptr").ok_or_with_pos(pos, file!(), line!(), column!())?;
 
         Ok(struct_ptr)
     }

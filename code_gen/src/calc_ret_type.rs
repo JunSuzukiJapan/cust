@@ -4,14 +4,14 @@ use super::Env;
 use super::type_util::TypeUtil;
 use crate::{Position};
 use crate::CodeGen;
+use crate::code_gen_error::WithPos;
 
 use parser::ast::ForInitExpr;
 use parser::{EnumPattern, ExprAST};
-use std::error::Error;
 use std::rc::Rc;
 
 impl<'ctx> CodeGen<'ctx> {
-    pub fn calc_ret_type(&self, stmt: &AST, env: &mut Env<'ctx>) -> Result<Rc<Type>, Box<dyn Error>> {
+    pub fn calc_ret_type(&self, stmt: &AST, env: &mut Env<'ctx>) -> Result<Rc<Type>, CodeGenError> {
         match stmt {
             AST::DefVar { specifiers, declarations, pos: _ } => {
                 let base_type = specifiers.get_type();
@@ -77,7 +77,7 @@ impl<'ctx> CodeGen<'ctx> {
                                         typ = Some(t);
                                     }else{
                                         if typ.as_ref().unwrap() != &t {
-                                            return Err(Box::new(CodeGenError::return_type_mismatch(typ.as_ref().unwrap().as_ref().clone(), t.as_ref().clone(), boxed_ast.get_position().clone())));
+                                            return Err(CodeGenError::return_type_mismatch(typ.as_ref().unwrap().as_ref().clone(), t.as_ref().clone(), boxed_ast.get_position().clone()));
                                         }
                                     }
                                 },
@@ -89,7 +89,7 @@ impl<'ctx> CodeGen<'ctx> {
                                         typ = Some(typ2);
                                     }else{
                                         if typ.as_ref().unwrap() != &typ2 {
-                                            return Err(Box::new(CodeGenError::return_type_mismatch(typ.as_ref().unwrap().as_ref().clone(), typ2.as_ref().clone(), case.get_position().clone())));
+                                            return Err(CodeGenError::return_type_mismatch(typ.as_ref().unwrap().as_ref().clone(), typ2.as_ref().clone(), case.get_position().clone()));
                                         }
                                     }
                                 },
@@ -153,7 +153,7 @@ impl<'ctx> CodeGen<'ctx> {
         }
     }
 
-    fn set_type_in_for_init_expr(&self, expr: &ForInitExpr, env: &mut Env<'ctx>) -> Result<(), Box<dyn Error>> {
+    fn set_type_in_for_init_expr(&self, expr: &ForInitExpr, env: &mut Env<'ctx>) -> Result<(), CodeGenError> {
         match expr {
             ForInitExpr::DefVar { specifiers, declarations, pos: _ } => {
                 let base_type = specifiers.get_type();
@@ -178,7 +178,7 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(())
     }
 
-    pub fn calc_ret_type_in_if(&self, if_then: &AST, if_else: &Option<Box<AST>>, pos: &Position, env: &mut Env<'ctx>) -> Result<Rc<Type>, Box<dyn Error>> {
+    pub fn calc_ret_type_in_if(&self, if_then: &AST, if_else: &Option<Box<AST>>, pos: &Position, env: &mut Env<'ctx>) -> Result<Rc<Type>, CodeGenError> {
         let then_type = self.calc_ret_type(if_then, env)?;
 
         if then_type.is_void() {
@@ -187,7 +187,7 @@ impl<'ctx> CodeGen<'ctx> {
                 if else_type.is_void() {
                     Ok(Rc::new(Type::Void))
                 }else{
-                    Err(Box::new(CodeGenError::mismatch_type_in_if(pos.clone(), then_type.as_ref().clone(), else_type.as_ref().clone())))
+                    Err(CodeGenError::mismatch_type_in_if(pos.clone(), then_type.as_ref().clone(), else_type.as_ref().clone()))
                 }
 
             }else{
@@ -198,18 +198,18 @@ impl<'ctx> CodeGen<'ctx> {
             if let Some(else_expr) = if_else {
                 let else_type = self.calc_ret_type(else_expr, env)?;
                 if else_type.is_void() {
-                    Err(Box::new(CodeGenError::mismatch_type_in_if(pos.clone(), then_type.as_ref().clone(), else_type.as_ref().clone())))
+                    Err(CodeGenError::mismatch_type_in_if(pos.clone(), then_type.as_ref().clone(), else_type.as_ref().clone()))
                 }else{
                     Ok(else_type)
                 }
 
             }else{
-                Err(Box::new(CodeGenError::mismatch_type_in_if(pos.clone(), then_type.as_ref().clone(), Type::Void)))
+                Err(CodeGenError::mismatch_type_in_if(pos.clone(), then_type.as_ref().clone(), Type::Void))
             }
         }
     }
 
-    pub fn calc_ret_type_in_if_let(&self, if_then: &AST, if_else: &Option<Box<AST>>, pattern_list: &Vec<Box<Pattern>>, expr: &ExprAST, pos: &Position, env: &mut Env<'ctx>) -> Result<Rc<Type>, Box<dyn Error>> {
+    pub fn calc_ret_type_in_if_let(&self, if_then: &AST, if_else: &Option<Box<AST>>, pattern_list: &Vec<Box<Pattern>>, expr: &ExprAST, pos: &Position, env: &mut Env<'ctx>) -> Result<Rc<Type>, CodeGenError> {
         let result;
 
         env.add_new_local_types();
@@ -250,10 +250,10 @@ impl<'ctx> CodeGen<'ctx> {
 
         env.remove_local_types();
 
-        Ok(result?)
+        Ok(result.ok_or_with_pos(pos, file!(), line!(), column!())?)
     }
 
-    fn insert_pat_type(&self, pattern: &Pattern, expr_type: &Rc<Type>, env: &mut Env<'ctx>) -> Result<(), Box<dyn Error + 'static>> {
+    fn insert_pat_type(&self, pattern: &Pattern, expr_type: &Rc<Type>, env: &mut Env<'ctx>) -> Result<(), CodeGenError> {
         match pattern {
             Pattern::Var(name, opt_at_name, _pos) => {
                 env.insert_local_type(name, Rc::clone(&expr_type));
@@ -335,7 +335,7 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(())
     }
 
-    fn insert_enum_pat_list_type(&self, expr_type: &Rc<Type>, env: &mut Env<'ctx>, pattern_list: &Vec<Vec<Box<Pattern>>>) -> Result<(), Box<dyn Error + 'static>> {
+    fn insert_enum_pat_list_type(&self, expr_type: &Rc<Type>, env: &mut Env<'ctx>, pattern_list: &Vec<Vec<Box<Pattern>>>) -> Result<(), CodeGenError> {
         for i in 0..pattern_list.len() {
             let pat_list = &pattern_list[i];
             let pat= &pat_list[0];
@@ -347,7 +347,7 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(())
     }
 
-    fn insert_struct_pat_type(&self, expr_type: &Rc<Type>, env: &mut Env<'ctx>, struct_pat: &parser::StructPattern) -> Result<(), Box<dyn Error + 'static>> {
+    fn insert_struct_pat_type(&self, expr_type: &Rc<Type>, env: &mut Env<'ctx>, struct_pat: &parser::StructPattern) -> Result<(), CodeGenError> {
         let pattern_map = struct_pat.get_map();
         let key_list = struct_pat.get_keys();
 

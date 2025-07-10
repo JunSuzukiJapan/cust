@@ -6,12 +6,12 @@ use super::env::{BreakCatcher, ContinueCatcher};
 use crate::parser::{Switch, Case};
 use crate::Position;
 use crate::CodeGen;
+use crate::code_gen_error::WithPos;
 
 use inkwell::values::{AnyValue, AnyValueEnum, InstructionOpcode, InstructionValue};
 use inkwell::basic_block::BasicBlock;
 use inkwell::{IntPredicate};
 use parser::ast::ForInitExpr;
-use std::error::Error;
 
 impl<'ctx> CodeGen<'ctx> {
 
@@ -20,11 +20,11 @@ impl<'ctx> CodeGen<'ctx> {
         env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
-    ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
+    ) -> Result<Option<AnyValueEnum<'ctx>>, CodeGenError> {
 
         match ast {
-            AST::DefVar{specifiers, declarations, pos: _} => {
-                self.gen_def_var(specifiers, declarations, env, break_catcher, continue_catcher)?;
+            AST::DefVar{specifiers, declarations, pos} => {
+                self.gen_def_var(specifiers, declarations, env, break_catcher, continue_catcher, pos)?;
                 Ok(None)
             },
             AST::Block(block, _pos) => self.gen_block(block, env, break_catcher, continue_catcher),
@@ -42,14 +42,14 @@ impl<'ctx> CodeGen<'ctx> {
                         real_ret = CompiledValue::new(real_ret.get_type().clone(), casted);
                     }
                     let ret = self.try_as_basic_value(&real_ret.get_value(), expr.get_position())?;
-                    result = self.builder.build_return(Some(&ret))?;
+                    result = self.builder.build_return(Some(&ret)).ok_or_with_pos(pos, file!(), line!(), column!())?;
 
                 }else{
                     if ! required_ret_type.is_void() {
-                        return Err(Box::new(CodeGenError::return_type_mismatch(Type::Void, required_ret_type.as_ref().clone(), pos.clone())));
+                        return Err(CodeGenError::return_type_mismatch(Type::Void, required_ret_type.as_ref().clone(), pos.clone()));
                     }
 
-                    result = self.builder.build_return(None)?;
+                    result = self.builder.build_return(None).ok_or_with_pos(pos, file!(), line!(), column!())?;
                 }
                 Ok(Some(result.as_any_value_enum()))
             },
@@ -61,15 +61,15 @@ impl<'ctx> CodeGen<'ctx> {
                 let else_block = self.context.append_basic_block(func, "if.else");
                 let end_block  = self.context.append_basic_block(func, "if.end");
 
-                self.builder.build_unconditional_branch(cond_block)?;
+                self.builder.build_unconditional_branch(cond_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
                 self.builder.position_at_end(cond_block);
 
                 // check condition
                 let cond = self.gen_expr(condition, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::condition_is_not_number(condition, (**condition).get_position().clone()))?;
                 let mut comparison = cond.get_value().into_int_value();
                 let i1_type = self.context.bool_type();
-                comparison = self.builder.build_int_cast(comparison, i1_type, "cast to i1")?;  // cast to i1
-                self.builder.build_conditional_branch(comparison, then_block, else_block)?;
+                comparison = self.builder.build_int_cast(comparison, i1_type, "cast to i1").ok_or_with_pos(pos, file!(), line!(), column!())?;  // cast to i1
+                self.builder.build_conditional_branch(comparison, then_block, else_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
 
                 // then block
                 self.builder.position_at_end(then_block);
@@ -77,12 +77,12 @@ impl<'ctx> CodeGen<'ctx> {
                 if let Some(blk) = self.builder.get_insert_block() {
                     if ! self.last_is_jump_statement(blk) {
                         self.builder.position_at_end(blk);
-                        self.builder.build_unconditional_branch(end_block)?;
+                        self.builder.build_unconditional_branch(end_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
                     }
                 }
                 if ! self.last_is_jump_statement(then_block) {
                     self.builder.position_at_end(then_block);
-                    self.builder.build_unconditional_branch(end_block)?;
+                    self.builder.build_unconditional_branch(end_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
                 }
 
                 // else block
@@ -92,13 +92,13 @@ impl<'ctx> CodeGen<'ctx> {
                     if let Some(blk) = self.builder.get_insert_block() {
                         if ! self.last_is_jump_statement(blk) {
                             self.builder.position_at_end(blk);
-                            self.builder.build_unconditional_branch(end_block)?;
+                            self.builder.build_unconditional_branch(end_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
                         }
                     }
                 }
                 if ! self.last_is_jump_statement(else_block) {
                     self.builder.position_at_end(else_block);
-                    self.builder.build_unconditional_branch(end_block)?;
+                    self.builder.build_unconditional_branch(end_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
                 }
 
                 // end block
@@ -117,25 +117,25 @@ impl<'ctx> CodeGen<'ctx> {
             },
             AST::Break(pos) => {
                 let break_block = break_catcher.ok_or(CodeGenError::break_not_in_loop_or_switch(pos.clone()))?.get_block();
-                self.builder.build_unconditional_branch(*break_block)?;
+                self.builder.build_unconditional_branch(*break_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
 
                 Ok(None)
             },
             AST::Continue(pos) => {
                 let continue_block = continue_catcher.ok_or(CodeGenError::continue_not_in_loop(pos.clone()))?.get_block();
-                self.builder.build_unconditional_branch(*continue_block)?;
+                self.builder.build_unconditional_branch(*continue_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
 
                 Ok(None)
             },
             AST::Goto(id, pos) => {
                 let block = env.get_block(id).ok_or(CodeGenError::no_such_a_label(id, pos.clone()))?;
-                self.builder.build_unconditional_branch(*block)?;
+                self.builder.build_unconditional_branch(*block).ok_or_with_pos(pos, file!(), line!(), column!())?;
 
                 Ok(None)
             },
             AST::Labeled(id, opt_stmt, pos) => {
                 let block = env.get_block(id).ok_or(CodeGenError::no_such_a_label(id, pos.clone()))?;
-                self.builder.build_unconditional_branch(*block)?;
+                self.builder.build_unconditional_branch(*block).ok_or_with_pos(pos, file!(), line!(), column!())?;
                 self.builder.position_at_end(*block);
 
                 if let Some(stmt) = opt_stmt {
@@ -157,10 +157,10 @@ impl<'ctx> CodeGen<'ctx> {
                 let (typ, _sq, ptr) = if let Some((typ, sq, ptr)) = env.get_self_ptr() {
                     (typ.clone(), sq.clone(), ptr.clone())
                 }else{
-                    return Err(Box::new(CodeGenError::no_such_a_variable("self", pos.clone())));
+                    return Err(CodeGenError::no_such_a_variable("self", pos.clone()));
                 };
 
-                let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&typ, &self.context, env, pos)?, ptr, "get_self")?;
+                let basic_val = self.builder.build_load(TypeUtil::to_basic_type_enum(&typ, &self.context, env, pos)?, ptr, "get_self").ok_or_with_pos(pos, file!(), line!(), column!())?;
                 let any_val = basic_val.as_any_value_enum();
 
                 Ok(Some(any_val))
@@ -173,7 +173,7 @@ impl<'ctx> CodeGen<'ctx> {
                 }
             },
             AST::_Self(pos) => {
-                Err(Box::new(CodeGenError::self_is_not_statement(pos.clone())))
+                Err(CodeGenError::self_is_not_statement(pos.clone()))
             },
         }
     }
@@ -184,7 +184,7 @@ impl<'ctx> CodeGen<'ctx> {
         _break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>,
         pos: &Position
-    ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
+    ) -> Result<Option<AnyValueEnum<'ctx>>, CodeGenError> {
 
         let (_fun_type, func) = env.get_current_function().ok_or(CodeGenError::no_current_function(pos.clone()))?;
         let func = func.clone();
@@ -196,7 +196,7 @@ impl<'ctx> CodeGen<'ctx> {
         //
         // condition expr
         //
-        self.builder.build_unconditional_branch(cond_block)?;
+        self.builder.build_unconditional_branch(cond_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
         self.builder.position_at_end(cond_block);
         let opt_cond_expr = switch.get_cond_expr();
         let opt_cond = if let Some(e) = opt_cond_expr {
@@ -240,7 +240,7 @@ impl<'ctx> CodeGen<'ctx> {
                 };
 
                 self.builder.position_at_end(*block);
-                self.builder.build_unconditional_branch(next_block)?;
+                self.builder.build_unconditional_branch(next_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
             }
 
             let insert_block = case.get_insert_block();
@@ -253,7 +253,7 @@ impl<'ctx> CodeGen<'ctx> {
                     };
 
                     self.builder.position_at_end(*blk);
-                    self.builder.build_unconditional_branch(next_block)?;
+                    self.builder.build_unconditional_branch(next_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
                 }
             }
 
@@ -264,7 +264,7 @@ impl<'ctx> CodeGen<'ctx> {
 
             if case.is_case() {  // case
                 if opt_default.is_some() {
-                    return Err(Box::new(CodeGenError::case_after_default(case.get_position().clone())));
+                    return Err(CodeGenError::case_after_default(case.get_position().clone()));
                 }
 
                 let case_cond = case.get_cond().unwrap();
@@ -272,32 +272,24 @@ impl<'ctx> CodeGen<'ctx> {
                 let i32_type = self.context.i32_type();
                 let case_value = i32_type.const_int(value as u64, true);
                 let real_value = self.try_as_basic_value(&cond_expr.get_value(), case_cond.get_position())?.into_int_value();
-                let comparison = self.builder.build_int_compare(IntPredicate::EQ, real_value, case_value, "compare_switch_case")?;
-
-
+                let comparison = self.builder.build_int_compare(IntPredicate::EQ, real_value, case_value, "compare_switch_case").ok_or_with_pos(pos, file!(), line!(), column!())?;
 
                 if i < len - 1 {
                     current_block = self.context.append_basic_block(func.clone(), &format!("cond_block_{}", i + 1));
                 }else{
                     current_block = end_block;
                 }
-                self.builder.build_conditional_branch(comparison, *case.get_block(), current_block)?;
+                self.builder.build_conditional_branch(comparison, *case.get_block(), current_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
 
             }else{               // default
                 if opt_default.is_some() {
-                    return Err(Box::new(CodeGenError::already_default_defined(case.get_position().clone())));
+                    return Err(CodeGenError::already_default_defined(case.get_position().clone()));
                 }
                 opt_default = Some(case);
 
-                self.builder.build_unconditional_branch(*case.get_block())?;
+                self.builder.build_unconditional_branch(*case.get_block()).ok_or_with_pos(pos, file!(), line!(), column!())?;
             }
         }
-
-        // if let Some(default) = opt_default {
-        //     self.builder.position_at_end(cond_block);
-        //     self.builder.build_unconditional_branch(*default.get_block());
-        // }
-
 
         env.remove_switch_case();
 
@@ -314,7 +306,7 @@ impl<'ctx> CodeGen<'ctx> {
         env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
-    ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
+    ) -> Result<Option<AnyValueEnum<'ctx>>, CodeGenError> {
 
         let (_fun_type, func) = env.get_current_function().ok_or(CodeGenError::no_current_function(case.get_position().clone()))?;
         let case_block  = self.context.append_basic_block(func.clone(), "switch.case");
@@ -337,7 +329,7 @@ impl<'ctx> CodeGen<'ctx> {
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>,
         pos: &Position
-    ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
+    ) -> Result<Option<AnyValueEnum<'ctx>>, CodeGenError> {
 
         let (_fun_type, func) = env.get_current_function().ok_or(CodeGenError::no_current_function(pos.clone()))?;
         let default_block  = self.context.append_basic_block(func.clone(), "switch.default");
@@ -356,14 +348,14 @@ impl<'ctx> CodeGen<'ctx> {
         env: &mut Env<'ctx>,
         break_catcher: Option<&BreakCatcher>,
         continue_catcher: Option<&ContinueCatcher>
-    ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
+    ) -> Result<Option<AnyValueEnum<'ctx>>, CodeGenError> {
 
         match for_init_expr {
             ForInitExpr::Expr(expr) => {
                 self.gen_expr(expr, env, break_catcher, continue_catcher)?;
             },
-            ForInitExpr::DefVar{specifiers, declarations, pos: _} => {
-                self.gen_def_var(specifiers, declarations, env, break_catcher, continue_catcher)?;
+            ForInitExpr::DefVar{specifiers, declarations, pos} => {
+                self.gen_def_var(specifiers, declarations, env, break_catcher, continue_catcher, pos)?;
             },
             ForInitExpr::ExprList(expr_list) => {
                 for init_expr in expr_list.iter() {
@@ -385,7 +377,7 @@ impl<'ctx> CodeGen<'ctx> {
         _break_catcher: Option<&'b BreakCatcher>,
         _continue_catcher: Option<&'c ContinueCatcher>,
         pos: &Position
-    ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
+    ) -> Result<Option<AnyValueEnum<'ctx>>, CodeGenError> {
 
         let (_fun_type, func) = env.get_current_function().ok_or(CodeGenError::no_current_function(pos.clone()))?;
         let func = func.clone();
@@ -411,15 +403,15 @@ impl<'ctx> CodeGen<'ctx> {
         //
         // check pre condition
         //
-        self.builder.build_unconditional_branch(pre_condition_block)?;
+        self.builder.build_unconditional_branch(pre_condition_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
         self.builder.position_at_end(pre_condition_block);
 
         if let Some(cond) = pre_condition {
             let cond = self.gen_expr(cond, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::condition_is_not_number(cond, cond.get_position().clone()))?;
             let comparison = cond.get_value().into_int_value();
-            self.builder.build_conditional_branch(comparison, start_block, end_block)?;
+            self.builder.build_conditional_branch(comparison, start_block, end_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
         }else{
-            self.builder.build_unconditional_branch(start_block)?;
+            self.builder.build_unconditional_branch(start_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
         }
 
         // loop start
@@ -435,7 +427,7 @@ impl<'ctx> CodeGen<'ctx> {
         //
         // update
         //
-        self.builder.build_unconditional_branch(update_block)?;
+        self.builder.build_unconditional_branch(update_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
         self.builder.position_at_end(update_block);
         if let Some(expr) = update_expr {
             self.gen_expr(expr, env, break_catcher, continue_catcher)?;
@@ -447,9 +439,9 @@ impl<'ctx> CodeGen<'ctx> {
         if let Some(cond) = post_condition {
             let cond = self.gen_expr(cond, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::condition_is_not_number(cond, cond.get_position().clone()))?;
             let comparison = cond.get_value().into_int_value();
-            self.builder.build_conditional_branch(comparison, pre_condition_block, end_block)?;
+            self.builder.build_conditional_branch(comparison, pre_condition_block, end_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
         }else{
-            self.builder.build_unconditional_branch(pre_condition_block)?;
+            self.builder.build_unconditional_branch(pre_condition_block).ok_or_with_pos(pos, file!(), line!(), column!())?;
         }
 
         // loop end
@@ -459,11 +451,11 @@ impl<'ctx> CodeGen<'ctx> {
             // bodyの型が、voidでない場合、
             // bodyの途中でreturnしているはずなので、end_blockには到達しない。
             // そのため、end_blockにunreachableを追加しておかないといけない。
-            let typ = self.calc_ret_type(stmt, env)?;
+            let typ = self.calc_ret_type(stmt, env).ok_or_with_pos(pos, file!(), line!(), column!())?;
             if *typ.as_ref() != Type::Void {
                 if let Some(blk) = self.builder.get_insert_block() {
                     if ! self.last_is_jump_statement(blk) {
-                        self.builder.build_unreachable()?;
+                        self.builder.build_unreachable().ok_or_with_pos(pos, file!(), line!(), column!())?;
                     }
                 }
             }
@@ -490,7 +482,7 @@ impl<'ctx> CodeGen<'ctx> {
         env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
-    ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
+    ) -> Result<Option<AnyValueEnum<'ctx>>, CodeGenError> {
         env.add_new_local();
         let result = self.gen_block_sub(block, env, break_catcher, continue_catcher);
         env.remove_local();
@@ -503,7 +495,7 @@ impl<'ctx> CodeGen<'ctx> {
         env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
-    ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
+    ) -> Result<Option<AnyValueEnum<'ctx>>, CodeGenError> {
         for ast in block.body.iter() {
             let _any_value = self.gen_stmt(ast, env, break_catcher, continue_catcher)?;
         }

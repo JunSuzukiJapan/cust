@@ -14,6 +14,7 @@ use super::type_util::TypeUtil;
 use crate::parser::Declarator;
 use crate::parser::{ConstExpr, ArrayInitializer};
 use crate::{Position};
+use crate::code_gen_error::WithPos;
 
 use inkwell::{OptimizationLevel};
 use inkwell::builder::Builder;
@@ -24,7 +25,6 @@ use inkwell::values::{AnyValue, AnyValueEnum, ArrayValue, AsValueRef, BasicMetad
 use inkwell::types::{AnyTypeEnum, BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FunctionType, IntType};
 use inkwell::AddressSpace;
 use parser::{ExprAST};
-use std::error::Error;
 use std::rc::Rc;
 
 #[cfg(test)] use crate::parser::{DirectDeclarator, Defines, Param};
@@ -58,9 +58,15 @@ pub struct CodeGen<'ctx> {
 }
 
 impl<'ctx> CodeGen<'ctx> {
-    pub fn try_new(context: &'ctx Context, module_name: &str) -> Result<CodeGen<'ctx>, Box<dyn Error>> {
+    pub fn try_new(context: &'ctx Context, module_name: &str) -> Result<CodeGen<'ctx>, CodeGenError> {
         let module = context.create_module(module_name);
-        let execution_engine = module.create_jit_execution_engine(OptimizationLevel::None)?;
+        let ee = module.create_jit_execution_engine(OptimizationLevel::None);
+        let execution_engine;
+        if let Ok(_engine) = &ee {
+            execution_engine = ee.unwrap();
+        }else{
+            return Err(CodeGenError::Err(Box::new(ee.unwrap_err()), Position::default(), file!().to_string(), line!(), column!()));
+        }
         let enum_tag_number_type = global().enum_tag_type().clone();
         let enum_tag_type = Rc::new(Type::Number(enum_tag_number_type));
         let mut env = Env::new();
@@ -83,7 +89,7 @@ impl<'ctx> CodeGen<'ctx> {
         })
     }
 
-    pub fn gen_toplevels(&self, asts: &'ctx Vec<ToplevelAST>, env: &mut Env<'ctx>) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
+    pub fn gen_toplevels(&self, asts: &'ctx Vec<ToplevelAST>, env: &mut Env<'ctx>) -> Result<Option<AnyValueEnum<'ctx>>, CodeGenError> {
         let mut any_value = None;
 
         for ast in asts {
@@ -98,7 +104,7 @@ impl<'ctx> CodeGen<'ctx> {
         env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
-    ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
+    ) -> Result<Option<AnyValueEnum<'ctx>>, CodeGenError> {
 
         env.add_new_local_types();
 
@@ -174,8 +180,9 @@ impl<'ctx> CodeGen<'ctx> {
         declarations: &Vec<Declaration>,
         env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
-        continue_catcher: Option<&'c ContinueCatcher>
-    ) -> Result<(), Box<dyn Error>> {
+        continue_catcher: Option<&'c ContinueCatcher>,
+        pos: &Position
+    ) -> Result<(), CodeGenError> {
 
         let base_type = specifiers.get_type();
         for decl in declarations {
@@ -183,7 +190,7 @@ impl<'ctx> CodeGen<'ctx> {
             let typ = declarator.make_type(base_type);
             let name = declarator.get_name();
             let basic_type = env.basic_type_enum_from_type(&typ, self.context, declarator.get_position())?;
-            let ptr = self.builder.build_alloca(basic_type, name)?;
+            let ptr = self.builder.build_alloca(basic_type, name).ok_or_with_pos(pos, file!(), line!(), column!())?;
             let init_expr = decl.get_init_expr();
 
             match init_expr {
@@ -212,7 +219,7 @@ impl<'ctx> CodeGen<'ctx> {
                             }
 
                             let basic_value = self.try_as_basic_value(&init_value, (*const_expr).get_position())?;
-                            self.builder.build_store(ptr, basic_value)?;
+                            self.builder.build_store(ptr, basic_value).ok_or_with_pos(pos, file!(), line!(), column!())?;
 
                             // env.remove_local_types();
                         },
@@ -225,7 +232,7 @@ impl<'ctx> CodeGen<'ctx> {
                             }
 
                             let basic_value = self.try_as_basic_value(&init_value, (*const_expr).get_position())?;
-                            self.builder.build_store(ptr, basic_value)?;
+                            self.builder.build_store(ptr, basic_value).ok_or_with_pos(pos, file!(), line!(), column!())?;
                         }
                     }
                 },
@@ -264,7 +271,7 @@ impl<'ctx> CodeGen<'ctx> {
         }
     }
 
-    fn make_array_type(&self, size_list: &[u32], elem_type: &Type, env: &mut Env<'ctx>, pos: &Position) -> Result<BasicTypeEnum<'ctx>, Box<dyn Error>> {
+    fn make_array_type(&self, size_list: &[u32], elem_type: &Type, env: &mut Env<'ctx>, pos: &Position) -> Result<BasicTypeEnum<'ctx>, CodeGenError> {
         let mut typ = TypeUtil::to_basic_type_enum(elem_type, &self.context, env, pos)?;
         let len = size_list.len();
 
@@ -286,7 +293,7 @@ impl<'ctx> CodeGen<'ctx> {
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>,
         pos: &Position
-    ) -> Result<(ArrayValue<'ctx>, BasicTypeEnum<'ctx>), Box<dyn Error>> {
+    ) -> Result<(ArrayValue<'ctx>, BasicTypeEnum<'ctx>), CodeGenError> {
 
         let init_len = init_value_list.len();
 
@@ -307,7 +314,7 @@ impl<'ctx> CodeGen<'ctx> {
                 let init_value = &*init_value_list[i];
                 let init_type = TypeUtil::get_initializer_type_of_array_initializer(init_value, env)?;
                 if elem_type != init_type.as_ref() {
-                    return Err(Box::new(CodeGenError::mismatch_initializer_type(elem_type, &init_type, init_value.get_position().clone())));
+                    return Err(CodeGenError::mismatch_initializer_type(elem_type, &init_type, init_value.get_position().clone()));
                 }
 
                 let const_value = init_value.get_const().unwrap();
@@ -358,14 +365,14 @@ impl<'ctx> CodeGen<'ctx> {
         env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
-    ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
+    ) -> Result<Option<AnyValueEnum<'ctx>>, CodeGenError> {
 
         let pos: &Position;
         let init_value_list = if let Initializer::Array(list, _typ, pos2) = init {
             pos = pos2;
             list
         }else{
-            return Err(Box::new(CodeGenError::initializer_is_not_array(init.get_position().clone())));
+            return Err(CodeGenError::initializer_is_not_array(init.get_position().clone()));
         };
 
         let init_len = init_value_list.len();
@@ -387,14 +394,14 @@ impl<'ctx> CodeGen<'ctx> {
         env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
-    ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
+    ) -> Result<Option<AnyValueEnum<'ctx>>, CodeGenError> {
 
         let pos: &Position;
         let init_value_list = if let Initializer::Array(list, _typ, pos2) = init {
             pos = pos2;
             list
         }else{
-            return Err(Box::new(CodeGenError::initializer_is_not_array(init.get_position().clone())));
+            return Err(CodeGenError::initializer_is_not_array(init.get_position().clone()));
         };
 
         let init_len = init_value_list.len();
@@ -413,18 +420,18 @@ impl<'ctx> CodeGen<'ctx> {
         target_tuple_ptr: GlobalValue<'ctx>,
         init: &Initializer,
         env: &mut Env<'ctx>
-    ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
+    ) -> Result<Option<AnyValueEnum<'ctx>>, CodeGenError> {
 
         let init_value_list = if let Initializer::Simple(ExprAST::ConstTupleLiteral(const_list, _pos), _pos2) = init {
             const_list
         }else{
-            return Err(Box::new(CodeGenError::initializer_is_not_const_tuple(init.get_position().clone())));
+            return Err(CodeGenError::initializer_is_not_const_tuple(init.get_position().clone()));
         };
 
         let target_len = type_list.len();
         let init_len = init_value_list.len();
         if target_len < init_len {
-            return  Err(Box::new(CodeGenError::initial_list_is_too_long(init.get_position().clone())));
+            return  Err(CodeGenError::initial_list_is_too_long(init.get_position().clone()));
         }
 
         if target_len == 0 {
@@ -446,12 +453,12 @@ impl<'ctx> CodeGen<'ctx> {
         init_pos: &Position,
         init_value_list: &Vec<ConstExpr>,
         env: &mut Env<'ctx>
-    ) -> Result<StructValue<'ctx>, Box<dyn Error>> {
+    ) -> Result<StructValue<'ctx>, CodeGenError> {
 
         let target_len = type_list.len();
         let init_len = init_value_list.len();
         if target_len < init_len {
-            return  Err(Box::new(CodeGenError::initial_list_is_too_long(init_pos.clone())));
+            return  Err(CodeGenError::initial_list_is_too_long(init_pos.clone()));
         }
 
         let mut vec = Vec::new();
@@ -462,7 +469,7 @@ impl<'ctx> CodeGen<'ctx> {
                 let init_value = &init_value_list[i];
                 let init_type = init_value.get_type();
                 if **field_type != init_type {
-                    return Err(Box::new(CodeGenError::mismatch_initializer_type(&field_type, &init_type, init_value.get_position().clone())));
+                    return Err(CodeGenError::mismatch_initializer_type(&field_type, &init_type, init_value.get_position().clone()));
                 }
 
                 // let compiled_val = self.gen_expr(&init_value, env, break_catcher, continue_catcher)?.ok_or(CodeGenError::mismatch_initializer_type(&field_type, &init_type, init_value.get_position().clone()))?;
@@ -485,13 +492,13 @@ impl<'ctx> CodeGen<'ctx> {
         env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
-    ) -> Result<AnyValueEnum<'ctx>, Box<dyn Error>> {
+    ) -> Result<AnyValueEnum<'ctx>, CodeGenError> {
         match init {
             Initializer::Simple(expr, pos) => {
                 if let Some(v) = self.gen_expr(expr, env, break_catcher, continue_catcher)? {
                     Ok(v.get_value())
                 }else{
-                    Err(Box::new(CodeGenError::initializer_is_none(pos.clone())))
+                    Err(CodeGenError::initializer_is_none(pos.clone()))
                 }
             },
             Initializer::Array(vec_init, typ, pos) => {
@@ -527,7 +534,7 @@ impl<'ctx> CodeGen<'ctx> {
                 if let Some(v) = self.gen_expr(expr, env, break_catcher, continue_catcher)? {
                     Ok(v.get_value())
                 }else{
-                    Err(Box::new(CodeGenError::initializer_is_none(pos.clone())))
+                    Err(CodeGenError::initializer_is_none(pos.clone()))
                 }
             }
         }
@@ -538,7 +545,7 @@ impl<'ctx> CodeGen<'ctx> {
         env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
-    ) -> Result<AnyValueEnum<'ctx>, Box<dyn Error>> {
+    ) -> Result<AnyValueEnum<'ctx>, CodeGenError> {
         match init {
             ConstInitializer::Simple(expr, _pos) => {
                 let basic_value = self.const_expr_to_basic_value_enum(expr);
@@ -589,7 +596,7 @@ impl<'ctx> CodeGen<'ctx> {
         env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>
-    ) -> Result<AnyValueEnum<'ctx>, Box<dyn Error>> {
+    ) -> Result<AnyValueEnum<'ctx>, CodeGenError> {
 
         let llvm_type = TypeUtil::to_basic_type_enum(typ, &self.context, env, pos)?;
         let array_type = llvm_type.array_type(vec_init.len() as u32);
@@ -608,7 +615,7 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(any_val.as_any_value_enum())
     }
 
-    pub fn const_zero(&self, typ: &Type, env: &mut Env<'ctx>, pos: &Position) -> Result<BasicValueEnum, Box<dyn Error>> {
+    pub fn const_zero(&self, typ: &Type, env: &mut Env<'ctx>, pos: &Position) -> Result<BasicValueEnum, CodeGenError> {
         let t = TypeUtil::to_llvm_type(typ, self.context, env, pos)?;
         match t {
             BasicMetadataTypeEnum::FloatType(t) => {
@@ -633,7 +640,7 @@ impl<'ctx> CodeGen<'ctx> {
                 Ok(ary_type.const_zero().as_basic_value_enum())
             },
             _ => {
-                Err(Box::new(CodeGenError::cannot_get_zero_value(pos.clone())))
+                Err(CodeGenError::cannot_get_zero_value(pos.clone()))
             },
         }
     }
@@ -645,9 +652,9 @@ impl<'ctx> CodeGen<'ctx> {
         _break_catcher: Option<&'b BreakCatcher>,
         _continue_catcher: Option<&'c ContinueCatcher>,
         pos: &Position
-   ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
+   ) -> Result<Option<CompiledValue<'ctx>>, CodeGenError> {
         if let Some((fn_typ, function)) = env.get_function(name) {
-            let call_site_value = self.builder.build_call(*function, args, &format!("call_function_{}", name))?;
+            let call_site_value = self.builder.build_call(*function, args, &format!("call_function_{}", name)).ok_or_with_pos(pos, file!(), line!(), column!())?;
 
             let tried = call_site_value.try_as_basic_value();
             if tried.is_left() {  // BasicValueEnum
@@ -659,7 +666,7 @@ impl<'ctx> CodeGen<'ctx> {
             }
 
         }else{
-            return Err(Box::new(CodeGenError::no_such_a_function(&name, pos.clone())));
+            return Err(CodeGenError::no_such_a_function(&name, pos.clone()));
         }
     }
 
@@ -671,9 +678,9 @@ impl<'ctx> CodeGen<'ctx> {
         _break_catcher: Option<&'b BreakCatcher>,
         _continue_catcher: Option<&'c ContinueCatcher>,
         pos: &Position
-    ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
+    ) -> Result<Option<CompiledValue<'ctx>>, CodeGenError> {
         if let Some((fn_typ, function)) = env.get_member_function(class_name, name) {
-            let call_site_value = self.builder.build_call(*function, args, &format!("call_member_function_{name}_in_{class_name}"))?;
+            let call_site_value = self.builder.build_call(*function, args, &format!("call_member_function_{name}_in_{class_name}")).ok_or_with_pos(pos, file!(), line!(), column!())?;
 
             let tried = call_site_value.try_as_basic_value();
             if tried.is_left() {  // BasicValueEnum
@@ -685,7 +692,7 @@ impl<'ctx> CodeGen<'ctx> {
             }
 
         }else{
-            return Err(Box::new(CodeGenError::no_such_a_member_function(class_name.to_string(), name.to_string(), pos.clone())));
+            return Err(CodeGenError::no_such_a_member_function(class_name.to_string(), name.to_string(), pos.clone()));
         }
     }
 
@@ -697,10 +704,10 @@ impl<'ctx> CodeGen<'ctx> {
         _break_catcher: Option<&'b BreakCatcher>,
         _continue_catcher: Option<&'c ContinueCatcher>,
         pos: &Position
-    ) -> Result<Option<CompiledValue<'ctx>>, Box<dyn Error>> {
+    ) -> Result<Option<CompiledValue<'ctx>>, CodeGenError> {
 
         if let Some((fn_typ, function)) = env.get_class_function(class_name, &name) {
-            let call_site_value = self.builder.build_call(*function, &args, &format!("call_class_function_{name}_in_{class_name}"))?;
+            let call_site_value = self.builder.build_call(*function, &args, &format!("call_class_function_{name}_in_{class_name}")).ok_or_with_pos(pos, file!(), line!(), column!())?;
 
             let tried = call_site_value.try_as_basic_value();
             if tried.is_left() {  // BasicValueEnum
@@ -712,37 +719,45 @@ impl<'ctx> CodeGen<'ctx> {
             }
 
         }else{
-            return Err(Box::new(CodeGenError::no_such_a_class_function(class_name.to_string(), name.to_string(), pos.clone())));
+            return Err(CodeGenError::no_such_a_class_function(class_name.to_string(), name.to_string(), pos.clone()));
         }
     }
 
-    fn str_to_basic_metadata_value_enum(&self, s: &str, pos: &Position) -> Result<BasicMetadataValueEnum<'ctx>, Box<dyn Error>> {
-        let global_str = self.builder.build_global_string_ptr(s, &format!("global_str_{}", s))?.as_any_value_enum();
+    fn str_to_basic_metadata_value_enum(&self, s: &str, pos: &Position) -> Result<BasicMetadataValueEnum<'ctx>, CodeGenError> {
+        let global_str = self.builder.build_global_string_ptr(s, &format!("global_str_{}", s)).ok_or_with_pos(pos, file!(), line!(), column!())?.as_any_value_enum();
         Ok(self.try_as_basic_metadata_value(&global_str, pos)?)
     }
 
     #[inline]
-    pub fn gen_implicit_cast(&self, value: &AnyValueEnum<'ctx>, from_type: &Type, to_type: &Type, env: &mut Env<'ctx>, pos: &Position) -> Result<AnyValueEnum<'ctx>, Box<dyn Error>> {
-        Caster::gen_implicit_cast(&self.builder, &self.context, value, from_type, to_type, env, pos)
+    pub fn gen_implicit_cast(&self, value: &AnyValueEnum<'ctx>, from_type: &Type, to_type: &Type, env: &mut Env<'ctx>, pos: &Position) -> Result<AnyValueEnum<'ctx>, CodeGenError> {
+        // Caster::gen_implicit_cast(&self.builder, &self.context, value, from_type, to_type, env, pos).ok_or_with_pos(pos, file!(), line!(), column!())
+        let tmp = Caster::gen_implicit_cast(&self.builder, &self.context, value, from_type, to_type, env, pos);
+        match tmp {
+            Ok(item) => Ok(item),
+            Err(e) => {
+                Err(CodeGenError::from_error(e, pos.clone(), file!(), line!(), column!()))
+            },
+        }
     }
 
     #[cfg(test)]
     fn debug_print<'b, 'c>(&self,
         env: &mut Env<'ctx>,
         fmt: &str,
-        args: &[BasicMetadataValueEnum<'ctx>] ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>>
-    {
+        args: &[BasicMetadataValueEnum<'ctx>],
+        pos: &Position
+    ) -> Result<Option<AnyValueEnum<'ctx>>, CodeGenError> {
         let mut v = Vec::new();
         let dummy_pos = Position::new(1, 1);
 
-        let fmt_string = self.builder.build_global_string_ptr(fmt, &format!("global_str_{}", fmt))?.as_any_value_enum();
+        let fmt_string = self.builder.build_global_string_ptr(fmt, &format!("global_str_{}", fmt)).ok_or_with_pos(pos, file!(), line!(), column!())?.as_any_value_enum();
         v.push(self.try_as_basic_metadata_value(&fmt_string, &dummy_pos)?);
         for item in args {
             v.push(*item);
         }
 
         let call_site_value = if let Some((_typ, function)) = env.get_function("printf") {
-            self.builder.build_call(*function, &v, &format!("call_function_printf_in_debug_print"))?
+            self.builder.build_call(*function, &v, &format!("call_function_printf_in_debug_print")).ok_or_with_pos(pos, file!(), line!(), column!())?
         }else{
             let name = "printf";
             let ret_type = Rc::new(Type::Number(NumberType::Int));
@@ -764,7 +779,7 @@ impl<'ctx> CodeGen<'ctx> {
             env.insert_function(&name, fun_type, fun_proto);
 
             let (_typ, function) = env.get_function("printf").unwrap();
-            self.builder.build_call(*function, &v, &format!("call_function_printf_in_debug_print"))?
+            self.builder.build_call(*function, &v, &format!("call_function_printf_in_debug_print")).ok_or_with_pos(pos, file!(), line!(), column!())?
         };
 
         let tried = call_site_value.try_as_basic_value();
@@ -786,7 +801,7 @@ impl<'ctx> CodeGen<'ctx> {
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>,
         pos: &Position
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(), CodeGenError> {
 
         let class = env.intern_class(class_name) as *const Class;
 
@@ -813,7 +828,7 @@ impl<'ctx> CodeGen<'ctx> {
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>,
         pos: &Position
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(), CodeGenError> {
 
         for def in defines {
             match def {
@@ -840,7 +855,7 @@ impl<'ctx> CodeGen<'ctx> {
         env: &mut Env<'ctx>,
         _break_catcher: Option<&'b BreakCatcher>,
         _continue_catcher: Option<&'c ContinueCatcher>
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(), CodeGenError> {
 
 
 
@@ -860,7 +875,7 @@ impl<'ctx> CodeGen<'ctx> {
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>,
         pos: &Position
-    ) -> Result<Option<AnyValueEnum<'ctx>>, Box<dyn Error>> {
+    ) -> Result<Option<AnyValueEnum<'ctx>>, CodeGenError> {
 
         let declarator = fun_or_proto.get_declarator();
         let specifiers = fun_or_proto.get_specifiers();
@@ -904,7 +919,7 @@ impl<'ctx> CodeGen<'ctx> {
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>,
         pos: &Position
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(), CodeGenError> {
 
         let base_type = specifier.get_type();
         let sq = specifier.get_specifier_qualifier();
@@ -956,7 +971,7 @@ impl<'ctx> CodeGen<'ctx> {
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>,
         pos: &Position
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(), CodeGenError> {
 
         let typ = declarator.make_type(base_type);
         let basic_type = TypeUtil::to_basic_type_enum(&typ, self.context, env, pos)?;
@@ -992,7 +1007,7 @@ impl<'ctx> CodeGen<'ctx> {
                         self.gen_global_tuple_init(&type_list, ptr, &*initializer, env)?;
                     },
                     Type::Union { name: opt_name, fields, type_variables } => {
-                        ptr = self.gen_def_global_union(name, env, pos, basic_type, initializer, opt_name, fields, type_variables)?;
+                        ptr = self.gen_def_global_union(name, env, pos, basic_type, initializer, opt_name, fields, type_variables).ok_or_with_pos(pos, file!(), line!(), column!())?;
                     },
                     _ => {
                         ptr = self.module.add_global(basic_type, Some(AddressSpace::default()), &name);
@@ -1017,7 +1032,7 @@ impl<'ctx> CodeGen<'ctx> {
                             for field in fields {
                                 let t = field.get_type().unwrap();
                                 let llvm_type = TypeUtil::to_basic_type_enum(&t, self.context, env, pos)?;
-                                let sz = Self::size_of(&llvm_type)?;
+                                let sz = Self::size_of(&llvm_type, pos)?;
                                 if sz > max_size {
                                     max_size = sz;
                                     max_size_type = Some(llvm_type);
@@ -1051,7 +1066,7 @@ impl<'ctx> CodeGen<'ctx> {
         opt_name: &Option<String>,
         fields: &parser::StructDefinition,
         type_variables: &Option<Vec<String>>
-    ) -> Result<GlobalValue<'ctx>, Box<dyn Error + 'static>> {
+    ) -> Result<GlobalValue<'ctx>, CodeGenError> {
 
         if let Some(variables) = type_variables {
             self.gen_global_init_type_variables(&variables, &*initializer, env)?;
@@ -1060,7 +1075,7 @@ impl<'ctx> CodeGen<'ctx> {
         let init_value = self.gen_initializer(initializer, env, None, None)?;
         let init_value_type = init_value.get_type();
         let init_value_type = self.try_as_basic_type(&init_value_type, pos)?;
-        let init_value_size = Self::size_of(&init_value_type)?;
+        let init_value_size = Self::size_of(&init_value_type, pos)?;
         let (_type_list, _index_map, max_size, _max_size_type) = CodeGen::union_from_struct_definition(opt_name, fields, type_variables, self.context, env, pos)?;
 
         let ptr;
@@ -1115,7 +1130,7 @@ impl<'ctx> CodeGen<'ctx> {
         _variables: &Vec<String>,
         _init: &Initializer,
         _env: &mut Env<'ctx>
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(), CodeGenError> {
 
         // let init_value_list = if let Initializer::Simple(ExprAST::TupleLiteral(expr_list, _pos), _pos2) = init {
         //     expr_list
@@ -1172,18 +1187,18 @@ impl<'ctx> CodeGen<'ctx> {
         format!("${}@@{}", class_name, var_name)
     }
 
-    pub fn size_of(basic_type: &BasicTypeEnum) -> Result<u64, Box<dyn Error>> {
+    pub fn size_of(basic_type: &BasicTypeEnum, pos: &Position) -> Result<u64, CodeGenError> {
         if let Some(size) = basic_type.size_of() {
             if let Some(s) = size.get_zero_extended_constant() {
                 return Ok(s);
             }
         }
 
-        let size = Self::calc_type_size(basic_type)?;
+        let size = Self::calc_type_size(basic_type, pos)?;
         Ok(size)
      }
 
-    fn calc_type_size(basic_type: &dyn BasicType) -> Result<u64, Box<dyn Error>> {
+    fn calc_type_size(basic_type: &dyn BasicType, pos: &Position) -> Result<u64, CodeGenError> {
         use inkwell::execution_engine::JitFunction;
         type FuncVoidU64 = unsafe extern "C" fn() -> u64;
 
@@ -1200,13 +1215,13 @@ impl<'ctx> CodeGen<'ctx> {
         builder.position_at_end(basic_block);
 
         let array_type = basic_type.array_type(2);
-        let array_ptr = builder.build_alloca(array_type, "array")?;
+        let array_ptr = builder.build_alloca(array_type, "array").ok_or_with_pos(pos, file!(), line!(), column!())?;
         let const_one = i32_type.const_int(1, false);
-        let ptr = unsafe { builder.build_in_bounds_gep(array_type, array_ptr, &[const_one], "gep for array")? };
+        let ptr = unsafe { builder.build_in_bounds_gep(array_type, array_ptr, &[const_one], "gep for array").ok_or_with_pos(pos, file!(), line!(), column!())? };
     
         let base = array_ptr.const_to_int(i32_type);
         let index1 = ptr.const_to_int(i32_type);
-        let size = builder.build_int_sub(index1, base, "sub")?;
+        let size = builder.build_int_sub(index1, base, "sub").ok_or_with_pos(pos, file!(), line!(), column!())?;
         let _tmp = builder.build_return(Some(&size));
 
         let f = unsafe { engine.get_function(fn_name) };
@@ -1346,7 +1361,7 @@ impl<'ctx> CodeGen<'ctx> {
         params: &Params,
         env: &mut Env<'ctx>,
         pos: &Position
-    ) -> Result<FunctionValue<'ctx>, Box<dyn Error>> {
+    ) -> Result<FunctionValue<'ctx>, CodeGenError> {
         let fn_type = self.make_function_type(&ret_type, params, env, pos)?;
         let function = self.module.add_function(fn_name, fn_type, None);
 
@@ -1363,7 +1378,7 @@ impl<'ctx> CodeGen<'ctx> {
         break_catcher: Option<&'b BreakCatcher>,
         continue_catcher: Option<&'c ContinueCatcher>,
         pos: &Position
-    ) -> Result<FunctionValue<'ctx>, Box<dyn Error>> {
+    ) -> Result<FunctionValue<'ctx>, CodeGenError> {
 
         let fn_type = self.make_function_type(&ret_type, params, env, pos)?;
         let has_variadic = false;
@@ -1379,14 +1394,13 @@ impl<'ctx> CodeGen<'ctx> {
 
         env.add_new_function_local();
         env.add_new_local_types();
-        // let result = self.gen_code_function_sub(&fn_type, &function, params, body, labels, env, break_catcher, continue_catcher);
-        let result = self.gen_code_function_sub(&cust_fn_type, &function, params, body, labels, env, break_catcher, continue_catcher);
+        let result = self.gen_code_function_sub(&cust_fn_type, &function, params, body, labels, env, break_catcher, continue_catcher, pos);
         env.remove_local_types();
         env.remove_function_local();
 
         if let Some(blk) = self.builder.get_insert_block() {
             if ! self.last_is_jump_statement(blk) {
-                self.builder.build_unreachable()?;
+                self.builder.build_unreachable().ok_or_with_pos(pos, file!(), line!(), column!())?;
             }
         }
 
@@ -1406,8 +1420,9 @@ impl<'ctx> CodeGen<'ctx> {
         labels: &Vec<String>,
         env: &mut Env<'ctx>,
         break_catcher: Option<&'b BreakCatcher>,
-        continue_catcher: Option<&'c ContinueCatcher>
-    ) -> Result<(), Box<dyn Error>> {
+        continue_catcher: Option<&'c ContinueCatcher>,
+        pos: &Position
+    ) -> Result<(), CodeGenError> {
         // selfの処理（あれば）
         if let Some(cust_self) = params.get_self() {
             let typ = cust_self.get_type();
@@ -1422,9 +1437,9 @@ impl<'ctx> CodeGen<'ctx> {
             let typ = param.get_type();
             let name = param.get_name();
             let sq = param.get_declaration_specifier().get_specifier_qualifier();
-            let ptr = self.builder.build_alloca(TypeUtil::to_basic_type_enum(&typ, self.context, env, param.get_position())?, name)?;
+            let ptr = self.builder.build_alloca(TypeUtil::to_basic_type_enum(&typ, self.context, env, param.get_position())?, name).ok_or_with_pos(pos, file!(), line!(), column!())?;
             let value = function.get_nth_param(i as u32).unwrap();
-            self.builder.build_store(ptr, value)?;
+            self.builder.build_store(ptr, value).ok_or_with_pos(pos, file!(), line!(), column!())?;
             env.insert_local(name, typ, sq.clone(), ptr);
         }
 
@@ -1448,10 +1463,10 @@ impl<'ctx> CodeGen<'ctx> {
                 Some(AST::Return(None, _)) => Ok(()),  // do nothing
                 Some(AST::Return(Some(expr), pos)) => {
                     let typ: Rc<Type> = TypeUtil::get_type(expr, env)?;
-                    return Err(Box::new(CodeGenError::return_type_mismatch(fn_type.get_return_type().as_ref().clone(), typ.as_ref().clone(), pos.clone())));
+                    return Err(CodeGenError::return_type_mismatch(fn_type.get_return_type().as_ref().clone(), typ.as_ref().clone(), pos.clone()));
                 },
                 _ => {
-                    self.builder.build_return(None)?;
+                    self.builder.build_return(None).ok_or_with_pos(pos, file!(), line!(), column!())?;
                     Ok(())
                 },
             }
@@ -1461,7 +1476,7 @@ impl<'ctx> CodeGen<'ctx> {
             // 最後の文の型をチェックする。
             match last_stmt {
                 Some(AST::Return(None, pos)) => {
-                    return Err(Box::new(CodeGenError::no_return_for_type(&fn_type.get_return_type(), pos.clone())));
+                    return Err(CodeGenError::no_return_for_type(&fn_type.get_return_type(), pos.clone()));
                 },
                 Some(AST::Return(Some(_expr), _pos)) => {
                     // let expr_type = expr.get_type(env)?.to_basic_type_enum(self.context)?;
@@ -1472,64 +1487,64 @@ impl<'ctx> CodeGen<'ctx> {
                     Ok(())
                 },
                 Some(AST::If(_cond, _then, _else, pos)) => {
-                    let typ = self.calc_ret_type(last_stmt.unwrap(), env)?;
+                    let typ = self.calc_ret_type(last_stmt.unwrap(), env).ok_or_with_pos(pos, file!(), line!(), column!())?;
                     if typ.is_void() {
-                        Err(Box::new(CodeGenError::return_type_mismatch(ret_type.as_ref().clone(), Type::Void, pos.clone())))
+                        Err(CodeGenError::return_type_mismatch(ret_type.as_ref().clone(), Type::Void, pos.clone()))
                     }else{
                         if *ret_type == typ {
                             // 最後の文が、ifのとき、ラベルif.endの後にコードが生成されないのでセグフォが起きることへのケア
                             if let Some(blk) = self.builder.get_insert_block() {
                                 if ! self.last_is_jump_statement(blk) {
-                                    self.builder.build_unreachable()?;
+                                    self.builder.build_unreachable().ok_or_with_pos(pos, file!(), line!(), column!())?;
                                 }
                             }
 
                             Ok(())
                         }else{
-                            Err(Box::new(CodeGenError::return_type_mismatch(ret_type.as_ref().clone(), typ.as_ref().clone(), pos.clone())))
+                            Err(CodeGenError::return_type_mismatch(ret_type.as_ref().clone(), typ.as_ref().clone(), pos.clone()))
                         }
 
                     }
                 },
                 Some(AST::IfLet { pattern_list, expr, then, else_, pos }) => {  // if let pattern_list @ pattern_name
-                    let typ = self.calc_ret_type_in_if_let(then, else_, pattern_list, expr, pos, env)?;
+                    let typ = self.calc_ret_type_in_if_let(then, else_, pattern_list, expr, pos, env).ok_or_with_pos(pos, file!(), line!(), column!())?;
 
                     if typ.is_void() {
-                        Err(Box::new(CodeGenError::return_type_mismatch(ret_type.as_ref().clone(), Type::Void, pos.clone())))
+                        Err(CodeGenError::return_type_mismatch(ret_type.as_ref().clone(), Type::Void, pos.clone()))
                     }else{
                         if *ret_type == typ {
                             // 最後の文が、ifのとき、ラベルif.endの後にコードが生成されないのでセグフォが起きることへのケア
                             if let Some(blk) = self.builder.get_insert_block() {
                                 if ! self.last_is_jump_statement(blk) {
-                                    self.builder.build_unreachable()?;
+                                    self.builder.build_unreachable().ok_or_with_pos(pos, file!(), line!(), column!())?;
                                 }
                             }
 
                             Ok(())
                         }else{
-                            Err(Box::new(CodeGenError::return_type_mismatch(ret_type.as_ref().clone(), typ.as_ref().clone(), pos.clone())))
+                            Err(CodeGenError::return_type_mismatch(ret_type.as_ref().clone(), typ.as_ref().clone(), pos.clone()))
                         }
 
                     }
                 },
                 Some(AST::Switch(_switch, pos)) => {
-                    let typ = self.calc_ret_type(last_stmt.unwrap(), env)?;
+                    let typ = self.calc_ret_type(last_stmt.unwrap(), env).ok_or_with_pos(pos, file!(), line!(), column!())?;
 
                     if *ret_type == typ {
                         Ok(())
                     }else{
-                        Err(Box::new(CodeGenError::return_type_mismatch(ret_type.as_ref().clone(), typ.as_ref().clone(), pos.clone())))
+                        Err(CodeGenError::return_type_mismatch(ret_type.as_ref().clone(), typ.as_ref().clone(), pos.clone()))
                     }
                 },
                 Some(stmt) => {  // TODO: if文などの時に内部でreturnしているかもしれないので、その処理。
-                    let typ = self.calc_ret_type(stmt, env)?;
+                    let typ = self.calc_ret_type(stmt, env).ok_or_with_pos(pos, file!(), line!(), column!())?;
                     if typ.is_void() {
-                        Err(Box::new(CodeGenError::return_type_mismatch(ret_type.as_ref().clone(), Type::Void, stmt.get_position().clone())))
+                        Err(CodeGenError::return_type_mismatch(ret_type.as_ref().clone(), Type::Void, stmt.get_position().clone()))
                     }else{
                         if *ret_type == typ {
                             Ok(())
                         }else{
-                            Err(Box::new(CodeGenError::return_type_mismatch(ret_type.as_ref().clone(), typ.as_ref().clone(), stmt.get_position().clone())))
+                            Err(CodeGenError::return_type_mismatch(ret_type.as_ref().clone(), typ.as_ref().clone(), stmt.get_position().clone()))
                         }
                     }
 
@@ -1542,7 +1557,7 @@ impl<'ctx> CodeGen<'ctx> {
         }
     }
     
-    fn make_function_type(&self, ret_type: &Type, params: &Params, env: &mut Env<'ctx>, pos: &Position) -> Result<FunctionType<'ctx>, Box<dyn Error>> {
+    fn make_function_type(&self, ret_type: &Type, params: &Params, env: &mut Env<'ctx>, pos: &Position) -> Result<FunctionType<'ctx>, CodeGenError> {
         let ret_t = TypeUtil::to_llvm_any_type(ret_type, self.context, env, pos)?;
         let has_variadic = params.has_variadic();
 
@@ -1589,7 +1604,7 @@ impl<'ctx> CodeGen<'ctx> {
             // AnyTypeEnum::FunctionType(t) => {
             //     Ok(t.fn_type(&params_type, false))
             // },
-            _ => Err(Box::new(CodeGenError::cannot_make_fn_type(pos.clone()))),
+            _ => Err(CodeGenError::cannot_make_fn_type(pos.clone())),
         }
     }
 }
