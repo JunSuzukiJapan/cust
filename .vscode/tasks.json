@@ -64,7 +64,7 @@
         {
             "label": "test",
             "type": "shell",
-            "command": "RUST_MIN_STACK=104857600 cargo test -- --test-threads=1",
+            "command": "RUST_MIN_STACK=6500000 cargo test -- --test-threads=1",
             "group": {
                 "kind": "test",
                 "isDefault": true
