@@ -6,4 +6,5 @@ members = [
     "tokenizer",
     "parser",
     "code_gen",
+    "cpp",
 ]

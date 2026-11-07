@@ -1,0 +1,8 @@
+[package]
+name = "cpp"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# Local-time breakdown for __DATE__/__TIME__/__TIMESTAMP__.
+libc = "0.2"
