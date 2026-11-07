@@ -13,6 +13,7 @@ mod caster;
 mod code_gen_error;
 mod type_util;
 mod global;
+mod compile_lock;
 mod calc_ret_type;
 
 pub use parser::{Position, Type};

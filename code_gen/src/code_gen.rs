@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 use crate::global::global;
+use crate::compile_lock::{COMPILE_LOCK, CompileGuard};
 use crate::parser::{AST, ToplevelAST, Type, Block, Params, NumberType, Function, FunProto, FunOrProt};
 #[allow(unused_imports)]
 use crate::parser::Pointer;
@@ -55,10 +56,14 @@ pub struct CodeGen<'ctx> {
     pub enum_tag_type: Rc<Type>,
     pub enum_tag_llvm_type: IntType<'ctx>,
     pub enum_only_tag_type: Rc<Type>,
+    // Held from `try_new` until drop; declared last so it is released after
+    // the module/engine/builder it guards are torn down.
+    _compile_guard: CompileGuard<'static>,
 }
 
 impl<'ctx> CodeGen<'ctx> {
     pub fn try_new(context: &'ctx Context, module_name: &str) -> Result<CodeGen<'ctx>, CodeGenError> {
+        let compile_guard = COMPILE_LOCK.lock();
         let module = context.create_module(module_name);
         let ee = module.create_jit_execution_engine(OptimizationLevel::None);
         let execution_engine;
@@ -86,6 +91,7 @@ impl<'ctx> CodeGen<'ctx> {
             enum_tag_type,
             enum_tag_llvm_type,
             enum_only_tag_type,
+            _compile_guard: compile_guard,
         })
     }
 
@@ -615,7 +621,7 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(any_val.as_any_value_enum())
     }
 
-    pub fn const_zero(&self, typ: &Type, env: &mut Env<'ctx>, pos: &Position) -> Result<BasicValueEnum, CodeGenError> {
+    pub fn const_zero<'a>(&'a self, typ: &Type, env: &mut Env<'ctx>, pos: &Position) -> Result<BasicValueEnum<'a>, CodeGenError> {
         let t = TypeUtil::to_llvm_type(typ, self.context, env, pos)?;
         match t {
             BasicMetadataTypeEnum::FloatType(t) => {
@@ -1199,6 +1205,9 @@ impl<'ctx> CodeGen<'ctx> {
      }
 
     fn calc_type_size(basic_type: &dyn BasicType, pos: &Position) -> Result<u64, CodeGenError> {
+        // Nests when called mid-codegen (the usual case); owns the lock on a
+        // standalone call.
+        let _guard = COMPILE_LOCK.lock();
         use inkwell::execution_engine::JitFunction;
         type FuncVoidU64 = unsafe extern "C" fn() -> u64;
 

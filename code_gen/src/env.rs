@@ -704,7 +704,7 @@ impl<'ctx> Env<'ctx> {
         self.local_cases.last_mut().unwrap().pop();
     }
 
-    pub fn get_case_list(&self) -> &Vec<CompiledCase> {
+    pub fn get_case_list<'a>(&'a self) -> &'a Vec<CompiledCase<'a>> {
         self.local_cases.last().unwrap().last().unwrap()
     }
 
@@ -1269,7 +1269,7 @@ impl<'ctx> Env<'ctx> {
         Ok(())
     }
 
-    pub fn get_block(&self, key: &str) -> Option<&BasicBlock> {
+    pub fn get_block<'a>(&'a self, key: &'a str) -> Option<&'a BasicBlock<'a>> {
         let list = self.local_labels.last().unwrap();
         let mut index = list.len() - 1;
         loop {

@@ -9,5 +9,4 @@ edition = "2021"
 [dependencies]
 tokenizer = {path = "../tokenizer"}
 parser = {path = "../parser"}
-llvm-sys = "*"
 inkwell = { version = "0.5.0", features = ["llvm18-0"] }

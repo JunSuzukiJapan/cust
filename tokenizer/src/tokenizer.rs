@@ -119,7 +119,7 @@ struct TokenizerContext<'a> {
 }
 
 impl<'a> TokenizerContext<'a> {
-    pub fn new(input: &str) -> TokenizerContext {
+    pub fn new<'b>(input: &'b str) -> TokenizerContext<'b> {
         TokenizerContext {
             chars: input.chars().peekable(),
             pos: Position::default(),
